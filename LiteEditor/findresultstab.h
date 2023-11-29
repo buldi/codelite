@@ -25,18 +25,19 @@
 #ifndef __findresultstab__
 #define __findresultstab__
 
-#include <vector>
-#include <map>
-#include <list>
-#include <wx/stc/stc.h>
-#include "wx/debug.h"
-
 #include "Notebook.h"
+#include "clWorkspaceEvent.hpp"
+#include "findinfilesdlg.h"
 #include "outputtabwindow.h"
 #include "search_thread.h"
-#include "findinfilesdlg.h"
+#include "wx/debug.h"
 #include "wx_ordered_map.h"
+
+#include <map>
+#include <unordered_map>
+#include <vector>
 #include <wx/aui/auibar.h>
+#include <wx/stc/stc.h>
 
 // Map between the line numbers and a search results
 typedef std::map<int, SearchResult> MatchInfo_t;
@@ -46,16 +47,16 @@ class FindResultsTab : public OutputTabWindow
 protected:
     SearchData m_searchData;
     wxString m_searchTitle;
-    std::list<int> m_indicators;
+    std::vector<int> m_indicators;
     bool m_searchInProgress;
+    bool m_searchEventsConnected = false;
 
-    struct History
-    {
+    struct History {
         wxString title;
         SearchData searchData;
         wxString text;
         MatchInfo_t matchInfo;
-        std::list<int> indicators;
+        std::vector<int> indicators;
         typedef wxOrderedMap<wxString, History> Map_t;
     };
 
@@ -63,8 +64,10 @@ protected:
 
 protected:
     MatchInfo_t m_matchInfo;
+    void UnbindSearchEvents(wxEvtHandler* binder);
+    void BindSearchEvents(wxEvtHandler* binder);
 
-    void AppendText(const wxString& line);
+    void AppendLine(const wxString& line, bool scroll_to_bottom = true);
     void Clear();
     void SaveSearchData();
     void LoadSearch(const History& h);
@@ -89,14 +92,14 @@ protected:
     SearchData* GetSearchData();
     void DoOpenSearchResult(const SearchResult& result, wxStyledTextCtrl* sci, int markerLine);
     void OnThemeChanged(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     DECLARE_EVENT_TABLE()
 
 public:
     FindResultsTab(wxWindow* parent, wxWindowID id, const wxString& name);
     ~FindResultsTab();
 
-    void SetStyles(wxStyledTextCtrl* sci);
+    virtual void SetStyles(wxStyledTextCtrl* sci);
     void StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e, bool hasSope = false);
     void ResetStyler();
 

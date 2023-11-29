@@ -25,15 +25,16 @@
 #ifndef CODELITE_TAGS_DATABASE_H
 #define CODELITE_TAGS_DATABASE_H
 
-#include "tag_tree.h"
+#include "codelite_exports.h"
 #include "entry.h"
-#include <wx/filename.h>
-#include <unordered_map>
 #include "fileentry.h"
 #include "istorage.h"
-#include <wx/wxsqlite3.h>
-#include "codelite_exports.h"
+#include "tag_tree.h"
 #include "wxStringHash.h"
+
+#include <unordered_map>
+#include <wx/filename.h>
+#include <wx/wxsqlite3.h>
 
 /**
  * TagsDatabase is a wrapper around wxSQLite3 database with tags specific functions.
@@ -92,7 +93,7 @@
 
 class TagsStorageSQLiteCache
 {
-    std::unordered_map<wxString, std::vector<TagEntryPtr> > m_cache;
+    std::unordered_map<wxString, std::vector<TagEntryPtr>> m_cache;
 
 protected:
     bool DoGet(const wxString& key, std::vector<TagEntryPtr>& tags);
@@ -121,7 +122,8 @@ public:
 
     void Close()
     {
-        if(IsOpen()) wxSQLite3Database::Close();
+        if(IsOpen())
+            wxSQLite3Database::Close();
 
         m_statements.clear();
     }
@@ -191,6 +193,11 @@ public:
      */
     void OpenDatabase(const wxFileName& fileName);
 
+    /**
+     * @brief reopen the database. If it is already opened - close it before
+     */
+    void ReOpenDatabase();
+
     long LastRowId() const;
     /**
      * Create database if not existed already.
@@ -198,12 +205,10 @@ public:
     void CreateSchema();
 
     /**
-     * Store tree of tags into db.
-     * @param tree Tags tree to store
-     * @param path Database file name
-     * @param autoCommit handle the Store operation inside a transaction or let the user hadle it
+     * store list of tags to store. The list is considered complete and all files
+     * afftected will be erased from the db first
      */
-    void Store(TagTreePtr tree, const wxFileName& path, bool autoCommit = true);
+    void Store(const std::vector<TagEntryPtr>& tags, bool auto_commit = true);
 
     /**
      * Return a result set of tags according to file name.
@@ -255,6 +260,11 @@ public:
      * @param tags [output]
      */
     virtual void GetSubscriptOperator(const wxString& scope, std::vector<TagEntryPtr>& tags);
+
+    /**
+     * @brief determine the current scope based on file name and line number
+     */
+    virtual TagEntryPtr GetScope(const wxString& filename, int line_number);
 
     /**
      * Begin transaction.
@@ -403,7 +413,8 @@ public:
      */
     virtual void GetTagsByPath(const wxArrayString& path, std::vector<TagEntryPtr>& tags);
     virtual void GetTagsByPath(const wxString& path, std::vector<TagEntryPtr>& tags, int limit = 1);
-
+    virtual void GetTagsByPathAndKind(const wxString& path, std::vector<TagEntryPtr>& tags,
+                                      const std::vector<wxString>& kinds, int limit = 1);
     /**
      * @brief return array of items by name and parent
      * @param path
@@ -439,6 +450,12 @@ public:
      * @param tags [output]
      */
     virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds,
+                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true);
+
+    /**
+     * @brief similar to the above, but with filter ("starts_with")
+     */
+    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds, const wxString& filter,
                                        std::vector<TagEntryPtr>& tags, bool applyLimit = true);
 
     /**
@@ -496,11 +513,11 @@ public:
     virtual int InsertFileEntry(const wxString& filename, int timestamp);
 
     /**
-    * @brief update file entry using file name as key
-    * @param filename
-    * @param timestamp new timestamp
-    * @return
-    */
+     * @brief update file entry using file name as key
+     * @param filename
+     * @param timestamp new timestamp
+     * @return
+     */
     virtual int UpdateFileEntry(const wxString& filename, int timestamp);
 
     /**
@@ -549,8 +566,6 @@ public:
      */
     virtual void GetTagsByFileScopeAndKind(const wxFileName& fileName, const wxString& scopeName,
                                            const wxArrayString& kind, std::vector<TagEntryPtr>& tags);
-
-    virtual void GetAllTagsNames(wxArrayString& names);
 
     virtual void GetTagsNames(const wxArrayString& kind, wxArrayString& names);
 
@@ -626,6 +641,14 @@ public:
      */
     void RemoveNonWorkspaceSymbols(const std::vector<wxString>& symbols, std::vector<wxString>& workspaceSymbols,
                                    std::vector<wxString>& nonWorkspaceSymbols);
+
+    virtual bool CheckIntegrity() const;
+
+    virtual size_t GetFileScopedTags(const wxString& filepath, const wxString& name, const wxArrayString& kinds,
+                                     std::vector<TagEntryPtr>& tags);
+
+    virtual size_t GetParameters(const wxString& function_path, std::vector<TagEntryPtr>& tags);
+    virtual size_t GetLambdas(const wxString& parent_function, std::vector<TagEntryPtr>& tags);
 };
 
 #endif // CODELITE_TAGS_DATABASE_H

@@ -33,10 +33,10 @@
 #ifndef __gitDiffDlg__
 #define __gitDiffDlg__
 
-#include <map>
-#include "gitui.h"
 #include "cl_command_event.h"
+#include "gitui.h"
 #include "macros.h"
+#include <map>
 
 class GitCommitEditor;
 class IProcess;
@@ -46,7 +46,6 @@ class GitDiffDlg : public GitDiffDlgBase
 {
     wxStringMap_t m_diffMap;
     wxString m_workingDir;
-    wxString m_gitPath;
     wxString m_commits; // Empty unless the ChooseCommits dialog is used
     wxString m_commandOutput;
     GitPlugin* m_plugin;
@@ -70,7 +69,6 @@ protected:
     void OnProcessOutput(clProcessEvent& event);
 
     virtual void OnChoseCommits(wxCommandEvent& event);
-    virtual void OnClose(wxCommandEvent& event);
 };
 
 #endif //__gitDiffDlg__

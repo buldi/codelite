@@ -25,14 +25,15 @@
 #ifndef TAGS_OPTIONS_DATA_H
 #define TAGS_OPTIONS_DATA_H
 
+#include "cl_config.h"
 #include "codelite_exports.h"
-#include <wx/filename.h>
+#include "macros.h"
+#include "wxStringHash.h"
+
 #include <map>
 #include <unordered_map>
-#include "cl_config.h"
+#include <wx/filename.h>
 #include <wx/tokenzr.h>
-#include "wxStringHash.h"
-#include "macros.h"
 
 enum CodeCompletionOpts {
     CC_PARSE_COMMENTS = 0x00000001,
@@ -41,17 +42,14 @@ enum CodeCompletionOpts {
     CC_DISP_FUNC_CALLTIP = 0x00000008,
     CC_LOAD_EXT_DB = 0x00000010,
     CC_AUTO_INSERT_SINGLE_CHOICE = 0x00000020,
-    CC_PARSE_EXT_LESS_FILES = 0x00000040,
     CC_COLOUR_VARS = 0x00000080,
-    CC_CPP_KEYWORD_ASISST = 0x00000200,
-    CC_WORD_ASSIST = 0x00000400,
     CC_DISABLE_AUTO_PARSING = 0x00000800,
     CC_MARK_TAGS_FILES_IN_BOLD = 0x00001000,
     CC_RETAG_WORKSPACE_ON_STARTUP = 0x00004000,
     CC_ACCURATE_SCOPE_RESOLVING = 0x00008000,
     CC_DEEP_SCAN_USING_NAMESPACE_RESOLVING = 0x00010000,
     CC_IS_CASE_SENSITIVE = 0x00020000,
-    CC_KEEP_FUNCTION_SIGNATURE_UNFORMATTED = 0x00040000
+    CC_BACKSPACE_TRIGGER = 0x00040000,
 };
 
 enum CodeCompletionColourOpts {
@@ -121,10 +119,15 @@ protected:
 public:
     static wxString CLANG_CACHE_LAZY;
     static wxString CLANG_CACHE_ON_FILE_LOAD;
+    static const std::vector<wxString>& GetDefaultTokens();
+    static const std::vector<wxString>& GetDefaultTypes();
 
 public:
     TagsOptionsData();
     virtual ~TagsOptionsData();
+
+    void AddDefaultTokens();
+    void AddDefaultTypes();
 
     void Merge(const TagsOptionsData& tod);
     void SetVersion(size_t version) { this->m_version = version; }
@@ -168,7 +171,7 @@ public:
     void SetTokens(const wxString& tokens);
     void SetTypes(const wxString& types) { this->m_types = ::wxStringTokenize(types, "\r\n", wxTOKEN_STRTOK); }
     wxString GetTokens() const { return DoJoinArray(m_tokens); }
-    wxString GetTypes() const { return DoJoinArray(m_types); }
+    std::vector<std::pair<wxString, wxString>> GetTypes() const;
 
     std::map<std::string, std::string> GetTokensMap() const;
 
@@ -188,9 +191,9 @@ public:
     // Serialization API
 
     wxString ToString() const;
-    
+
     /**
-     * @brief Sync the data stored in this object with the file system 
+     * @brief Sync the data stored in this object with the file system
      */
     void SyncData();
 

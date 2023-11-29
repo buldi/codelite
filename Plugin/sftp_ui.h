@@ -21,11 +21,15 @@
 #include <wx/infobar.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/gbsizer.h>
-#include <wx/choice.h>
-#include <wx/arrstr.h>
+#include <wx/panel.h>
 #include <wx/toolbar.h>
 #include "clToolBar.h"
+#include <wx/choice.h>
+#include <wx/arrstr.h>
+#include <wx/combobox.h>
+#include "clThemedComboBox.hpp"
+#include "clThemedChoice.h"
+#include <wx/checkbox.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -62,6 +66,7 @@ protected:
     virtual void OnDeleteAccountUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnEditAccountUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnEditAccount(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnOK(wxCommandEvent& event) { event.Skip(); }
 
 public:
     clThemedListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
@@ -129,12 +134,13 @@ public:
 class WXDLLIMPEXP_SDK SFTPBrowserBaseDlg : public wxDialog
 {
 protected:
+    wxPanel* m_panel149;
+    clToolBar* m_toolbar;
+    wxStaticText* m_staticText82;
+    wxChoice* m_choiceAccount;
     wxStaticText* m_staticText66;
     wxTextCtrl* m_textCtrlRemoteFolder;
     wxButton* m_buttonRefresh;
-    wxStaticText* m_staticText82;
-    wxChoice* m_choiceAccount;
-    clToolBar* m_toolbar;
     clThemedListCtrl* m_dataview;
     wxTextCtrl* m_textCtrlInlineSearch;
     wxButton* m_button59;
@@ -152,20 +158,79 @@ protected:
     virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
+    clToolBar* GetToolbar() { return m_toolbar; }
+    wxStaticText* GetStaticText82() { return m_staticText82; }
+    wxChoice* GetChoiceAccount() { return m_choiceAccount; }
     wxStaticText* GetStaticText66() { return m_staticText66; }
     wxTextCtrl* GetTextCtrlRemoteFolder() { return m_textCtrlRemoteFolder; }
     wxButton* GetButtonRefresh() { return m_buttonRefresh; }
-    wxStaticText* GetStaticText82() { return m_staticText82; }
-    wxChoice* GetChoiceAccount() { return m_choiceAccount; }
-    clToolBar* GetToolbar() { return m_toolbar; }
     clThemedListCtrl* GetDataview() { return m_dataview; }
     wxTextCtrl* GetTextCtrlInlineSearch() { return m_textCtrlInlineSearch; }
     wxButton* GetButton59() { return m_button59; }
     wxButton* GetButton61() { return m_button61; }
+    wxPanel* GetPanel149() { return m_panel149; }
     SFTPBrowserBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("SFTP Browser"),
                        const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1, -1),
                        long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
     virtual ~SFTPBrowserBaseDlg();
+};
+
+class clRemoteFindDialogBase : public wxDialog
+{
+public:
+    enum {
+        ID_REMOTE_REPLACE = 1001,
+        ID_REMOTE_FIND = 1002,
+    };
+
+protected:
+    wxStaticText* m_staticText215;
+    wxChoice* m_choiceTool;
+    wxStaticText* m_staticTextFind;
+    clThemedComboBox* m_comboBoxFindWhat;
+    wxStaticText* m_staticTextReplace;
+    clThemedComboBox* m_comboBoxReplaceWith;
+    wxStaticText* m_staticText169;
+    clThemedComboBox* m_comboBoxWhere;
+    wxStaticText* m_staticText175;
+    clThemedComboBox* m_comboBoxTypes;
+    wxStaticText* m_staticText177;
+    clThemedChoice* m_choiceAccounts;
+    wxButton* m_buttonFind;
+    wxButton* m_buttonReplace;
+    wxButton* m_buttonCancel;
+    wxCheckBox* m_checkBoxWholeWord;
+    wxCheckBox* m_checkBoxCase;
+
+protected:
+    virtual void OnTool(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnFind(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnReplace(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnFindUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnReplaceUI(wxUpdateUIEvent& event) { event.Skip(); }
+
+public:
+    wxStaticText* GetStaticText215() { return m_staticText215; }
+    wxChoice* GetChoiceTool() { return m_choiceTool; }
+    wxStaticText* GetStaticTextFind() { return m_staticTextFind; }
+    clThemedComboBox* GetComboBoxFindWhat() { return m_comboBoxFindWhat; }
+    wxStaticText* GetStaticTextReplace() { return m_staticTextReplace; }
+    clThemedComboBox* GetComboBoxReplaceWith() { return m_comboBoxReplaceWith; }
+    wxStaticText* GetStaticText169() { return m_staticText169; }
+    clThemedComboBox* GetComboBoxWhere() { return m_comboBoxWhere; }
+    wxStaticText* GetStaticText175() { return m_staticText175; }
+    clThemedComboBox* GetComboBoxTypes() { return m_comboBoxTypes; }
+    wxStaticText* GetStaticText177() { return m_staticText177; }
+    clThemedChoice* GetChoiceAccounts() { return m_choiceAccounts; }
+    wxButton* GetButtonFind() { return m_buttonFind; }
+    wxButton* GetButtonReplace() { return m_buttonReplace; }
+    wxButton* GetButtonCancel() { return m_buttonCancel; }
+    wxCheckBox* GetCheckBoxWholeWord() { return m_checkBoxWholeWord; }
+    wxCheckBox* GetCheckBoxCase() { return m_checkBoxCase; }
+    clRemoteFindDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY,
+                           const wxString& title = _("Run tool on remote host"), const wxPoint& pos = wxDefaultPosition,
+                           const wxSize& size = wxSize(-1, -1), long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+    virtual ~clRemoteFindDialogBase();
 };
 
 #endif

@@ -25,11 +25,12 @@
 #ifndef LITEEDITOR_APP_H
 #define LITEEDITOR_APP_H
 
-#include "frame.h"
-#include <set>
 #include "clPersistenceManager.h"
+#include "frame.h"
 
-class wxSplashScreen;
+#include <set>
+#include <wx/cmdline.h>
+
 class wxSingleInstanceChecker;
 
 class CodeLiteApp : public wxApp
@@ -38,7 +39,6 @@ public:
     enum PluginPolicy { PP_None = 0, PP_All, PP_FromList };
 
 protected:
-    wxSplashScreen* m_splash;
     clMainFrame* m_pMainFrame;
     wxSingleInstanceChecker* m_singleInstance;
     wxArrayString m_parserPaths;
@@ -52,6 +52,10 @@ protected:
     wxString m_exeToDebug;
     wxString m_debuggerArgs;
     wxString m_debuggerWorkingDirectory;
+    bool m_restartCodeLite = false;
+    wxString m_restartCommand;
+    wxString m_restartWD;
+    wxCmdLineParser m_parser;
 
 private: // Methods
     bool CopySettings(const wxString& destDir, wxString& installPath);
@@ -88,6 +92,17 @@ public:
     const wxString& GetDebuggerArgs() const { return m_debuggerArgs; }
     const wxString& GetDebuggerWorkingDirectory() const { return m_debuggerWorkingDirectory; }
     const wxString& GetExeToDebug() const { return m_exeToDebug; }
+
+    void SetRestartCodeLite(bool restartCodeLite) { this->m_restartCodeLite = restartCodeLite; }
+    void SetRestartCommand(const wxString& restartCommand, const wxString& workingDirectory)
+    {
+        this->m_restartCommand = restartCommand;
+        this->m_restartWD = workingDirectory;
+    }
+    bool IsRestartCodeLite() const { return m_restartCodeLite; }
+    const wxString& GetRestartCommand() const { return m_restartCommand; }
+
+    void ProcessCommandLineParams();
 
 protected:
     virtual bool OnInit();

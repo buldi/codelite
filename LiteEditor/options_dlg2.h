@@ -26,16 +26,13 @@
 #ifndef __options_dlg2__
 #define __options_dlg2__
 
+#include "OptionsConfigPage.hpp"
 #include "options_base_dlg2.h"
-#include "treebooknodebase.h"
 
 /** Implementing OptionsBaseDlg2 */
 class PreferencesDialog : public OptionsBaseDlg2
 {
-private:
-    // We do not need to clean up those pointers because they are
-    // deleted by the wxTreeBook!
-    std::list<TreeBookNodeBase*> m_contentObjects;
+    OptionsConfigPtr m_options;
 
 protected:
     // Handlers for OptionsBaseDlg2 events.
@@ -44,27 +41,16 @@ protected:
     void OnButtonApply(wxCommandEvent& event);
     void Initialize();
     void DoSave();
-    
-    template <typename T> void AddSubPage(T* ptr, wxString const& caption, bool selected = false)
-    {
-        m_treeBook->AddSubPage(ptr, caption, selected);
-        if(ptr) {
-            m_contentObjects.push_back(ptr);
-        }
-    }
+
     template <typename T> void AddPage(T* ptr, wxString const& caption, bool selected = false)
     {
         m_treeBook->AddPage(ptr, caption, selected);
-        if(ptr) {
-            m_contentObjects.push_back(ptr);
-        }
     }
 
 public:
-    /** Constructor */
     PreferencesDialog(wxWindow* parent);
     virtual ~PreferencesDialog();
-    bool restartRquired;
+    bool restartRquired = false;
 };
 
 #endif // __options_dlg2__

@@ -41,13 +41,14 @@ class ProjectSettingsDlg;
 /** Implementing PSGeneralPageBase */
 class PSGeneralPage : public PSGeneralPageBase, public IProjectSettingsPage
 {
-    ProjectSettingsDlg *m_dlg;
-    wxString            m_projectName;
-    wxString            m_configName;
+    ProjectSettingsDlg* m_dlg;
+    wxString m_projectName;
+    wxString m_configName;
 
 protected:
     virtual void OnCustomEditorClicked(wxCommandEvent& event);
     virtual void OnProjectEnabled(wxCommandEvent& event);
+    virtual void OnValueChanging(wxPropertyGridEvent& event);
     virtual void OnValueChanged(wxPropertyGridEvent& event);
 
     wxString GetPropertyAsString(wxPGProperty* prop) const;
@@ -55,19 +56,16 @@ protected:
 
 protected:
     // Handlers for PSGeneralPageBase events.
-    void OnProjectCustumBuildUI( wxUpdateUIEvent& event );
+    void OnProjectCustumBuildUI(wxUpdateUIEvent& event);
 
 public:
-
     /** Constructor */
-    PSGeneralPage( wxWindow* parent, const wxString &projectName, const wxString &conf, ProjectSettingsDlg *dlg );
+    PSGeneralPage(wxWindow* parent, const wxString& projectName, const wxString& conf, ProjectSettingsDlg* dlg);
     //// end generated class members
     virtual void Save(BuildConfigPtr buildConf, ProjectSettingsPtr projSettingsPtr);
     virtual void Load(BuildConfigPtr buildConf);
     virtual void Clear();
-    wxString GetCompiler() const {
-        return m_pgPropCompiler->GetValueAsString();
-    }
+    wxString GetCompiler() const { return m_pgPropCompiler->GetValueAsString(); }
 };
 
 #endif // __ps_general_page__

@@ -1,13 +1,14 @@
 #include "UnixProcess.h"
 #if defined(__WXGTK__) || defined(__WXOSX__)
+#include "file_logger.h"
+
+#include <cl_command_event.h>
+#include <fileutils.h>
+#include <processreaderthread.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/types.h>
-#include "file_logger.h"
-#include <cl_command_event.h>
-#include <processreaderthread.h>
-#include <fileutils.h>
 
 UnixProcess::UnixProcess(wxEvtHandler* owner, const wxArrayString& args)
     : m_owner(owner)
@@ -16,12 +17,14 @@ UnixProcess::UnixProcess(wxEvtHandler* owner, const wxArrayString& args)
 
     // Open the pipes
     if(!m_childStdin.Open() || !m_childStderr.Open() || !m_childStdout.Open()) {
-        clERROR() << "Could not open redirection pipes." << strerror(errno);
+        clERROR() << "Could not open redirection pipes." << strerror(errno) << endl;
         return;
     }
 
     child_pid = fork();
-    if(child_pid == -1) { clERROR() << _("Failed to start child process") << strerror(errno); }
+    if(child_pid == -1) {
+        clERROR() << _("Failed to start child process") << strerror(errno) << endl;
+    }
     if(child_pid == 0) {
         // In child process
         dup2(m_childStdin.GetReadFd(), STDIN_FILENO);
@@ -31,9 +34,21 @@ UnixProcess::UnixProcess(wxEvtHandler* owner, const wxArrayString& args)
         m_childStdout.Close();
         m_childStderr.Close();
 
+        // prevent descriptor leak into child process
+        const int fd_max = (sysconf(_SC_OPEN_MAX) != -1 ? sysconf(_SC_OPEN_MAX) : FD_SETSIZE);
+        for (int fd = 3; fd < fd_max; fd++) {
+            close(fd);
+        }
+
         char** argv = new char*[args.size() + 1];
         for(size_t i = 0; i < args.size(); ++i) {
-            std::string cstr_arg = FileUtils::ToStdString(args[i]);
+            wxString wx_arg = args[i];
+            wx_arg.Trim();
+            if(wx_arg.StartsWith("\"") && wx_arg.EndsWith("\"") && wx_arg.size() >= 2) {
+                wx_arg.Remove(0, 1).RemoveLast();
+            }
+
+            std::string cstr_arg = FileUtils::ToStdString(wx_arg);
             argv[i] = new char[cstr_arg.length() + 1];
             strcpy(argv[i], cstr_arg.c_str());
             argv[i][cstr_arg.length()] = 0;
@@ -43,7 +58,7 @@ UnixProcess::UnixProcess(wxEvtHandler* owner, const wxArrayString& args)
         int errNo = errno;
         if(result == -1) {
             // Note: no point writing to stdout here, it has been redirected
-            clERROR() << "Error: Failed to launch program" << args << "." << strerror(errNo);
+            clERROR() << "Error: Failed to launch program" << args << "." << strerror(errNo) << endl;
             exit(EXIT_FAILURE);
         }
     } else {
@@ -66,11 +81,12 @@ UnixProcess::~UnixProcess()
     Stop();
     Wait();
 }
-
+#define CHUNK_SIZE 1024
+#define MAX_BUFF_SIZE (1024 * 2048)
 bool UnixProcess::ReadAll(int fd, std::string& content, int timeoutMilliseconds)
 {
     fd_set rset;
-    char buff[1024];
+    char buff[CHUNK_SIZE];
     FD_ZERO(&rset);
     FD_SET(fd, &rset);
 
@@ -78,16 +94,28 @@ bool UnixProcess::ReadAll(int fd, std::string& content, int timeoutMilliseconds)
     int ms = timeoutMilliseconds % 1000;
 
     struct timeval tv = { seconds, ms * 1000 }; //  10 milliseconds timeout
-    int rc = ::select(fd + 1, &rset, nullptr, nullptr, &tv);
-    if(rc > 0) {
-        memset(buff, 0, sizeof(buff));
-        if(read(fd, buff, (sizeof(buff) - 1)) > 0) {
-            content.append(buff);
+    while(true) {
+        int rc = ::select(fd + 1, &rset, nullptr, nullptr, &tv);
+        if(rc > 0) {
+            int len = read(fd, buff, (sizeof(buff) - 1));
+            if(len > 0) {
+                buff[len] = 0;
+                content.append(buff);
+                if(content.length() >= MAX_BUFF_SIZE) {
+                    return true;
+                }
+                // clear the tv struct so next select() call will return immediately
+                tv.tv_usec = 0;
+                tv.tv_sec = 0;
+                FD_ZERO(&rset);
+                FD_SET(fd, &rset);
+                continue;
+            }
+        } else if(rc == 0) {
+            // timeout
             return true;
         }
-    } else if(rc == 0) {
-        // timeout
-        return true;
+        break;
     }
     // error
     return false;
@@ -114,7 +142,7 @@ bool UnixProcess::Write(int fd, const std::string& message, std::atomic_bool& sh
             tmp.erase(0, bytes);
         }
     }
-    clDEBUG() << "Wrote message of size:" << message.length();
+    LOG_IF_TRACE { clDEBUG1() << "Wrote message of size:" << message.length() << endl; }
     return tmp.empty();
 }
 
@@ -131,12 +159,16 @@ int UnixProcess::Wait()
 
 void UnixProcess::Stop()
 {
-    if(child_pid != wxNOT_FOUND) { ::kill(child_pid, SIGTERM); }
+    if(child_pid != wxNOT_FOUND) {
+        ::kill(child_pid, SIGTERM);
+    }
 }
 
 void UnixProcess::Write(const std::string& message)
 {
-    if(!m_writerThread) { return; }
+    if(!m_writerThread) {
+        return;
+    }
     m_outgoingQueue.Post(message);
 }
 
@@ -150,7 +182,7 @@ void UnixProcess::StartWriterThread()
                     UnixProcess::Write(fd, buffer, std::ref(process->m_goingDown));
                 }
             }
-            clDEBUG() << "UnixProcess writer thread: going down";
+            clDEBUG() << "UnixProcess writer thread: going down" << endl;
         },
         this, m_childStdin.GetWriteFd());
 }
@@ -163,11 +195,16 @@ void UnixProcess::StartReaderThread()
                 std::string content;
                 if(!ReadAll(stdoutFd, content, 10)) {
                     clProcessEvent evt(wxEVT_ASYNC_PROCESS_TERMINATED);
+                    wxString error_message;
+                    int exit_code = process->Wait();
+                    error_message << "Process exit code (" << exit_code << "):" << strerror(exit_code);
+                    evt.SetString(error_message);
                     process->m_owner->AddPendingEvent(evt);
                     break;
                 } else if(!content.empty()) {
                     clProcessEvent evt(wxEVT_ASYNC_PROCESS_OUTPUT);
                     evt.SetOutput(wxString() << content);
+                    evt.SetOutputRaw(content);
                     process->m_owner->AddPendingEvent(evt);
                 }
                 content.clear();
@@ -178,10 +215,11 @@ void UnixProcess::StartReaderThread()
                 } else if(!content.empty()) {
                     clProcessEvent evt(wxEVT_ASYNC_PROCESS_STDERR);
                     evt.SetOutput(wxString() << content);
+                    evt.SetOutputRaw(content);
                     process->m_owner->AddPendingEvent(evt);
                 }
             }
-            clDEBUG() << "UnixProcess reader thread: going down";
+            clDEBUG() << "UnixProcess reader thread: going down" << endl;
         },
         this, m_childStdout.GetReadFd(), m_childStderr.GetReadFd());
 }

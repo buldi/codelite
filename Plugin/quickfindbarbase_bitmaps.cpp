@@ -44,6 +44,6 @@ void wxCrafteryhjh4ZInitBitmapResources()
         else wxFileSystem::AddHandler(new wxMemoryFSHandlerBase);
     }
 
-    XRC_ADD_FILE(wxT("XRC_resource/quickfindbarbase_bitmaps.cpp$C__src_codelite_Plugin_quickfindbarbase_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
-    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/quickfindbarbase_bitmaps.cpp$C__src_codelite_Plugin_quickfindbarbase_bitmaps.xrc"));
+    XRC_ADD_FILE(wxT("XRC_resource/quickfindbarbase_bitmaps.cpp$C__msys64_home_eran_devl_codelite_Plugin_quickfindbarbase_bitmaps.xrc"), xml_res_file_0, xml_res_size_0, wxT("text/xml"));
+    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/quickfindbarbase_bitmaps.cpp$C__msys64_home_eran_devl_codelite_Plugin_quickfindbarbase_bitmaps.xrc"));
 }

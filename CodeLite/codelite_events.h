@@ -26,9 +26,10 @@
 #ifndef CODELITE_EVENTS_H
 #define CODELITE_EVENTS_H
 
-#include "codelite_exports.h"
-#include "cl_command_event.h"
 #include "clFileSystemEvent.h"
+#include "clWorkspaceEvent.hpp"
+#include "cl_command_event.h"
+#include "codelite_exports.h"
 
 // ------------------------------------------------------------------------
 //
@@ -42,18 +43,18 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_INIT_DONE, wxCommandEvent);
 // wxCommandEvent::GetString() will return the node name modified
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_EDITOR_CONFIG_CHANGED, wxCommandEvent);
 
-// wxCommandEvent::GetString() will return the workspace fullpath
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_LOADED, wxCommandEvent);
+// workspace loading related event
+// use clWorkspaceEvent::GetString(), clWorkspaceEvent::GetFileName() to get the path
+// use clWorkspaceEvent::GetWorkspaceType() to get the type of the workspace loaded/closed
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_LOADED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_PLUGIN_OPEN, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_STARTED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_ENDED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSING, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSED, clWorkspaceEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_FILES_SCANNED, clWorkspaceEvent);
 
-// The build configuration was changed
-// use event.GetString() to get the selected configuration name
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CONFIG_CHANGED, wxCommandEvent);
-
-// clientData is NULL
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSED, wxCommandEvent);
-
-// A workspace closing has started
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_CLOSING, wxCommandEvent);
 
 // clientData is NULL
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_VIEW_INIT_DONE, wxCommandEvent);
@@ -125,8 +126,11 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FOLDER_CREATED, clFileSystemEvent
 // This event can also be fired if the user selected "Duplicate Tab"
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_SAVEAS, clFileSystemEvent);
 
-// clientData is list of files which have been retagged (std::vector<wxFileName>*)
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_RETAGGED, wxCommandEvent);
+// find the other file that matches a given file. Usually, this event is sent when user
+// tries to switch to header file from c++ and vice versa or when CodeLite is searching
+// the implementation file to add function body
+// A handler passes back the pair file to CodeLite by setting it in the event e.SetPath(..)
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_FIND_MATCHING_PAIR, clFileSystemEvent);
 
 // The active editor was changed
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_ACTIVE_EDITOR_CHANGED, wxCommandEvent);
@@ -179,6 +183,12 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_STOP_EXECUTED_PROGRAM, clExec
 // use evet.SetAnswer(true) to indicate that the plugin has launched an executable
 // it is mainly used for displaying the 'Stop' button in the toolbar as active/disabled
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_IS_PROGRAM_RUNNING, clExecuteEvent);
+
+// Execution of a program started
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_PROGRAM_STARTED, clExecuteEvent);
+
+// Program terminated event
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_PROGRAM_TERMINATED, clExecuteEvent);
 
 // ----------------------------------------------------------------------
 // Build Events
@@ -249,6 +259,9 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_GET_ADDITIONAL_LINKFLAGS, clBuild
 // for the project + configuration
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_PLUGIN_EXPORT_MAKEFILE, clBuildEvent);
 
+// User clicked on an highlighted error message in the output tab
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BUILD_OUTPUT_HOTSPOT_CLICKED, clBuildEvent);
+
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
@@ -271,16 +284,48 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_ENDING, clDebugEvent);
 // clientData is NULL
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_ENDED, clDebugEvent);
 
+// Debugger is requesting to open a file and set the marker at a given position
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_SET_FILELINE, clDebugEvent);
+
+// debugger -> IDE.
+// Update the breakpoint
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_BREAKPOINTS_LIST, clDebugEvent);
+
+// Notify the debugger to update the active pane
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_REFRESH_PANE, clDebugEvent);
+
+// Breakpoints were modified programmatically
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BREAKPOINTS_UPDATED, clDebugEvent);
+
+// Breakpoints were modified by the breakpoint management panel
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BREAKPOINTS_UI_UPDATED, clDebugEvent);
+
+// Breakpoint was toggled in an editor (removed or added)
+// check the filename
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BREAKPOINTS_UI_EDITOR_UPDATED, clDebugEvent);
+
+// Instruct the debugger to update the memory
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_SET_MEMORY, clDebugEvent);
+
+// User initiated debug session from the Debug -> Quick Debug menu option
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_QUICK_DEBUG, clDebugEvent);
+
+// Quick debug dialog is showing. The handler can set some parameters
+// such as the debugger to use, exe to debug etc
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_QUICK_DEBUG_DLG_SHOWING, clDebugEvent);
+
+// Quick debug dialog is dismissed. Use this event to persist any setting the user might have
+// updated in the UI
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_QUICK_DEBUG_DLG_DISMISSED_OK, clDebugEvent);
+
+//-------------------------------------------------------------------------------------
+///
 // set when the editor gains or loses
 // the control over the debugger
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_EDITOR_LOST_CONTROL, wxCommandEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUG_EDITOR_GOT_CONTROL, wxCommandEvent);
 
-// Notify the debugger to update the active pane
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_REFRESH_PANE, clDebugEvent);
-
-// Instruct the debugger to update the memory
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DEBUGGER_SET_MEMORY, clDebugEvent);
+//-------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------
@@ -317,26 +362,25 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_CODE_COMPLETE_LANG_KEYWORD, cl
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_JUMP_HYPER_LINK, clCodeCompletionEvent);
 
 //===----------------------------------------------------------------------------------------------
-//===----------------------------------------------------------------------------------------------
-//      Below events are processed via the ServiceProviderManager class and NOT by EventNotifier!!
-//      To be able to receive them your handler must subclass ServiceProvider
-//===----------------------------------------------------------------------------------------------
+// CC events
 //===----------------------------------------------------------------------------------------------
 
 // Search the workspace for a symbol
-// Use evt.GetWord() to get the searched string
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_FIND_SYMBOL, clCodeCompletionEvent);
 
-// Find symbol declaration. Use evt.GetWord() to get the searched string
+// Find header file for a given symbol
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_FIND_HEADER_FILE, clCodeCompletionEvent);
+
+// Find symbol declaration
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_FIND_SYMBOL_DECLARATION, clCodeCompletionEvent);
 
-// Find symbol definition. Use evt.GetWord() to get the searched string
+// Find symbol definition
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_FIND_SYMBOL_DEFINITION, clCodeCompletionEvent);
 
 // Request for code completion
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_CODE_COMPLETE, clCodeCompletionEvent);
 
-/// User asked for "word completion" (non context code completion event)
+// User asked for "word completion" Ctrl-SPACE
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_WORD_COMPLETE, clCodeCompletionEvent);
 
 // A function calltip is requesed
@@ -346,15 +390,26 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_WORD_COMPLETE, clCodeCompletio
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_CODE_COMPLETE_FUNCTION_CALLTIP, clCodeCompletionEvent);
 
 // User is hovering a text, display the typeinfo
-// IEditor* editor = dynamic_cast<IEditor*>(evt.GetEditor());
 // Hover position is set in the evt.GetPosition()
 // To pass a new tooltip, just call event.SetTooltip(...)
 // CodeLite will display the tooltip if a non empty string is passed. Simple markup is allowed (<br> <hr> etc)
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_TYPEINFO_TIP, clCodeCompletionEvent);
 
-//===----------------------------------------------------------------------------------------------
-//===----------------------------------------------------------------------------------------------
-//      END ServiceProviderManager events
+// User is hovering a text, display the typeinfo
+// Request semantics tokens for a given file
+// Input:
+//  - event.GetFileName() for the input file
+// Output:
+//  - event.SetVariables("..")
+//  - event.SetClasses("..")
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_SEMANTICS_HIGHLIGHT, clCodeCompletionEvent);
+
+// Return a list LSP::SymbolInformation by a given query
+// The query is passed using event.SetString(query)
+// we support fuzzy matching by passing space delimited query
+// event.SetString("get name") -> will match "get_name", "getname", "nameget" etc
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CC_WORKSPACE_SYMBOLS, clCodeCompletionEvent);
+
 //===----------------------------------------------------------------------------------------------
 //===----------------------------------------------------------------------------------------------
 
@@ -392,6 +447,10 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_CREATE_NEW_WORKSPACE, clComma
 // If the plugin wishes to process this file, it should call
 // event.Skip(false) on the event
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_OPEN_WORKSPACE, clCommandEvent);
+
+// user initiated a 'OnSwitchWorkspace' event
+// a plugin may override this to change the default behavior
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SWITCHING_TO_WORKSPACE, clCommandEvent);
 
 // Event type: clCommandEvent
 // User requested to close the workspace.
@@ -489,6 +548,12 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_DLG_SHOWING, clFindIn
 // Fired when CodeLite dismissed the find-in-files dialog
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_DLG_DISMISSED, clFindInFilesEvent);
 
+// user clicked on a match entry in the "find results tab"
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_OPEN_MATCH, clFindInFilesEvent);
+
+// User clicked to cancel the currently running search
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FINDINFILES_STOP_SEARCH, clFindInFilesEvent);
+
 // Instruct codelite to build a project only ( no deps )
 // the project name is passed in the wxCommandEvent::GetString
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_BUILD_PROJECT_ONLY, wxCommandEvent);
@@ -582,6 +647,15 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_RESTART, clDebugEvent); //
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_IS_RUNNING, clDebugEvent); // Use evet.SetAnswer() method to reply
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_TOGGLE_BREAKPOINT,
                          clDebugEvent); // Toggle breakpoint. Use event.GetFileName() / event.GetInt() for the file:line
+
+/// User added breakpoint from the UI
+/// Call event.GetUiBreakpoint()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_BREAKPOINT_ADDED, clDebugEvent);
+
+/// User deleted breakpoint from the UI
+/// Call event.GetUiBreakpoint()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_BREAKPOINT_DELETED, clDebugEvent);
+
 // Can CodeLite interact with the debugger? use event.SetAnswer(true);
 // Note: by avoid calling Skip() CodeLite will assume that the plugin is controlling the debug session
 // and it will use the event.IsAnswer() as the answer to the question to : CanDbgInteract()
@@ -609,14 +683,6 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DBG_UI_DISABLE_ALL_BREAKPOINTS, c
 // -------------------Debugger events end------------------------------------------------
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_CMD_OPEN_PROJ_SETTINGS,
                          clCommandEvent); // clCommandEvent. Use event.GetString() to get the project name
-
-// Workspace reload started
-// event type: clCommandEvent
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_STARTED, clCommandEvent);
-
-// Workspace reload is done
-// event type: clCommandEvent
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_WORKSPACE_RELOAD_ENDED, clCommandEvent);
 
 // event type: clNewProjectEvent
 // Use this event to add new templates / categories to the wizard
@@ -770,6 +836,8 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILES_MODIFIED_REPLACE_IN_FILES, 
 // action (this is useful if the session is managed by an external plugin)
 // A good example for this is the PHP plugin which manages its own session
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SAVE_SESSION_NEEDED, clCommandEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SESSION_LOADING, clCommandEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SESSION_LOADED, clCommandEvent);
 
 // Event: clCommandEvent
 // User modified its environment variables
@@ -851,5 +919,67 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_MARKER_CHANGED, clCommandEvent);
 // User click a button in the info bar
 // Use: event.GetInt() to get the button ID clicked
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_INFO_BAR_BUTTON, clCommandEvent);
+
+// User clicked on the drop down menu of the build button
+// A plugin can change the content of the drop down menu and bind then to his custom actions
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_BUILD_CUSTOM_TARGETS_MENU_SHOWING, clContextMenuEvent);
+
+// Source control plugin just pushed changes to the remote server
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_PUSHED, clSourceControlEvent);
+
+// Source control plugin just commit locally (this event is only fired where commit->push) exists
+// SVN plugin does not fire this event
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_COMMIT_LOCALLY, clSourceControlEvent);
+
+// Some files were reset/reverted their changes
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_RESET_FILES, clSourceControlEvent);
+
+// Source control just updated the local files by issuing a pull command (or svn update etc)
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SOURCE_CONTROL_PULLED, clSourceControlEvent);
+
+//------------------------------------------------------------------------------------------
+// LSP management events
+//------------------------------------------------------------------------------------------
+
+// stop all LSPs
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_STOP_ALL, clLanguageServerEvent);
+// start all LSPs
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_START_ALL, clLanguageServerEvent);
+// restart all LSPs
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_RESTART_ALL, clLanguageServerEvent);
+// stop a single LSP identified by event.GetLspName()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_STOP, clLanguageServerEvent);
+// start a single LSP identified by event.GetLspName()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_START, clLanguageServerEvent);
+// restart a single LSP identified by event.GetLspName()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_RESTART, clLanguageServerEvent);
+// delete a single LSP identified by event.GetLspName()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_DELETE, clLanguageServerEvent);
+// configure new LSP
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_CONFIGURE, clLanguageServerEvent);
+// Enable server
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_ENABLE_SERVER, clLanguageServerEvent);
+// Disable server
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_DISABLE_SERVER, clLanguageServerEvent);
+// open LSPs configuration dialog. If event.GetLspName() is not empty, it will also select its page
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_LSP_OPEN_SETTINGS_DLG, clLanguageServerEvent);
+
+// Request to download file with a given path
+// Input: event.GetFilename()
+// Output: event.SetFileName(..) <- contains the local file path
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_DOWNLOAD_FILE, clCommandEvent);
+
+// Request to load a file into CodeLite
+// This event is usually sent when a the file name is not a local file
+// Input: event.GetFileName()
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_OPEN_FILE, clCommandEvent);
+
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_RECENT_WORKSPACE, clRecentWorkspaceEvent);
+
+// A file was modified externally
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_FILE_MODIFIED_EXTERNALLY, clFileSystemEvent);
+
+// User clicked on a margin with user data
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_EDITOR_MARGIN_CLICKED, clEditorEvent);
 
 #endif // CODELITE_EVENTS_H

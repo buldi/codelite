@@ -1,21 +1,24 @@
 #include "CSSCodeCompletion.h"
-#include "ieditor.h"
-#include "css.json"
-#include <wx/stc/stc.h>
-#include "wxCodeCompletionBox.h"
-#include <wx/xrc/xmlres.h>
-#include "wxCodeCompletionBoxEntry.h"
-#include "wxCodeCompletionBoxManager.h"
+
 #include "JSON.h"
-#include <wx/tokenzr.h>
-#include <set>
-#include <algorithm>
 #include "codelite_events.h"
+#include "css.json"
+#include "event_notifier.h"
+#include "globals.h"
+#include "ieditor.h"
 #include "webtools.h"
+#include "wxCodeCompletionBox.h"
+#include "wxCodeCompletionBoxEntry.hpp"
+#include "wxCodeCompletionBoxManager.h"
+
+#include <algorithm>
+#include <set>
+#include <wx/stc/stc.h>
+#include <wx/tokenzr.h>
+#include <wx/xrc/xmlres.h>
 
 CSSCodeCompletion::CSSCodeCompletion(WebTools* plugin)
-    : ServiceProvider("WebTools: CSS", eServiceType::kCodeCompletion)
-    , m_isEnabled(true)
+    : m_isEnabled(true)
     , m_plugin(plugin)
 {
     JSON root(CSS_JSON);
@@ -24,7 +27,8 @@ CSSCodeCompletion::CSSCodeCompletion(WebTools* plugin)
     std::set<wxString> valuesSet;
     for(int i = 0; i < count; ++i) {
         JSONItem entry = arr.arrayItem(i);
-        if(!entry.hasNamedObject("name")) continue;
+        if(!entry.hasNamedObject("name"))
+            continue;
 
         Entry e;
         e.property = entry.namedObject("name").toString();
@@ -43,14 +47,18 @@ CSSCodeCompletion::CSSCodeCompletion(WebTools* plugin)
         m_entries.push_back(e);
     });
 
-    Bind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this);
+    EventNotifier::Get()->Bind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this);
 }
 
-CSSCodeCompletion::~CSSCodeCompletion() { Unbind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this); }
+CSSCodeCompletion::~CSSCodeCompletion()
+{
+    EventNotifier::Get()->Unbind(wxEVT_CC_CODE_COMPLETE, &CSSCodeCompletion::OnCodeComplete, this);
+}
 
 void CSSCodeCompletion::CssCodeComplete(IEditor* editor)
 {
-    if(!m_isEnabled) return;
+    if(!m_isEnabled)
+        return;
 
     // Perform HTML code completion
     wxStyledTextCtrl* ctrl = editor->GetCtrl();
@@ -73,14 +81,16 @@ void CSSCodeCompletion::CssCodeComplete(IEditor* editor)
             nonWhitespaceCharPos = curpos;
             break;
         }
-        if(nonWhitespaceCharPos != wxNOT_FOUND) break;
+        if(nonWhitespaceCharPos != wxNOT_FOUND)
+            break;
         curpos = ctrl->PositionBefore(curpos);
     }
 
     if(nonWhitespaceCharPos != wxNOT_FOUND && nonWhitespaceChar == ':') {
         // Suggest values of the given properties
         wxString word = GetPreviousWord(editor, nonWhitespaceCharPos);
-        if(word.IsEmpty()) return;
+        if(word.IsEmpty())
+            return;
         Entry::Vec_t::const_iterator iter =
             std::find_if(m_entries.begin(), m_entries.end(), [&](const Entry& e) { return (e.property == word); });
         if(iter != m_entries.end()) {
@@ -118,20 +128,31 @@ wxString CSSCodeCompletion::GetPreviousWord(IEditor* editor, int pos)
 
     // get the line from the start up until the ":"
     wxString line = editor->GetCtrl()->GetTextRange(lineStartPos, pos);
-    if(line.IsEmpty()) return "";
+    if(line.IsEmpty())
+        return "";
 
     wxArrayString words = ::wxStringTokenize(line, "\r\n \t", wxTOKEN_STRTOK);
-    if(words.IsEmpty()) return "";
+    if(words.IsEmpty())
+        return "";
     return words.Last();
 }
 
 void CSSCodeCompletion::OnCodeComplete(clCodeCompletionEvent& event)
 {
     event.Skip();
-    IEditor* editor = dynamic_cast<IEditor*>(event.GetEditor());
-    if(editor && m_plugin->IsCSSFile(editor)) {
+    IEditor* editor = GetEditor(event.GetFileName());
+    if(editor && wxWindow::FindFocus() == editor->GetCtrl() && m_plugin->IsCSSFile(editor)) {
         // CSS code completion
         event.Skip(false);
         CssCodeComplete(editor);
     }
+}
+
+IEditor* CSSCodeCompletion::GetEditor(const wxString& filename) const
+{
+    auto editor = clGetManager()->FindEditor(filename);
+    if(editor && editor == clGetManager()->GetActiveEditor()) {
+        return editor;
+    }
+    return nullptr;
 }

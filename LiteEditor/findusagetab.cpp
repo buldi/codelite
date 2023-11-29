@@ -24,172 +24,308 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "findusagetab.h"
-#include "findresultstab.h"
-#include <wx/xrc/xmlres.h>
-#include <wx/ffile.h>
-#include <wx/tokenzr.h>
-#include "ctags_manager.h"
+
+#include "ColoursAndFontsManager.h"
+#include "clStrings.h"
+#include "clSystemSettings.h"
 #include "cl_editor.h"
-#include "frame.h"
+#include "ctags_manager.h"
 #include "editor_config.h"
 #include "event_notifier.h"
+#include "file_logger.h"
+#include "fileutils.h"
+#include "findresultstab.h"
+#include "frame.h"
+#include "macros.h"
 #include "plugin.h"
 
-FindUsageTab::FindUsageTab(wxWindow* parent, const wxString& name)
-    : OutputTabWindow(parent, wxID_ANY, name)
+#include <map>
+#include <wx/ffile.h>
+#include <wx/file.h>
+#include <wx/filename.h>
+#include <wx/msgdlg.h>
+#include <wx/textbuf.h>
+#include <wx/textfile.h>
+#include <wx/tokenzr.h>
+#include <wx/xrc/xmlres.h>
+
+struct FindUsageItemData : public wxTreeItemData {
+    const LSP::Location* location = nullptr;
+    FindUsageItemData(const LSP::Location* loc)
+        : location(loc)
+    {
+    }
+};
+
+FindUsageTab::FindUsageTab(wxWindow* parent)
+    : wxPanel(parent, wxID_ANY)
 {
-    m_styler->SetStyles(m_sci);
-    m_sci->HideSelection(true);
-    m_sci->Connect(wxEVT_STC_STYLENEEDED, wxStyledTextEventHandler(FindUsageTab::OnStyleNeeded), NULL, this);
-    m_tb->DeleteById(XRCID("repeat_output"));
-    m_tb->Realize();
-    EventNotifier::Get()->Connect(
-        wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(FindUsageTab::OnThemeChanged), NULL, this);
+    SetSizer(new wxBoxSizer(wxVERTICAL));
+    m_ctrl = new clThemedTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_HIDE_ROOT | wxTR_ROW_LINES);
+    m_ctrl->SetRendererType(eRendererType::RENDERER_DIRECT2D);
+    m_ctrl->SetTreeStyle(wxTR_HIDE_ROOT | wxTR_ROW_LINES);
+    m_ctrl->AddRoot("Hidden Root");
+
+    m_ctrl->Bind(wxEVT_TREE_ITEM_ACTIVATED, &FindUsageTab::OnItemActivated, this);
+    m_ctrl->Bind(wxEVT_TREE_ITEM_EXPANDING, &FindUsageTab::OnItemExpanding, this);
+    m_ctrl->Bind(wxEVT_TREE_SEL_CHANGED, &FindUsageTab::OnItemActivated, this);
+
+    // show context menu for the control
+    m_ctrl->Bind(wxEVT_CONTEXT_MENU, [this](wxContextMenuEvent& event) {
+        wxMenu menu;
+        menu.Append(wxID_CLEAR);
+        menu.Bind(
+            wxEVT_MENU,
+            [this](wxCommandEvent& event) {
+                wxUnusedVar(event);
+                Clear();
+            },
+            wxID_CLEAR);
+        m_ctrl->PopupMenu(&menu);
+    });
+
+    GetSizer()->Add(m_ctrl, 1, wxEXPAND);
+    GetSizer()->Layout();
+    UpdateStyle();
+
+    // bind events
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &FindUsageTab::OnThemeChanged, this);
     EventNotifier::Get()->Bind(wxEVT_WORKSPACE_CLOSED, &FindUsageTab::OnWorkspaceClosed, this);
+    EventNotifier::Get()->Bind(wxEVT_LSP_REFERENCES, &FindUsageTab::OnReferences, this);
+    EventNotifier::Get()->Bind(wxEVT_LSP_REFERENCES_INPROGRESS, &FindUsageTab::OnReferencesInProgress, this);
 }
 
 FindUsageTab::~FindUsageTab()
 {
-    EventNotifier::Get()->Disconnect(
-        wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(FindUsageTab::OnThemeChanged), NULL, this);
+    EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &FindUsageTab::OnThemeChanged, this);
     EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_CLOSED, &FindUsageTab::OnWorkspaceClosed, this);
-}
+    EventNotifier::Get()->Unbind(wxEVT_LSP_REFERENCES, &FindUsageTab::OnReferences, this);
 
-void FindUsageTab::OnStyleNeeded(wxStyledTextEvent& e)
-{
-    wxStyledTextCtrl* ctrl = dynamic_cast<wxStyledTextCtrl*>(e.GetEventObject());
-    if(!ctrl) return;
-    m_styler->StyleText(ctrl, e, true);
+    EventNotifier::Get()->Unbind(wxEVT_LSP_REFERENCES_INPROGRESS, &FindUsageTab::OnReferencesInProgress, this);
+
+    m_ctrl->Unbind(wxEVT_TREE_SEL_CHANGED, &FindUsageTab::OnItemActivated, this);
+    m_ctrl->Unbind(wxEVT_TREE_ITEM_ACTIVATED, &FindUsageTab::OnItemActivated, this);
+    m_ctrl->Unbind(wxEVT_TREE_ITEM_EXPANDING, &FindUsageTab::OnItemExpanding, this);
 }
 
 void FindUsageTab::Clear()
 {
-    m_matches.clear();
-    m_styler->Reset();
-    OutputTabWindow::Clear();
+    m_locations.clear();
+    m_ctrl->DeleteAllItems();
+    m_ctrl->AddRoot("Hidden Root");
 }
 
-void FindUsageTab::OnClearAll(wxCommandEvent& e) { Clear(); }
-
-void FindUsageTab::OnMouseDClick(wxStyledTextEvent& e)
+void FindUsageTab::OnClearAll(wxCommandEvent& e)
 {
-    int clickedLine = wxNOT_FOUND;
-    m_styler->HitTest(m_sci, e, clickedLine);
-
-    // Did we clicked on a togglable line?
-    int toggleLine = m_styler->TestToggle(m_sci, e);
-    if(toggleLine != wxNOT_FOUND) {
-        m_sci->ToggleFold(toggleLine);
-
-    } else {
-        UsageResultsMap::const_iterator iter = m_matches.find(clickedLine);
-        if(iter != m_matches.end()) {
-            DoOpenResult(iter->second);
-        }
-    }
+    wxUnusedVar(e);
+    Clear();
 }
 
-void FindUsageTab::OnClearAllUI(wxUpdateUIEvent& e) { e.Enable(m_sci && m_sci->GetLength()); }
+void FindUsageTab::OnClearAllUI(wxUpdateUIEvent& e)
+{
+    wxTreeItemId root = m_ctrl->GetRootItem();
+    e.Enable(root.IsOk() && m_ctrl->GetChildrenCount(root, false) != 0);
+}
 
-void FindUsageTab::ShowUsage(const CppToken::Vec_t& matches, const wxString& searchWhat)
+void FindUsageTab::InitialiseView(const std::vector<LSP::Location>& locations)
 {
     Clear();
-    int lineNumber(0);
-    wxString text;
-    wxString curfile;
-    wxString curfileContent;
-    wxArrayString lines;
+    UpdateStyle();
 
-    text = wxString::Format(_("===== Finding references of '%s' =====\n"), searchWhat.c_str());
-    lineNumber++;
-
-    CppToken::Vec_t::const_iterator iter = matches.begin();
-    for(; iter != matches.end(); ++iter) {
-
-        // Print the line number
-        wxString file_name(iter->getFilename());
-        if(curfile != file_name) {
-            curfile = file_name;
-            wxFileName fn(file_name);
-            fn.MakeRelativeTo();
-
-            text << fn.GetFullPath() << wxT("\n");
-            lineNumber++;
-
-            // Load the file content
-            wxLogNull nolog;
-            wxFFile thefile(file_name, wxT("rb"));
-            if(thefile.IsOpened()) {
-
-                wxFileOffset size = thefile.Length();
-                wxString fileData;
-                fileData.Alloc(size);
-                curfileContent.Clear();
-
-                wxCSConv fontEncConv(wxFONTENCODING_ISO8859_1);
-                thefile.ReadAll(&curfileContent, fontEncConv);
-
-                // break the current file into lines, a line can be an empty string
-                lines = wxStringTokenize(curfileContent, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
-            }
+    m_locations = locations;
+    // sort by file / location
+    std::map<wxString, std::vector<const LSP::Location*>> sorted_entries;
+    for(const LSP::Location& location : m_locations) {
+        if(sorted_entries.count(location.GetPath()) == 0) {
+            sorted_entries.insert({ location.GetPath(), {} });
         }
-
-        // Keep the match
-        m_matches[lineNumber] = *iter;
-
-        // Format the message
-        wxString linenum = wxString::Format(wxT(" %5u: "), (unsigned int)iter->getLineNumber() + 1);
-        wxString scopeName(wxT("<global>"));
-        TagEntryPtr tag = TagsManagerST::Get()->FunctionFromFileLine(iter->getFilename(), iter->getLineNumber());
-        if(tag) {
-            scopeName = tag->GetPath();
-        }
-
-        text << linenum << wxT("[ ") << scopeName << wxT(" ] ");
-        if(lines.GetCount() > iter->getLineNumber()) {
-            text << lines.Item(iter->getLineNumber()).Trim().Trim(false);
-        }
-
-        text << wxT("\n");
-        lineNumber++;
+        std::vector<const LSP::Location*>& file_matches = sorted_entries[location.GetPath()];
+        file_matches.push_back(&location);
     }
-    text << wxString::Format(_("===== Found total of %u matches =====\n"), (unsigned int)m_matches.size());
-    AppendText(text);
+
+    // add the entries to the view
+    for(const auto& vt : sorted_entries) {
+        const wxString& filename = vt.first;
+        const std::vector<const LSP::Location*>& locations_vec = vt.second;
+        DoAddFileEntries(filename, locations_vec);
+    }
+    // expand the root, to show the file name
+    m_ctrl->Expand(m_ctrl->GetRootItem());
 }
 
-void FindUsageTab::DoOpenResult(const CppToken& token)
-{
-    if(!token.getFilename().empty()) {
-        clEditor* editor =
-            clMainFrame::Get()->GetMainBook()->OpenFile(token.getFilename(), wxEmptyString, token.getLineNumber());
-        if(editor) {
-            editor->SetLineVisible(token.getLineNumber());
-            editor->ScrollToColumn(0);
-            editor->SetSelection(token.getOffset(), token.getOffset() + token.getName().length());
-        }
-    }
-}
-
-void FindUsageTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
-{
-    if(EditorConfigST::Get()->GetOptions()->GetHideOutpuPaneOnUserClick()) {
-        e.Enable(true);
-        e.Check(EditorConfigST::Get()->GetOptions()->GetHideOutputPaneNotIfReferences());
-
-    } else {
-        e.Enable(false);
-        e.Check(false);
-    }
-}
-
-void FindUsageTab::OnThemeChanged(wxCommandEvent& e)
+void FindUsageTab::OnThemeChanged(clCommandEvent& e)
 {
     e.Skip();
-    m_styler->SetStyles(m_sci);
+    UpdateStyle();
 }
 
-void FindUsageTab::OnWorkspaceClosed(wxCommandEvent& event)
+void FindUsageTab::UpdateStyle()
+{
+    // construct colours based on the current lexer
+
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("c++");
+    m_ctrl->SetDefaultFont(lexer->GetFontForStyle(0, this));
+
+    clColours lexer_colours;
+    lexer_colours.FromLexer(lexer);
+    m_ctrl->SetColours(lexer_colours);
+
+    m_headerColour = lexer->GetProperty(wxSTC_C_GLOBALCLASS).GetFgColour();
+
+    wxColour match_colour_fg = lexer->GetProperty(wxSTC_C_WORD2).GetFgColour();
+    auto& colours = m_ctrl->GetColours();
+    colours.SetMatchedItemBgText(wxNullColour);
+    colours.SetMatchedItemText(match_colour_fg);
+    m_ctrl->Refresh();
+}
+
+void FindUsageTab::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
     Clear();
+}
+
+void FindUsageTab::DoAddFileEntries(const wxString& filename, const std::vector<const LSP::Location*>& matches)
+{
+    wxTreeItemId child = m_ctrl->AppendItem(m_ctrl->GetRootItem(), filename);
+    if(m_headerColour.IsOk()) {
+        m_ctrl->SetItemTextColour(child, m_headerColour);
+    }
+
+    // append dummy child
+    for(const LSP::Location* location : matches) {
+        m_ctrl->AppendItem(child, "dummy_child", wxNOT_FOUND, wxNOT_FOUND, new FindUsageItemData(location));
+    }
+}
+
+void FindUsageTab::OnReferences(LSPEvent& event)
+{
+    event.Skip();
+    InitialiseView(event.GetLocations());
+
+    // ensure that this view is shown
+    clGetManager()->ShowOutputPane(SHOW_USAGE);
+}
+
+void FindUsageTab::OnReferencesInProgress(LSPEvent& event)
+{
+    event.Skip();
+    Clear();
+}
+
+void FindUsageTab::OnItemActivated(wxTreeEvent& event)
+{
+    event.Skip();
+    CHECK_ITEM_RET(event.GetItem());
+
+    FindUsageItemData* item_data = static_cast<FindUsageItemData*>(m_ctrl->GetItemData(event.GetItem()));
+    if(!item_data) {
+        // header entry
+        DoExpandItem(event.GetItem());
+        if(!m_ctrl->IsExpanded(event.GetItem())) {
+            m_ctrl->Expand(event.GetItem());
+        }
+        return;
+    }
+
+    // Open the file
+    wxFileName fn(item_data->location->GetPath());
+
+    // prepare the "after-file-is-loaded" callback
+    auto range = item_data->location->GetRange();
+    auto callback = [=](IEditor* editor) {
+        editor->GetCtrl()->ClearSelections();
+        editor->SelectRangeAfter(range);
+    };
+
+    if(fn.FileExists()) {
+        clGetManager()->OpenFileAndAsyncExecute(fn.GetFullPath(), std::move(callback));
+
+    } else {
+        // the file does not exist
+        clCommandEvent open_file_event{ wxEVT_OPEN_FILE };
+        open_file_event.SetFileName(item_data->location->GetPath());
+        if(!EventNotifier::Get()->ProcessEvent(open_file_event)) {
+            ::wxMessageBox(_("Failed to open file: ") + item_data->location->GetPath(), "CodeLite",
+                           wxOK | wxOK_DEFAULT | wxICON_ERROR);
+            event.Veto();
+            return;
+        }
+        clGetManager()->OpenFileAndAsyncExecute(open_file_event.GetFileName(), std::move(callback));
+    }
+}
+
+void FindUsageTab::OnItemExpanding(wxTreeEvent& event)
+{
+    event.Skip();
+
+    wxBusyCursor bc;
+    if(!DoExpandItem(event.GetItem())) {
+        event.Veto();
+    }
+}
+
+bool FindUsageTab::DoExpandItem(const wxTreeItemId& item)
+{
+    wxBusyCursor bc;
+    CHECK_ITEM_RET_FALSE(item);
+
+    wxTreeItemIdValue cookie;
+    wxTreeItemId first_child = m_ctrl->GetFirstChild(item, cookie);
+    if(!first_child) {
+        return true;
+    }
+
+    // if the child text is not "dummy_child" -> return
+    if(m_ctrl->GetItemText(first_child) != "dummy_child") {
+        return true;
+    }
+
+    wxString content;
+    wxString filepath = m_ctrl->GetItemText(item);
+    if(!wxFileName::Exists(filepath)) {
+        // not a local file, request for file download
+        clCommandEvent event_download{ wxEVT_DOWNLOAD_FILE };
+        event_download.SetFileName(filepath);
+        clDEBUG() << "Sending event wxEVT_DOWNLOAD_FILE" << endl;
+        if(!EventNotifier::Get()->ProcessEvent(event_download)) {
+            ::wxMessageBox(_("Failed to download file: ") + filepath, "CodeLite", wxOK | wxOK_DEFAULT | wxICON_ERROR);
+            return false;
+        }
+        filepath = event_download.GetFileName();
+    }
+
+    // load the file into wxTextBuffer
+    wxTextFile text_buffer(filepath);
+    if(!text_buffer.Open()) {
+        ::wxMessageBox(_("Failed to open file: ") + filepath, "CodeLite", wxOK | wxOK_DEFAULT | wxICON_ERROR);
+        return false;
+    }
+
+    // go over the entries and set the actual line
+    wxTreeItemIdValue cookie2;
+    wxTreeItemId child = m_ctrl->GetFirstChild(item, cookie2);
+    while(child.IsOk()) {
+
+        FindUsageItemData* item_data = static_cast<FindUsageItemData*>(m_ctrl->GetItemData(child));
+        // incase this was a remote file, update the filepath
+        const_cast<LSP::Location*>(item_data->location)->SetPath(filepath);
+
+        size_t line_number = item_data->location->GetRange().GetStart().GetLine();
+        if(line_number < text_buffer.GetLineCount()) {
+            // update the text
+            m_ctrl->SetItemText(child, text_buffer.GetLine(line_number));
+
+            // update the highlight information
+            const auto& start = item_data->location->GetRange().GetStart();
+            const auto& end = item_data->location->GetRange().GetEnd();
+
+            if(start.GetLine() == end.GetLine()) {
+                m_ctrl->SetItemHighlightInfo(child, start.GetCharacter(), end.GetCharacter() - start.GetCharacter());
+                m_ctrl->HighlightText(child, true);
+            }
+        }
+        child = m_ctrl->GetNextChild(item, cookie2);
+    }
+    return true;
 }

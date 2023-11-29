@@ -1,8 +1,8 @@
 #include "clToolBarMenuButton.h"
 
-clToolBarMenuButton::clToolBarMenuButton(clToolBar* parent, wxWindowID winid, const wxBitmap& bmp,
+clToolBarMenuButton::clToolBarMenuButton(clToolBarGeneric* parent, wxWindowID winid, size_t bmpId,
                                          const wxString& label)
-    : clToolBarButtonBase(parent, winid, bmp, label, kHasMenu)
+    : clToolBarButtonBase(parent, winid, bmpId, label, kHasMenu)
 {
 }
 
@@ -14,6 +14,7 @@ wxSize clToolBarMenuButton::CalculateSize(wxDC& dc) const
     sz.x += m_toolbar->GetXSpacer();
     sz.y = 2 * m_toolbar->GetYSpacer();
 
+    const wxBitmap& m_bmp = GetBitmap();
     if(m_bmp.IsOk()) {
         sz.x += m_bmp.GetScaledWidth();
         sz.x += m_toolbar->GetXSpacer();
@@ -31,8 +32,6 @@ wxSize clToolBarMenuButton::CalculateSize(wxDC& dc) const
         sz.y = wxMax(sz.GetHeight(), height);
     }
 
-    sz.x += m_toolbar->GetXSpacer();
-    sz.x += CL_TOOL_BAR_DROPDOWN_ARROW_SIZE;
-    sz.x += m_toolbar->GetXSpacer();
+    sz.x += sz.GetHeight(); // the button width is the as the height of the button
     return sz;
 }

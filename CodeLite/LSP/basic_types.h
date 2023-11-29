@@ -1,87 +1,73 @@
 #ifndef JSONRPC_BASICTYPES_H
 #define JSONRPC_BASICTYPES_H
 
+#include "IPathConverter.hpp"
 #include "JSON.h"
-#include <vector>
 #include "JSONObject.h"
+#include "clModuleLogger.hpp"
 #include "codelite_exports.h"
+#include "fileutils.h"
+
+#include <vector>
 #include <wx/sharedptr.h>
+
+// Helper macros to be used outside of this library
+#define LSP_LOG (LSP::GetLogHandle())
+
+#define LSP_DEBUG() LOG_DEBUG(LSP_LOG)
+#define LSP_TRACE() LOG_TRACE(LSP_LOG)
+#define LSP_ERROR() LOG_ERROR(LSP_LOG)
+#define LSP_WARNING() LOG_WARNING(LSP_LOG)
+#define LSP_SYSTEM() LOG_SYSTEM(LSP_LOG)
 
 namespace LSP
 {
-//===----------------------------------------------------------------------------------
-// TextDocumentContentChangeEvent
-//===----------------------------------------------------------------------------------
-class WXDLLIMPEXP_CL TextDocumentContentChangeEvent : public Serializable
-{
-    wxString m_text;
-
-public:
-    virtual JSONItem ToJSON(const wxString& name) const;
-    virtual void FromJSON(const JSONItem& json);
-
-    TextDocumentContentChangeEvent() {}
-    TextDocumentContentChangeEvent(const wxString& text)
-        : m_text(text)
-    {
-    }
-    virtual ~TextDocumentContentChangeEvent() {}
-    TextDocumentContentChangeEvent& SetText(const wxString& text)
-    {
-        this->m_text = text;
-        return *this;
-    }
-    const wxString& GetText() const { return m_text; }
+enum eSymbolKind {
+    kSK_File = 1,
+    kSK_Module = 2,
+    kSK_Namespace = 3,
+    kSK_Package = 4,
+    kSK_Class = 5,
+    kSK_Method = 6,
+    kSK_Property = 7,
+    kSK_Field = 8,
+    kSK_Constructor = 9,
+    kSK_Enum = 10,
+    kSK_Interface = 11,
+    kSK_Function = 12,
+    kSK_Variable = 13,
+    kSK_Constant = 14,
+    kSK_String = 15,
+    kSK_Number = 16,
+    kSK_Boolean = 17,
+    kSK_Array = 18,
+    kSK_Object = 19,
+    kSK_Key = 20,
+    kSK_Null = 21,
+    kSK_EnumMember = 22,
+    kSK_Struct = 23,
+    kSK_Event = 24,
+    kSK_Operator = 25,
+    kSK_TypeParameter = 26,
 };
 
-//===----------------------------------------------------------------------------------
-// TextDocumentIdentifier
-//===----------------------------------------------------------------------------------
-class WXDLLIMPEXP_CL TextDocumentIdentifier : public Serializable
+class WXDLLIMPEXP_CL URI
 {
-    wxFileName m_filename;
+    wxString m_path;
+    wxString m_uri;
+
+private:
+    URI(const wxString& str) = delete;
+    URI& operator=(const wxString& str) = delete;
 
 public:
-    virtual JSONItem ToJSON(const wxString& name) const;
-    virtual void FromJSON(const JSONItem& json);
+    URI() {}
+    ~URI() {}
 
-    TextDocumentIdentifier() {}
-    TextDocumentIdentifier(const wxFileName& filename)
-        : m_filename(filename)
-    {
-    }
-    virtual ~TextDocumentIdentifier() {}
-    TextDocumentIdentifier& SetFilename(const wxFileName& filename)
-    {
-        this->m_filename = filename;
-        return *this;
-    }
-    const wxFileName& GetFilename() const { return m_filename; }
-};
+    static void FromString(const wxString& str, URI* o);
 
-//===----------------------------------------------------------------------------------
-// VersionedTextDocumentIdentifier
-//===----------------------------------------------------------------------------------
-class WXDLLIMPEXP_CL VersionedTextDocumentIdentifier : public TextDocumentIdentifier
-{
-    int m_version = 1;
-
-public:
-    virtual JSONItem ToJSON(const wxString& name) const;
-    virtual void FromJSON(const JSONItem& json);
-
-    VersionedTextDocumentIdentifier() {}
-    VersionedTextDocumentIdentifier(int version)
-        : m_version(version)
-    {
-    }
-    virtual ~VersionedTextDocumentIdentifier() {}
-    VersionedTextDocumentIdentifier& SetVersion(int version)
-    {
-        this->m_version = version;
-        return *this;
-    }
-    int GetVersion() const { return m_version; }
+    const wxString& GetPath() const;
+    const wxString& GetUrl() const;
 };
 
 //===----------------------------------------------------------------------------------
@@ -103,6 +89,22 @@ public:
     }
     Position() {}
     virtual ~Position() {}
+    bool operator==(const Position& rhs) const
+    {
+        return this->m_line == rhs.m_line && this->m_character == rhs.m_character;
+    }
+    bool operator!=(const Position& rhs) const { return !(*this == rhs); }
+    bool operator<(const Position& rhs) const
+    {
+        if(this->m_line == rhs.m_line) {
+            return this->m_character < rhs.m_character;
+        } else {
+            return this->m_line < rhs.m_line;
+        }
+    }
+    bool operator>(const Position& rhs) const { return rhs < *this; }
+    bool operator<=(const Position& rhs) const { return !(*this > rhs); }
+    bool operator>=(const Position& rhs) const { return !(*this < rhs); }
     Position& SetCharacter(int character)
     {
         this->m_character = character;
@@ -153,6 +155,79 @@ public:
 };
 
 //===----------------------------------------------------------------------------------
+// TextDocumentContentChangeEvent
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL TextDocumentContentChangeEvent : public Serializable
+{
+    wxString m_text;
+    Range m_range; // Optional
+
+public:
+    virtual JSONItem ToJSON(const wxString& name) const;
+    virtual void FromJSON(const JSONItem& json);
+
+    TextDocumentContentChangeEvent() {}
+    TextDocumentContentChangeEvent(const wxString& text)
+        : m_text(text)
+    {
+    }
+    virtual ~TextDocumentContentChangeEvent() {}
+    TextDocumentContentChangeEvent& SetText(const wxString& text);
+    const wxString& GetText() const { return m_text; }
+    const Range& GetRange() const { return m_range; }
+    void SetRange(const Range& range) { m_range = range; }
+};
+
+//===----------------------------------------------------------------------------------
+// TextDocumentIdentifier
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL TextDocumentIdentifier : public Serializable
+{
+    URI m_filename;
+
+public:
+    virtual JSONItem ToJSON(const wxString& name) const;
+    virtual void FromJSON(const JSONItem& json);
+
+    TextDocumentIdentifier() {}
+    TextDocumentIdentifier(const wxString& filename) { URI::FromString(filename, &m_filename); }
+
+    virtual ~TextDocumentIdentifier() {}
+    TextDocumentIdentifier& SetFilename(const wxString& filename)
+    {
+        URI::FromString(filename, &m_filename);
+        return *this;
+    }
+    const wxString& GetPath() const { return m_filename.GetPath(); }
+    const wxString& GetPathAsURI() const { return m_filename.GetUrl(); }
+};
+
+//===----------------------------------------------------------------------------------
+// VersionedTextDocumentIdentifier
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL VersionedTextDocumentIdentifier : public TextDocumentIdentifier
+{
+    int m_version = 1;
+
+public:
+    virtual JSONItem ToJSON(const wxString& name) const;
+    virtual void FromJSON(const JSONItem& json);
+
+    VersionedTextDocumentIdentifier() {}
+    VersionedTextDocumentIdentifier(int version)
+        : m_version(version)
+    {
+    }
+    virtual ~VersionedTextDocumentIdentifier() {}
+    VersionedTextDocumentIdentifier& SetVersion(int version)
+    {
+        this->m_version = version;
+        return *this;
+    }
+    int GetVersion() const { return m_version; }
+};
+
+//===----------------------------------------------------------------------------------
 // TextEdit
 //===----------------------------------------------------------------------------------
 
@@ -175,18 +250,21 @@ public:
 
 class WXDLLIMPEXP_CL Location : public Serializable
 {
-    wxString m_uri;
+    URI m_uri;
     Range m_range;
+    wxString m_pattern;
+    wxString m_name;
 
 public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
 
     Location(const wxString& uri, const Range& range)
-        : m_uri(uri)
-        , m_range(range)
+        : m_range(range)
     {
+        URI::FromString(uri, &m_uri);
     }
+
     Location() {}
     virtual ~Location() {}
     Location& SetRange(const Range& range)
@@ -194,13 +272,19 @@ public:
         this->m_range = range;
         return *this;
     }
-    Location& SetUri(const wxString& uri)
+    Location& SetPath(const wxString& path)
     {
-        this->m_uri = uri;
+        URI::FromString(path, &m_uri);
         return *this;
     }
+
     const Range& GetRange() const { return m_range; }
-    const wxString& GetUri() const { return m_uri; }
+    const wxString& GetPathAsURI() const { return m_uri.GetUrl(); }
+    const wxString& GetPath() const { return m_uri.GetPath(); }
+    void SetPattern(const wxString& pattern) { this->m_pattern = pattern; }
+    const wxString& GetPattern() const { return m_pattern; }
+    void SetName(const wxString& name) { this->m_name = name; }
+    const wxString& GetName() const { return m_name; }
 };
 
 //===----------------------------------------------------------------------------------
@@ -208,7 +292,7 @@ public:
 //===----------------------------------------------------------------------------------
 class WXDLLIMPEXP_CL TextDocumentItem : public Serializable
 {
-    wxFileName m_uri;
+    URI m_uri;
     wxString m_languageId;
     wxString m_text;
     int m_version = 1;
@@ -217,13 +301,14 @@ public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
 
-    TextDocumentItem(const wxFileName& uri, const wxString& langId, const wxString& text, int version = 1)
-        : m_uri(uri)
-        , m_languageId(langId)
+    TextDocumentItem(const wxString& uri, const wxString& langId, const wxString& text, int version = 1)
+        : m_languageId(langId)
         , m_text(text)
         , m_version(version)
     {
+        URI::FromString(uri, &m_uri);
     }
+
     TextDocumentItem() {}
     virtual ~TextDocumentItem() {}
     TextDocumentItem& SetLanguageId(const wxString& languageId)
@@ -231,16 +316,17 @@ public:
         this->m_languageId = languageId;
         return *this;
     }
-    TextDocumentItem& SetText(const wxString& text)
+    TextDocumentItem& SetText(const std::string& text)
     {
         this->m_text = text;
         return *this;
     }
-    TextDocumentItem& SetUri(const wxFileName& uri)
+    TextDocumentItem& SetUri(const wxString& uri)
     {
-        this->m_uri = uri;
+        URI::FromString(uri, &m_uri);
         return *this;
     }
+
     TextDocumentItem& SetVersion(int version)
     {
         this->m_version = version;
@@ -248,7 +334,8 @@ public:
     }
     const wxString& GetLanguageId() const { return m_languageId; }
     const wxString& GetText() const { return m_text; }
-    const wxFileName& GetUri() const { return m_uri; }
+    const wxString& GetPathAsURI() const { return m_uri.GetUrl(); }
+    const wxString& GetPath() const { return m_uri.GetPath(); }
     int GetVersion() const { return m_version; }
 };
 
@@ -344,10 +431,78 @@ public:
     virtual JSONItem ToJSON(const wxString& name) const;
 };
 
+class WXDLLIMPEXP_CL MarkupContent : public LSP::Serializable
+{
+    wxString m_kind;
+    wxString m_value;
+
+public:
+    MarkupContent() {}
+    virtual ~MarkupContent() {}
+    MarkupContent& SetKind(const wxString& kind)
+    {
+        this->m_kind = kind;
+        return *this;
+    }
+    const wxString& GetKind() const { return m_kind; }
+    MarkupContent& SetValue(const wxString& value)
+    {
+        this->m_value = value;
+        return *this;
+    }
+    const wxString& GetValue() const { return m_value; }
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+};
+
+class WXDLLIMPEXP_CL Hover : public LSP::Serializable
+{
+    MarkupContent m_contents;
+    Range m_range;
+
+public:
+    Hover() {}
+    virtual ~Hover() {}
+    Hover& SetContents(const MarkupContent& contents)
+    {
+        this->m_contents = contents;
+        return *this;
+    }
+    const MarkupContent& GetContents() const { return m_contents; }
+    Hover& SetRange(const Range& range)
+    {
+        this->m_range = range;
+        return *this;
+    }
+    const Range& GetRange() const { return m_range; }
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+};
+
+enum DiagnosticSeverity {
+    /**
+     * Reports an error.
+     */
+    Error = 1,
+    /**
+     * Reports a warning.
+     */
+    Warning = 2,
+    /**
+     * Reports an information.
+     */
+    Information = 3,
+    /**
+     * Reports a hint.
+     */
+    Hint = 4,
+};
+
 class WXDLLIMPEXP_CL Diagnostic : public Serializable
 {
     Range m_range;
     wxString m_message;
+    DiagnosticSeverity m_severity = DiagnosticSeverity::Error;
 
 public:
     virtual void FromJSON(const JSONItem& json);
@@ -372,6 +527,150 @@ public:
         return *this;
     }
     const wxString& GetMessage() const { return m_message; }
+    void SetSeverity(const DiagnosticSeverity& severity) { this->m_severity = severity; }
+    const DiagnosticSeverity& GetSeverity() const { return m_severity; }
 };
+
+class WXDLLIMPEXP_CL Command : public Serializable
+{
+    wxString m_title;
+    wxString m_command;
+    wxString m_arguments;
+
+public:
+    void FromJSON(const JSONItem& json) override;
+    JSONItem ToJSON(const wxString& name) const override;
+
+    Command() {}
+    virtual ~Command() {}
+
+    void SetTitle(const wxString& title) { this->m_title = title; }
+    void SetCommand(const wxString& command) { this->m_command = command; }
+    void SetArguments(const wxString& arguments) { this->m_arguments = arguments; }
+
+    const wxString& GetTitle() const { return m_title; }
+    const wxString& GetCommand() const { return m_command; }
+    const wxString& GetArguments() const { return m_arguments; }
+};
+
+class WXDLLIMPEXP_CL DocumentSymbol : public Serializable
+{
+    /**
+     * The name of this symbol. Will be displayed in the user interface and therefore must not be
+     * an empty string or a string only consisting of white spaces.
+     */
+    wxString name;
+
+    /**
+     * More detail for this symbol, e.g the signature of a function.
+     */
+    wxString detail;
+
+    /**
+     * The kind of this symbol.
+     */
+    eSymbolKind kind;
+
+    /**
+     * The range enclosing this symbol not including leading/trailing whitespace but everything else
+     * like comments. This information is typically used to determine if the clients cursor is
+     * inside the symbol to reveal in the symbol in the UI.
+     */
+    Range range;
+
+    /**
+     * The range that should be selected and revealed when this symbol is being picked, e.g the name of a function.
+     * Must be contained by the `range`.
+     */
+    Range selectionRange;
+
+    /**
+     * Children of this symbol, e.g. properties of a class.
+     */
+    std::vector<DocumentSymbol> children;
+
+public:
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    DocumentSymbol() {}
+    virtual ~DocumentSymbol() {}
+
+    void SetChildren(const std::vector<DocumentSymbol>& children) { this->children = children; }
+    void SetDetail(const wxString& detail) { this->detail = detail; }
+    void SetKind(const eSymbolKind& kind) { this->kind = kind; }
+    void SetName(const wxString& name) { this->name = name; }
+    void SetRange(const Range& range) { this->range = range; }
+    void SetSelectionRange(const Range& selectionRange) { this->selectionRange = selectionRange; }
+    const std::vector<DocumentSymbol>& GetChildren() const { return children; }
+    const wxString& GetDetail() const { return detail; }
+    const eSymbolKind& GetKind() const { return kind; }
+    const wxString& GetName() const { return name; }
+    const Range& GetRange() const { return range; }
+    const Range& GetSelectionRange() const { return selectionRange; }
+};
+
+class WXDLLIMPEXP_CL SymbolInformation : public Serializable
+{
+    /**
+     * The name of this symbol.
+     */
+    wxString name;
+
+    /**
+     * The kind of this symbol.
+     */
+    eSymbolKind kind;
+
+    /**
+     * The location of this symbol. The location's range is used by a tool
+     * to reveal the location in the editor. If the symbol is selected in the
+     * tool the range's start information is used to position the cursor. So
+     * the range usually spans more then the actual symbol's name and does
+     * normally include things like visibility modifiers.
+     *
+     * The range doesn't have to denote a node range in the sense of a abstract
+     * syntax tree. It can therefore not be used to re-construct a hierarchy of
+     * the symbols.
+     */
+    Location location;
+
+    /**
+     * The name of the symbol containing this symbol. This information is for
+     * user interface purposes (e.g. to render a qualifier in the user interface
+     * if necessary). It can't be used to re-infer a hierarchy for the document
+     * symbols.
+     */
+    wxString containerName;
+
+public:
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    SymbolInformation() {}
+    virtual ~SymbolInformation() {}
+
+    void SetContainerName(const wxString& containerName) { this->containerName = containerName; }
+    void SetKind(const eSymbolKind& kind) { this->kind = kind; }
+    void SetLocation(const Location& location) { this->location = location; }
+    void SetName(const wxString& name) { this->name = name; }
+    const wxString& GetContainerName() const { return containerName; }
+    const eSymbolKind& GetKind() const { return kind; }
+    const Location& GetLocation() const { return location; }
+    const wxString& GetName() const { return name; }
+};
+
+/// Initialise the library
+WXDLLIMPEXP_CL void Initialise();
+
+/// convert native file path to URI
+WXDLLIMPEXP_CL wxString FileNameToURI(const wxString& filename);
+
+/// Return the log handle of this library
+WXDLLIMPEXP_CL clModuleLogger& GetLogHandle();
+
+/// Parse the text edit from a reponse "result" field
+WXDLLIMPEXP_CL std::unordered_map<wxString, std::vector<LSP::TextEdit>> ParseWorkspaceEdit(const JSONItem& result);
+
 };     // namespace LSP
 #endif // JSONRPC_BASICTYPES_H

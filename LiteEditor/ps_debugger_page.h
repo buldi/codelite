@@ -51,8 +51,9 @@ protected:
 
     // Handlers for PSDebuggerPageBase events.
     void OnCmdEvtVModified( wxCommandEvent& event );
+    void OnStcEvtVModified( wxStyledTextEvent& event );
     void OnRemoteDebugUI( wxUpdateUIEvent& event );
-    void DoAddPath(wxStringClientData* path);
+    void DoAddPath(const wxString& path);
 
 public:
     /** Constructor */

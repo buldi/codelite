@@ -23,6 +23,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#include "wxterminal.h"
+
 #include "ColoursAndFontsManager.h"
 #include "asyncprocess.h"
 #include "clTerminalHistory.h"
@@ -32,7 +34,7 @@
 #include "globals.h"
 #include "lexer_configuration.h"
 #include "processreaderthread.h"
-#include "wxterminal.h"
+
 #include <algorithm>
 #include <wx/app.h>
 #include <wx/filename.h>
@@ -52,7 +54,7 @@
 #endif
 
 #include <signal.h>
-#define SHELL_PREFIX wxT("/bin/sh -c ")
+#define SHELL_PREFIX wxT("/bin/bash -c ")
 #define SHELL_WRAPPER wxT("'")
 #endif
 
@@ -62,15 +64,16 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #elif __NetBSD__
-#include <util.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <util.h>
 #else
 #include <pty.h>
 #endif
 #include "unixprocess_impl.h"
 #elif defined(__WXMAC__)
 #include "unixprocess_impl.h"
+
 #include <util.h>
 #endif
 
@@ -100,8 +103,8 @@ wxTerminal::wxTerminal(wxWindow* parent)
         m_textCtrl->MarkerSetBackground(MARKER_ID, lexer->GetProperty(0).GetBgColour());
     }
 
-    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_COPY);
-    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_CUT);
+    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_CUT);
+    wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_COPY);
     wxTheApp->Bind(wxEVT_MENU, &wxTerminal::OnSelectAll, this, wxID_SELECTALL);
 
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &wxTerminal::OnReadProcessOutput, this);
@@ -120,8 +123,8 @@ wxTerminal::~wxTerminal()
     Unbind(wxEVT_IDLE, &wxTerminal::OnIdle, this);
     Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &wxTerminal::OnReadProcessOutput, this);
     Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &wxTerminal::OnProcessEnd, this);
-    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_COPY);
-    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_CUT);
+    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCut, this, wxID_CUT);
+    wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnCopy, this, wxID_COPY);
     wxTheApp->Unbind(wxEVT_MENU, &wxTerminal::OnSelectAll, this, wxID_SELECTALL);
 }
 
@@ -129,7 +132,9 @@ void wxTerminal::OnEnter()
 {
     if(m_interactive) {
         wxString lineText = GetCommandText();
-        if(lineText.IsEmpty()) { return; }
+        if(lineText.IsEmpty()) {
+            return;
+        }
         clCommandEvent event(wxEVT_TERMINAL_EXECUTE_COMMAND);
         event.SetEventObject(this);
         event.SetString(lineText);
@@ -146,7 +151,8 @@ void wxTerminal::OnEnter()
 void wxTerminal::OnUp(wxKeyEvent& event)
 {
     const wxString& command = m_history->ArrowUp();
-    if(command.IsEmpty()) return;
+    if(command.IsEmpty())
+        return;
     InsertCommandText(command);
 }
 
@@ -176,7 +182,8 @@ void wxTerminal::DoCtrlC()
 
 void wxTerminal::Execute(const wxString& command, bool exitWhenDone, const wxString& workingDir)
 {
-    if(m_process) return;
+    if(m_process)
+        return;
     m_textCtrl->ClearAll();
     m_textCtrl->SetFocus();
 
@@ -189,17 +196,18 @@ void wxTerminal::DoProcessCommand(const wxString& command)
 {
     wxString cmd(command);
     cmd.Trim().Trim(false);
-    if(cmd.IsEmpty()) return;
+    if(cmd.IsEmpty())
+        return;
     m_history->Add(cmd);
 
     wxString path;
     // Add the shell prefix
-    ::WrapInShell(cmd);
     wxString cmdShell;
     cmdShell.swap(cmd);
 
     // real command
-    IProcess* cmdPrc = ::CreateAsyncProcess(this, cmdShell, IProcessCreateWithHiddenConsole, m_workingDir);
+    IProcess* cmdPrc =
+        ::CreateAsyncProcess(this, cmdShell, IProcessCreateWithHiddenConsole | IProcessWrapInShell, m_workingDir);
     if(cmdPrc) {
         m_process = cmdPrc;
 
@@ -240,7 +248,9 @@ wxString wxTerminal::StartTTY()
     m_process = NULL;
     // Open the master side of a pseudo terminal
     int master = ::posix_openpt(O_RDWR | O_NOCTTY);
-    if(master < 0) { return ""; }
+    if(master < 0) {
+        return "";
+    }
 
     // Grant access to the slave pseudo terminal
     if(::grantpt(master) < 0) {
@@ -292,7 +302,9 @@ void wxTerminal::DoFlushOutputBuffer()
 {
     if(!m_outputBuffer.IsEmpty()) {
         CaretToEnd();
-        if(!m_outputBuffer.EndsWith("\n")) { m_outputBuffer << "\n"; }
+        if(!m_outputBuffer.EndsWith("\n")) {
+            m_outputBuffer << "\n";
+        }
         AddTextRaw(m_outputBuffer);
         m_outputBuffer.Clear();
     }
@@ -304,7 +316,9 @@ void wxTerminal::OnCopy(wxCommandEvent& event)
         event.Skip();
         return;
     }
-    if(m_textCtrl->CanCopy()) { m_textCtrl->Copy(); }
+    if(m_textCtrl->CanCopy()) {
+        m_textCtrl->Copy();
+    }
 }
 
 void wxTerminal::OnCut(wxCommandEvent& event)
@@ -313,7 +327,9 @@ void wxTerminal::OnCut(wxCommandEvent& event)
         event.Skip();
         return;
     }
-    if(m_textCtrl->CanCut()) { m_textCtrl->Cut(); }
+    if(m_textCtrl->CanCut()) {
+        m_textCtrl->Cut();
+    }
 }
 
 void wxTerminal::OnSelectAll(wxCommandEvent& event)
@@ -328,25 +344,32 @@ void wxTerminal::OnSelectAll(wxCommandEvent& event)
 void wxTerminal::OnDown(wxKeyEvent& event)
 {
     const wxString& command = m_history->ArrowDown();
-    if(command.IsEmpty()) return;
+    if(command.IsEmpty())
+        return;
     InsertCommandText(command);
 }
 
 void wxTerminal::OnLeft(wxKeyEvent& event)
 {
     // Don't allow moving LEFT when at the begin of a line
-    if(m_textCtrl->GetColumn(m_textCtrl->GetCurrentPos()) == 0) { return; }
+    if(m_textCtrl->GetColumn(m_textCtrl->GetCurrentPos()) == 0) {
+        return;
+    }
 
     // Right / Left movement is allowed only on the last line
     int curline = m_textCtrl->GetCurrentLine();
-    if(curline == (m_textCtrl->GetLineCount() - 1)) { event.Skip(); }
+    if(curline == (m_textCtrl->GetLineCount() - 1)) {
+        event.Skip();
+    }
 }
 
 void wxTerminal::OnRight(wxKeyEvent& event)
 {
     // Right / Left movement is allowed only on the last line
     int curline = m_textCtrl->GetCurrentLine();
-    if(curline == (m_textCtrl->GetLineCount() - 1)) { event.Skip(); }
+    if(curline == (m_textCtrl->GetLineCount() - 1)) {
+        event.Skip();
+    }
 }
 
 void wxTerminal::InsertCommandText(const wxString& command)
@@ -361,7 +384,8 @@ void wxTerminal::InsertCommandText(const wxString& command)
 wxString wxTerminal::GetCommandText()
 {
     int line_before_last = m_textCtrl->GetLineCount() - 2;
-    if(line_before_last < 0) return "";
+    if(line_before_last < 0)
+        return "";
     int lineStartPos = m_textCtrl->PositionFromLine(line_before_last);
     int lineLen = m_textCtrl->LineLength(line_before_last);
     wxString cmd = m_textCtrl->GetTextRange(lineStartPos, lineStartPos + lineLen);
@@ -390,8 +414,12 @@ void wxTerminal::AddTextWithEOL(const wxString& text)
 {
     wxString textToAdd = text;
     textToAdd.Trim().Trim(false);
-    if(textToAdd.IsEmpty()) { return; }
-    if(!textToAdd.EndsWith("\n")) { textToAdd << "\n"; }
+    if(textToAdd.IsEmpty()) {
+        return;
+    }
+    if(!textToAdd.EndsWith("\n")) {
+        textToAdd << "\n";
+    }
     m_textCtrl->SetReadOnly(false);
     m_textCtrl->AppendText(textToAdd);
     m_textCtrl->GotoPos(m_textCtrl->GetLastPosition());

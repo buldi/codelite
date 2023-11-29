@@ -7,17 +7,15 @@
 #ifndef _CODELITE_OUTLINE_WXCRAFTER_BASE_CLASSES_H
 #define _CODELITE_OUTLINE_WXCRAFTER_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
 #include <wx/panel.h>
 #include <wx/artprov.h>
 #include <wx/sizer.h>
-#include <wx/textctrl.h>
-#include <wx/simplebook.h>
-#include <wx/imaglist.h>
-#include <wx/treectrl.h>
-#include "PHPOutlineTree.h"
+#include <wx/dataview.h>
+#include "clTerminalViewCtrl.hpp"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -34,33 +32,20 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
+// clang-format on
 
 class OutlineTabBaseClass : public wxPanel
 {
 protected:
-    wxTextCtrl* m_textCtrlSearch;
-    wxSimplebook* m_simpleBook;
-    wxPanel* m_panelCxx;
-    wxPanel* m_panelPhp;
-    PHPOutlineTree* m_treeCtrlPhp;
-    wxPanel* m_panelPlaceHolder;
-    wxPanel* m_panelEmpty;
+    clTerminalViewCtrl* m_dvListCtrl;
 
 protected:
-    virtual void OnSearchEnter(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnSearchSymbol(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnPhpItemSelected(wxTreeEvent& event) { event.Skip(); }
-    virtual void OnPhpItemActivated(wxTreeEvent& event) { event.Skip(); }
+    virtual void OnItemSelected(wxDataViewEvent& event) { event.Skip(); }
 
 public:
-    wxTextCtrl* GetTextCtrlSearch() { return m_textCtrlSearch; }
-    wxPanel* GetPanelCxx() { return m_panelCxx; }
-    PHPOutlineTree* GetTreeCtrlPhp() { return m_treeCtrlPhp; }
-    wxPanel* GetPanelPhp() { return m_panelPhp; }
-    wxPanel* GetPanelEmpty() { return m_panelEmpty; }
-    wxPanel* GetPanelPlaceHolder() { return m_panelPlaceHolder; }
-    wxSimplebook* GetSimpleBook() { return m_simpleBook; }
-    OutlineTabBaseClass(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxTAB_TRAVERSAL);
+    clTerminalViewCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    OutlineTabBaseClass(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                        const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL | wxBORDER_NONE);
     virtual ~OutlineTabBaseClass();
 };
 

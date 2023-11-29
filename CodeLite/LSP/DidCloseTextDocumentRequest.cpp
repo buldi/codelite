@@ -1,6 +1,6 @@
 #include "DidCloseTextDocumentRequest.h"
 
-LSP::DidCloseTextDocumentRequest::DidCloseTextDocumentRequest(const wxFileName& filename)
+LSP::DidCloseTextDocumentRequest::DidCloseTextDocumentRequest(const wxString& filename)
 {
     SetMethod("textDocument/didClose");
     m_params.reset(new DidCloseTextDocumentParams());

@@ -24,6 +24,8 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "AddFunctionsImpDlg.h"
+
+#include "ColoursAndFontsManager.h"
 #include "ctags_manager.h"
 #include "globals.h"
 #include "windowattrmanager.h"
@@ -32,29 +34,37 @@ AddFunctionsImpDlg::AddFunctionsImpDlg(wxWindow* parent, const TagEntryPtrVector
     : AddFunctionsImplBaseDlg(parent)
 {
     m_dvListCtrl->SetBitmaps(clGetManager()->GetStdIcons()->GetStandardMimeBitmapListPtr());
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
+    m_dvListCtrl->SetDefaultFont(lexer->GetFontForStyle(0, m_dvListCtrl));
+
     int functionIndex = clGetManager()->GetStdIcons()->GetMimeImageId(BitmapLoader::kFunctionPublic);
     m_dvListCtrl->SetSortFunction(nullptr); // Disable sorting
+
     // Keep the tags
     m_tags = tags;
     // Clear the impl array
     m_implArr.Clear();
+    m_implArr.reserve(tags.size());
     for(size_t i = 0; i < m_tags.size(); ++i) {
         wxVector<wxVariant> cols;
         cols.push_back(::MakeCheckboxVariant(m_tags.at(i)->GetDisplayName(), true, functionIndex));
 
         // keep the implementation as the client data
-        wxString body;
-        TagEntryPtr tag = m_tags.at(i);
-        tag->SetSignature(TagsManagerST::Get()->NormalizeFunctionSig(
-            tag->GetSignature(), Normalize_Func_Name | Normalize_Func_Reverse_Macro));
-        body << TagsManagerST::Get()->FormatFunction(tag, FunctionFormat_Impl);
-        body << wxT("\n");
-        m_implArr.Add(body);
+        TagEntryPtr tag = m_tags[i];
+        wxString body = tag->GetFunctionDefinition();
+        if(tag->GetTypename() == "std::string" || tag->GetTypename() == "string") {
+            body << "\n{ return \"\"; }";
+        } else if(tag->GetTypename() == "bool") {
+            body << "\n{ return false; }";
+        } else {
+            body << "\n{}";
+        }
+
+        m_implArr.Add(body + "\n");
         m_dvListCtrl->AppendItem(cols, (wxUIntPtr)&m_implArr.Item(i));
     }
     m_filePicker->SetPath(targetFile);
-    SetName("AddFunctionsImpDlg");
-    WindowAttrManager::Load(this);
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 AddFunctionsImpDlg::~AddFunctionsImpDlg() {}
@@ -67,14 +77,19 @@ wxString AddFunctionsImpDlg::GetText() const
     for(size_t i = 0; i < m_dvListCtrl->GetItemCount(); ++i) {
         wxDataViewItem item = m_dvListCtrl->RowToItem(i);
         if(m_dvListCtrl->IsItemChecked(item, 0)) {
-            if(text.IsEmpty()) text << "\n";
+            if(text.IsEmpty())
+                text << "\n";
             // checked
             wxString* impl = reinterpret_cast<wxString*>(m_dvListCtrl->GetItemData(item));
-            if(impl) { text << (*impl); }
+            if(impl) {
+                text << (*impl);
+            }
         }
     }
 
-    if(!text.IsEmpty()) { text.RemoveLast(); }
+    if(!text.IsEmpty()) {
+        text.RemoveLast();
+    }
     return text;
 }
 

@@ -29,13 +29,13 @@
 #include <wx/treectrl.h>
 #endif
 
-#include "readtags.h"
-#include <wx/string.h>
-#include <map>
-#include <vector>
-#include "smart_ptr.h"
 #include "codelite_exports.h"
 #include "macros.h"
+#include "smart_ptr.h"
+
+#include <map>
+#include <vector>
+#include <wx/string.h>
 
 class TagEntry;
 typedef SmartPtr<TagEntry> TagEntryPtr;
@@ -56,11 +56,32 @@ typedef std::vector<TagEntryPtr> TagEntryPtrVector_t;
 #define KIND_STRUCT "struct"
 #define KIND_FILE "file"
 
+// make it public
+enum class eTagKind {
+    TAG_KIND_UNKNOWN = -1,
+    TAG_KIND_CLASS,
+    TAG_KIND_STRUCT,
+    TAG_KIND_NAMESPACE,
+    TAG_KIND_UNION,
+    TAG_KIND_ENUM,
+    TAG_KIND_ENUMERATOR,
+    TAG_KIND_CENUM, // class enum
+    TAG_KIND_MEMBER,
+    TAG_KIND_VARIABLE,
+    TAG_KIND_MACRO,
+    TAG_KIND_TYPEDEF,
+    TAG_KIND_LOCAL,
+    TAG_KIND_PARAMETER, // function parameter
+    TAG_KIND_FUNCTION,
+    TAG_KIND_PROTOTYPE,
+    TAG_KIND_KEYWORD,
+};
+
 /**
  * TagEntry is a persistent object which is capable of storing and loading itself from
  * various inputs:
  * - tagEntry (ctags structure)
-  *
+ *
  * It contains all the knowledge of storing and retrieving itself from the database
  *
  * \ingroup CodeLite
@@ -72,25 +93,42 @@ typedef std::vector<TagEntryPtr> TagEntryPtrVector_t;
  */
 class WXDLLIMPEXP_CL TagEntry
 {
-    wxString m_path;           ///< Tag full path
-    wxString m_file;           ///< File this tag is found
-    int m_lineNumber;          ///< Line number
-    wxString m_pattern;        ///< A pattern that can be used to locate the tag in the file
-    wxString m_kind;           ///< Member, function, class, typedef etc.
-    wxString m_parent;         ///< Direct parent
+private:
+    enum eTagFlag {
+        TAG_PROP_CONST = (1 << 0),
+        TAG_PROP_VIRTUAL = (1 << 2),
+        TAG_PROP_STATIC = (1 << 3),
+        TAG_PROP_DEFAULT = (1 << 4),
+        TAG_PROP_OVERRIDE = (1 << 5),
+        TAG_PROP_DELETED = (1 << 6),
+        TAG_PROP_INLINE = (1 << 7),
+        TAG_PROP_PURE = (1 << 8),
+        TAG_PROP_SCOPEDENUM = (1 << 9),
+        TAG_PROP_AUTO_VARIABLE = (1 << 10),
+        TAG_PROP_LAMBDA = (1 << 11),
+    };
+
+private:
+    wxString m_path;    ///< Tag full path
+    wxString m_file;    ///< File this tag is found
+    int m_lineNumber;   ///< Line number
+    wxString m_pattern; ///< A pattern that can be used to locate the tag in the file
+    wxString m_kind;    ///< Member, function, class, typedef etc.
+    wxString m_parent;  ///< Direct parent
 #if wxUSE_GUI
-    wxTreeItemId m_hti;        ///< Handle to tree item, not persistent item
+    wxTreeItemId m_hti; ///< Handle to tree item, not persistent item
 #endif
     wxString m_name;           ///< Tag name (short name, excluding any scope names)
     wxStringMap_t m_extFields; ///< Additional extension fields
     long m_id;
     wxString m_scope;
-    bool m_differOnByLineNumber;
-    bool m_isClangTag;
     size_t m_flags;     // This member is not saved into the database
     wxString m_comment; // This member is not saved into the database
-    wxString m_formattedComment;
-    bool m_isCommentForamtted;
+    wxString m_template_definition;
+    wxString m_tag_properties;
+    size_t m_tag_properties_flags = 0; // bitwise eTagFlag
+    eTagKind m_tag_kind = eTagKind::TAG_KIND_UNKNOWN;
+    wxString m_assignment;
 
 public:
     enum {
@@ -116,13 +154,9 @@ public:
         }
     };
 
-public:
-    /**
-     * Construct a TagEntry from tagEntry struct
-     * \param entry Tag entry
-     */
-    TagEntry(const tagEntry& entry);
+    void set_extra_field(const wxString& name, const wxString& value);
 
+public:
     void SetComment(const wxString& comment) { this->m_comment = comment; }
     const wxString& GetComment() const { return m_comment; }
     void SetFlags(size_t flags) { this->m_flags = flags; }
@@ -133,6 +167,48 @@ public:
     TagEntry();
 
     void FromLine(const wxString& line);
+
+    bool IsClassTemplate() const;
+    wxString GetTemplateDefinition() const;
+
+    // function properties
+    bool is_func_virtual() const;
+    bool is_func_default() const;
+    bool is_func_override() const;
+    bool is_func_deleted() const;
+    bool is_func_inline() const;
+    bool is_func_pure() const;
+    bool is_const() const;
+    bool is_static() const;
+    bool is_scoped_enum() const;
+    bool is_auto() const;
+    bool is_lambda() const;
+    const wxString& get_assigment() const { return m_assignment; }
+
+    void SetTagProperties(const wxString& prop);
+    const wxString& GetTagProperties() const { return m_tag_properties; }
+
+    /**
+     * @brief assuming this tag is a variable, return its rvalue
+     * this is done by parsing the pattern
+     */
+    static wxString TypenameFromPattern(const TagEntry* tag);
+
+    /**
+     * @brief return true if this tag a local variable of type `auto`
+     */
+    static bool IsAuto(const TagEntry* tag);
+
+    /**
+     * @brief create a function signature (including return value + properties)
+     * that could be used in a header file
+     */
+    wxString GetFunctionDeclaration() const;
+
+    /**
+     * @brief create a function signature that could be used in a definition file
+     */
+    wxString GetFunctionDefinition() const;
 
     /**
      * Copy constructor.
@@ -163,10 +239,9 @@ public:
     bool IsTemplateFunction() const;
 
     /**
-     * Construct a TagEntry from tagEntry struct.
-     * \param entry Tag entry
+     * @brief is this a local variable?
      */
-    void Create(const tagEntry& entry);
+    bool IsLocalVariable() const;
 
     /**
      * Construct a TagEntry from values.
@@ -213,12 +288,19 @@ public:
     bool IsStruct() const;
     bool IsScopeGlobal() const;
     bool IsTypedef() const;
+    bool IsMember() const;
+    bool IsNamespace() const;
+    bool IsEnum() const;
+    bool IsEnumClass() const;
+    bool IsParameter() const;
+    bool IsVariable() const;
+    bool IsUnion() const;
+    bool IsEnumerator() const;
+    bool IsKeyword() const;
 
     //------------------------------------------
     // Operations
     //------------------------------------------
-    bool GetDifferOnByLineNumber() const { return m_differOnByLineNumber; }
-
     int GetId() const { return m_id; }
     void SetId(int id) { m_id = id; }
 
@@ -243,7 +325,7 @@ public:
     void SetPattern(const wxString& pattern) { m_pattern = pattern; }
 
     wxString GetKind() const;
-    void SetKind(const wxString& kind) { m_kind = kind; }
+    void SetKind(const wxString& kind);
 
     const wxString& GetParent() const { return m_parent; }
     void SetParent(const wxString& parent) { m_parent = parent; }
@@ -253,22 +335,21 @@ public:
 #endif
 
     wxString GetAccess() const { return GetExtField(_T("access")); }
-    void SetAccess(const wxString& access) { m_extFields[wxT("access")] = access; }
+    void SetAccess(const wxString& access) { set_extra_field("access", access); }
 
     wxString GetSignature() const { return GetExtField(_T("signature")); }
-    void SetSignature(const wxString& sig) { m_extFields[wxT("signature")] = sig; }
-
-    void SetInherits(const wxString& inherits) { m_extFields[_T("inherits")] = inherits; }
-    void SetTyperef(const wxString& typeref) { m_extFields[_T("typeref")] = typeref; }
+    void SetSignature(const wxString& sig) { set_extra_field("signature", sig); }
+    void SetInherits(const wxString& inherits) { set_extra_field("inherits", inherits); }
 
     wxString GetInheritsAsString() const;
     wxArrayString GetInheritsAsArrayNoTemplates() const;
     wxArrayString GetInheritsAsArrayWithTemplates() const;
 
-    wxString GetTyperef() const { return GetExtField(_T("typeref")); }
-
-    void SetReturnValue(const wxString& retVal) { m_extFields[_T("returns")] = retVal; }
-    wxString GetReturnValue() const;
+    wxString GetTypename() const;
+    wxString GetMacrodef() const;
+    void SetTypename(const wxString& value);
+    void SetMacrodef(const wxString& value);
+    void SetTemplateDefinition(const wxString& def) { set_extra_field("template", def); }
 
     const wxString& GetScope() const { return m_scope; }
     void SetScope(const wxString& scope) { m_scope = scope; }
@@ -287,6 +368,11 @@ public:
     wxString Key() const;
 
     /**
+     * @brief return the local variable type
+     */
+    wxString GetLocalType() const;
+
+    /**
      * Generate a display name for this tag to be used by the symbol tree
      * \return tag display name
      */
@@ -299,53 +385,16 @@ public:
      */
     wxString GetFullDisplayName() const;
 
-    /**
-     * Return the actual name as described in the 'typeref' field
-     * \return real name or wxEmptyString
-     */
-    wxString NameFromTyperef(wxString& templateInitList, bool nameIncludeTemplate = false);
-
-    /**
-     * Return the actual type as described in the 'typeref' field
-     * \return real name or wxEmptyString
-     */
-    wxString TypeFromTyperef() const;
     //------------------------------------------
     // Extenstion fields
     //------------------------------------------
-    wxString GetExtField(const wxString& extField) const
-    {
-        wxStringMap_t::const_iterator iter = m_extFields.find(extField);
-        if(iter == m_extFields.end()) return wxEmptyString;
-        return iter->second;
-    }
+    const wxString& GetExtField(const wxString& extField) const;
 
-    /**
-     * @brief mark this tag has clang generated tag
-     */
-    void SetIsClangTag(bool isClangTag) { this->m_isClangTag = isClangTag; }
-
-    /**
-     * @brief return true if this tag was generated by clang
-     */
-    bool GetIsClangTag() const { return m_isClangTag; }
     //------------------------------------------
     // Misc
     //------------------------------------------
     void Print();
-
     TagEntryPtr ReplaceSimpleMacro();
-
-    /**
-     * @brief return 0 if the values are the same. < 0 if a < b and > 0 if a > b
-     */
-    int CompareDisplayString(const TagEntryPtr& rhs) const;
-
-    /**
-     * @brief format a comment for this tag. The format uses codelite's syntax formatting
-     * that can be used later on in the various tooltip windows
-     */
-    wxString FormatComment();
 
 private:
     /**
@@ -353,8 +402,6 @@ private:
      * \param path path to add
      */
     void UpdatePath(wxString& path);
-    bool TypedefFromPattern(const wxString& tagPattern, const wxString& typedefName, wxString& name,
-                            wxString& templateInit, bool nameIncludeTemplate = false);
 };
 
 #endif // CODELITE_ENTRY_H

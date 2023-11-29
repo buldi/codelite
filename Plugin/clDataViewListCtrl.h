@@ -1,12 +1,15 @@
 #ifndef CLDATAVIEWLISTCTRL_H
 #define CLDATAVIEWLISTCTRL_H
 
+#include "clCellValue.h"
 #include "clTreeCtrl.h"
+
 #include <unordered_map>
 #include <wx/dataview.h>
 
 // Extra styles supported by this class
 #define wxDV_ENABLE_SEARCH wxTR_ENABLE_SEARCH
+#define wxDV_COLUMN_WIDTH_NEVER_SHRINKS wxTR_COLUMN_WIDTH_NEVER_SHRINKS
 
 // Search flags
 // See wxTR_SEARCH* for more info
@@ -16,6 +19,17 @@
 #define wxDV_SEARCH_ICASE wxTR_SEARCH_ICASE
 #define wxDV_SEARCH_INCLUDE_CURRENT_ITEM wxTR_SEARCH_INCLUDE_CURRENT_ITEM
 #define wxDV_SEARCH_DEFAULT wxTR_SEARCH_DEFAULT
+
+enum class CellType {
+    UNKNOWN = -1,
+    TEXT = 0,
+    COLOUR = 1,
+    CHECKBOX_TEXT = 2,
+    TEXT_EDIT = 3,
+    TEXT_OPTIONS = 4,
+};
+
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_SELECTION_CHANGING, wxDataViewEvent);
 
 /**
  * @brief a thin wrapper around clTreeCtrl which provides basic compatiblity API (such as adding columns)
@@ -37,11 +51,29 @@ public:
                        const wxSize& size = wxDefaultSize, long style = 0);
     virtual ~clDataViewListCtrl();
 
+    void ScrollToBottom();
+
+    /**
+     * @brief return the cell data type
+     */
+    CellType GetCellDataType(size_t row, size_t col) const;
+    CellType GetCellDataType(const wxDataViewItem& item, size_t col) const;
+
+    /**
+     * @brief make row the first visible row in the view
+     */
+    void SetFirstVisibleRow(size_t row);
+
+    /**
+     * @brief center row in the view
+     */
+    void CenterRow(size_t row);
+
     /**
      * @brief how many items can scroll in the view?
      */
-    int GetRange() const { return GetItemCount(); }
-    bool IsEmpty() const { return GetItemCount() == 0; }
+    int GetRange() const override { return GetItemCount(); }
+    bool IsEmpty() const override { return GetItemCount() == 0; }
 
     ///===--------------------
     /// Search support
@@ -90,7 +122,7 @@ public:
     wxDataViewItem InsertItem(const wxDataViewItem& previous, const wxString& text, int image = -1, int selImage = -1,
                               wxUIntPtr data = 0);
 
-    void AppendItem(const wxVector<wxVariant>& values, wxUIntPtr data = 0);
+    wxDataViewItem AppendItem(const wxVector<wxVariant>& values, wxUIntPtr data = 0);
 
     wxDataViewColumn* AppendIconTextColumn(const wxString& label, wxDataViewCellMode mode = wxDATAVIEW_CELL_INERT,
                                            int width = -1, wxAlignment align = wxALIGN_LEFT,
@@ -134,7 +166,7 @@ public:
     void SetItemFont(const wxDataViewItem& item, const wxFont& font, size_t col = 0);
     wxFont GetItemFont(const wxDataViewItem& item, size_t col = 0) const;
 
-    virtual void EnableStyle(int style, bool enable, bool refresh = true);
+    void EnableStyle(int style, bool enable, bool refresh = true) override;
 
     clHeaderItem* GetColumn(size_t index);
     size_t GetItemCount() const;
@@ -161,7 +193,7 @@ public:
     /**
      * @brief set sorting function AND apply it
      */
-    void SetSortFunction(const clSortFunc_t& CompareFunc);
+    void SetSortFunction(const clSortFunc_t& CompareFunc) override;
 
     /**
      * @brief remove all columns from the control
@@ -177,6 +209,26 @@ public:
      * @brief display a string selection menu for a given cell. The selection string is set as the cell text
      */
     void ShowStringSelectionMenu(const wxDataViewItem& item, const wxArrayString& choices, size_t col = 0);
+
+    /**
+     * @brief Returns index of the selected row or wxNOT_FOUND.
+     */
+    int GetSelectedRow() const;
+
+    /**
+     * @brief Selects given row.
+     */
+    void SelectRow(size_t row);
+
+    /**
+     * @brief Unselects given row
+     */
+    void UnselectRow(size_t row);
+
+    /**
+     * @brief Returns true if row is selected
+     */
+    bool IsRowSelected(size_t row) const;
 };
 
 // Helper class passing bitmap index + text
@@ -271,29 +323,60 @@ public:
 DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewCheckbox, WXDLLIMPEXP_SDK)
 
 // Helper class passing bitmap bool + label with possible bitmap index
-class WXDLLIMPEXP_SDK clDataViewChoice : public wxObject
+class WXDLLIMPEXP_SDK clDataViewTextWithButton : public wxObject
+{
+private:
+    wxString m_label;
+    int m_bitmapIndex = wxNOT_FOUND;
+    eCellButtonType m_button_kind = eCellButtonType::BT_NONE;
+
+public:
+    clDataViewTextWithButton(const wxString& label, eCellButtonType button, int bitmapIndex)
+        : m_label(label)
+        , m_bitmapIndex(bitmapIndex)
+        , m_button_kind(button)
+    {
+    }
+
+    clDataViewTextWithButton() {}
+    virtual ~clDataViewTextWithButton() {}
+
+    void SetBitmapIndex(int index) { m_bitmapIndex = index; }
+    int GetBitmapIndex() const { return m_bitmapIndex; }
+
+    eCellButtonType GetButtonType() const { return m_button_kind; }
+
+    void SetLabel(const wxString& label) { this->m_label = label; }
+    const wxString& GetLabel() const { return m_label; }
+    const wxString& GetButtonUnicodeSymbol() const;
+
+    bool IsSameAs(const clDataViewTextWithButton& other) const
+    {
+        return m_label == other.m_label && m_bitmapIndex == other.m_bitmapIndex;
+    }
+    bool operator==(const clDataViewTextWithButton& other) const { return IsSameAs(other); }
+    bool operator!=(const clDataViewTextWithButton& other) const { return !IsSameAs(other); }
+    wxDECLARE_DYNAMIC_CLASS(clDataViewTextWithButton);
+};
+
+DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewTextWithButton, WXDLLIMPEXP_SDK)
+
+// Helper class passing button as a cell content
+class WXDLLIMPEXP_SDK clDataViewButton : public wxObject
 {
 private:
     wxString m_label;
     int m_bitmapIndex = wxNOT_FOUND;
 
 public:
-    clDataViewChoice(const wxString& label, int bitmapIndex = wxNOT_FOUND)
+    clDataViewButton(const wxString& label, int bitmapIndex)
         : m_label(label)
         , m_bitmapIndex(bitmapIndex)
     {
     }
 
-    clDataViewChoice(const clDataViewChoice& other)
-        : wxObject()
-        , m_label(other.m_label)
-        , m_bitmapIndex(other.m_bitmapIndex)
-    {
-    }
-
-    clDataViewChoice() {}
-
-    virtual ~clDataViewChoice() {}
+    clDataViewButton() {}
+    virtual ~clDataViewButton() {}
 
     void SetBitmapIndex(int index) { m_bitmapIndex = index; }
     int GetBitmapIndex() const { return m_bitmapIndex; }
@@ -301,22 +384,83 @@ public:
     void SetLabel(const wxString& label) { this->m_label = label; }
     const wxString& GetLabel() const { return m_label; }
 
-    bool IsSameAs(const clDataViewChoice& other) const
+    bool IsSameAs(const clDataViewButton& other) const
     {
         return m_label == other.m_label && m_bitmapIndex == other.m_bitmapIndex;
     }
 
-    bool operator==(const clDataViewChoice& other) const { return IsSameAs(other); }
-    bool operator!=(const clDataViewChoice& other) const { return !IsSameAs(other); }
-
-    wxDECLARE_DYNAMIC_CLASS(clDataViewChoice);
+    bool operator==(const clDataViewButton& other) const { return IsSameAs(other); }
+    bool operator!=(const clDataViewButton& other) const { return !IsSameAs(other); }
+    wxDECLARE_DYNAMIC_CLASS(clDataViewButton);
 };
 
-DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewChoice, WXDLLIMPEXP_SDK)
+DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewButton, WXDLLIMPEXP_SDK)
+
+// Helper class passing bitmap bool + label with possible bitmap index
+class WXDLLIMPEXP_SDK clDataViewColour : public wxObject
+{
+private:
+    wxColour m_colour;
+
+public:
+    clDataViewColour(const wxColour& colour)
+        : m_colour(colour)
+    {
+    }
+
+    clDataViewColour(const clDataViewColour& other)
+        : wxObject()
+        , m_colour(other.m_colour)
+    {
+    }
+
+    clDataViewColour() {}
+    virtual ~clDataViewColour() {}
+
+    void SetColour(const wxColour& colour) { this->m_colour = colour; }
+    const wxColour& GetColour() const { return m_colour; }
+    bool IsSameAs(const clDataViewColour& other) const { return m_colour.IsSameAs(other.m_colour); }
+    bool operator==(const clDataViewColour& other) const { return IsSameAs(other); }
+    bool operator!=(const clDataViewColour& other) const { return !IsSameAs(other); }
+    wxDECLARE_DYNAMIC_CLASS(clDataViewColour);
+};
+
+DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewColour, WXDLLIMPEXP_SDK)
+
+class WXDLLIMPEXP_SDK clDataViewControl : public wxObject
+{
+private:
+    wxControl* m_ctrl = nullptr;
+
+public:
+    clDataViewControl(wxControl* ctrl)
+        : m_ctrl(ctrl)
+    {
+    }
+
+    clDataViewControl(const clDataViewControl& other)
+        : wxObject()
+        , m_ctrl(other.m_ctrl)
+    {
+    }
+
+    clDataViewControl() {}
+    // we do not delete the control
+    virtual ~clDataViewControl() {}
+
+    void SetControl(wxControl* ctrl) { this->m_ctrl = ctrl; }
+    wxControl* GetControl() { return m_ctrl; }
+    bool IsSameAs(const clDataViewControl& other) const { return m_ctrl == other.m_ctrl; }
+    bool operator==(const clDataViewControl& other) const { return IsSameAs(other); }
+    bool operator!=(const clDataViewControl& other) const { return !IsSameAs(other); }
+    wxDECLARE_DYNAMIC_CLASS(clDataViewControl);
+};
+
+DECLARE_VARIANT_OBJECT_EXPORTED(clDataViewControl, WXDLLIMPEXP_SDK)
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_SEARCH_TEXT, wxDataViewEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_CLEAR_SEARCH, wxDataViewEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_CHOICE_BUTTON, wxDataViewEvent);
+wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_ACTION_BUTTON, wxDataViewEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DATAVIEW_CHOICE, wxDataViewEvent);
 
 #endif // CLDATAVIEWLISTCTRL_H

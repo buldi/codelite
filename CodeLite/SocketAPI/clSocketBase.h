@@ -27,18 +27,19 @@
 #define CLSOCKETBASE_H
 
 #include <string>
+#include <sys/param.h>
 #include <wx/msgqueue.h>
 #include <wx/sharedptr.h>
 #include <wx/string.h>
-#ifdef __WXOSX__
+#if defined(__WXOSX__) || defined(BSD)
 #include <sys/errno.h>
 #endif
 #include "codelite_exports.h"
 
-#ifdef _WIN32
-#ifndef _WIN64
-#include <winsock2.h>
-#endif
+#include "wx/defs.h"
+#ifdef __WINDOWS__ // __WINDOWS__ defined by wx/defs.h
+// includes windows.h and if wxUSE_WINSOCK2 is true includes winsock2.h
+#include "wx/msw/wrapwin.h"
 
 typedef SOCKET socket_t;
 typedef int socklen_t;
@@ -67,8 +68,8 @@ public:
 class WXDLLIMPEXP_CL clSocketBase
 {
 protected:
-    socket_t m_socket;
-    bool m_closeOnExit;
+    socket_t m_socket = INVALID_SOCKET;
+    bool m_closeOnExit = true;
 
 public:
     typedef wxSharedPtr<clSocketBase> Ptr_t;
@@ -113,6 +114,11 @@ public:
     static void Initialize();
 
     socket_t GetSocket() const { return m_socket; }
+
+    /**
+     * @brief use user socket handle
+     */
+    void SetSocket(socket_t socket);
 
     /**
      * @brief

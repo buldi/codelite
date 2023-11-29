@@ -26,29 +26,25 @@
 #ifndef __SymbolView__
 #define __SymbolView__
 
+#include "clTabTogglerHelper.h"
+#include "cl_command_event.h"
+#include "dockablepane.h"
+#include "globals.h"
+#include "outline_tab.h"
+#include "plugin.h"
+#include "windowstack.h"
+
 #include <map>
 #include <queue>
 #include <wx/choice.h>
-#include "outline_tab.h"
 #include <wx/imaglist.h>
-#include <wx/treectrl.h>
 #include <wx/splitter.h>
-#include "plugin.h"
-#include "dockablepane.h"
-#include "windowstack.h"
-#include "globals.h"
-#include "cl_command_event.h"
+#include <wx/treectrl.h>
 
 class SymbolViewPlugin : public IPlugin
 {
 protected:
-    OutlineTab* m_view;
-
-protected:
-    bool IsPaneDetached();
-    int DoFindTabIndex();
-    void OnToggleTab(clCommandEvent& event);
-    void OnPageChanged(wxBookCtrlEvent& e);
+    OutlineTab* m_view = nullptr;
 
 public:
     //--------------------------------------------
@@ -60,8 +56,8 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void UnPlug() override;
 };
 #endif // Outline

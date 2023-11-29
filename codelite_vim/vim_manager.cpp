@@ -48,7 +48,7 @@ VimManager::~VimManager()
 void VimManager::OnEditorChanged(wxCommandEvent& event)
 {
     event.Skip();                      // Always call Skip() so other plugins/core components will get this event
-    m_currentCommand.set_ctrl(m_ctrl); // Always keep the current editor. Even when disabled. Otherwise, when opening an
+    m_currentCommand.set_ctrl(clGetManager()->GetActiveEditor()->GetCtrl()); // Always keep the current editor. Even when disabled. Otherwise, when opening an
                                        // editor and *then* enabling the VIM plugin, it may lead to crashes
     if(!m_settings.IsEnabled()) return;
     IEditor* editor = clGetManager()->GetActiveEditor();
@@ -85,6 +85,9 @@ void VimManager::OnKeyDown(wxKeyEvent& event)
                 long pos = m_ctrl->GetCurrentPos();
                 m_ctrl->ClearSelections();
                 m_ctrl->GotoPos(pos);
+            } else if (m_currentCommand.get_current_modus() == VIM_MODI::VISUAL_BLOCK_MODUS) {
+                m_ctrl->SetIndicatorCurrent(VISUAL_BLOCK_INDICATOR);
+                m_ctrl->IndicatorClearRange(0, m_ctrl->GetLength());
             }
             skip_event = m_currentCommand.OnEscapeDown();
             break;
@@ -99,10 +102,15 @@ void VimManager::OnKeyDown(wxKeyEvent& event)
                 m_currentCommand.set_current_word(get_current_word());
                 m_currentCommand.set_current_modus(VIM_MODI::NORMAL_MODUS);
             }
+            skip_event = true;
             if (modifier_key == wxMOD_CONTROL && (ch == 'U' || ch == 'D')) {
                 OnCharEvt(event);
+            } else if (modifier_key == wxMOD_CONTROL && (ch == 'V')) {
+                OnCharEvt(event);
+                if (m_currentCommand.get_current_modus() != VIM_MODI::INSERT_MODUS) {
+                    skip_event = false;
+                }
             }
-            skip_event = true;
             break;
         }
 
@@ -170,6 +178,14 @@ void VimManager::updateMessageModus()
         m_mgr->GetStatusBar()->SetMessage("VISUAL");
         if(status_vim->IsShown()) status_vim->Show(false);
         break;
+    case VIM_MODI::VISUAL_LINE_MODUS:
+        m_mgr->GetStatusBar()->SetMessage("VISUAL LINE");
+        if(status_vim->IsShown()) status_vim->Show(false);
+        break;
+    case VIM_MODI::VISUAL_BLOCK_MODUS:
+        m_mgr->GetStatusBar()->SetMessage("VISUAL BLOCK");
+        if(status_vim->IsShown()) status_vim->Show(false);
+        break;
     case VIM_MODI::INSERT_MODUS:
         m_mgr->GetStatusBar()->SetMessage("INSERT");
         if(status_vim->IsShown()) status_vim->Show(false);
@@ -197,10 +213,10 @@ void VimManager::updateVimMessage()
         m_mgr->GetStatusBar()->SetMessage(_("Saving and Closing"));
         break;
     case MESSAGES_VIM::SEARCHING_WORD:
-        m_mgr->GetStatusBar()->SetMessage("Searching: " + m_currentCommand.getSearchedWord());
+        m_mgr->GetStatusBar()->SetMessage(_("Searching: ") + m_currentCommand.getSearchedWord());
         break;
     default:
-        m_mgr->GetStatusBar()->SetMessage("Unknown Error");
+        m_mgr->GetStatusBar()->SetMessage(_("Unknown Error"));
         break;
     }
 }
@@ -216,6 +232,7 @@ void VimManager::updateCarret()
         m_ctrl->SetCaretStyle(m_caretBlockStyle);
         break;
     case VIM_MODI::VISUAL_MODUS:
+    case VIM_MODI::VISUAL_BLOCK_MODUS:
         m_ctrl->SetCaretStyle(m_caretBlockStyle);
         break;
     case VIM_MODI::INSERT_MODUS:
@@ -388,7 +405,7 @@ void VimManager::setUpVimBarPos()
     // status_vim->SetSize(0, 0, width, wxDefaultCoord);
 }
 
-void VimManager::OnWorkspaceClosing(wxCommandEvent& event)
+void VimManager::OnWorkspaceClosing(clWorkspaceEvent& event)
 {
     event.Skip();
     DeleteAllEditorState();

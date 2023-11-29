@@ -296,7 +296,7 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
     static PluginInfo info;
     info.SetAuthor(wxT("Auria"));
     info.SetName(wxT("MacBundler"));
-    info.SetDescription(wxT("MacBundler : manage OS X app bundles"));
+    info.SetDescription(_("MacBundler : manage OS X app bundles"));
     info.SetVersion(wxT("v0.1"));
     return &info;
 }
@@ -530,7 +530,7 @@ void MacBundler::showSettingsDialogFor(ProjectPtr project)
     project->SetSettings(settings);
 }
 
-void MacBundler::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void MacBundler::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void MacBundler::CreatePluginMenu(wxMenu* pluginsMenu)
 {

@@ -1,4 +1,5 @@
 #include "NodeDebugger.h"
+
 #include "NodeFileManager.h"
 #include "NodeJSDebuggerDlg.h"
 #include "NodeJSEvents.h"
@@ -15,17 +16,24 @@
 #include "imanager.h"
 #include "macros.h"
 #include "processreaderthread.h"
+
 #include <wx/msgdlg.h>
 
-#define NODE_CLI_DEBUGGER_NAME "Node.js - CLI"
+wxString NodeDebugger::NODE_CLI_DEBUGGER_NAME = "Node.js - CLI";
 
 #define CHECK_RUNNING() \
-    if(!IsRunning()) { return; }
+    if(!IsRunning()) {  \
+        return;         \
+    }
 
-#define CHECK_SHOULD_HANDLE(evt)                      \
-    evt.Skip();                                       \
-    if(!IsRunning()) { return; }                      \
-    if(!NodeJSWorkspace::Get()->IsOpen()) { return; } \
+#define CHECK_SHOULD_HANDLE(evt)            \
+    evt.Skip();                             \
+    if(!IsRunning()) {                      \
+        return;                             \
+    }                                       \
+    if(!NodeJSWorkspace::Get()->IsOpen()) { \
+        return;                             \
+    }                                       \
     evt.Skip(false);
 
 NodeDebugger::NodeDebugger()
@@ -105,7 +113,9 @@ void NodeDebugger::ClearDebuggerMarker()
 void NodeDebugger::DoHighlightLine(const wxString& filename, int lineNo)
 {
     IEditor* activeEditor = clGetManager()->OpenFile(filename, "", lineNo - 1);
-    if(activeEditor) { SetDebuggerMarker(activeEditor, lineNo - 1); }
+    if(activeEditor) {
+        SetDebuggerMarker(activeEditor, lineNo - 1);
+    }
 }
 
 void NodeDebugger::SetDebuggerMarker(const wxString& path, int lineno) { DoHighlightLine(path, lineno); }
@@ -122,7 +132,9 @@ void NodeDebugger::OnDebugStart(clDebugEvent& event)
 
     if(!IsRunning()) {
         NodeJSDebuggerDlg dlg(EventNotifier::Get()->TopFrame(), NodeJSDebuggerDlg::kDebugCLI);
-        if(dlg.ShowModal() != wxID_OK) { return; }
+        if(dlg.ShowModal() != wxID_OK) {
+            return;
+        }
 
         wxString command;
         wxString command_args;
@@ -167,7 +179,9 @@ void NodeDebugger::DoCleanup()
     clDEBUG() << "Cleaning Nodejs debugger...";
     m_canInteract = false;
     m_workingDirectory.Clear();
-    if(m_process) { m_process->Terminate(); }
+    if(m_process) {
+        m_process->Terminate();
+    }
     m_socket.Close();
     NodeFileManager::Get().Clear();
     NodeJSDevToolsProtocol::Get().Clear();
@@ -210,7 +224,7 @@ void NodeDebugger::OnProcessTerminated(clProcessEvent& event)
 
 void NodeDebugger::OnProcessOutput(clProcessEvent& event)
 {
-    clDEBUG1() << event.GetOutput();
+    LOG_IF_TRACE { clDEBUG1() << event.GetOutput(); }
     {
         clDebugEvent e(wxEVT_NODEJS_DEBUGGER_UPDATE_CONSOLE);
         e.SetString(event.GetOutput());
@@ -241,32 +255,24 @@ void NodeDebugger::OnProcessOutput(clProcessEvent& event)
         ::wxMessageBox(processOutput, "CodeLite", wxICON_WARNING | wxCENTER);
 
         // Terminate the process
-        if(m_process) { m_process->Terminate(); }
+        if(m_process) {
+            m_process->Terminate();
+        }
     }
 }
 
 void NodeDebugger::StartDebugger(const wxString& command, const wxString& command_args,
                                  const wxString& workingDirectory)
 {
-#if 0
-    if(::wxMessageBox(_("The old debugger protocol is not supported by your current Node.js version.\nWould you "
-                        "CodeLite to a CLI debug session for you in a terminal?"),
-                      _("CodeLite"), wxICON_QUESTION | wxYES_NO | wxCANCEL | wxYES_DEFAULT,
-                      EventNotifier::Get()->TopFrame()) == wxYES) {
-        clConsoleBase::Ptr_t console = clConsoleBase::GetTerminal();
-        console->SetWorkingDirectory(workingDirectory);
-        console->SetCommand(command, command_args);
-        console->SetTerminalNeeded(true);
-        console->Start();
-    }
-#else
     if(m_socket.IsConnected()) {
         clDEBUG() << "An instance of the debugger is already running";
         return;
     }
     size_t createFlags = IProcessCreateDefault;
     wxString one_liner = command;
-    if(!command_args.IsEmpty()) { one_liner << " " << command_args; }
+    if(!command_args.IsEmpty()) {
+        one_liner << " " << command_args;
+    }
     m_process = ::CreateAsyncProcess(this, one_liner, createFlags, workingDirectory);
     if(!m_process) {
         ::wxMessageBox(wxString() << _("Failed to launch NodeJS: ") << command);
@@ -284,9 +290,9 @@ void NodeDebugger::StartDebugger(const wxString& command, const wxString& comman
     if(one_liner.Contains("inspect")) {
         // Fire CodeLite IDE event indicating that a debug session started
         clDebugEvent cl_event(wxEVT_DEBUG_STARTED);
+        cl_event.SetDebuggerName(NODE_CLI_DEBUGGER_NAME);
         EventNotifier::Get()->AddPendingEvent(cl_event);
     }
-#endif
 }
 
 bool NodeDebugger::IsCanInteract() const { return m_process && m_canInteract; }
@@ -294,7 +300,9 @@ bool NodeDebugger::IsCanInteract() const { return m_process && m_canInteract; }
 void NodeDebugger::OnToggleBreakpoint(clDebugEvent& event)
 {
     event.Skip();
-    if(!NodeJSWorkspace::Get()->IsOpen()) { return; }
+    if(!NodeJSWorkspace::Get()->IsOpen()) {
+        return;
+    }
     event.Skip(false);
     IEditor* editor = clGetManager()->GetActiveEditor();
     if(IsRunning()) {
@@ -318,7 +326,9 @@ void NodeDebugger::OnToggleBreakpoint(clDebugEvent& event)
             m_bptManager.AddBreakpoint(event.GetFileName(), event.GetInt());
         }
     }
-    if(editor) { m_bptManager.SetBreakpoints(editor); }
+    if(editor) {
+        m_bptManager.SetBreakpoints(editor);
+    }
 }
 
 void NodeDebugger::SetBreakpoint(const wxFileName& file, int lineNumber)
@@ -326,7 +336,9 @@ void NodeDebugger::SetBreakpoint(const wxFileName& file, int lineNumber)
     // We have no breakpoint on this file/line (yet)
     m_bptManager.AddBreakpoint(file, lineNumber);
     const NodeJSBreakpoint& bp = m_bptManager.GetBreakpoint(file, lineNumber);
-    if(!bp.IsOk()) { return; }
+    if(!bp.IsOk()) {
+        return;
+    }
     NodeJSDevToolsProtocol::Get().SetBreakpoint(m_socket, bp);
     m_bptManager.AddBreakpoint(file.GetFullPath(), lineNumber);
 }
@@ -351,7 +363,9 @@ void NodeDebugger::DeleteBreakpointByID(const wxString& bpid)
 
 void NodeDebugger::DeleteBreakpoint(const NodeJSBreakpoint& bp)
 {
-    if(!bp.IsOk()) { return; }
+    if(!bp.IsOk()) {
+        return;
+    }
     m_bptManager.DeleteBreakpoint(bp.GetFilename(), bp.GetLine());
     NodeJSDevToolsProtocol::Get().DeleteBreakpoint(m_socket, bp);
 }
@@ -390,7 +404,9 @@ void NodeDebugger::OnWebSocketConnected(clCommandEvent& event)
 void NodeDebugger::OnWebSocketError(clCommandEvent& event)
 {
     // an error occured!, terminate the debug session
-    if(m_process) { m_process->Terminate(); }
+    if(m_process) {
+        m_process->Terminate();
+    }
 }
 
 void NodeDebugger::OnWebSocketOnMessage(clCommandEvent& event)
@@ -402,7 +418,7 @@ void NodeDebugger::OnWebSocketOnMessage(clCommandEvent& event)
 
 void NodeDebugger::OnWebSocketDisconnected(clCommandEvent& event) {}
 
-void NodeDebugger::OnWorkspaceClosed(wxCommandEvent& event)
+void NodeDebugger::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
     DoCleanup();
@@ -416,7 +432,9 @@ void NodeDebugger::OnInteract(clDebugEvent& event)
 
 void NodeDebugger::SendToDebuggee(const wxString& command)
 {
-    if(m_process) { m_process->Write(command); }
+    if(m_process) {
+        m_process->Write(command);
+    }
 }
 
 void NodeDebugger::OnDebugStepIn(clDebugEvent& event)
@@ -439,7 +457,9 @@ void NodeDebugger::Eval(const wxString& command, const wxString& frameId)
 void NodeDebugger::OnTooltip(clDebugEvent& event)
 {
     CHECK_SHOULD_HANDLE(event);
-    if(m_activeFrame.IsEmpty()) { return; }
+    if(m_activeFrame.IsEmpty()) {
+        return;
+    }
 
     wxString expression = event.GetString();
     NodeJSDevToolsProtocol::Get().CreateObject(m_socket, expression, m_activeFrame);

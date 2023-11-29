@@ -25,15 +25,16 @@
 #ifndef FILE_VIEW_TREE_H
 #define FILE_VIEW_TREE_H
 
+#include "VirtualDirectoryColour.h"
 #include "clThemedTreeCtrl.h"
 #include "clTreeCtrlColourHelper.h"
 #include "imanager.h"
-#include "map"
 #include "pluginmanager.h"
 #include "project.h"
-#include "wx/treectrl.h"
 #include "wxStringHash.h"
-#include <VirtualDirectoryColour.h>
+
+#include <map>
+#include <wx/treectrl.h>
 
 class wxMenu;
 
@@ -80,12 +81,12 @@ public:
      * Destructor .
      */
     virtual ~FileViewTree();
-    
+
     /**
      * @brief build project context menu
      */
     void CreateProjectContextMenu(wxMenu& menu, const wxString& projectName, bool usedByFileView = true);
-    
+
     // Build the actual tree from the workspace
     void BuildTree();
 
@@ -180,6 +181,7 @@ protected:
     virtual void OnOpenFileExplorerFromFilePath(wxCommandEvent& e);
     virtual void OnExcludeFromBuild(wxCommandEvent& e);
     virtual void OnPreprocessItem(wxCommandEvent& e);
+    virtual void OnBuildParentProject(wxCommandEvent& e);
     virtual void OnRenameVirtualFolder(wxCommandEvent& e);
     virtual void OnSetBgColourVirtualFolder(wxCommandEvent& e);
     virtual void OnClearBgColourVirtualFolder(wxCommandEvent& e);
@@ -189,7 +191,7 @@ protected:
     virtual void OnBuildTree(wxCommandEvent& e);
     void OnFolderDropped(clCommandEvent& event);
     void OnFindInFilesShowing(clFindInFilesEvent& event);
-    
+    void OnActiveProjectChanged(clProjectSettingsEvent& e);
     // Called from the context menu of a workspace folder
     void OnWorkspaceNewWorkspaceFolder(wxCommandEvent& evt);
     void OnNewProject(wxCommandEvent& evt);
@@ -243,10 +245,11 @@ private:
 
     void DoGetProjectIconIndex(const wxString& projectName, int& iconIndex, bool& fromPlugin);
     bool DoAddNewItem(wxTreeItemId& item, const wxString& filename, const wxString& vdFullpath);
-    void DoRemoveProject(const wxString& name);
+    bool DoRemoveProject(const wxString& name);
     void DoSetProjectActive(wxTreeItemId& item);
+    void DoSetProjectActiveUI(wxTreeItemId& item);
     wxTreeItemId DoAddVirtualFolder(wxTreeItemId& parent, const wxString& text);
-    void DoRemoveVirtualFolder(wxTreeItemId& parent);
+    bool DoRemoveVirtualFolder(const wxTreeItemId& parent);
     void DoRemoveItems();
     void DoItemActivated(wxTreeItemId& item, wxEvent& event);
     void DoAddItem(ProjectPtr proj, const FileViewItem& item);

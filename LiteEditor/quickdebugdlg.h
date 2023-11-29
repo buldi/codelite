@@ -27,26 +27,29 @@
 #define __quickdebugdlg__
 
 #include "quickdebugbase.h"
+#include "quickdebuginfo.h"
 
 class QuickDebugDlg : public QuickDebugBase
 {
 protected:
+    virtual void OnRemoteBrowedDebuggee(wxCommandEvent& event);
+    virtual void OnRemoteBrowseDebugger(wxCommandEvent& event);
+    virtual void OnRemoteBrowseWD(wxCommandEvent& event);
+    virtual void OnDebuggerChanged(wxCommandEvent& event);
+    virtual void OnDebugOverSshUI(wxUpdateUIEvent& event);
     virtual void OnSelectAlternateDebugger(wxCommandEvent& event);
     void OnButtonBrowseExe(wxCommandEvent& event);
     void OnButtonDebug(wxCommandEvent& event);
     void OnButtonCancel(wxCommandEvent& event);
     void OnButtonBrowseWD(wxCommandEvent& event);
     void Initialize();
+    void UpdateDebuggerExecutable(const QuickDebugInfo& info);
+    wxArrayString GetStartupCmds();
+    void SetComboBoxValue(wxComboBox* combo, const wxString& value);
 
 public:
     QuickDebugDlg(wxWindow* parent);
     virtual ~QuickDebugDlg();
-    wxArrayString GetStartupCmds();
-    wxString GetExe();
-    wxString GetDebuggerName();
-    wxString GetWorkingDirectory();
-    wxString GetArguments();
-    wxString GetAlternateDebuggerExe() const { return m_textCtrlDebuggerExec->GetValue(); }
 };
 
 #endif // __quickdebugdlg__

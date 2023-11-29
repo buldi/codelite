@@ -19,7 +19,7 @@
    "border": 5,
    "gbSpan": "1,1",
    "gbPosition": "0,0",
-   "m_styles": ["wxDEFAULT_DIALOG_STYLE", "wxRESIZE_BORDER"],
+   "m_styles": ["wxCAPTION", "wxRESIZE_BORDER"],
    "m_sizerFlags": ["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM"],
    "m_properties": [{
      "type": "string",
@@ -165,7 +165,7 @@
        "gbSpan": "1,1",
        "gbPosition": "0,0",
        "m_styles": ["wxTE_PROCESS_ENTER"],
-       "m_sizerFlags": ["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
+       "m_sizerFlags": ["wxEXPAND"],
        "m_properties": [{
          "type": "winid",
          "m_label": "ID:",
@@ -265,8 +265,8 @@
        "border": 5,
        "gbSpan": "1,1",
        "gbPosition": "0,0",
-       "m_styles": ["wxDV_ROW_LINES", "wxDV_SINGLE"],
-       "m_sizerFlags": ["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
+       "m_styles": ["wxDV_NO_HEADER", "wxDV_ROW_LINES", "wxDV_SINGLE"],
+       "m_sizerFlags": ["wxEXPAND"],
        "m_properties": [{
          "type": "winid",
          "m_label": "ID:",
@@ -274,7 +274,7 @@
         }, {
          "type": "string",
          "m_label": "Size:",
-         "m_value": "300,100"
+         "m_value": "400,100"
         }, {
          "type": "string",
          "m_label": "Minimum Size:",
@@ -314,11 +314,11 @@
         }, {
          "type": "string",
          "m_label": "Class Name:",
-         "m_value": ""
+         "m_value": "clThemedListCtrl"
         }, {
          "type": "string",
          "m_label": "Include File:",
-         "m_value": ""
+         "m_value": "clThemedListCtrl.h"
         }, {
          "type": "string",
          "m_label": "Style:",
@@ -354,7 +354,7 @@
           }, {
            "type": "string",
            "m_label": "Width:",
-           "m_value": "400"
+           "m_value": "-2"
           }, {
            "type": "choice",
            "m_label": "Column Type",
@@ -374,6 +374,10 @@
            "m_label": "Cell Mode",
            "m_selection": 0,
            "m_options": ["wxDATAVIEW_CELL_INERT", "wxDATAVIEW_CELL_ACTIVATABLE", "wxDATAVIEW_CELL_EDITABLE"]
+          }, {
+           "type": "colHeaderFlags",
+           "m_label": "Column Flags",
+           "stringValue": "wxDATAVIEW_COL_RESIZABLE"
           }],
          "m_events": [],
          "m_children": []
@@ -412,6 +416,10 @@
            "m_label": "Cell Mode",
            "m_selection": 0,
            "m_options": ["wxDATAVIEW_CELL_INERT", "wxDATAVIEW_CELL_ACTIVATABLE", "wxDATAVIEW_CELL_EDITABLE"]
+          }, {
+           "type": "colHeaderFlags",
+           "m_label": "Column Flags",
+           "stringValue": "wxDATAVIEW_COL_RESIZABLE"
           }],
          "m_events": [],
          "m_children": []

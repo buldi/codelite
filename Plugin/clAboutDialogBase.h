@@ -7,6 +7,7 @@
 #ifndef _CODELITE_PLUGIN_CLABOUTDIALOGBASE_BASE_CLASSES_H
 #define _CODELITE_PLUGIN_CLABOUTDIALOGBASE_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
@@ -20,6 +21,7 @@
 #include <wx/stattext.h>
 #include <wx/hyperlink.h>
 #include <wx/stc/stc.h>
+#include "clThemedSTC.hpp"
 #include <wx/button.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
@@ -37,6 +39,8 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
+// clang-format on
+
 class clAboutDialogBase : public wxDialog
 {
 protected:
@@ -51,9 +55,9 @@ protected:
     wxStaticText* m_staticText40;
     wxHyperlinkCtrl* m_hyperLink44;
     wxPanel* m_paneLicense;
-    wxStyledTextCtrl* m_stcLicense;
+    clThemedSTC* m_stcLicense;
     wxPanel* m_panelCredits;
-    wxStyledTextCtrl* m_stcCredits;
+    clThemedSTC* m_stcCredits;
     wxStdDialogButtonSizer* m_stdBtnSizer4;
     wxButton* m_button6;
 
@@ -68,9 +72,9 @@ public:
     wxHyperlinkCtrl* GetHyperLink44() { return m_hyperLink44; }
     wxPanel* GetPanel22() { return m_panel22; }
     wxPanel* GetPanelAbout() { return m_panelAbout; }
-    wxStyledTextCtrl* GetStcLicense() { return m_stcLicense; }
+    clThemedSTC* GetStcLicense() { return m_stcLicense; }
     wxPanel* GetPaneLicense() { return m_paneLicense; }
-    wxStyledTextCtrl* GetStcCredits() { return m_stcCredits; }
+    clThemedSTC* GetStcCredits() { return m_stcCredits; }
     wxPanel* GetPanelCredits() { return m_panelCredits; }
     wxNotebook* GetNotebook8() { return m_notebook8; }
     clAboutDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("About"),

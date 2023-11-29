@@ -1,0 +1,18 @@
+[submodule "ctags"]
+	path = ctags
+	url = https://github.com/eranif/ctags
+[submodule "wxdap"]
+	path = wxdap
+	url = https://github.com/eranif/wxdap
+[submodule "wx-config-msys2"]
+	path = wx-config-msys2
+	url = https://github.com/eranif/wx-config-msys2.git
+[submodule "yaml-cpp"]
+	path = yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp
+[submodule "cc-wrapper"]
+	path = cc-wrapper
+	url = https://github.com/eranif/cc-wrapper
+[submodule "dtl"]
+	path = dtl
+	url = https://github.com/cubicdaiya/dtl.git

@@ -1,5 +1,7 @@
-#include "Notebook.h"
 #include "clTabTogglerHelper.h"
+
+#include "Notebook.h"
+#include "cl_defs.h"
 #include "codelite_events.h"
 #include "event_notifier.h"
 #include "globals.h"
@@ -38,52 +40,38 @@ void clTabTogglerHelper::OnToggleOutputTab(clCommandEvent& event)
         event.Skip();
         return;
     }
-
-    Notebook* book = clGetManager()->GetOutputPaneNotebook();
-    if(event.IsSelected()) {
-        // show it
-        int where = IsTabInNotebook(book, m_outputTabName);
-        if(where == wxNOT_FOUND) {
-            // Only show it if it does not exists in the notebook
-            clGetManager()->GetOutputPaneNotebook()->AddPage(m_outputTab, m_outputTabName, true, m_outputTabBmp);
-        } else {
-            clGetManager()->GetOutputPaneNotebook()->SetSelection(where);
-        }
-    } else {
-        int where = clGetManager()->GetOutputPaneNotebook()->GetPageIndex(m_outputTabName);
-        if(where != wxNOT_FOUND) { clGetManager()->GetOutputPaneNotebook()->RemovePage(where); }
-    }
+    DoShowTab(event.IsSelected(), PaneId::BOTTOM_BAR, m_outputTab, m_outputTabName);
 }
 
 void clTabTogglerHelper::OnToggleWorkspaceTab(clCommandEvent& event)
 {
+    wxUnusedVar(event);
+#if 0
     if(event.GetString() != m_workspaceTabName) {
         event.Skip();
         return;
     }
-
-    Notebook* book = clGetManager()->GetWorkspacePaneNotebook();
-    if(event.IsSelected()) {
-        // show it
-        int where = IsTabInNotebook(book, m_workspaceTabName);
-        if(where == wxNOT_FOUND) {
-            // Only show it if it does not exists in the notebook
-            clGetManager()->GetWorkspacePaneNotebook()->AddPage(m_workspaceTab, m_workspaceTabName, true,
-                                                                m_workspaceTabBmp);
-        } else {
-            // The tab already in the notebook, just select it
-            clGetManager()->GetWorkspacePaneNotebook()->SetSelection(where);
-        }
-    } else {
-        int where = clGetManager()->GetWorkspacePaneNotebook()->GetPageIndex(m_workspaceTabName);
-        if(where != wxNOT_FOUND) { clGetManager()->GetWorkspacePaneNotebook()->RemovePage(where); }
-    }
+    DoShowTab(event.IsSelected(), PaneId::SIDE_BAR, m_workspaceTab, m_workspaceTabName);
+#endif
 }
 
-int clTabTogglerHelper::IsTabInNotebook(Notebook* book, const wxString& tabname)
+bool clTabTogglerHelper::IsTabInNotebook(PaneId pane_id, const wxString& tabname)
 {
-    for(size_t i = 0; i < book->GetPageCount(); ++i) {
-        if(book->GetPageText(i) == tabname) return i;
+    return clGetManager()->BookGetPage(pane_id, tabname) != nullptr;
+}
+
+void clTabTogglerHelper::DoShowTab(bool show, PaneId pane_id, wxWindow* tab, const wxString& label)
+{
+    if(show) {
+        // show it
+        if(!IsTabInNotebook(pane_id, label)) {
+            // Only show it if it does not exists in the notebook
+            clGetManager()->BookAddPage(pane_id, tab, label);
+        } else {
+            // The tab already in the notebook, just select it
+            clGetManager()->BookSelectPage(pane_id, label);
+        }
+    } else {
+        clGetManager()->BookRemovePage(pane_id, label);
     }
-    return wxNOT_FOUND;
 }

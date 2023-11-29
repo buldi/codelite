@@ -1,7 +1,9 @@
 #include "clWorkspaceManager.h"
-#include <algorithm>
+
 #include "codelite_events.h"
 #include "event_notifier.h"
+
+#include <algorithm>
 
 clWorkspaceManager::clWorkspaceManager()
     : m_workspace(NULL)
@@ -23,7 +25,7 @@ clWorkspaceManager& clWorkspaceManager::Get()
 
 void clWorkspaceManager::RegisterWorkspace(IWorkspace* workspace) { m_workspaces.push_back(workspace); }
 
-void clWorkspaceManager::OnWorkspaceClosed(wxCommandEvent& e)
+void clWorkspaceManager::OnWorkspaceClosed(clWorkspaceEvent& e)
 {
     e.Skip();
     SetWorkspace(NULL);
@@ -32,17 +34,15 @@ void clWorkspaceManager::OnWorkspaceClosed(wxCommandEvent& e)
 wxArrayString clWorkspaceManager::GetAllWorkspaces() const
 {
     wxArrayString all;
-    std::for_each(m_workspaces.begin(), m_workspaces.end(), [&](IWorkspace* workspace) {
-        all.Add(workspace->GetWorkspaceType());
-    });
+    std::for_each(m_workspaces.begin(), m_workspaces.end(),
+                  [&](IWorkspace* workspace) { all.Add(workspace->GetWorkspaceType()); });
     return all;
 }
 
 wxArrayString clWorkspaceManager::GetUnifiedFilesMask() const
 {
     wxArrayString all;
-    std::for_each(m_workspaces.begin(), m_workspaces.end(), [&](IWorkspace* workspace) {
-        all.Add(workspace->GetFilesMask());
-    });
+    std::for_each(m_workspaces.begin(), m_workspaces.end(),
+                  [&](IWorkspace* workspace) { all.Add(workspace->GetFilesMask()); });
     return all;
 }

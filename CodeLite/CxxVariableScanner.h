@@ -6,21 +6,23 @@
 #include "codelite_exports.h"
 #include "macros.h"
 #include "wxStringHash.h"
+
 #include <stack>
 
 class WXDLLIMPEXP_CL CxxVariableScanner
 {
-
 protected:
-    Scanner_t m_scanner;
+    Scanner_t m_scanner = nullptr;
     wxString m_buffer;
-    bool m_eof;
-    int m_parenthesisDepth;
+    bool m_eof = false;
+    int m_parenthesisDepth = 0;
     std::unordered_set<int> m_nativeTypes;
-    eCxxStandard m_standard;
+    eCxxStandard m_standard = eCxxStandard::kCxx11;
     wxStringTable_t m_macros;
     std::vector<wxString> m_buffers;
-    bool m_isFuncSignature;
+    bool m_isFuncSignature = false;
+    wxString m_optimized_buffer;
+    bool m_buffer_optimized = false;
 
 protected:
     bool GetNextToken(CxxLexerToken& token);
@@ -33,11 +35,11 @@ protected:
     wxString& PushBuffer();
     wxString& PopBuffer();
 
-    bool OnForLoop(Scanner_t scanner);
+    bool OnForLoop(Scanner_t scanner, wxString& variable_definition);
     bool OnCatch(Scanner_t scanner);
     bool OnWhile(Scanner_t scanner);
     bool OnDeclType(Scanner_t scanner);
-    bool OnLambda(Scanner_t scanner);
+    bool SkipToClosingParenthesis(Scanner_t scanner);
 
 protected:
     /**
@@ -48,7 +50,7 @@ protected:
      * @brief read the variable name. Return true if there are more variables
      * for the current type
      */
-    bool ReadName(wxString& varname, wxString& pointerOrRef, wxString& varInitialization);
+    bool ReadName(wxString& varname, wxString& pointerOrRef, int& line_number, wxString& varInitialization);
 
     /**
      * @brief consume variable initialization
@@ -60,18 +62,39 @@ protected:
     CxxVariable::Vec_t DoGetVariables(const wxString& buffer, bool sort);
     CxxVariable::Vec_t DoParseFunctionArguments(const wxString& buffer);
 
+    void DoOptimizeBuffer();
+
+    /**
+     * @brief move the scanner until we find the closing parenthesis `)`
+     * @param scanner
+     * @return true if found, false, when reached EOF
+     */
+    bool skip_parenthesis_block(Scanner_t scanner);
+
+    /**
+     * @brief move the scanner until we find the closing parenthesis `}`
+     * @param scanner
+     * @return true if found, false, when reached EOF
+     */
+    bool skip_curly_brackets_block(Scanner_t scanner);
+
 public:
     CxxVariableScanner(const wxString& buffer, eCxxStandard standard, const wxStringTable_t& macros,
                        bool isFuncSignature);
     virtual ~CxxVariableScanner();
 
     /**
-     * @brief strip buffer from unreachable code blocks (assuming the caret is at the last position of the bufer)
+     * @brief helper method to join variable type into a single string
      */
-    void OptimizeBuffer(const wxString& buffer, wxString& strippedBuffer);
+    static wxString ToString(CxxVariable::LexerToken::Vec_t& vartype);
 
     /**
-     * @brief parse the buffer and return list of variables
+     * @brief return the optimized buffer
+     */
+    const wxString& GetOptimizeBuffer() const { return m_optimized_buffer; }
+
+    /**
+     * @brief return the variables from the optimized buffer
      * @return
      */
     CxxVariable::Vec_t GetVariables(bool sort = true);

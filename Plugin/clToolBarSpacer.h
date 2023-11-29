@@ -6,7 +6,7 @@
 class WXDLLIMPEXP_SDK clToolBarSpacer : public clToolBarButtonBase
 {
 public:
-    clToolBarSpacer(clToolBar* parent);
+    clToolBarSpacer(clToolBarGeneric* parent);
     virtual ~clToolBarSpacer();
 
     void Render(wxDC& dc, const wxRect& rect);

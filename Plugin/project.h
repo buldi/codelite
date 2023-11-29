@@ -25,8 +25,8 @@
 #ifndef PROJECT_H
 #define PROJECT_H
 
-#include "codelite_exports.h"
 #include "JSON.h"
+#include "codelite_exports.h"
 #include "localworkspace.h"
 #include "macros.h"
 #include "optionsconfig.h"
@@ -37,6 +37,7 @@
 #include "wx/string.h"
 #include "wx/treectrl.h"
 #include "xmlutils.h"
+
 #include <list>
 #include <queue>
 #include <set>
@@ -102,7 +103,9 @@ public:
 
     ProjectItem& operator=(const ProjectItem& item)
     {
-        if(this == &item) { return *this; }
+        if(this == &item) {
+            return *this;
+        }
 
         m_key = item.m_key;
         m_displayName = item.m_displayName;
@@ -324,6 +327,11 @@ private:
     wxStringSet_t m_excludeFiles;
     wxStringSet_t emptySet;
 
+    enum eGetFileBuildCmdFlags {
+        kCxxFile = (1 << 0),
+        kWrapIncludesWithSpace = (1 << 1),
+    };
+
 private:
     void DoUpdateProjectSettings();
     void DoBuildCacheFromXml();
@@ -333,6 +341,9 @@ private:
     wxArrayString DoGetUnPreProcessors(bool clearCache, const wxString& cmpOptions);
 
     clProjectFolder::Ptr_t GetRootFolder();
+
+    /// Upgrade the project settings to match the new builder system
+    void UpgradeBuildSystem();
 
 public:
     /**
@@ -357,9 +368,9 @@ public:
     clCxxWorkspace* GetWorkspace();
 
     /**
-     * @brief return the XML version
+     * @brief return the project version as a number
      */
-    wxString GetVersion() const;
+    long GetVersionNumber() const;
 
     /**
      * @brief return true if this project has children (virtual folders or files)
@@ -399,7 +410,7 @@ public:
      * @brief replace compilers by name. compilers contains a map of the "olbd" compiler
      * name and the new compiler name
      */
-    void ReplaceCompilers(wxStringMap_t& compilers);
+    void ReplaceCompilers(const wxStringMap_t& compilers);
 
     /**
      * @brief the const version of the above
@@ -772,7 +783,7 @@ public:
      * name which can later be replaced by the caller with the actual file name
      */
     wxString GetCompileLineForCXXFile(const wxStringMap_t& compilersGlobalPaths, BuildConfigPtr buildConf,
-                                      const wxString& filenamePlaceholder = "$FileName", bool cxxFile = true);
+                                      const wxString& filenamePlaceholder = "$FileName", size_t flags = kCxxFile);
 
     void ClearAllVirtDirs();
 
@@ -825,7 +836,8 @@ public:
     /**
      * @brief add this project files into the 'compile_commands' json object
      */
-    void CreateCompileCommandsJSON(JSONItem& compile_commands, const wxStringMap_t& compilersGlobalPaths);
+    void CreateCompileCommandsJSON(JSONItem& compile_commands, const wxStringMap_t& compilersGlobalPaths,
+                                   bool createCompileFlagsTxt);
 
     /**
      * @brief create compile_flags.txt file for this project

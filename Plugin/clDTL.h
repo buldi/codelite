@@ -26,63 +26,72 @@
 #ifndef CLDTL_H
 #define CLDTL_H
 
-#include <wx/string.h>
-#include <vector>
-#include <wx/filename.h>
 #include "codelite_exports.h"
 
-/**
- * @class clDTL
- * @brief Diff 2 files and return the result
- * @code
+#include <vector>
+#include <wx/filename.h>
+#include <wx/string.h>
 
-    // An example of using the clDTL class:
-    clDTL d;
-    d.Diff(filePath1, filePath2);
-    const clDTL::LineInfoVec_t &result  = d.GetResult();
+enum class PatchAction {
+    INVALID,
+    ADD_LINE,
+    DELETE_LINE,
+};
 
-    // Create 2 strings "left" and "right"
-    wxString leftContent, rightContent;
-    for(size_t i=0; i<result.size(); ++i) {
-        // format the lines
-        switch(result.at(i).m_type) {
-        case clDTL::LINE_ADDED:
-            leftContent  << "- \n";
-            rightContent << "+ " << result.at(i).m_line;
+struct WXDLLIMPEXP_SDK PatchStep {
+    int line_number = 0;
+    PatchAction action = PatchAction::INVALID;
+    wxString content;
+    PatchStep(int l, PatchAction a, const wxString& s)
+        : line_number(l)
+        , action(a)
+        , content(s)
+    {
+    }
+
+    wxString to_string() const
+    {
+        wxString s;
+        switch(action) {
+        case PatchAction::DELETE_LINE:
+            s << "DEL line: " << line_number;
             break;
-        case clDTL::LINE_REMOVED:
-            leftContent  << "+ " << result.at(i).m_line;
-            rightContent << "- \n";
+        case PatchAction::ADD_LINE:
+            s << "ADD line: " << line_number << " " << content;
             break;
-        case clDTL::LINE_COMMON:
-            leftContent  << " " << result.at(i).m_line;
-            rightContent << " " << result.at(i).m_line;
+        default:
             break;
         }
+        return s;
     }
- * @endcode
- */
+};
+
 class WXDLLIMPEXP_SDK clDTL
 {
 public:
     static const int LINE_PLACEHOLDER = -2;
-    static const int LINE_REMOVED     = -1;
-    static const int LINE_COMMON      = 0;
-    static const int LINE_ADDED       = 1;
+    static const int LINE_REMOVED = -1;
+    static const int LINE_COMMON = 0;
+    static const int LINE_ADDED = 1;
 
     struct WXDLLIMPEXP_SDK LineInfo {
         int m_type;
         wxString m_line;
-        LineInfo(const wxString &line, int type ) : m_type(type), m_line(line) {}
-        LineInfo() : m_type(LINE_PLACEHOLDER), m_line("\n") {}
+        LineInfo(const wxString& line, int type)
+            : m_type(type)
+            , m_line(line)
+        {
+        }
+        LineInfo()
+            : m_type(LINE_PLACEHOLDER)
+            , m_line("\n")
+        {
+        }
     };
     typedef std::vector<LineInfo> LineInfoVec_t;
-    typedef std::vector<std::pair<int, int> > SeqLinePair_t;
-    
-    enum DiffMode {
-        kTwoPanes = 0x01,
-        kOnePane  = 0x02
-    };
+    typedef std::vector<std::pair<int, int>> SeqLinePair_t;
+
+    enum DiffMode { kTwoPanes = 0x01, kOnePane = 0x02 };
 
 private:
     LineInfoVec_t m_resultLeft;
@@ -98,16 +107,16 @@ public:
      * When 2 files are identical, the result is empty
      */
     void Diff(const wxFileName& fnLeft, const wxFileName& fnRight, DiffMode mode);
+    void DiffStrings(const wxString& before, const wxString& after, DiffMode mode);
 
-    const LineInfoVec_t& GetResultLeft() const {
-        return m_resultLeft;
-    }
-    const LineInfoVec_t& GetResultRight() const {
-        return m_resultRight;
-    }
-    const SeqLinePair_t& GetSequences() const {
-        return m_sequences;
-    }
+    const LineInfoVec_t& GetResultLeft() const { return m_resultLeft; }
+    const LineInfoVec_t& GetResultRight() const { return m_resultRight; }
+    const SeqLinePair_t& GetSequences() const { return m_sequences; }
+
+    /**
+     * @brief create step actions to transform `before` -> `after`
+     */
+    std::vector<PatchStep> CreatePatch(const wxString& before, const wxString& after) const;
 };
 
 #endif // CLDTL_H

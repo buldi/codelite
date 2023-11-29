@@ -22,24 +22,24 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "ctags_manager.h"
+
+#include "CTags.hpp"
 #include "CxxTemplateFunction.h"
 #include "CxxVariable.h"
 #include "CxxVariableScanner.h"
 #include "asyncprocess.h"
-#include "cl_indexer_reply.h"
-#include "cl_indexer_request.h"
+#include "cl_command_event.h"
 #include "cl_standard_paths.h"
-#include "clindexerprotocol.h"
 #include "code_completion_api.h"
+#include "codelite_events.h"
 #include "codelite_exports.h"
 #include "cpp_comment_creator.h"
 #include "cppwordscanner.h"
-#include "ctags_manager.h"
+#include "event_notifier.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
 #include "fileutils.h"
-#include "named_pipe_client.h"
-#include "parse_thread.h"
 #include "precompiled_header.h"
 #include "processreaderthread.h"
 #include "procutils.h"
@@ -49,6 +49,7 @@
 #include "wx/timer.h"
 #include "wx/tokenzr.h"
 #include "wxStringHash.h"
+
 #include <algorithm>
 #include <set>
 #include <sstream>
@@ -59,8 +60,8 @@
 #include <wx/frame.h>
 #include <wx/msgdlg.h>
 #include <wx/progdlg.h>
-#include <wx/xrc/xmlres.h>
 #include <wx/sizer.h>
+#include <wx/xrc/xmlres.h>
 #endif
 #include <wx/log.h>
 #include <wx/stdpaths.h>
@@ -71,26 +72,8 @@
 //#define __PERFORMANCE
 #include "performance.h"
 
-#ifdef __WXMSW__
-#define PIPE_NAME "\\\\.\\pipe\\codelite_indexer_%s"
-#else
-#define PIPE_NAME "/tmp/codelite_indexer.%s.sock"
-#endif
-
-wxDEFINE_EVENT(wxEVT_TAGS_DB_UPGRADE, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_TAGS_DB_UPGRADE_INTER, wxCommandEvent);
-
 //---------------------------------------------------------------------------
 // Misc
-
-#if 0
-static bool isDarkColor(const wxColour& color)
-{
-    int evg = (color.Red() + color.Green() + color.Blue()) / 3;
-    if(evg < 127) return true;
-    return false;
-}
-#endif
 
 // Descending sorting function
 struct SDescendingSort {
@@ -121,13 +104,16 @@ static TagsManager* gs_TagsManager = NULL;
 
 void TagsManagerST::Free()
 {
-    if(gs_TagsManager) { delete gs_TagsManager; }
+    if(gs_TagsManager) {
+        delete gs_TagsManager;
+    }
     gs_TagsManager = NULL;
 }
 
 TagsManager* TagsManagerST::Get()
 {
-    if(gs_TagsManager == NULL) gs_TagsManager = new TagsManager();
+    if(gs_TagsManager == NULL)
+        gs_TagsManager = new TagsManager();
 
     return gs_TagsManager;
 }
@@ -138,108 +124,28 @@ TagsManager* TagsManagerST::Get()
 
 TagsManager::TagsManager()
     : wxEvtHandler()
-    , m_codeliteIndexerPath(wxT("codelite_indexer"))
-    , m_codeliteIndexerProcess(NULL)
-    , m_canRestartIndexer(true)
     , m_lang(NULL)
     , m_evtHandler(NULL)
     , m_encoding(wxFONTENCODING_DEFAULT)
 {
-    Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &TagsManager::OnIndexerTerminated, this);
-
     m_db = new TagsStorageSQLite();
     m_db->SetSingleSearchLimit(MAX_SEARCH_LIMIT);
-
-    // Create databases
-    m_ctagsCmd = wxT("  --excmd=pattern --sort=no --fields=aKmSsnit --c-kinds=+p --C++-kinds=+p ");
 
     // CPP keywords that are usually followed by open brace '('
     m_CppIgnoreKeyWords.insert(wxT("while"));
     m_CppIgnoreKeyWords.insert(wxT("if"));
     m_CppIgnoreKeyWords.insert(wxT("for"));
     m_CppIgnoreKeyWords.insert(wxT("switch"));
-    m_symbolsCache.reset(new clCxxFileCacheSymbols());
 }
 
-TagsManager::~TagsManager()
-{
-    m_symbolsCache.reset(nullptr);
-    if(m_codeliteIndexerProcess) {
-
-        // Dont kill the indexer process, just terminate the
-        // reader-thread (this is done by deleting the indexer object)
-        m_canRestartIndexer = false;
-
-#ifndef __WXMSW__
-        m_codeliteIndexerProcess->Terminate();
-#endif
-        delete m_codeliteIndexerProcess;
-
-#ifndef __WXMSW__
-        // Clear the socket file
-        std::stringstream s;
-        s << wxGetProcessId();
-
-        char channel_name[1024];
-        memset(channel_name, 0, sizeof(channel_name));
-        sprintf(channel_name, PIPE_NAME, s.str().c_str());
-        ::unlink(channel_name);
-        ::remove(channel_name);
-#endif
-    }
-}
+TagsManager::~TagsManager() {}
 
 void TagsManager::OpenDatabase(const wxFileName& fileName)
 {
     m_dbFile = fileName;
-    ITagsStoragePtr db;
-    db = m_db;
-
-#if wxUSE_GUI
-    bool retagIsRequired = false;
-    if(fileName.FileExists() == false) { retagIsRequired = true; }
-#endif
-
-    db->OpenDatabase(fileName);
-    db->SetEnableCaseInsensitive(!(m_tagsOptions.GetFlags() & CC_IS_CASE_SENSITIVE));
-    db->SetSingleSearchLimit(m_tagsOptions.GetCcNumberOfDisplayItems());
-
-    if(db->GetVersion() != db->GetSchemaVersion()) {
-        db->RecreateDatabase();
-
-        // Send event to the main frame notifying it about database recreation
-        if(m_evtHandler) {
-            wxCommandEvent event(wxEVT_TAGS_DB_UPGRADE_INTER);
-            event.SetEventObject(this);
-            m_evtHandler->ProcessEvent(event);
-        }
-    }
-#if wxUSE_GUI
-    if(retagIsRequired && m_evtHandler) {
-        wxCommandEvent e(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
-        m_evtHandler->AddPendingEvent(e);
-    }
-#endif
-}
-
-TagTreePtr TagsManager::ParseSourceFile(const wxFileName& fp, std::vector<CommentPtr>* comments)
-{
-    wxString tags;
-
-    if(!m_codeliteIndexerProcess) {
-        clWARNING() << "Indexer process is not running..." << clEndl;
-        return TagTreePtr(NULL);
-    }
-    SourceToTags(fp, tags);
-
-    int dummy;
-    TagTreePtr ttp = TagTreePtr(TreeFromTags(tags, dummy));
-
-    if(comments && GetParseComments()) {
-        // parse comments
-        GetLanguage()->ParseComments(fp, comments);
-    }
-    return ttp;
+    m_db->OpenDatabase(m_dbFile);
+    m_db->SetEnableCaseInsensitive(true);
+    m_db->SetSingleSearchLimit(m_tagsOptions.GetCcNumberOfDisplayItems());
 }
 
 TagTreePtr TagsManager::ParseSourceFile2(const wxFileName& fp, const wxString& tags, std::vector<CommentPtr>* comments)
@@ -258,8 +164,6 @@ TagTreePtr TagsManager::ParseSourceFile2(const wxFileName& fp, const wxString& t
 //-----------------------------------------------------------
 // Database operations
 //-----------------------------------------------------------
-
-void TagsManager::Store(TagTreePtr tree, const wxFileName& path) { GetDatabase()->Store(tree, path); }
 
 TagTreePtr TagsManager::Load(const wxFileName& fileName, TagEntryPtrVector_t* tags)
 {
@@ -288,123 +192,10 @@ void TagsManager::Delete(const wxFileName& path, const wxString& fileName)
     GetDatabase()->DeleteByFileName(path, fileName);
 }
 
-//--------------------------------------------------------
-// Process Handling of CTAGS
-//--------------------------------------------------------
-
-void TagsManager::StartCodeLiteIndexer()
-{
-    if(!m_canRestartIndexer) return;
-
-    // Run ctags process
-    wxString cmd;
-    wxString ctagsCmd;
-
-    // build the command, we surround ctags name with double quatations
-    wxString uid;
-    uid << wxGetProcessId();
-
-    if(m_codeliteIndexerPath.FileExists() == false) {
-        CL_ERROR(wxT("ERROR: Could not locate indexer: %s"), m_codeliteIndexerPath.GetFullPath().c_str());
-        m_codeliteIndexerProcess = NULL;
-        return;
-    }
-
-    // concatenate the PID to identifies this channel to this instance of codelite
-    cmd << wxT("\"") << m_codeliteIndexerPath.GetFullPath() << wxT("\" ") << uid << wxT(" --pid");
-    m_codeliteIndexerProcess =
-        CreateAsyncProcess(this, cmd, IProcessCreateDefault, clStandardPaths::Get().GetUserDataDir());
-}
-
-void TagsManager::RestartCodeLiteIndexer()
-{
-    if(m_codeliteIndexerProcess) { m_codeliteIndexerProcess->Terminate(); }
-
-    // no need to call StartCodeLiteIndexer(), since it will be called automatically
-    // by the termination handler
-}
-
-void TagsManager::SetCodeLiteIndexerPath(const wxString& path) { m_codeliteIndexerPath = path; }
-
-void TagsManager::OnIndexerTerminated(clProcessEvent& event)
-{
-    wxUnusedVar(event);
-    wxDELETE(m_codeliteIndexerProcess);
-    StartCodeLiteIndexer();
-}
-
 //---------------------------------------------------------------------
 // Parsing
 //---------------------------------------------------------------------
-void TagsManager::SourceToTags(const wxFileName& source, wxString& tags)
-{
-    std::stringstream s;
-    s << wxGetProcessId();
-
-    char channel_name[1024];
-    memset(channel_name, 0, sizeof(channel_name));
-    sprintf(channel_name, PIPE_NAME, s.str().c_str());
-
-    clNamedPipeClient client(channel_name);
-
-    // Build a request for the indexer
-    clIndexerRequest req;
-    // set the command
-    req.setCmd(clIndexerRequest::CLI_PARSE);
-
-    // prepare list of files to be parsed
-    std::vector<std::string> files;
-    files.push_back(source.GetFullPath().mb_str(wxConvUTF8).data());
-    req.setFiles(files);
-
-    // set ctags options to be used
-    wxString ctagsCmd;
-    ctagsCmd << wxT(" ") << m_tagsOptions.ToString()
-             << wxT(" --excmd=pattern --sort=no --fields=aKmSsnit --c-kinds=+p --C++-kinds=+p ");
-    req.setCtagOptions(ctagsCmd.mb_str(wxConvUTF8).data());
-
-    clDEBUG1() << "Sending CTAGS command:" << ctagsCmd << clEndl;
-    // connect to the indexer
-    if(!client.connect()) {
-        clWARNING() << "Failed to connect to indexer process. Indexer ID:" << wxGetProcessId() << clEndl;
-        return;
-    }
-
-    // send the request
-    if(!clIndexerProtocol::SendRequest(&client, req)) {
-        clWARNING() << "Failed to send request to indexer. Indexer ID:" << wxGetProcessId() << clEndl;
-        return;
-    }
-
-    // read the reply
-    clIndexerReply reply;
-    clDEBUG1() << "SourceToTags: reading indexer reply" << clEndl;
-    try {
-        std::string errmsg;
-        if(!clIndexerProtocol::ReadReply(&client, reply, errmsg)) {
-            clWARNING() << "Failed to read indexer reply: " << (wxString() << errmsg) << clEndl;
-            RestartCodeLiteIndexer();
-            return;
-        }
-    } catch(std::bad_alloc& ex) {
-        clWARNING() << "std::bad_alloc exception caught" << clEndl;
-        tags.Clear();
-        return;
-    }
-
-    clDEBUG1() << "SourceToTags: [" << reply.getTags() << "]" << clEndl;
-
-    // convert the data into wxString
-    if(m_encoding == wxFONTENCODING_DEFAULT || m_encoding == wxFONTENCODING_SYSTEM)
-        tags = wxString(reply.getTags().c_str(), wxConvUTF8);
-    else
-        tags = wxString(reply.getTags().c_str(), wxCSConv(m_encoding));
-    if(tags.empty()) { tags = wxString::From8BitData(reply.getTags().c_str()); }
-
-    clDEBUG1() << "Tags:\n" << tags << clEndl;
-}
-
-TagTreePtr TagsManager::TreeFromTags(const wxString& tags, int& count)
+TagTreePtr TagsManager::TreeFromTags(const wxArrayString& tags, int& count)
 {
     // Load the records and build a language tree
     TagEntry root;
@@ -412,24 +203,27 @@ TagTreePtr TagsManager::TreeFromTags(const wxString& tags, int& count)
 
     TagTreePtr tree(new TagTree(wxT("<ROOT>"), root));
 
-    wxStringTokenizer tkz(tags, wxT("\n"));
-    while(tkz.HasMoreTokens()) {
+    for(const wxString& line : tags) {
         TagEntry tag;
-        wxString line = tkz.NextToken();
-
-        line = line.Trim();
-        line = line.Trim(false);
-        if(line.IsEmpty()) continue;
 
         // Construct the tag from the line
         tag.FromLine(line);
 
         // Add the tag to the tree, locals are not added to the
         // tree
-        count++;
-        if(tag.GetKind() != wxT("local")) tree->AddEntry(tag);
+        if(tag.GetKind() != wxT("local")) {
+            count++;
+            tree->AddEntry(tag);
+        }
     }
     return tree;
+}
+
+TagTreePtr TagsManager::TreeFromTags(const wxString& tags, int& count)
+{
+    // Load the records and build a language tree
+    wxArrayString lines = ::wxStringTokenize(tags, "\r\n", wxTOKEN_STRTOK);
+    return TreeFromTags(lines, count);
 }
 
 bool TagsManager::IsValidCtagsFile(const wxFileName& filename) const
@@ -445,13 +239,13 @@ bool TagsManager::IsValidCtagsFile(const wxFileName& filename) const
 void TagsManager::TagsByScopeAndName(const wxString& scope, const wxString& name, std::vector<TagEntryPtr>& tags,
                                      size_t flags)
 {
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
     // add this scope as well to the derivation list
 
     wxString _scopeName = DoReplaceMacros(scope);
-    derivationList.push_back(_scopeName);
-    std::set<wxString> scannedInherits;
-    GetDerivationList(_scopeName, NULL, derivationList, scannedInherits);
+    derivationList.push_back({ _scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    GetDerivationList(_scopeName, NULL, derivationList, visited, 1);
 
     // make enough room for max of 500 elements in the vector
     tags.reserve(500);
@@ -459,7 +253,7 @@ void TagsManager::TagsByScopeAndName(const wxString& scope, const wxString& name
 
     for(size_t i = 0; i < derivationList.size(); i++) {
         // try the worksapce database for match
-        scopes.Add(derivationList.at(i));
+        scopes.Add(derivationList.at(i).first);
     }
 
     GetDatabase()->GetTagsByScopeAndName(scopes, name, flags & PartialMatch, tags);
@@ -470,266 +264,26 @@ void TagsManager::TagsByScopeAndName(const wxString& scope, const wxString& name
 
 void TagsManager::TagsByScope(const wxString& scope, std::vector<TagEntryPtr>& tags)
 {
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
     // add this scope as well to the derivation list
     wxString _scopeName = DoReplaceMacros(scope);
-    derivationList.push_back(_scopeName);
-    std::set<wxString> scannedInherits;
-    GetDerivationList(_scopeName, NULL, derivationList, scannedInherits);
+    derivationList.push_back({ _scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    GetDerivationList(_scopeName, NULL, derivationList, visited, 1);
 
     // make enough room for max of 500 elements in the vector
     tags.reserve(500);
 
     for(size_t i = 0; i < derivationList.size(); i++) {
-        wxString tmpScope(derivationList.at(i));
+        wxString tmpScope(derivationList.at(i).first);
         tmpScope = DoReplaceMacros(tmpScope);
 
         // try the external database for match
-        GetDatabase()->GetTagsByScope(derivationList.at(i), tags);
+        GetDatabase()->GetTagsByScope(derivationList.at(i).first, tags);
     }
 
     // and finally sort the results
     std::sort(tags.begin(), tags.end(), SAscendingSort());
-}
-
-bool TagsManager::WordCompletionCandidates(const wxFileName& fileName, int lineno, const wxString& expr,
-                                           const wxString& text, const wxString& word,
-                                           std::vector<TagEntryPtr>& candidates)
-{
-    PERF_START("WordCompletionCandidates");
-
-    candidates.clear();
-    wxString path, tmp;
-    wxString typeName, typeScope;
-
-    // remove the word from the expression
-    wxString expression(expr);
-
-    // Trim whitespace from right and left
-    static wxString trimString(wxT("!<>=(){};\r\n\t\v "));
-
-    expression.erase(0, expression.find_first_not_of(trimString));
-    expression.erase(expression.find_last_not_of(trimString) + 1);
-    tmp = expression;
-    expression.EndsWith(word, &tmp);
-    expression = tmp;
-
-    wxString funcSig;
-    std::vector<wxString> additionlScopes; // from 'using namespace XXX;' statements
-
-    wxString scope;
-    wxString scopeName = GetLanguage()->GetScopeName(text, &additionlScopes);
-
-    bool showLanguageKeywords = (GetCtagsOptions().GetFlags() & CC_CPP_KEYWORD_ASISST);
-
-    if(GetCtagsOptions().GetFlags() & CC_DEEP_SCAN_USING_NAMESPACE_RESOLVING) {
-        // Do a deep scan for 'using namespace'
-        GetLanguage()->SetAdditionalScopes(additionlScopes, fileName.GetFullPath());
-        additionlScopes = GetLanguage()->GetAdditionalScopes();
-    }
-
-    TagEntryPtr funcTag = FunctionFromFileLine(fileName, lineno);
-    if(funcTag) { funcSig = funcTag->GetSignature(); }
-
-    wxString oper;
-    wxString tmpExp(expression);
-    tmpExp.Trim().Trim(false);
-
-    // Keep 3 vectors of the results
-    // we keep 3 vectors so the end user will see the matches
-    // by their importance order: locals -> scoped -> globals
-    TagEntryPtrVector_t locals;
-    TagEntryPtrVector_t scoped;
-    TagEntryPtrVector_t globals;
-    TagEntryPtrVector_t keywords;
-
-    if(tmpExp.IsEmpty()) {
-        // Collect all the tags from the current scope, and
-        // from the global scope
-        wxString curFunctionBody;
-        wxString textAfterTokenReplacements;
-        int lastFuncLine = funcTag ? funcTag->GetLine() : -1;
-        textAfterTokenReplacements = GetLanguage()->ApplyCtagsReplacementTokens(text);
-        scope = GetLanguage()->OptimizeScope(textAfterTokenReplacements, lastFuncLine, curFunctionBody);
-
-        // First get the scoped tags
-        TagsByScopeAndName(scopeName, word, scoped);
-        if(scopeName != wxT("<global>")) {
-            // No need to call it twice...
-            GetGlobalTags(word, globals);
-        }
-
-        if(showLanguageKeywords) {
-            // Collect language keywords
-            GetKeywordsTagsForLanguage(word, kCxx, keywords);
-        }
-
-        // Always collect the local and the function argument tags
-        GetLocalTags(word, scope, locals, PartialMatch | IgnoreCaseSensitive | ReplaceTokens);
-        GetLocalTags(word, funcSig, locals, PartialMatch | IgnoreCaseSensitive);
-
-        for(size_t i = 0; i < additionlScopes.size(); i++) {
-            TagsByScopeAndName(additionlScopes.at(i), word, scoped);
-        }
-
-        // for every vector filter the results
-        DoFilterDuplicatesByTagID(locals, locals);
-        DoFilterDuplicatesBySignature(locals, locals);
-
-        DoFilterDuplicatesByTagID(scoped, scoped);
-        DoFilterDuplicatesBySignature(scoped, scoped);
-
-        DoFilterDuplicatesByTagID(globals, globals);
-        DoFilterDuplicatesBySignature(globals, globals);
-
-        // unified the results into a single match
-        candidates.insert(candidates.end(), locals.begin(), locals.end());
-        candidates.insert(candidates.end(), keywords.begin(), keywords.end());
-        candidates.insert(candidates.end(), scoped.begin(), scoped.end());
-        candidates.insert(candidates.end(), globals.begin(), globals.end());
-
-    } else if(tmpExp == wxT("::")) {
-        // Global scope only
-        // e.g.: ::My <CTRL>+<SPACE>
-        // Collect all tags from the global scope which starts with 'My' (i.e. 'word')
-        std::vector<TagEntryPtr> tmpCandidates;
-        GetGlobalTags(word, tmpCandidates);
-        DoFilterDuplicatesByTagID(tmpCandidates, candidates);
-        DoFilterDuplicatesBySignature(candidates, candidates);
-
-    } else {
-        wxString typeName, typeScope, dummy;
-        bool res = ProcessExpression(fileName, lineno, expression, text, typeName, typeScope, oper, dummy);
-        if(!res) {
-            PERF_END();
-            return false;
-        }
-
-        // get all symbols realted to this scope
-        scope = wxT("");
-        if(typeScope == wxT("<global>"))
-            scope << typeName;
-        else
-            scope << typeScope << wxT("::") << typeName;
-
-        std::vector<TagEntryPtr> tmpCandidates, tmpCandidates1;
-        TagsByScopeAndName(scope, word, tmpCandidates);
-        DoFilterCtorDtorIfNeeded(tmpCandidates, oper);
-
-        wxString partialName(word);
-        partialName.MakeLower();
-
-        if(partialName.IsEmpty() == false) {
-            for(size_t i = 0; i < tmpCandidates.size(); i++) {
-                wxString nm = tmpCandidates[i]->GetName();
-                nm.MakeLower();
-                if(nm.StartsWith(partialName)) { tmpCandidates1.push_back(tmpCandidates.at(i)); }
-            }
-            DoFilterDuplicatesByTagID(tmpCandidates1, candidates);
-            DoFilterDuplicatesBySignature(candidates, candidates);
-        } else {
-            DoFilterDuplicatesByTagID(tmpCandidates, candidates);
-            DoFilterDuplicatesBySignature(candidates, candidates);
-        }
-
-        DoSortByVisibility(candidates);
-    }
-
-    PERF_END();
-    return true;
-}
-
-bool TagsManager::AutoCompleteCandidates(const wxFileName& fileName, int lineno, const wxString& expr,
-                                         const wxString& text, std::vector<TagEntryPtr>& candidates)
-{
-    PERF_START("AutoCompleteCandidates");
-
-    candidates.clear();
-    wxString path;
-    wxString typeName, typeScope;
-
-    wxString expression(expr);
-    static wxString trimLeftString(wxT("{};\r\n\t\v "));
-    static wxString trimRightString(wxT("({};\r\n\t\v "));
-    expression.erase(0, expression.find_first_not_of(trimLeftString));
-    expression.erase(expression.find_last_not_of(trimRightString) + 1);
-    wxString oper;
-    wxString scopeTeamplateInitList;
-    bool isGlobalScopeOperator(false);
-
-    if(expression == wxT("::")) {
-        // global scope
-        isGlobalScopeOperator = true;
-
-    } else {
-
-        PERF_BLOCK("ProcessExpression")
-        {
-            bool res = ProcessExpression(fileName, lineno, expression, text, typeName, typeScope, oper,
-                                         scopeTeamplateInitList);
-            if(!res) {
-                PERF_END();
-                CL_DEBUG(wxT("Failed to resolve %s"), expression.c_str());
-                return false;
-            }
-        }
-    }
-
-    // Load all tags from the database that matches typeName & typeScope
-    wxString scope;
-    if(typeScope == wxT("<global>"))
-        scope << typeName;
-    else
-        scope << typeScope << wxT("::") << typeName;
-
-    // this function will retrieve the ineherited tags as well
-    // incase the last operator used was '::', retrieve all kinds of tags. Otherwise (-> , . operators were used)
-    // retrieve only the members/prototypes/functions/enums
-    wxArrayString filter;
-
-    if(isGlobalScopeOperator) {
-        // Fetch all tags from the global scope
-        GetDatabase()->GetGlobalFunctions(candidates);
-
-        if(candidates.empty() == false) std::sort(candidates.begin(), candidates.end(), SAscendingSort());
-
-    } else if(oper == wxT("::")) {
-
-        filter.Add(wxT("namespace"));
-        filter.Add(wxT("class"));
-        filter.Add(wxT("struct"));
-        filter.Add(wxT("prototype"));
-        filter.Add(wxT("function"));
-        filter.Add(wxT("member"));
-        filter.Add(wxT("typedef"));
-        filter.Add(wxT("enum"));
-        filter.Add(wxT("enumerator"));
-        filter.Add(wxT("union"));
-
-        PERF_BLOCK("TagsByScope") { TagsByScope(scope, filter, candidates, true); }
-
-        // Let's search in typerefs
-        if(candidates.empty()) {
-            PERF_BLOCK("TagsByTyperef") { TagsByTyperef(scope, filter, candidates, true); }
-        }
-
-    } else {
-
-        filter.Add(wxT("function"));
-        filter.Add(wxT("member"));
-        filter.Add(wxT("prototype"));
-        PERF_BLOCK("TagsByScope") { TagsByScope(scope, filter, candidates, true); }
-        DoFilterCtorDtorIfNeeded(candidates, oper);
-    }
-
-    PERF_END();
-
-    std::vector<TagEntryPtr> noDupsVec;
-    DoFilterDuplicatesBySignature(candidates, noDupsVec);
-    noDupsVec.swap(candidates);
-
-    DoSortByVisibility(candidates);
-    return candidates.empty() == false;
 }
 
 void TagsManager::DoFilterDuplicatesBySignature(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target)
@@ -760,7 +314,9 @@ void TagsManager::DoFilterDuplicatesBySignature(std::vector<TagEntryPtr>& src, s
     // unified the two multimaps
     std::map<wxString, TagEntryPtr>::iterator iter = impls.begin();
     for(; iter != impls.end(); iter++) {
-        if(others.find(iter->first) == others.end()) { others[iter->first] = iter->second; }
+        if(others.find(iter->first) == others.end()) {
+            others[iter->first] = iter->second;
+        }
     }
 
     target.clear();
@@ -780,7 +336,9 @@ void TagsManager::DoFilterDuplicatesByTagID(std::vector<TagEntryPtr>& src, std::
         const TagEntryPtr& t = src.at(i);
         int tagId = t->GetId();
         if(t->GetParent() == wxT("<local>")) {
-            if(localTags.find(t->GetName()) == localTags.end()) { localTags[t->GetName()] = t; }
+            if(localTags.find(t->GetName()) == localTags.end()) {
+                localTags[t->GetName()] = t;
+            }
 
         } else if(mapTags.find(tagId) == mapTags.end()) {
             mapTags[tagId] = t;
@@ -811,7 +369,9 @@ void TagsManager::RemoveDuplicatesTips(std::vector<TagEntryPtr>& src, std::vecto
 
         wxString raw_sig(src.at(i)->GetSignature().Trim().Trim(false));
         wxString sig;
-        if(raw_sig.empty() == false) { sig = NormalizeFunctionSig(raw_sig, 0); }
+        if(raw_sig.empty() == false) {
+            sig = NormalizeFunctionSig(raw_sig, 0);
+        }
 
         // the signature that we want to keep is one with name & default values, so try and get the maximum out of the
         // function signature
@@ -877,6 +437,7 @@ void TagsManager::GetHoverTip(const wxFileName& fileName, int lineno, const wxSt
 
     tmp = expression;
     expression.EndsWith(word, &tmp);
+    tmp.Trim().Trim(false);
     expression = tmp;
 
     wxString curFunctionBody;
@@ -893,11 +454,18 @@ void TagsManager::GetHoverTip(const wxFileName& fileName, int lineno, const wxSt
 
         // we now have a list of tags that matches our word
         TipsFromTags(candidates, word, tips);
+    } else if(expression == "::") {
+        // global scope resolution operator
+
+        GetGlobalTags(word, candidates, ExactMatch);
+        TipsFromTags(candidates, word, tips);
     } else {
         wxString typeName, typeScope;
         wxString oper, dummy;
         bool res = ProcessExpression(fileName, lineno, expression, text, typeName, typeScope, oper, dummy);
-        if(!res) { return; }
+        if(!res) {
+            return;
+        }
 
         // get all symbols realted to this scope
         scope = wxT("");
@@ -915,98 +483,11 @@ void TagsManager::GetHoverTip(const wxFileName& fileName, int lineno, const wxSt
     }
 }
 
-void TagsManager::FindImplDecl(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& word,
-                               const wxString& text, std::vector<TagEntryPtr>& tags, bool imp, bool workspaceOnly)
-{
-    // Don't attempt to parse non valid ctags file
-    if(!IsValidCtagsFile(fileName)) { return; }
-
-    wxString path;
-    wxString tmp;
-    std::vector<TagEntryPtr> tmpCandidates;
-
-    // remove the word from the expression
-    wxString expression(expr);
-
-    // Trim whitespace from right and left
-    static wxString trimString(wxT("(){};\r\n\t\v "));
-
-    expression.erase(0, expression.find_first_not_of(trimString));
-    expression.erase(expression.find_last_not_of(trimString) + 1);
-    tmp = expression;
-    expression.EndsWith(word, &tmp);
-    expression = tmp;
-    expression.Trim().Trim(false);
-
-    wxString scope(text);
-    std::vector<wxString> visibleScopes;
-    wxString scopeName = GetLanguage()->GetScopeName(scope, &visibleScopes);
-    if(expression.IsEmpty() || expression == wxT("::")) {
-        expression.Clear();
-
-        // add the current scope to the "visibleScopes" to be tested
-        if(scopeName != wxT("<global>")) {
-            visibleScopes.push_back(scopeName);
-            wxArrayString outerScopes = BreakToOuterScopes(scopeName);
-            for(size_t i = 0; i < outerScopes.GetCount(); i++)
-                visibleScopes.push_back(outerScopes.Item(i));
-        }
-
-        // collect tags from all the visible scopes
-        for(size_t i = 0; i < visibleScopes.size(); i++)
-            TagsByScopeAndName(visibleScopes.at(i), word, tmpCandidates, ExactMatch);
-
-        if(tmpCandidates.empty()) {
-            // no match in the given scope, try to collect from global scope as well
-            GetGlobalTags(word, tmpCandidates, ExactMatch);
-        }
-
-        if(!imp) {
-            // collect only implementation
-            FilterImplementation(tmpCandidates, tags);
-
-        } else {
-            FilterDeclarations(tmpCandidates, tags);
-        }
-
-        if(tags.empty()) {
-            TryFindImplDeclUsingNS(scopeName, word, imp, visibleScopes, tags);
-            if(tags.empty()) TryReducingScopes(scopeName, word, imp, tags);
-        }
-
-    } else {
-        wxString typeName, typeScope;
-        wxString oper, dummy;
-        bool res = ProcessExpression(fileName, lineno, expression, text, typeName, typeScope, oper, dummy);
-        if(!res) { return; }
-        // get all symbols realted to this scope
-        scope = wxT("");
-        if(typeScope == wxT("<global>"))
-            scope << typeName;
-        else
-            scope << typeScope << wxT("::") << typeName;
-
-        std::vector<TagEntryPtr> tmpCandidates;
-        TagsByScopeAndName(scope, word, tmpCandidates, ExactMatch);
-
-        if(!imp) {
-            // collect only implementation
-            FilterImplementation(tmpCandidates, tags);
-        } else {
-            FilterDeclarations(tmpCandidates, tags);
-        }
-
-        if(tags.empty()) {
-            TryFindImplDeclUsingNS(scope, word, imp, visibleScopes, tags);
-            if(tags.empty()) TryReducingScopes(scope, word, imp, tags);
-        }
-    }
-}
-
 void TagsManager::TryReducingScopes(const wxString& scope, const wxString& word, bool imp,
                                     std::vector<TagEntryPtr>& tags)
 {
-    if(scope == wxT("<global>") || scope.IsEmpty()) return;
+    if(scope == wxT("<global>") || scope.IsEmpty())
+        return;
 
     // if we are here, it means that the the 'word' was not found in the 'scope'
     // and we already tried the 'TryFindImplDeclUsingNS' method.
@@ -1024,7 +505,9 @@ void TagsManager::TryReducingScopes(const wxString& scope, const wxString& word,
         for(size_t j = i; j < scopes.GetCount(); j++) {
             newScope << scopes.Item(j) << wxT("::");
         }
-        if(newScope.Len() >= 2) { newScope.RemoveLast(2); }
+        if(newScope.Len() >= 2) {
+            newScope.RemoveLast(2);
+        }
         visibleScopes.push_back(newScope);
     }
     std::vector<TagEntryPtr> tmpCandidates;
@@ -1109,100 +592,6 @@ void TagsManager::FilterDeclarations(const std::vector<TagEntryPtr>& src, std::v
     }
 }
 
-clCallTipPtr TagsManager::GetFunctionTip(const wxFileName& fileName, int lineno, const wxString& expr,
-                                         const wxString& text, const wxString& word)
-{
-    wxString path;
-    wxString typeName, typeScope, tmp;
-    std::vector<TagEntryPtr> tips;
-
-    // Skip any C++ keywords
-    if(m_CppIgnoreKeyWords.find(word) != m_CppIgnoreKeyWords.end()) { return NULL; }
-
-    // Trim whitespace from right and left
-    wxString expression(expr);
-    static wxString trimLeftString(wxT("{};\r\n\t\v "));
-    static wxString trimRightString(wxT("({};\r\n\t\v "));
-    expression.erase(0, expression.find_first_not_of(trimLeftString));
-    expression.erase(expression.find_last_not_of(trimRightString) + 1);
-
-    // remove the last token from the expression
-    expression.EndsWith(word, &tmp);
-    expression = tmp;
-    if(word.IsEmpty()) { return NULL; }
-
-    CppScanner scanner;
-    scanner.SetText(_C(word));
-    if(scanner.yylex() != IDENTIFIER) { return NULL; }
-
-    expression.Trim().Trim(false);
-    if(expression.IsEmpty()) {
-        DoGetFunctionTipForEmptyExpression(word, text, tips);
-
-        if(tips.empty()) {
-            // no luck yet
-            // we now try this:
-            // Perhaps our "function" is actually a constuctor, e.g.:
-            // ClassName cls(
-            wxString alteredText(text);
-            alteredText.Append(wxT(";"));
-            std::vector<TagEntryPtr> tmpCandidates;
-            GetLocalTags(word, text, tmpCandidates, false, ExactMatch);
-            if(tmpCandidates.size() == 1) {
-                TagEntryPtr t = tmpCandidates.at(0);
-                DoGetFunctionTipForEmptyExpression(t->GetScope(), text, tips);
-
-            } else {
-                // Stil no luck, try this:
-                // Assume that the expression is a code-complete expression (i.e. an expression that ends with -> or .
-                // and try to resolve it. If we succeed, we collect only the ctors matches from that list
-                TagEntryPtrVector_t matches;
-                tmpCandidates.clear();
-                if(AutoCompleteCandidates(fileName, lineno, expr + ".", text, matches) && !matches.empty()) {
-                    std::for_each(matches.begin(), matches.end(), TagEntry::ForEachCopyIfCtor(tmpCandidates));
-                    GetFunctionTipFromTags(tmpCandidates, matches.at(0)->GetScopeName(), tips);
-                }
-            }
-        }
-    } else if(expression == wxT("::")) {
-        // Test the global scope
-        DoGetFunctionTipForEmptyExpression(word, text, tips, true);
-
-    } else {
-        wxString oper, dummy;
-        clDEBUG1() << "Calling ProcessExpression(" << expression << ")" << clEndl;
-        bool res = ProcessExpression(fileName, lineno, expression, text, typeName, typeScope, oper, dummy);
-        if(!res) {
-            clDEBUG1() << "Calling ProcessExpression(" << expression << ") - returned FALSE" << clEndl;
-            return NULL;
-        }
-
-        // load all tags from the database that matches typeName & typeScope
-        wxString scope;
-        if(typeScope == wxT("<global>"))
-            scope << typeName;
-        else
-            scope << typeScope << wxT("::") << typeName;
-
-        // this function will retrieve the ineherited tags as well
-        std::vector<TagEntryPtr> tmpCandidates;
-        TagsByScopeAndName(scope, word, tmpCandidates, ExactMatch);
-        clDEBUG1() << "Building Calltip from tags, size:" << tmpCandidates.size() << clEndl;
-        GetFunctionTipFromTags(tmpCandidates, word, tips);
-    }
-
-    // In case the user requested that the function signature will not be formatted
-    // respect it and add the 'Tag_No_Signature_Format' flag
-    if(GetCtagsOptions().GetFlags() & CC_KEEP_FUNCTION_SIGNATURE_UNFORMATTED) {
-        for(size_t i = 0; i < tips.size(); i++) {
-            tips.at(i)->SetFlags(TagEntry::Tag_No_Signature_Format);
-        }
-    }
-
-    clCallTipPtr ct(new clCallTip(tips));
-    return ct;
-}
-
 //-----------------------------------------------------------------------------
 // <<<<<<<<<<<<<<<<<<< Code Completion API END
 //-----------------------------------------------------------------------------
@@ -1235,82 +624,7 @@ void TagsManager::DeleteFilesTags(const wxArrayString& files)
     DeleteFilesTags(files_);
 }
 
-void TagsManager::DeleteFilesTags(const std::vector<wxFileName>& projectFiles)
-{
-    if(projectFiles.empty()) { return; }
-
-    // Put a request to the parsing thread to delete the tags for the 'projectFiles'
-    ParseRequest* req = new ParseRequest(ParseThreadST::Get()->GetNotifiedWindow());
-    req->setDbFile(GetDatabase()->GetDatabaseFileName().GetFullPath().c_str());
-    req->setType(ParseRequest::PR_DELETE_TAGS_OF_FILES);
-    req->_workspaceFiles.clear();
-    req->_workspaceFiles.reserve(projectFiles.size());
-    for(size_t i = 0; i < projectFiles.size(); i++) {
-        req->_workspaceFiles.push_back(projectFiles.at(i).GetFullPath().mb_str(wxConvUTF8).data());
-    }
-    ParseThreadST::Get()->Add(req);
-}
-
-void TagsManager::RetagFiles(const std::vector<wxFileName>& files, RetagType type, wxEvtHandler* cb)
-{
-    wxArrayString strFiles;
-    strFiles.Alloc(files.size()); // At most files.size() entries
-    
-    // step 1: remove all non-tags files
-    for(size_t i = 0; i < files.size(); i++) {
-        if(!IsValidCtagsFile(files.at(i).GetFullPath())) { continue; }
-        strFiles.Add(files.at(i).GetFullPath());
-    }
-
-    // If there are no files to tag - send the 'end' event
-    if(strFiles.IsEmpty()) {
-#if wxUSE_GUI
-        wxFrame* frame = dynamic_cast<wxFrame*>(wxTheApp->GetTopWindow());
-        if(frame) {
-            wxCommandEvent retaggingCompletedEvent(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED);
-            frame->GetEventHandler()->AddPendingEvent(retaggingCompletedEvent);
-        }
-#endif        
-        return;
-    }
-
-    // step 2: remove all files which do not need retag
-    if(type == Retag_Quick || type == Retag_Quick_No_Scan) {
-        DoFilterNonNeededFilesForRetaging(strFiles, GetDatabase());
-    }
-
-    // If there are no files to tag - send the 'end' event
-    if(strFiles.IsEmpty()) {
-#if wxUSE_GUI
-        wxFrame* frame = dynamic_cast<wxFrame*>(wxTheApp->GetTopWindow());
-        if(frame) {
-            wxCommandEvent retaggingCompletedEvent(wxEVT_PARSE_THREAD_RETAGGING_COMPLETED);
-            frame->GetEventHandler()->AddPendingEvent(retaggingCompletedEvent);
-        }
-#endif
-        return;
-    }
-
-    // step 4: Remove tags belonging to these files
-    DeleteFilesTags(strFiles);
-
-    // step 5: build the database
-    ParseRequest* req = new ParseRequest(ParseThreadST::Get()->GetNotifiedWindow());
-    if(cb) {
-        req->_evtHandler = cb; // Callback window
-    }
-
-    req->setDbFile(GetDatabase()->GetDatabaseFileName().GetFullPath().c_str());
-
-    req->setType(type == Retag_Quick_No_Scan ? ParseRequest::PR_PARSE_FILE_NO_INCLUDES
-                                             : ParseRequest::PR_PARSE_AND_STORE);
-    req->_workspaceFiles.clear();
-    req->_workspaceFiles.reserve(strFiles.size());
-    for(size_t i = 0; i < strFiles.GetCount(); i++) {
-        req->_workspaceFiles.push_back(strFiles[i].mb_str(wxConvUTF8).data());
-    }
-    ParseThreadST::Get()->Add(req);
-}
+void TagsManager::DeleteFilesTags(const std::vector<wxFileName>& projectFiles) { wxUnusedVar(projectFiles); }
 
 void TagsManager::FindByNameAndScope(const wxString& name, const wxString& scope, std::vector<TagEntryPtr>& tags)
 {
@@ -1334,14 +648,14 @@ void TagsManager::DoFindByNameAndScope(const wxString& name, const wxString& sco
         // try the workspace database for match
         GetDatabase()->GetTagsByNameAndParent(name, wxT("<global>"), tags);
     } else {
-        std::vector<wxString> derivationList;
-        derivationList.push_back(scope);
-        std::set<wxString> scannedInherits;
-        GetDerivationList(scope, NULL, derivationList, scannedInherits);
+        std::vector<std::pair<wxString, int>> derivationList;
+        derivationList.push_back({ scope, 0 });
+        std::unordered_set<wxString> visited;
+        GetDerivationList(scope, NULL, derivationList, visited, 1);
         wxArrayString paths;
         for(size_t i = 0; i < derivationList.size(); i++) {
             wxString path_;
-            path_ << derivationList.at(i) << wxT("::") << name;
+            path_ << derivationList.at(i).first << wxT("::") << name;
             paths.Add(path_);
         }
 
@@ -1358,7 +672,9 @@ bool TagsManager::IsTypeAndScopeContainer(wxString& typeName, wxString& scope)
     // we search the cache first, note that the cache
     // is used only for the external database
     std::map<wxString, bool>::iterator iter = m_typeScopeContainerCache.find(cacheKey);
-    if(iter != m_typeScopeContainerCache.end()) { return iter->second; }
+    if(iter != m_typeScopeContainerCache.end()) {
+        return iter->second;
+    }
 
     // replace macros:
     // replace the provided typeName and scope with user defined macros as appeared in the PreprocessorMap
@@ -1381,10 +697,14 @@ bool TagsManager::IsTypeAndScopeExists(wxString& typeName, wxString& scope)
     // we search the cache first, note that the cache
     // is used only for the external database
     std::map<wxString, bool>::iterator iter = m_typeScopeCache.find(cacheKey);
-    if(iter != m_typeScopeCache.end()) { return iter->second; }
+    if(iter != m_typeScopeCache.end()) {
+        return iter->second;
+    }
 
     // First try the fast query to save some time
-    if(GetDatabase()->IsTypeAndScopeExistLimitOne(typeName, scope)) { return true; }
+    if(GetDatabase()->IsTypeAndScopeExistLimitOne(typeName, scope)) {
+        return true;
+    }
 
     // replace macros:
     // replace the provided typeName and scope with user defined macros as appeared in the PreprocessorMap
@@ -1395,7 +715,19 @@ bool TagsManager::IsTypeAndScopeExists(wxString& typeName, wxString& scope)
 }
 
 bool TagsManager::GetDerivationList(const wxString& path, TagEntryPtr derivedClassTag,
-                                    std::vector<wxString>& derivationList, std::set<wxString>& scannedInherits)
+                                    std::vector<std::pair<wxString, int>>& derivationList,
+                                    std::unordered_set<wxString>& visited, int depth)
+{
+    bool res = GetDerivationListInternal(path, derivedClassTag, derivationList, visited, depth);
+    std::sort(
+        derivationList.begin(), derivationList.end(),
+        [](const std::pair<wxString, size_t>& a, const std::pair<wxString, size_t>& b) { return a.second < b.second; });
+    return res;
+}
+
+bool TagsManager::GetDerivationListInternal(const wxString& path, TagEntryPtr derivedClassTag,
+                                            std::vector<std::pair<wxString, int>>& derivationList,
+                                            std::unordered_set<wxString>& visited, int depth)
 {
     std::vector<TagEntryPtr> tags;
     TagEntryPtr tag;
@@ -1478,14 +810,16 @@ bool TagsManager::GetDerivationList(const wxString& path, TagEntryPtr derivedCla
                         }
                     }
 
-                    if(possibleScope != wxT("<global>")) { inherits = possibleScope + wxT("::") + inherits; }
+                    if(possibleScope != wxT("<global>")) {
+                        inherits = possibleScope + wxT("::") + inherits;
+                    }
                 }
 
                 // Make sure that this parent was not scanned already
-                if(scannedInherits.find(inherits) == scannedInherits.end()) {
-                    scannedInherits.insert(inherits);
-                    derivationList.push_back(inherits);
-                    GetDerivationList(inherits, tag, derivationList, scannedInherits);
+                if(visited.count(inherits) == 0) {
+                    visited.insert(inherits);
+                    derivationList.push_back({ inherits, depth });
+                    GetDerivationList(inherits, tag, derivationList, visited, depth + 1);
                 }
             }
         }
@@ -1495,68 +829,6 @@ bool TagsManager::GetDerivationList(const wxString& path, TagEntryPtr derivedCla
 
 void TagsManager::TipsFromTags(const std::vector<TagEntryPtr>& tags, const wxString& word, std::vector<wxString>& tips)
 {
-    wxString retValueColour = "\"white\"";
-    for(size_t i = 0; i < tags.size(); i++) {
-        if(tags.at(i)->GetName() != word) continue;
-
-        wxString tip = tags.at(i)->GetPattern();
-
-        // remove the pattern perfix and suffix
-        tip = tip.Trim().Trim(false);
-        tip = tip.AfterFirst(wxT('^'));
-        if(tip.Find(wxT('$')) != wxNOT_FOUND) {
-            tip = tip.BeforeLast(wxT('$'));
-        } else {
-            if(tip.EndsWith(wxT("/"))) { tip = tip.BeforeLast(wxT('/')); }
-        }
-
-        // since the tip is built from the pattern, which is actually a regex expression
-        // some characters might be escaped (e.g. '/' will appear as '\/')
-        tip.Replace(wxT("\\/"), wxT("/"));
-
-        // Trim whitespace from right and left
-        static wxString trimString(wxT("{};\r\n\t\v "));
-
-        tip.erase(0, tip.find_first_not_of(trimString));
-        tip.erase(tip.find_last_not_of(trimString) + 1);
-        tip.Replace(wxT("\t"), wxT(" "));
-
-        // create a proper tooltip from the stripped pattern
-        TagEntryPtr t = tags.at(i);
-        if(t->IsMethod()) {
-
-            // add return value
-            tip.Clear();
-
-            wxString ret_value = GetFunctionReturnValueFromPattern(t);
-            if(ret_value.IsEmpty() == false) {
-                tip << "<b>" << ret_value << wxT("</b> ");
-            } else {
-                wxString retValue = t->GetReturnValue();
-                if(retValue.IsEmpty() == false) { tip << "<b>" << retValue << wxT("</b> "); }
-            }
-
-            // add the scope
-            if(!t->IsScopeGlobal() && !t->IsConstructor() && !t->IsDestructor()) { tip << t->GetScope() << wxT("::"); }
-
-            // name
-            tip << "<b>" << t->GetName() << "</b>";
-
-            // method signature
-            tip << NormalizeFunctionSig(t->GetSignature(), Normalize_Func_Name | Normalize_Func_Default_value);
-        }
-
-        // remove any extra spaces from the tip
-        while(tip.Replace(wxT("  "), wxT(" "))) {}
-
-        // BUG#3082954: limit the size of the 'match pattern' to a reasonable size (200 chars)
-        tip = WrapLines(tip);
-
-        if(!tips.empty()) { tip.Prepend("\n"); }
-
-        // prepend any comment if exists
-        tips.push_back(tip);
-    }
 }
 
 void TagsManager::GetFunctionTipFromTags(const std::vector<TagEntryPtr>& tags, const wxString& word,
@@ -1566,7 +838,8 @@ void TagsManager::GetFunctionTipFromTags(const std::vector<TagEntryPtr>& tags, c
     std::vector<TagEntryPtr> ctor_tags;
 
     for(size_t i = 0; i < tags.size(); i++) {
-        if(tags.at(i)->GetName() != word) continue;
+        if(tags.at(i)->GetName() != word)
+            continue;
 
         TagEntryPtr t;
         TagEntryPtr curtag = tags.at(i);
@@ -1575,7 +848,9 @@ void TagsManager::GetFunctionTipFromTags(const std::vector<TagEntryPtr>& tags, c
         // we dont temper with 'curtag' content since we dont want
         // to modify cached items
         t = curtag->ReplaceSimpleMacro();
-        if(!t) { t = curtag; }
+        if(!t) {
+            t = curtag;
+        }
 
         wxString pat = t->GetPattern();
 
@@ -1651,14 +926,16 @@ void TagsManager::CloseDatabase()
     m_db = NULL; // Free the current database
     m_db = new TagsStorageSQLite();
     m_db->SetSingleSearchLimit(m_tagsOptions.GetCcNumberOfDisplayItems());
-    m_db->SetUseCache(true);
+    m_db->SetUseCache(false);
 }
 
 DoxygenComment TagsManager::GenerateDoxygenComment(const wxString& file, const int line, wxChar keyPrefix)
 {
     if(GetDatabase()->IsOpen()) {
         TagEntryPtr tag = GetDatabase()->GetTagAboveFileAndLine(file, line);
-        if(!tag) { return DoxygenComment(); }
+        if(!tag) {
+            return DoxygenComment();
+        }
 
         // create a doxygen comment from the tag
         return DoCreateDoxygenComment(tag, keyPrefix);
@@ -1680,10 +957,7 @@ bool TagsManager::GetParseComments() { return m_parseComments; }
 void TagsManager::SetCtagsOptions(const TagsOptionsData& options)
 {
     m_tagsOptions = options;
-    RestartCodeLiteIndexer();
     m_parseComments = m_tagsOptions.GetFlags() & CC_PARSE_COMMENTS ? true : false;
-    ITagsStoragePtr db = GetDatabase();
-    if(db) { db->SetSingleSearchLimit(m_tagsOptions.GetCcNumberOfDisplayItems()); }
 }
 
 void TagsManager::GenerateSettersGetters(const wxString& scope, const SettersGettersData& data,
@@ -1700,11 +974,13 @@ void TagsManager::TagsByScope(const wxString& scopeName, const wxString& kind, s
                               bool includeInherits, bool applyLimit)
 {
     wxString sql;
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
     // add this scope as well to the derivation list
-    derivationList.push_back(scopeName);
-    std::set<wxString> scannedInherits;
-    if(includeInherits) { GetDerivationList(scopeName, NULL, derivationList, scannedInherits); }
+    derivationList.push_back({ scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    if(includeInherits) {
+        GetDerivationList(scopeName, NULL, derivationList, visited, 1);
+    }
 
     // make enough room for max of 500 elements in the vector
     tags.reserve(500);
@@ -1712,13 +988,15 @@ void TagsManager::TagsByScope(const wxString& scopeName, const wxString& kind, s
     kinds.Add(kind);
 
     for(size_t i = 0; i < derivationList.size(); i++) {
-        scopes.Add(derivationList.at(i));
+        scopes.Add(derivationList.at(i).first);
     }
 
-    if(applyLimit)
+    clDEBUG() << "Reading symbols from scopes:" << scopes << endl;
+    if(applyLimit) {
         GetDatabase()->GetTagsByScopesAndKind(scopes, kinds, tags);
-    else
+    } else {
         GetDatabase()->GetTagsByScopesAndKindNoLimit(scopes, kinds, tags);
+    }
 }
 
 wxString TagsManager::GetScopeName(const wxString& scope)
@@ -1746,7 +1024,9 @@ bool TagsManager::GetMemberType(const wxString& scope, const wxString& name, wxS
 
 void TagsManager::GetFiles(const wxString& partialName, std::vector<FileEntryPtr>& files)
 {
-    if(GetDatabase()) { GetDatabase()->GetFiles(partialName, files); }
+    if(GetDatabase()) {
+        GetDatabase()->GetFiles(partialName, files);
+    }
 }
 
 void TagsManager::GetFiles(const wxString& partialName, std::vector<wxFileName>& files)
@@ -1759,11 +1039,33 @@ void TagsManager::GetFiles(const wxString& partialName, std::vector<wxFileName>&
     }
 }
 
+TagEntryPtr TagsManager::FunctionFromBufferLine(const wxString& buffer, int lineno, const wxString& file_name)
+{
+    auto tags = ParseBuffer(buffer, file_name);
+    if(tags.empty()) {
+        return nullptr;
+    }
+
+    TagEntryPtr matched_tag;
+    for(TagEntryPtr tag : tags) {
+        if(tag->IsMethod() && tag->GetLine() <= lineno) {
+            matched_tag = tag;
+        } else if(tag->GetLine() > lineno) {
+            break;
+        }
+    }
+    return matched_tag;
+}
+
 TagEntryPtr TagsManager::FunctionFromFileLine(const wxFileName& fileName, int lineno, bool nextFunction /*false*/)
 {
-    if(!GetDatabase()) { return NULL; }
+    if(!GetDatabase()) {
+        return NULL;
+    }
 
-    if(!IsFileCached(fileName.GetFullPath())) { CacheFile(fileName.GetFullPath()); }
+    if(!IsFileCached(fileName.GetFullPath())) {
+        CacheFile(fileName.GetFullPath());
+    }
 
     TagEntryPtr foo = NULL;
     for(size_t i = 0; i < m_cachedFileFunctionsTags.size(); i++) {
@@ -1785,7 +1087,9 @@ TagEntryPtr TagsManager::FunctionFromFileLine(const wxFileName& fileName, int li
 
 void TagsManager::GetScopesFromFile(const wxFileName& fileName, std::vector<wxString>& scopes)
 {
-    if(!GetDatabase()) { return; }
+    if(!GetDatabase()) {
+        return;
+    }
 
     GetDatabase()->GetScopesFromFileAsc(fileName, scopes);
 }
@@ -1793,7 +1097,9 @@ void TagsManager::GetScopesFromFile(const wxFileName& fileName, std::vector<wxSt
 void TagsManager::TagsFromFileAndScope(const wxFileName& fileName, const wxString& scopeName,
                                        std::vector<TagEntryPtr>& tags)
 {
-    if(!GetDatabase()) { return; }
+    if(!GetDatabase()) {
+        return;
+    }
 
     wxArrayString kind;
     kind.Add(wxT("function"));
@@ -1816,20 +1122,25 @@ bool TagsManager::GetFunctionDetails(const wxFileName& fileName, int lineno, Tag
 
 TagEntryPtr TagsManager::FirstFunctionOfFile(const wxFileName& fileName)
 {
-    if(!GetDatabase()) { return NULL; }
+    if(!GetDatabase()) {
+        return NULL;
+    }
 
     std::vector<TagEntryPtr> tags;
     wxArrayString kind;
     kind.Add(wxT("function"));
     GetDatabase()->GetTagsByKindAndFile(kind, fileName.GetFullPath(), wxT("line"), ITagsStorage::OrderAsc, tags);
 
-    if(tags.empty()) return NULL;
+    if(tags.empty())
+        return NULL;
     return tags.at(0);
 }
 
 TagEntryPtr TagsManager::FirstScopeOfFile(const wxFileName& fileName)
 {
-    if(!GetDatabase()) { return NULL; }
+    if(!GetDatabase()) {
+        return NULL;
+    }
     std::vector<TagEntryPtr> tags;
     wxArrayString kind;
     kind.Add(wxT("struct"));
@@ -1837,14 +1148,17 @@ TagEntryPtr TagsManager::FirstScopeOfFile(const wxFileName& fileName)
     kind.Add(wxT("namespace"));
     GetDatabase()->GetTagsByKindAndFile(kind, fileName.GetFullPath(), wxT("line"), ITagsStorage::OrderAsc, tags);
 
-    if(tags.empty()) return NULL;
+    if(tags.empty())
+        return NULL;
     return tags.at(0);
 }
 
 wxString TagsManager::FormatFunction(TagEntryPtr tag, size_t flags, const wxString& scope)
 {
     clFunction foo;
-    if(!GetLanguage()->FunctionFromPattern(tag, foo)) { return wxEmptyString; }
+    if(!GetLanguage()->FunctionFromPattern(tag, foo)) {
+        return wxEmptyString;
+    }
 
     wxString body;
     // add virtual keyword to declarations only && if the flags is set
@@ -1858,24 +1172,24 @@ wxString TagsManager::FormatFunction(TagEntryPtr tag, size_t flags, const wxStri
         CxxTemplateFunction helper(tag);
         helper.ParseDefinitionList();
         for(size_t i = 0; i < helper.GetList().GetCount(); ++i) {
-            body << "typename " << helper.GetList().Item(i) << ", \n";
+            body << "  typename " << helper.GetList().Item(i) << ", \n";
         }
-        if(body.EndsWith(", \n")) { body.RemoveLast(3); }
+        if(body.EndsWith(", \n")) {
+            body.RemoveLast(3);
+        }
         body << ">\n";
     }
 
-    wxString ret_value = GetFunctionReturnValueFromPattern(tag);
-    if(ret_value.IsEmpty() == false) {
-        body << ret_value << wxT(" ");
-
-    } else {
-        wxString retValue = tag->GetReturnValue();
-        if(retValue.IsEmpty() == false) { body << retValue << wxT(" "); }
+    wxString retValue = tag->GetTypename();
+    if(retValue.IsEmpty() == false) {
+        body << retValue << wxT(" ");
     }
 
     if(flags & FunctionFormat_Impl) {
         if(scope.IsEmpty()) {
-            if(tag->GetScope() != wxT("<global>")) { body << tag->GetScope() << wxT("::"); }
+            if(tag->GetScope() != wxT("<global>")) {
+                body << tag->GetScope() << wxT("::");
+            }
         } else {
             body << scope << wxT("::");
         }
@@ -1884,14 +1198,16 @@ wxString TagsManager::FormatFunction(TagEntryPtr tag, size_t flags, const wxStri
     // Build the flags required by the NormalizeFunctionSig() method
     size_t tmpFlags(0);
     if(flags & FunctionFormat_Impl) {
-        tmpFlags |= Normalize_Func_Name | Normalize_Func_Reverse_Macro;
+        tmpFlags |= Normalize_Func_Name;
     } else {
-        tmpFlags |= Normalize_Func_Name | Normalize_Func_Reverse_Macro | Normalize_Func_Default_value;
+        tmpFlags |= Normalize_Func_Name | Normalize_Func_Default_value;
     }
 
-    if(flags & FunctionFormat_Arg_Per_Line) tmpFlags |= Normalize_Func_Arg_Per_Line;
+    if(flags & FunctionFormat_Arg_Per_Line)
+        tmpFlags |= Normalize_Func_Arg_Per_Line;
 
-    if(flags & FunctionFormat_Arg_Per_Line) body << wxT("\n");
+    if(flags & FunctionFormat_Arg_Per_Line)
+        body << wxT("\n");
 
     body << tag->GetName();
     if(tag->GetFlags() & TagEntry::Tag_No_Signature_Format) {
@@ -1901,13 +1217,20 @@ wxString TagsManager::FormatFunction(TagEntryPtr tag, size_t flags, const wxStri
         body << NormalizeFunctionSig(tag->GetSignature(), tmpFlags);
     }
 
-    if(foo.m_isConst) { body << wxT(" const"); }
+    if(foo.m_isConst) {
+        body << wxT(" const");
+    }
 
-    if(!foo.m_throws.empty()) { body << wxT(" throw (") << wxString(foo.m_throws.c_str(), wxConvUTF8) << wxT(")"); }
+    if(!foo.m_throws.empty()) {
+        body << wxT(" throw (") << wxString(foo.m_throws.c_str(), wxConvUTF8) << wxT(")");
+    }
 
     if(flags & FunctionFormat_Impl) {
         body << wxT("\n{\n}\n");
     } else {
+        if(foo.m_isVirtual && (flags & FunctionFormat_WithOverride)) {
+            body << wxT(" override");
+        }
         body << wxT(";\n");
     }
 
@@ -1922,15 +1245,31 @@ wxString TagsManager::FormatFunction(TagEntryPtr tag, size_t flags, const wxStri
 bool TagsManager::IsPureVirtual(TagEntryPtr tag)
 {
     clFunction foo;
-    if(!GetLanguage()->FunctionFromPattern(tag, foo)) { return false; }
+    if(!GetLanguage()->FunctionFromPattern(tag, foo)) {
+        return false;
+    }
     return foo.m_isPureVirtual;
 }
 
 bool TagsManager::IsVirtual(TagEntryPtr tag)
 {
     clFunction foo;
-    if(!GetLanguage()->FunctionFromPattern(tag, foo)) { return false; }
+    if(!GetLanguage()->FunctionFromPattern(tag, foo)) {
+        return false;
+    }
     return foo.m_isVirtual;
+}
+
+bool TagsManager::GetVirtualProperty(TagEntryPtr tag, bool& isVirtual, bool& isPureVirtual, bool& isFinal)
+{
+    clFunction foo;
+    if(!GetLanguage()->FunctionFromPattern(tag, foo)) {
+        return false;
+    }
+    isVirtual = foo.m_isVirtual;
+    isPureVirtual = foo.m_isPureVirtual;
+    isFinal = foo.m_isFinal;
+    return true;
 }
 void TagsManager::SetLanguage(Language* lang) { m_lang = lang; }
 
@@ -1972,16 +1311,22 @@ void TagsManager::StripComments(const wxString& text, wxString& stippedText)
 
     while(true) {
         int type = scanner.yylex();
-        if(type == 0) { break; }
+        if(type == 0) {
+            break;
+        }
 
         // eat up all tokens until next line
-        if(prepLine && scanner.lineno() == curline) { continue; }
+        if(prepLine && scanner.lineno() == curline) {
+            continue;
+        }
 
         prepLine = false;
 
         // Get the current line number, it will help us detect preprocessor lines
         changedLine = (scanner.lineno() > curline);
-        if(changedLine) { stippedText << wxT("\n"); }
+        if(changedLine) {
+            stippedText << wxT("\n");
+        }
 
         curline = scanner.lineno();
         if(type == '#') {
@@ -2002,34 +1347,6 @@ void TagsManager::GetFunctions(std::vector<TagEntryPtr>& tags, const wxString& f
     kind.Add(wxT("function"));
     kind.Add(wxT("prototype"));
     GetDatabase()->GetTagsByKindAndFile(kind, fileName, wxT("name"), ITagsStorage::OrderAsc, tags);
-}
-
-void TagsManager::GetAllTagsNames(wxArrayString& tagsList)
-{
-    size_t kind = GetCtagsOptions().GetCcColourFlags();
-    if(kind == CC_COLOUR_ALL) {
-        GetDatabase()->GetAllTagsNames(tagsList);
-        return;
-    }
-
-    wxArrayString kindArr;
-
-    if(kind & CC_COLOUR_CLASS) { kindArr.Add(wxT("class")); }
-    if(kind & CC_COLOUR_ENUM) { kindArr.Add(wxT("enum")); }
-    if(kind & CC_COLOUR_FUNCTION) { kindArr.Add(wxT("function")); }
-    if(kind & CC_COLOUR_MACRO) { kindArr.Add(wxT("macro")); }
-    if(kind & CC_COLOUR_NAMESPACE) { kindArr.Add(wxT("namespace")); }
-    if(kind & CC_COLOUR_PROTOTYPE) { kindArr.Add(wxT("prototype")); }
-    if(kind & CC_COLOUR_STRUCT) { kindArr.Add(wxT("struct")); }
-    if(kind & CC_COLOUR_TYPEDEF) { kindArr.Add(wxT("typedef")); }
-    if(kind & CC_COLOUR_UNION) { kindArr.Add(wxT("union")); }
-    if(kind & CC_COLOUR_ENUMERATOR) { kindArr.Add(wxT("enumerator")); }
-    if(kind & CC_COLOUR_VARIABLE) { kindArr.Add(wxT("variable")); }
-    if(kind & CC_COLOUR_MEMBER) { kindArr.Add(wxT("member")); }
-
-    if(kindArr.IsEmpty()) { return; }
-
-    GetDatabase()->GetTagsNames(kindArr, tagsList);
 }
 
 void TagsManager::TagsByScope(const wxString& scopeName, const wxArrayString& kind, std::vector<TagEntryPtr>& tags,
@@ -2064,37 +1381,50 @@ void TagsManager::TagsByTyperef(const wxString& scopeName, const wxArrayString& 
 }
 
 wxString TagsManager::NormalizeFunctionSig(const wxString& sig, size_t flags,
-                                           std::vector<std::pair<int, int> >* paramLen)
+                                           std::vector<std::pair<int, int>>* paramLen)
 {
     // FIXME: make the standard configurable
-    CxxVariableScanner varScanner(sig, eCxxStandard::kCxx03, wxStringTable_t(), true);
+    CxxVariableScanner varScanner(sig, eCxxStandard::kCxx11, {}, true);
     CxxVariable::Vec_t vars = varScanner.ParseFunctionArguments();
 
     // construct a function signature from the results
     wxString str_output;
     str_output << wxT("(");
 
-    if(paramLen) { paramLen->clear(); }
-    if(flags & Normalize_Func_Arg_Per_Line && !vars.empty()) { str_output << wxT("\n    "); }
+    if(paramLen) {
+        paramLen->clear();
+    }
+    if(flags & Normalize_Func_Arg_Per_Line && !vars.empty()) {
+        str_output << wxT("\n    ");
+    }
 
-    const wxStringTable_t& macrosTable = GetCtagsOptions().GetTokensReversedWxMap();
-    std::for_each(vars.begin(), vars.end(), [&](CxxVariable::Ptr_t var) {
+    for(const auto& var : vars) {
         int start_offset = str_output.length();
 
         // FIXME: the standard should be configurable
         size_t toStringFlags = CxxVariable::kToString_None;
-        if(flags & Normalize_Func_Name) { toStringFlags |= CxxVariable::kToString_Name; }
-        if(flags & Normalize_Func_Default_value) { toStringFlags |= CxxVariable::kToString_DefaultValue; }
+        if(flags & Normalize_Func_Name) {
+            toStringFlags |= CxxVariable::kToString_Name;
+        }
+        if(flags & Normalize_Func_Default_value) {
+            toStringFlags |= CxxVariable::kToString_DefaultValue;
+        }
 
-        str_output << var->ToString(toStringFlags,
-                                    (flags & Normalize_Func_Reverse_Macro) ? macrosTable : wxStringTable_t());
+        str_output << var->ToString(toStringFlags, {});
         // keep the length of this argument
-        if(paramLen) { paramLen->push_back(std::make_pair(start_offset, str_output.length() - start_offset)); }
-        str_output << ", ";
-        if((flags & Normalize_Func_Arg_Per_Line) && !vars.empty()) { str_output << wxT("\n    "); }
-    });
+        if(paramLen) {
+            paramLen->push_back({ start_offset, str_output.length() - start_offset });
+        }
 
-    if(vars.empty() == false) { str_output = str_output.BeforeLast(','); }
+        str_output << ", ";
+        if((flags & Normalize_Func_Arg_Per_Line) && !vars.empty()) {
+            str_output << wxT("\n    ");
+        }
+    }
+
+    if(vars.empty() == false) {
+        str_output = str_output.BeforeLast(',');
+    }
 
     str_output << ")";
     return str_output;
@@ -2118,7 +1448,7 @@ void TagsManager::GetUnImplementedFunctions(const wxString& scopeName, std::map<
         // override the scope to be our scope...
         tag->SetScope(scopeName);
 
-        key << NormalizeFunctionSig(tag->GetSignature(), Normalize_Func_Reverse_Macro);
+        key << NormalizeFunctionSig(tag->GetSignature(), 0);
         protos[key] = tag;
     }
 
@@ -2128,10 +1458,12 @@ void TagsManager::GetUnImplementedFunctions(const wxString& scopeName, std::map<
     for(size_t i = 0; i < vimpl.size(); i++) {
         TagEntryPtr tag = vimpl.at(i);
         wxString key = tag->GetName();
-        key << NormalizeFunctionSig(tag->GetSignature(), Normalize_Func_Reverse_Macro);
+        key << NormalizeFunctionSig(tag->GetSignature(), 0);
         std::map<wxString, TagEntryPtr>::iterator iter = protos.find(key);
 
-        if(iter != protos.end()) { protos.erase(iter); }
+        if(iter != protos.end()) {
+            protos.erase(iter);
+        }
     }
 
     std::map<wxString, TagEntryPtr> tmpMap(protos);
@@ -2156,7 +1488,9 @@ void TagsManager::GetUnImplementedFunctions(const wxString& scopeName, std::map<
 
 void TagsManager::CacheFile(const wxString& fileName)
 {
-    if(!GetDatabase()) { return; }
+    if(!GetDatabase()) {
+        return;
+    }
 
     m_cachedFile = fileName;
     m_cachedFileFunctionsTags.clear();
@@ -2182,18 +1516,6 @@ void TagsManager::ClearCachedFile(const wxString& fileName)
 
 bool TagsManager::IsFileCached(const wxString& fileName) const { return fileName == m_cachedFile; }
 
-wxString TagsManager::GetCTagsCmd()
-{
-    wxString cmd;
-    wxString ctagsCmd;
-    ctagsCmd << m_tagsOptions.ToString() << m_ctagsCmd;
-
-    // build the command, we surround ctags name with double quatations
-    cmd << wxT("\"") << m_codeliteIndexerPath.GetFullPath() << wxT("\"") << ctagsCmd;
-
-    return cmd;
-}
-
 wxString TagsManager::DoReplaceMacros(const wxString& name)
 {
     // replace macros:
@@ -2205,7 +1527,9 @@ wxString TagsManager::DoReplaceMacros(const wxString& name)
 
     it = iTokens.find(_name);
     if(it != iTokens.end()) {
-        if(it->second.empty() == false) { _name = it->second; }
+        if(it->second.empty() == false) {
+            _name = it->second;
+        }
     }
     return _name;
 }
@@ -2256,10 +1580,14 @@ void TagsManager::FilterNonNeededFilesForRetaging(wxArrayString& strFiles, ITags
             int modified(0);
 
             const wxCharBuffer cname = _C((*iter));
-            if(stat(cname.data(), &buff) == 0) { modified = (int)buff.st_mtime; }
+            if(stat(cname.data(), &buff) == 0) {
+                modified = (int)buff.st_mtime;
+            }
 
             // if the timestamp from the database < then the actual timestamp, re-tag the file
-            if(fe->GetLastRetaggedTimestamp() >= modified) { files_set.erase(iter); }
+            if(fe->GetLastRetaggedTimestamp() >= modified) {
+                files_set.erase(iter);
+            }
         }
     }
 
@@ -2283,7 +1611,9 @@ wxString TagsManager::GetFunctionReturnValueFromPattern(TagEntryPtr tag)
     clFunction foo;
     wxString return_value;
     if(GetLanguage()->FunctionFromPattern(tag, foo)) {
-        if(foo.m_retrunValusConst.empty() == false) { return_value << _U(foo.m_retrunValusConst.c_str()) << wxT(" "); }
+        if(foo.m_retrunValusConst.empty() == false) {
+            return_value << _U(foo.m_retrunValusConst.c_str()) << wxT(" ");
+        }
 
         if(foo.m_returnValue.m_typeScope.empty() == false) {
             return_value << _U(foo.m_returnValue.m_typeScope.c_str()) << wxT("::");
@@ -2298,7 +1628,9 @@ wxString TagsManager::GetFunctionReturnValueFromPattern(TagEntryPtr tag)
             return_value << wxT(" ");
         }
 
-        if(!foo.m_returnValue.m_rightSideConst.empty()) { return_value << foo.m_returnValue.m_rightSideConst << " "; }
+        if(!foo.m_returnValue.m_rightSideConst.empty()) {
+            return_value << foo.m_returnValue.m_rightSideConst << " ";
+        }
     }
     return return_value;
 }
@@ -2342,10 +1674,13 @@ void TagsManager::GetUnOverridedParentVirtualFunctions(const wxString& scopeName
     std::map<wxString, TagEntryPtr> classSignature2tag;
 
     GetDatabase()->GetTagsByPath(scopeName, tags);
-    if(tags.size() != 1) { return; }
+    if(tags.size() != 1) {
+        return;
+    }
 
     TagEntryPtr classTag = tags.at(0);
-    if(classTag->GetKind() != wxT("class") && classTag->GetKind() != wxT("struct")) return;
+    if(classTag->GetKind() != wxT("class") && classTag->GetKind() != wxT("struct"))
+        return;
 
     // Step 1:
     // ========
@@ -2365,26 +1700,21 @@ void TagsManager::GetUnOverridedParentVirtualFunctions(const wxString& scopeName
         TagEntryPtr t = tags.at(i);
 
         // Skip c-tors/d-tors
-        if(t->IsDestructor() || t->IsConstructor()) continue;
+        if(t->IsDestructor() || t->IsConstructor())
+            continue;
 
-        if(onlyPureVirtual) {
+        bool isVirtual, isPureVirtual, isFinal;
+        if(!GetVirtualProperty(t, isVirtual, isPureVirtual, isFinal))
+            continue;
 
-            // Collect only pure virtual methods
-            if(IsPureVirtual(t)) {
-                TagEntryPtr t = tags.at(i);
-                wxString sig = NormalizeFunctionSig(t->GetSignature(), Normalize_Func_Reverse_Macro);
-                sig.Prepend(t->GetName());
-                parentSignature2tag[sig] = tags.at(i);
-            }
+        // Skip final virtual functions
+        if(isFinal)
+            continue;
 
-        } else {
-
-            // Collect both virtual and pure virtual
-            if(IsVirtual(tags.at(i)) || IsPureVirtual(tags.at(i))) {
-                wxString sig = NormalizeFunctionSig(t->GetSignature(), Normalize_Func_Reverse_Macro);
-                sig.Prepend(t->GetName());
-                parentSignature2tag[sig] = tags.at(i);
-            }
+        if((!onlyPureVirtual && isVirtual) || isPureVirtual) {
+            wxString sig = NormalizeFunctionSig(t->GetSignature(), 0);
+            sig.Prepend(t->GetName());
+            parentSignature2tag[sig] = t;
         }
     }
 
@@ -2395,7 +1725,7 @@ void TagsManager::GetUnOverridedParentVirtualFunctions(const wxString& scopeName
     GetDatabase()->GetTagsByScopeAndKind(scopeName, kind, tags, false);
     for(size_t i = 0; i < tags.size(); i++) {
         TagEntryPtr t = tags.at(i);
-        wxString sig = NormalizeFunctionSig(t->GetSignature(), Normalize_Func_Reverse_Macro);
+        wxString sig = NormalizeFunctionSig(t->GetSignature(), 0);
         sig.Prepend(t->GetName());
         classSignature2tag[sig] = t;
     }
@@ -2432,22 +1762,21 @@ void TagsManager::SetProjectPaths(const wxArrayString& paths)
 
 void TagsManager::GetDereferenceOperator(const wxString& scope, std::vector<TagEntryPtr>& tags)
 {
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
 
     // add this scope as well to the derivation list
     wxString _scopeName = DoReplaceMacros(scope);
-    derivationList.push_back(_scopeName);
-    std::set<wxString> scannedInherits;
-    GetDerivationList(_scopeName, NULL, derivationList, scannedInherits);
+    derivationList.push_back({ _scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    GetDerivationList(_scopeName, NULL, derivationList, visited, 1);
 
     // make enough room for max of 500 elements in the vector
     for(size_t i = 0; i < derivationList.size(); i++) {
-        wxString tmpScope(derivationList.at(i));
+        wxString tmpScope(derivationList.at(i).first);
         tmpScope = DoReplaceMacros(tmpScope);
 
         GetDatabase()->GetDereferenceOperator(tmpScope, tags);
         if(!tags.empty()) {
-
             // No need to further check
             break;
         }
@@ -2456,17 +1785,17 @@ void TagsManager::GetDereferenceOperator(const wxString& scope, std::vector<TagE
 
 void TagsManager::GetSubscriptOperator(const wxString& scope, std::vector<TagEntryPtr>& tags)
 {
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
 
     // add this scope as well to the derivation list
     wxString _scopeName = DoReplaceMacros(scope);
-    derivationList.push_back(_scopeName);
-    std::set<wxString> scannedInherits;
-    GetDerivationList(_scopeName, NULL, derivationList, scannedInherits);
+    derivationList.push_back({ _scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    GetDerivationList(_scopeName, NULL, derivationList, visited, 1);
 
     // make enough room for max of 500 elements in the vector
     for(size_t i = 0; i < derivationList.size(); i++) {
-        wxString tmpScope(derivationList.at(i));
+        wxString tmpScope(derivationList.at(i).first);
         tmpScope = DoReplaceMacros(tmpScope);
 
         GetDatabase()->GetSubscriptOperator(scope, tags);
@@ -2501,7 +1830,9 @@ CppToken TagsManager::FindLocalVariable(const wxFileName& fileName, int pos, int
         // It is safe to assume that the tags are sorted by line number
         // Loop over the tree and search for the a function closest to the given line number
         for(size_t i = 0; i < tags.size() && tags[i]->GetLine() <= lineNumber; i++) {
-            if(tags[i]->IsFunction()) { tag = tags[i]; }
+            if(tags[i]->IsFunction()) {
+                tag = tags[i];
+            }
         }
 
         // Construct a scanner based on the modified text
@@ -2515,7 +1846,8 @@ CppToken TagsManager::FindLocalVariable(const wxFileName& fileName, int pos, int
         states = scanner.states();
     }
 
-    if(!tag || !states) return CppToken();
+    if(!tag || !states)
+        return CppToken();
 
     // Get the line number of the function
     int funcLine = tag->GetLine() - 1;
@@ -2524,14 +1856,16 @@ CppToken TagsManager::FindLocalVariable(const wxFileName& fileName, int pos, int
     int from = states->LineToPos(funcLine);
     int to = states->FunctionEndPos(from);
 
-    if(to == wxNOT_FOUND) return CppToken();
+    if(to == wxNOT_FOUND)
+        return CppToken();
 
     // get list of variables from the given scope
-    CxxVariableScanner varscanner(states->text, eCxxStandard::kCxx11, GetCtagsOptions().GetTokensWxMap(), false);
+    CxxVariableScanner varscanner(states->text, eCxxStandard::kCxx11, {}, false);
     CxxVariable::Map_t varsMap = varscanner.GetVariablesMap();
 
     bool isLocalVar = (varsMap.count(word) != 0);
-    if(!isLocalVar) return CppToken();
+    if(!isLocalVar)
+        return CppToken();
 
     // search for matches in the given range
     CppTokensMap l;
@@ -2539,7 +1873,8 @@ CppToken TagsManager::FindLocalVariable(const wxFileName& fileName, int pos, int
 
     std::vector<CppToken> tokens;
     l.findTokens(word.mb_str().data(), tokens);
-    if(tokens.empty()) return CppToken();
+    if(tokens.empty())
+        return CppToken();
 
     // return the first match
     return *tokens.begin();
@@ -2547,37 +1882,23 @@ CppToken TagsManager::FindLocalVariable(const wxFileName& fileName, int pos, int
 
 void TagsManager::DoParseModifiedText(const wxString& text, std::vector<TagEntryPtr>& tags)
 {
-    wxFFile fp;
-    wxString fileName = wxFileName::CreateTempFileName(wxT("codelite_mod_file_"), &fp);
-    if(fp.IsOpened()) {
-        fp.Write(text);
-        fp.Close();
-        wxString tagsStr;
-        SourceToTags(wxFileName(fileName), tagsStr);
-
-        // Create tags from the string
-        wxArrayString tagsLines = wxStringTokenize(tagsStr, wxT("\n"), wxTOKEN_STRTOK);
-        for(size_t i = 0; i < tagsLines.GetCount(); i++) {
-            wxString line = tagsLines.Item(i).Trim().Trim(false);
-            if(line.IsEmpty()) continue;
-
-            TagEntryPtr tag(new TagEntry());
-            tag->FromLine(line);
-
-            tags.push_back(tag);
-        }
-        // Delete the modified file
-        clRemoveFile(fileName);
-    }
+    auto _tags = ParseBuffer(text);
+    tags.swap(_tags);
 }
 
-bool TagsManager::IsBinaryFile(const wxString& filepath)
+bool TagsManager::IsBinaryFile(const wxString& filepath, const TagsOptionsData& tod)
 {
     // If the file is a C++ file, avoid testing the content return false based on the extension
     FileExtManager::FileType type = FileExtManager::GetType(filepath);
     if(type == FileExtManager::TypeHeader || type == FileExtManager::TypeSourceC ||
        type == FileExtManager::TypeSourceCpp)
         return false;
+
+    // If this file matches any of the c++ patterns defined in the configuration
+    // don't consider it as a binary file
+    if(FileUtils::WildMatch(tod.GetFileSpec(), filepath)) {
+        return false;
+    }
 
     // examine the file based on the content of the first 4K (max) bytes
     FILE* fp = fopen(filepath.To8BitData(), "rb");
@@ -2630,7 +1951,9 @@ wxString TagsManager::WrapLines(const wxString& str)
         if(curLineBytes == MAX_TIP_LINE_SIZE) {
 
             // Wrap the lines
-            if(wrappedString.IsEmpty() == false && wrappedString.Last() != wxT('\n')) { wrappedString << wxT("\n"); }
+            if(wrappedString.IsEmpty() == false && wrappedString.Last() != wxT('\n')) {
+                wrappedString << wxT("\n");
+            }
             curLineBytes = 0;
         }
     }
@@ -2648,7 +1971,9 @@ wxArrayString TagsManager::BreakToOuterScopes(const wxString& scope)
         for(size_t j = 0; j < i; j++) {
             newScope << scopes.Item(j) << wxT("::");
         }
-        if(newScope.Len() >= 2) { newScope.RemoveLast(2); }
+        if(newScope.Len() >= 2) {
+            newScope.RemoveLast(2);
+        }
         outerScopes.Add(newScope);
     }
     return outerScopes;
@@ -2690,15 +2015,7 @@ void TagsManager::GetTagsByPartialName(const wxString& partialName, std::vector<
     GetDatabase()->GetTagsByPartName(partialName, tags);
 }
 
-bool TagsManager::AreTheSame(const TagEntryPtrVector_t& v1, const TagEntryPtrVector_t& v2) const
-{
-    // Assuming that v1 and v2 are sorted!
-    if(v1.size() != v2.size()) return false;
-    for(size_t i = 0; i < v1.size(); i++) {
-        if(v1.at(i)->CompareDisplayString(v2.at(i)) != 0) return false;
-    }
-    return true;
-}
+bool TagsManager::AreTheSame(const TagEntryPtrVector_t& v1, const TagEntryPtrVector_t& v2) const { return false; }
 
 bool TagsManager::InsertFunctionDecl(const wxString& clsname, const wxString& functionDecl, wxString& sourceContent,
                                      int visibility)
@@ -2706,29 +2023,39 @@ bool TagsManager::InsertFunctionDecl(const wxString& clsname, const wxString& fu
     return GetLanguage()->InsertFunctionDecl(clsname, functionDecl, sourceContent, visibility);
 }
 
-void TagsManager::InsertFunctionImpl(const wxString& clsname, const wxString& functionImpl, const wxString& filename,
-                                     wxString& sourceContent, int& insertedLine)
-{
-    return GetLanguage()->InsertFunctionImpl(clsname, functionImpl, filename, sourceContent, insertedLine);
-}
-
 void TagsManager::DoSortByVisibility(TagEntryPtrVector_t& tags)
 {
-    TagEntryPtrVector_t publicTags, privateTags, protectedTags;
+    TagEntryPtrVector_t publicTags;
+    TagEntryPtrVector_t protectedTags;
+    TagEntryPtrVector_t privateTags;
+    TagEntryPtrVector_t locals;
+    TagEntryPtrVector_t members;
+
     for(size_t i = 0; i < tags.size(); ++i) {
 
         TagEntryPtr tag = tags.at(i);
         wxString access = tag->GetAccess();
+        wxString kind = tag->GetKind();
 
-        if(access == "private") {
+        if(kind == "variable") {
+            locals.push_back(tag);
+
+        } else if(kind == "member") {
+            members.push_back(tag);
+
+        } else if(access == "private") {
             privateTags.push_back(tag);
 
         } else if(access == "protected") {
             protectedTags.push_back(tag);
 
         } else if(access == "public") {
-            publicTags.push_back(tag);
-
+            if(tag->GetName().StartsWith("_")) {
+                // methods starting with _ usually are meant to be private
+                privateTags.push_back(tag);
+            } else {
+                publicTags.push_back(tag);
+            }
         } else {
             // assume private
             privateTags.push_back(tag);
@@ -2738,24 +2065,28 @@ void TagsManager::DoSortByVisibility(TagEntryPtrVector_t& tags)
     std::sort(privateTags.begin(), privateTags.end(), SAscendingSort());
     std::sort(publicTags.begin(), publicTags.end(), SAscendingSort());
     std::sort(protectedTags.begin(), protectedTags.end(), SAscendingSort());
+    std::sort(members.begin(), members.end(), SAscendingSort());
+    std::sort(locals.begin(), locals.end(), SAscendingSort());
     tags.clear();
+    tags.insert(tags.end(), locals.begin(), locals.end());
     tags.insert(tags.end(), publicTags.begin(), publicTags.end());
     tags.insert(tags.end(), protectedTags.begin(), protectedTags.end());
     tags.insert(tags.end(), privateTags.begin(), privateTags.end());
+    tags.insert(tags.end(), members.begin(), members.end());
 }
 
 void TagsManager::GetScopesByScopeName(const wxString& scopeName, wxArrayString& scopes)
 {
-    std::vector<wxString> derivationList;
+    std::vector<std::pair<wxString, int>> derivationList;
 
     // add this scope as well to the derivation list
     wxString _scopeName = DoReplaceMacros(scopeName);
-    derivationList.push_back(_scopeName);
-    std::set<wxString> scannedInherits;
-    GetDerivationList(_scopeName, NULL, derivationList, scannedInherits);
+    derivationList.push_back({ _scopeName, 0 });
+    std::unordered_set<wxString> visited;
+    GetDerivationList(_scopeName, NULL, derivationList, visited, 1);
 
     for(size_t i = 0; i < derivationList.size(); i++) {
-        wxString tmpScope(derivationList.at(i));
+        wxString tmpScope(derivationList.at(i).first);
         tmpScope = DoReplaceMacros(tmpScope);
         scopes.Add(tmpScope);
     }
@@ -2765,7 +2096,9 @@ void TagsManager::InsertForwardDeclaration(const wxString& classname, const wxSt
                                            int& line, const wxString& impExpMacro)
 {
     lineToAdd << "class ";
-    if(!impExpMacro.IsEmpty()) { lineToAdd << impExpMacro << " "; }
+    if(!impExpMacro.IsEmpty()) {
+        lineToAdd << impExpMacro << " ";
+    }
     lineToAdd << classname << ";";
     line = GetLanguage()->GetBestLineForForwardDecl(fileContent);
 }
@@ -2874,40 +2207,11 @@ void TagsManager::GetCXXKeywords(wxArrayString& words)
     words.Add("xor_eq");
 }
 
-TagEntryPtrVector_t TagsManager::ParseBuffer(const wxString& content, const wxString& filename)
+TagEntryPtrVector_t TagsManager::ParseBuffer(const wxString& content, const wxString& filename, const wxString& kinds)
 {
-    if(!m_codeliteIndexerProcess) { return TagEntryPtrVector_t(); }
-
-    // Write the content into temporary file
-    wxString tmpfilename = wxFileName::CreateTempFileName("ctagstemp");
-    wxFFile fp(tmpfilename, "w+b");
-    if(!fp.IsOpened()) return TagEntryPtrVector_t();
-    fp.Write(content, wxConvUTF8);
-    fp.Close();
-
-    wxString tags;
-    SourceToTags(tmpfilename, tags);
-
-    {
-        wxLogNull noLog;
-        clRemoveFile(tmpfilename);
-    }
-
     TagEntryPtrVector_t tagsVec;
-    wxArrayString lines = ::wxStringTokenize(tags, "\n", wxTOKEN_STRTOK);
-    for(size_t i = 0; i < lines.GetCount(); ++i) {
-        wxString& line = lines.Item(i);
-        line.Trim().Trim(false);
-        if(line.IsEmpty()) continue;
-
-        TagEntryPtr tag(new TagEntry());
-        tag->FromLine(line);
-
-        // If the caller provided a filename, set it
-        if(!filename.IsEmpty()) { tag->SetFile(filename); }
-
-        if(tag->GetKind() != "local") { tagsVec.push_back(tag); }
-    }
+    CTags::ParseBuffer(filename, content, clStandardPaths::Get().GetBinaryFullPath("codelite-ctags"),
+                       GetCtagsOptions().GetTokensWxMap(), tagsVec);
     return tagsVec;
 }
 
@@ -3034,7 +2338,9 @@ void TagsManager::DoFilterCtorDtorIfNeeded(std::vector<TagEntryPtr>& tags, const
         std::vector<TagEntryPtr> candidatesNoCtorDtor;
         candidatesNoCtorDtor.reserve(tags.size());
         std::for_each(tags.begin(), tags.end(), [&](TagEntryPtr tag) {
-            if(!tag->IsConstructor() && !tag->IsDestructor()) { candidatesNoCtorDtor.push_back(tag); }
+            if(!tag->IsConstructor() && !tag->IsDestructor()) {
+                candidatesNoCtorDtor.push_back(tag);
+            }
         });
         tags.swap(candidatesNoCtorDtor);
     }
@@ -3043,4 +2349,50 @@ void TagsManager::DoFilterCtorDtorIfNeeded(std::vector<TagEntryPtr>& tags, const
 void TagsManager::GetTagsByPartialNames(const wxArrayString& partialNames, std::vector<TagEntryPtr>& tags)
 {
     GetDatabase()->GetTagsByPartName(partialNames, tags);
+}
+
+void TagsManager::DoTagsFromText(const wxString& text, std::vector<TagEntryPtr>& tags)
+{
+    // Create tags from the string
+    wxArrayString tagsLines = wxStringTokenize(text, "\n", wxTOKEN_STRTOK);
+    tags.reserve(tagsLines.size());
+    for(wxString& line : tagsLines) {
+        line.Trim().Trim(false);
+        if(line.IsEmpty()) {
+            continue;
+        }
+
+        TagEntryPtr tag(new TagEntry());
+        tag->FromLine(line);
+        tags.emplace_back(tag);
+    }
+}
+
+void TagsManager::ParseWorkspaceIncremental()
+{
+    // restart ctagsd (this way we ensure that new settings are loaded)
+    clLanguageServerEvent stop_event{ wxEVT_LSP_RESTART };
+    stop_event.SetLspName("ctagsd");
+    EventNotifier::Get()->AddPendingEvent(stop_event);
+}
+
+void TagsManager::ParseWorkspaceFull(const wxString& workspace_dir)
+{
+    // stop ctagsd
+    clLanguageServerEvent stop_event{ wxEVT_LSP_STOP };
+    stop_event.SetLspName("ctagsd");
+    EventNotifier::Get()->ProcessEvent(stop_event);
+
+    // delete the tags.db file
+    wxFileName tags_db{ workspace_dir, "tags.db" };
+    tags_db.AppendDir(".ctagsd");
+
+    if(tags_db.FileExists()) {
+        FileUtils::RemoveFile(tags_db, wxEmptyString);
+    }
+
+    // start ctagsd again
+    clLanguageServerEvent start_event{ wxEVT_LSP_START };
+    start_event.SetLspName("ctagsd");
+    EventNotifier::Get()->ProcessEvent(start_event);
 }

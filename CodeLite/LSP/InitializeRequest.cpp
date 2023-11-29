@@ -1,4 +1,5 @@
 #include "InitializeRequest.h"
+
 #include <wx/filesys.h>
 
 LSP::InitializeRequest::InitializeRequest(const wxString& rootUri)
@@ -24,12 +25,24 @@ JSONItem LSP::InitializeRequest::ToJSON(const wxString& name) const
         params.append(nullObj);
         (void)nullItem.release(); // dont delete it on destruction, it is now owned by 'params'
     } else {
-        params.addProperty("rootUri", wxFileSystem::FileNameToURL(GetRootUri()));
+        params.addProperty("rootUri", LSP::FileNameToURI(GetRootUri()));
     }
-    JSONItem capabilities = JSONItem::createObject("capabilities");
-    params.append(capabilities);
-    JSONItem textDocument = JSONItem::createObject("textDocument");
-    capabilities.append(textDocument);
+    if(!m_initOptions.empty()) {
+        // Parse the JSON string and set it as the 'initializationOptions
+        JSON initializationOptions(m_initOptions);
+        if(initializationOptions.isOk()) {
+            cJSON* pjson = initializationOptions.release();
+            params.addProperty(wxString("initializationOptions"), (cJSON*)pjson);
+        }
+    }
+
+    auto textDocumentCapabilities = params.AddObject("capabilities").AddObject("textDocument");
+    auto docFormat =
+        textDocumentCapabilities.AddObject("completion").AddObject("completionItem").AddArray("documentationFormat");
+    docFormat.arrayAppend("plaintext");
+    auto hoverFormat = textDocumentCapabilities.AddObject("hover").AddArray("contentFormat");
+    hoverFormat.arrayAppend("markdown");
+    hoverFormat.arrayAppend("plaintext");
     return json;
 }
 

@@ -26,16 +26,16 @@
 #ifndef XMLCODECOMPLETION_H
 #define XMLCODECOMPLETION_H
 
-#include "smart_ptr.h"
-#include <wx/event.h>
-#include <vector>
 #include "cl_command_event.h"
 #include "macros.h"
-#include "ServiceProvider.h"
+#include "smart_ptr.h"
+
+#include <vector>
+#include <wx/event.h>
 
 class WebTools;
 class IEditor;
-class XMLCodeCompletion : public ServiceProvider
+class XMLCodeCompletion : public wxEvtHandler
 {
 public:
     typedef SmartPtr<XMLCodeCompletion> Ptr_t;
@@ -64,7 +64,7 @@ protected:
     bool m_xmlCcEnabled;
     bool m_htmlCcEnabeld;
     WebTools* m_plugin = nullptr;
-    
+
 protected:
     void PrepareHtmlCompletions();
     wxString GetCompletePattern(const wxString& tag) const;
@@ -78,6 +78,7 @@ protected:
 
     int GetWordStartPos(IEditor* editor);
     void OnCodeComplete(clCodeCompletionEvent& event);
+    IEditor* GetEditor(const wxString& filename) const;
 
 public:
     XMLCodeCompletion(WebTools* plugin);

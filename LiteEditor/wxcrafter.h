@@ -27,22 +27,19 @@
 #include "clThemedListCtrl.h"
 #include <wx/button.h>
 #include <wx/filepicker.h>
-#include <wx/scrolwin.h>
-#include <wx/statbmp.h>
-#include <wx/commandlinkbutton.h>
+#include "clThemedSplitterWindow.h"
+#include <wx/stattext.h>
+#include <wx/treectrl.h>
+#include "clThemedTreeCtrl.h"
 #include <wx/simplebook.h>
 #include <wx/toolbar.h>
 #include "clToolBar.h"
 #include "clConfigurationSelectionCtrl.h"
-#include "clThemedSplitterWindow.h"
-#include <wx/treectrl.h>
 #include "fileview.h"
 #include <wx/frame.h>
 #include <wx/menu.h>
-#include <wx/checkbox.h>
-#include <wx/stc/stc.h>
-#include <wx/stattext.h>
 #include <wx/textctrl.h>
+#include <wx/statbmp.h>
 #include <wx/bannerwindow.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
@@ -82,8 +79,7 @@ public:
     wxPanel* GetSplitterPage41() { return m_splitterPage41; }
     wxSplitterWindow* GetSplitter() { return m_splitter; }
     NavBarControlBaseClass(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                           const wxSize& size = wxSize(-1, -1),
-                           long style = wxWANTS_CHARS | wxTAB_TRAVERSAL | wxTRANSPARENT_WINDOW);
+                           const wxSize& size = wxSize(-1, -1), long style = wxWANTS_CHARS | wxTAB_TRAVERSAL);
     virtual ~NavBarControlBaseClass();
 };
 
@@ -102,7 +98,8 @@ public:
     NewProjImgList();
     const wxBitmap& Bitmap(const wxString& name) const
     {
-        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        if(!m_bitmaps.count(name + m_resolution))
+            return wxNullBitmap;
         return m_bitmaps.find(name + m_resolution)->second;
     }
 
@@ -143,37 +140,25 @@ public:
 class WelcomePageBase : public wxPanel
 {
 protected:
-    wxScrolledWindow* m_scrollWin247;
-    wxPanel* m_panel191;
-    wxStaticBitmap* m_staticBitmap;
-    wxCommandLinkButton* m_cmdLnkBtnNewWorkspace;
-    wxCommandLinkButton* m_cmdLnkBtnNewProject;
-    wxCommandLinkButton* m_cmdLnkBtnWorkspaces;
-    wxCommandLinkButton* m_cmdLnkBtnFilesMenu;
-    wxCommandLinkButton* m_cmdLnkBtnForum;
-    wxCommandLinkButton* m_cmdLnkBtnWiki;
+    clThemedSplitterWindow* m_mainPanel;
+    wxPanel* m_buttonsPage;
+    wxGridSizer* buttons_sizer;
+    wxPanel* m_listPage;
+    wxPanel* m_panelList;
+    wxStaticText* m_staticText0;
+    clThemedTreeCtrl* m_dvTreeCtrlWorkspaces;
 
 protected:
     virtual void OnSize(wxSizeEvent& event) { event.Skip(); }
-    virtual void OnNewWorkspace(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnOpenWorkspace(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnShowWorkspaceMenu(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnRecentProjectUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnShowFileseMenu(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnRecentFileUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnOpenForums(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnOpenWiki(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnWorkspaceActivated(wxTreeEvent& event) { event.Skip(); }
 
 public:
-    wxStaticBitmap* GetStaticBitmap() { return m_staticBitmap; }
-    wxCommandLinkButton* GetCmdLnkBtnNewWorkspace() { return m_cmdLnkBtnNewWorkspace; }
-    wxCommandLinkButton* GetCmdLnkBtnNewProject() { return m_cmdLnkBtnNewProject; }
-    wxCommandLinkButton* GetCmdLnkBtnWorkspaces() { return m_cmdLnkBtnWorkspaces; }
-    wxCommandLinkButton* GetCmdLnkBtnFilesMenu() { return m_cmdLnkBtnFilesMenu; }
-    wxCommandLinkButton* GetCmdLnkBtnForum() { return m_cmdLnkBtnForum; }
-    wxCommandLinkButton* GetCmdLnkBtnWiki() { return m_cmdLnkBtnWiki; }
-    wxPanel* GetPanel191() { return m_panel191; }
-    wxScrolledWindow* GetScrollWin247() { return m_scrollWin247; }
+    wxPanel* GetButtonsPage() { return m_buttonsPage; }
+    wxStaticText* GetStaticText0() { return m_staticText0; }
+    clThemedTreeCtrl* GetDvTreeCtrlWorkspaces() { return m_dvTreeCtrlWorkspaces; }
+    wxPanel* GetPanelList() { return m_panelList; }
+    wxPanel* GetListPage() { return m_listPage; }
+    clThemedSplitterWindow* GetMainPanel() { return m_mainPanel; }
     WelcomePageBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                     const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~WelcomePageBase();
@@ -184,6 +169,7 @@ class WorkspaceTabBase : public wxPanel
 protected:
     wxSimplebook* m_simpleBook;
     wxPanel* m_panelCxx;
+    wxPanel* m_panel625;
     clToolBar* m_toolbar580;
     clConfigurationSelectionCtrl* m_configChangeCtrl;
     clThemedSplitterWindow* m_splitter;
@@ -199,6 +185,7 @@ protected:
 public:
     clToolBar* GetToolbar580() { return m_toolbar580; }
     clConfigurationSelectionCtrl* GetConfigChangeCtrl() { return m_configChangeCtrl; }
+    wxPanel* GetPanel625() { return m_panel625; }
     clThemedListCtrl* GetDvListCtrlPinnedProjects() { return m_dvListCtrlPinnedProjects; }
     wxPanel* GetSplitterPagePinnedProjects() { return m_splitterPagePinnedProjects; }
     FileViewTree* GetFileView() { return m_fileView; }
@@ -249,40 +236,6 @@ public:
                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(800, 600),
                     long style = wxDEFAULT_FRAME_STYLE);
     virtual ~EditorFrameBase();
-};
-
-class ClangOutputTabBase : public wxPanel
-{
-public:
-    enum {
-        ID_TOOL_CLEAR_LOG = 8001,
-        ID_TOOL_CLEAR_ALL = 8002,
-    };
-
-protected:
-    clToolBar* m_toolbar578;
-    wxCheckBox* m_checkBoxEnableClang;
-    wxCheckBox* m_checkBoxShowErrors;
-    wxStyledTextCtrl* m_stc;
-
-protected:
-    virtual void OnEnableClang(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnEnableClangUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnShowAnnotations(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnShowAnnotationsUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnClearCache(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnClearCacheUI(wxUpdateUIEvent& event) { event.Skip(); }
-    virtual void OnClearText(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnClearTextUI(wxUpdateUIEvent& event) { event.Skip(); }
-
-public:
-    wxCheckBox* GetCheckBoxEnableClang() { return m_checkBoxEnableClang; }
-    wxCheckBox* GetCheckBoxShowErrors() { return m_checkBoxShowErrors; }
-    clToolBar* GetToolbar578() { return m_toolbar578; }
-    wxStyledTextCtrl* GetStc() { return m_stc; }
-    ClangOutputTabBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                       const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
-    virtual ~ClangOutputTabBase();
 };
 
 class OpenFolderDlgBase : public wxDialog

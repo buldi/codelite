@@ -28,13 +28,13 @@
 
 #include "bitmap_loader.h"
 #include "clFileSystemEvent.h"
+#include "clWorkspaceEvent.hpp"
 #include "cl_command_event.h"
 #include "subversion2_ui.h"
 #include "svn_console.h"
 #include "svncommand.h"
 #include "svninfo.h"
 #include "svntreedata.h"
-#include "theme_handler_helper.h"
 
 class Subversion2;
 class wxMenu;
@@ -70,9 +70,7 @@ class SubversionView : public SubversionPageBase
     wxString m_curpath;
     SvnConsole* m_subversionConsole;
     int m_fileExplorerLastBaseImgIdx;
-    ThemeHandlerHelper* m_themeHelper;
     wxFileName m_workspaceFile;
-    IProcess* m_codeliteEcho;
 
 public:
     enum { SvnInfo_Tag, SvnInfo_Branch, SvnInfo_Info };
@@ -122,8 +120,8 @@ protected:
     void OnItemActivated(wxDataViewEvent& event);
 
     // IDE Events
-    void OnWorkspaceLoaded(wxCommandEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceLoaded(clWorkspaceEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnClearOuptut(wxCommandEvent& event);
     void OnRefreshView(wxCommandEvent& event);
     void OnFileSaved(clCommandEvent& event);

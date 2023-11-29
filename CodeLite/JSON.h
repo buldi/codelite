@@ -25,10 +25,12 @@
 
 #ifndef ZJSONNODE_H
 #define ZJSONNODE_H
-
+// clang-format off
+#include <wx/vector.h>
 #include <wx/string.h>
 #include <wx/variant.h>
 #include <wx/filename.h>
+#include <string_view>
 #include <wx/gdicmn.h>
 #include "codelite_exports.h"
 #include <map>
@@ -39,6 +41,9 @@
 #include <wx/font.h>
 #endif
 #include "macros.h"
+#include <vector>
+#include <type_traits>
+// clang-format on
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -46,18 +51,22 @@
 class WXDLLIMPEXP_CL JSONItem
 {
 protected:
-    cJSON* _json;
-    int _type;
-    wxString _name;
+    cJSON* m_json = nullptr;
+    cJSON* m_walker = nullptr;
+    wxString m_properytName;
+    int m_type = wxNOT_FOUND;
 
     // Values
-    wxVariant _value;
-    cJSON* _walker;
+    wxString m_valueString;
+    double m_valueNumer = 0;
 
 public:
     JSONItem(cJSON* json);
-    JSONItem(const wxString& name, const wxVariant& val, int type);
-
+    JSONItem(const wxString& name, double val);
+    JSONItem(const wxString& name, const std::string& val);
+    JSONItem(const wxString& name, const char* pval, size_t len);
+    JSONItem(const wxString& name, bool val);
+    JSONItem() {}
     virtual ~JSONItem() {}
 
     // Walkers
@@ -66,20 +75,36 @@ public:
 
     // Setters
     ////////////////////////////////////////////////
-    void setName(const wxString& _name) { this->_name = _name; }
-    void setType(int _type) { this->_type = _type; }
-    int getType() const { return _type; }
-    const wxString& getName() const { return _name; }
-    const wxVariant& getValue() const { return _value; }
-    void setValue(const wxVariant& _value) { this->_value = _value; }
+    void setType(int m_type) { this->m_type = m_type; }
+    int getType() const { return m_type; }
+    const wxString& GetPropertyName() const { return m_properytName; }
+    void SetPropertyName(const wxString& name) { m_properytName = name; }
+
     // Readers
     ////////////////////////////////////////////////
     JSONItem namedObject(const wxString& name) const;
     bool hasNamedObject(const wxString& name) const;
 
+    /// If your array is big (hundred of entries) use
+    /// `GetAsVector` and iterate it instead
+    JSONItem operator[](int index) const;
+    JSONItem operator[](const wxString& name) const;
+
+    /// the C implementation for accessing large arrays, is the sum of an arithmetic progression.
+    /// Use this method to get an array with `O(1)` access
+    /// This call is `O(n)`
+    std::vector<JSONItem> GetAsVector() const;
+
+    /// the C implementation for accessing by name is by `O(n)`
+    /// Use this method when you have large number of items and
+    /// `O(1)` is required
+    std::unordered_map<std::string_view, JSONItem> GetAsMap() const;
+
     bool toBool(bool defaultValue = false) const;
     wxString toString(const wxString& defaultValue = wxEmptyString) const;
     wxArrayString toArrayString(const wxArrayString& defaultValue = wxArrayString()) const;
+    std::vector<double> toDoubleArray(const std::vector<double>& defaultValue = {}) const;
+    std::vector<int> toIntArray(const std::vector<int>& defaultValue = {}) const;
     JSONItem arrayItem(int pos) const;
 
     // Retuen the object type
@@ -88,6 +113,7 @@ public:
     bool isString() const;
     bool isNumber() const;
     bool isArray() const;
+    bool isObject() const;
 
     wxString format(bool formatted = true) const;
     /**
@@ -97,15 +123,18 @@ public:
     char* FormatRawString(bool formatted = true) const;
     int arraySize() const;
     int toInt(int defaultVal = -1) const;
+
+    /// Convert the value into `T` from
+    template <typename T> T fromNumber(T default_value) const { return static_cast<T>(toInt((int)default_value)); }
+
     size_t toSize_t(size_t defaultVal = 0) const;
     double toDouble(double defaultVal = -1.0) const;
+    wxFileName toFileName() const;
 
-#if wxUSE_GUI
     wxColour toColour(const wxColour& defaultColour = wxNullColour) const;
     wxFont toFont(const wxFont& defaultFont = wxNullFont) const;
     wxSize toSize() const;
     wxPoint toPoint() const;
-#endif
 
     wxStringMap_t toStringMap() const;
 
@@ -123,22 +152,42 @@ public:
     static JSONItem createArray(const wxString& name = wxT(""));
 
     /**
+     * @brief add array to this json and return a referece to the newly added array
+     */
+    JSONItem AddArray(const wxString& name);
+
+    /**
+     * @brief add object to this json and return a referece to the newly added object
+     */
+    JSONItem AddObject(const wxString& name);
+
+    /**
      * @brief append new element to this json element
      */
     void append(const JSONItem& element);
 
     JSONItem& addProperty(const wxString& name, const wxString& value);
+    JSONItem& addProperty(const wxString& name, const std::string& value);
     JSONItem& addProperty(const wxString& name, const wxChar* value);
     JSONItem& addProperty(const wxString& name, int value) { return addProperty(name, (long)value); }
     JSONItem& addProperty(const wxString& name, long value);
     JSONItem& addProperty(const wxString& name, size_t value);
     JSONItem& addProperty(const wxString& name, bool value);
-#if wxUSE_GUI
+    JSONItem& addProperty(const wxString& name, cJSON* pjson);
+    JSONItem& addProperty(const wxString& name, const wxFileName& filename);
+    JSONItem& addProperty(const wxString& name, const std::vector<int>& arr_int);
+    template <class T = int>
+    typename std::enable_if<!std::is_same<wxVector<T>, std::vector<T>>::value, JSONItem&>::type
+    addProperty(const wxString& name, const wxVector<T>& arr_int)
+    {
+        return addProperty(name, std::vector<T>(arr_int.begin(), arr_int.end()));
+    }
+
     JSONItem& addProperty(const wxString& name, const wxSize& sz);
     JSONItem& addProperty(const wxString& name, const wxPoint& pt);
     JSONItem& addProperty(const wxString& name, const wxColour& colour);
     JSONItem& addProperty(const wxString& name, const wxFont& font);
-#endif
+
     JSONItem& addProperty(const wxString& name, const wxArrayString& arr);
     JSONItem& addProperty(const wxString& name, const wxStringMap_t& stringMap);
     JSONItem& addProperty(const wxString& name, const JSONItem& element);
@@ -164,16 +213,20 @@ public:
      */
     void arrayAppend(const JSONItem& element);
     void arrayAppend(const wxString& value);
+    void arrayAppend(const char* value);
+    void arrayAppend(const std::string& value);
+    void arrayAppend(int number);
+    void arrayAppend(double number);
 
-    bool isOk() const { return _json != NULL; }
-    
+    bool isOk() const { return m_json != NULL; }
+
     /**
      * @brief release the internal pointer
      */
     cJSON* release()
     {
-        cJSON* temp = _json;
-        _json = nullptr;
+        cJSON* temp = m_json;
+        m_json = nullptr;
         return temp;
     }
 };
@@ -184,7 +237,7 @@ public:
 class WXDLLIMPEXP_CL JSON
 {
 protected:
-    cJSON* _json;
+    cJSON* m_json;
     wxString _errorString;
 
 public:
@@ -197,7 +250,7 @@ public:
 
     void save(const wxFileName& fn) const;
     wxString errorString() const;
-    bool isOk() const { return _json != NULL; }
+    bool isOk() const { return m_json != NULL; }
 
     JSONItem toElement() const;
 

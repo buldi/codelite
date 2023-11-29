@@ -1,13 +1,14 @@
 #ifndef CLCONSOLEBASE_H
 #define CLCONSOLEBASE_H
 
+#include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "macros.h"
+
 #include <wx/arrstr.h>
 #include <wx/process.h>
 #include <wx/sharedptr.h>
 #include <wx/string.h>
-#include "cl_command_event.h"
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TERMINAL_EXIT, clProcessEvent);
 
@@ -56,6 +57,7 @@ protected:
     wxString WrapWithQuotesIfNeeded(const wxString& s) const;
     wxString EscapeString(const wxString& str, const wxString& c = "\"") const;
     virtual bool StartProcess(const wxString& command);
+    void MacAddArgsIfNeeded(wxString* outcmd);
 
 public:
     clConsoleBase();
@@ -120,6 +122,7 @@ public:
         this->m_commandArgs = args;
     }
     void SetEnvironment(const wxStringMap_t& environment) { this->m_environment = environment; }
+    void SetEnvironment(const clEnvList_t& environment);
     void SetPid(long pid) { this->m_pid = pid; }
     void SetRealPts(const wxString& realPts) { this->m_realPts = realPts; }
     void SetTty(const wxString& tty) { this->m_tty = tty; }

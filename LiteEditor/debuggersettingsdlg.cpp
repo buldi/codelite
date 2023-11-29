@@ -78,11 +78,13 @@ DebuggerPageStartupCmds::DebuggerPageStartupCmds(wxWindow* parent, const wxStrin
     , m_title(title)
 {
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("text");
-    if(lexer) { lexer->Apply(m_textCtrlStartupCommands); }
+    if(lexer) {
+        lexer->Apply(m_textCtrlStartupCommands);
+    }
 
     DebuggerInformation info;
     if(DebuggerMgr::Get().GetDebuggerInformation(title, info)) {
-        m_textCtrlStartupCommands->SetText(info.startupCommands);
+        m_textCtrlStartupCommands->SetText(info.initFileCommands);
     }
 }
 
@@ -102,7 +104,8 @@ DebuggerPage::DebuggerPage(wxWindow* parent, wxString title)
         m_checkBoxEnablePendingBreakpoints->SetValue(info.enablePendingBreakpoints);
         m_checkBreakAtWinMain->SetValue(info.breakAtWinMain);
         m_catchThrow->SetValue(info.catchThrow);
-        m_spinCtrlNumElements->SetValue(info.maxDisplayStringSize);
+        m_spinCtrlStringSize->SetValue(info.maxDisplayStringSize);
+        m_spinCtrlMaxElements->SetValue(info.maxDisplayElements);
         m_showTooltipsRequiresControl->SetValue(info.showTooltipsOnlyWithControlKeyIsDown);
         m_checkBoxAutoExpand->SetValue(info.autoExpandTipItems);
         m_checkBoxExpandLocals->SetValue(info.resolveLocals);
@@ -123,17 +126,21 @@ void DebuggerPage::OnBrowse(wxCommandEvent& e)
     wxUnusedVar(e);
     wxString newfilepath, filepath(m_textCtrDbgPath->GetValue());
     if((!filepath.IsEmpty()) && wxFileName::FileExists(filepath)) {
-        newfilepath = wxFileSelector(wxT("Select file:"), filepath.c_str());
+        newfilepath = wxFileSelector(_("Select file:"), filepath.c_str());
     } else {
-        newfilepath = wxFileSelector(wxT("Select file:"));
+        newfilepath = wxFileSelector(_("Select file:"));
     }
 
-    if(!newfilepath.IsEmpty()) { m_textCtrDbgPath->SetValue(newfilepath); }
+    if(!newfilepath.IsEmpty()) {
+        m_textCtrDbgPath->SetValue(newfilepath);
+    }
 }
 
 void DebuggerPage::OnDebugAssert(wxCommandEvent& e)
 {
-    if(e.IsChecked()) { m_checkBoxEnablePendingBreakpoints->SetValue(true); }
+    if(e.IsChecked()) {
+        m_checkBoxEnablePendingBreakpoints->SetValue(true);
+    }
 }
 
 void DebuggerPage::OnWindowsUI(wxUpdateUIEvent& event)
@@ -186,12 +193,13 @@ void DbgPagePreDefTypes::OnDeleteSet(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     int sel = m_notebookPreDefTypes->GetSelection();
-    if(sel == wxNOT_FOUND) return;
+    if(sel == wxNOT_FOUND)
+        return;
 
     wxString name = m_notebookPreDefTypes->GetPageText((size_t)sel);
     if(wxMessageBox(
-           wxString::Format(wxT("You are about to delete 'PreDefined Types' set '%s'\nContinue ?"), name.c_str()),
-           wxT("Confirm deleting 'PreDefined Types' set"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) == wxYES) {
+           wxString::Format(_("You are about to delete 'PreDefined Types' set '%s'\nContinue ?"), name.c_str()),
+           _("Confirm deleting 'PreDefined Types' set"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) == wxYES) {
         m_notebookPreDefTypes->DeletePage((size_t)sel);
     }
 }
@@ -220,12 +228,13 @@ void DbgPagePreDefTypes::OnNewSet(wxCommandEvent& event)
     if(dlg.ShowModal() == wxID_OK) {
         wxString newName = dlg.GetNameTextctl()->GetValue();
         newName.Trim().Trim(false);
-        if(newName.IsEmpty()) return;
+        if(newName.IsEmpty())
+            return;
 
         // Make sure that a set with this name does not already exists
         for(size_t i = 0; i < m_notebookPreDefTypes->GetPageCount(); i++) {
             if(m_notebookPreDefTypes->GetPageText((size_t)i) == newName) {
-                wxMessageBox(wxT("A set with this name already exist"), wxT("Name Already Exists"),
+                wxMessageBox(_("A set with this name already exist"), _("Name Already Exists"),
                              wxICON_WARNING | wxOK | wxCENTER);
                 return;
             }
@@ -270,20 +279,20 @@ void DebuggerSettingsDlg::Initialize()
     // for each debugger, add page
     m_pages.clear();
     DebuggerPage* p = new DebuggerPage(m_notebook, "GNU gdb debugger");
-    m_notebook->AddPage(p, wxT("GNU gdb debugger"), true);
+    m_notebook->AddPage(p, _("GNU gdb debugger"), true);
     m_pages.push_back(p);
 
     wxNotebook* innerBook = p->GetNotebook73();
     DebuggerPageMisc* misc = new DebuggerPageMisc(innerBook, "GNU gdb debugger");
-    innerBook->AddPage(misc, wxT("Misc"), false);
+    innerBook->AddPage(misc, _("Misc"), false);
     m_pages.push_back(misc);
 
     DebuggerPageStartupCmds* cmds = new DebuggerPageStartupCmds(innerBook, "GNU gdb debugger");
-    innerBook->AddPage(cmds, wxT("Startup Commands"), false);
+    innerBook->AddPage(cmds, _("Startup Commands"), false);
     m_pages.push_back(cmds);
 
     DbgPagePreDefTypes* types = new DbgPagePreDefTypes(m_notebook);
-    m_notebook->AddPage(types, wxT("Pre-Defined Types"), false);
+    m_notebook->AddPage(types, _("Pre-Defined Types"), false);
     m_pages.push_back(types);
 }
 
@@ -293,7 +302,8 @@ void DebuggerSettingsDlg::OnOk(wxCommandEvent& e)
     // go over the debuggers and set the debugger path
     for(size_t i = 0; i < (size_t)m_pages.size(); ++i) {
         wxWindow* win = m_pages[i];
-        if(!win) continue;
+        if(!win)
+            continue;
 
         DebuggerPage* page = dynamic_cast<DebuggerPage*>(win);
         if(page) {
@@ -309,7 +319,8 @@ void DebuggerSettingsDlg::OnOk(wxCommandEvent& e)
             info.consoleCommand = EditorConfigST::Get()->GetOptions()->GetProgramConsoleCommand();
             info.catchThrow = page->m_catchThrow->IsChecked();
             info.showTooltipsOnlyWithControlKeyIsDown = page->m_showTooltipsRequiresControl->IsChecked();
-            info.maxDisplayStringSize = page->m_spinCtrlNumElements->GetValue();
+            info.maxDisplayStringSize = page->m_spinCtrlStringSize->GetValue();
+            info.maxDisplayElements = page->m_spinCtrlMaxElements->GetValue();
             info.resolveLocals = page->m_checkBoxExpandLocals->IsChecked();
             info.autoExpandTipItems = page->m_checkBoxAutoExpand->IsChecked();
             info.applyBreakpointsAfterProgramStarted = page->m_checkBoxSetBreakpointsAfterMain->IsChecked();
@@ -355,12 +366,14 @@ void DebuggerSettingsDlg::OnOk(wxCommandEvent& e)
             // find the debugger
             DebuggerInformation info;
             DebuggerMgr::Get().GetDebuggerInformation(suCmds->m_title, info);
-            info.startupCommands = suCmds->m_textCtrlStartupCommands->GetText();
+            info.initFileCommands = suCmds->m_textCtrlStartupCommands->GetText();
             DebuggerMgr::Get().SetDebuggerInformation(suCmds->m_title, info);
         }
 
         DbgPagePreDefTypes* pd = dynamic_cast<DbgPagePreDefTypes*>(win);
-        if(pd) { pd->Save(); }
+        if(pd) {
+            pd->Save();
+        }
     }
 
     EndModal(wxID_OK);

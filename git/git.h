@@ -33,42 +33,36 @@
 #ifndef __git__
 #define __git__
 
-#include <wx/progdlg.h>
-
-#include "plugin.h"
 #include "asyncprocess.h"
-#include "processreaderthread.h"
-#include <queue>
-#include <set>
-#include <wx/progdlg.h>
-#include "project.h" // wxStringSet_t
-#include <map>
-#include "overlaytool.h"
+#include "clCodeLiteRemoteProcess.hpp"
+#include "clTabTogglerHelper.h"
 #include "cl_command_event.h"
 #include "gitentry.h"
-#include "cl_command_event.h"
 #include "gitui.h"
+#include "ieditor.h"
+#include "overlaytool.h"
+#include "plugin.h"
+#include "processreaderthread.h"
+#include "project.h" // wxStringSet_t
+
+#include <map>
+#include <queue>
+#include <set>
 #include <vector>
-#include "clTabTogglerHelper.h"
+#include <wx/progdlg.h>
 
 class clTreeCtrl;
 class clCommandProcessor;
-class GitBlameDlg;
 
 class gitAction
 {
 public:
-    int action;
+    int action = 0;
     wxString arguments;
     wxString workingDirectory;
 
 public:
-    gitAction()
-        : action(0)
-        , arguments("")
-        , workingDirectory("")
-    {
-    }
+    gitAction() {}
     gitAction(int act, const wxString& args)
         : action(act)
         , arguments(args)
@@ -112,6 +106,7 @@ class GitPlugin : public IPlugin
         gitAddFile,
         gitDeleteFile,
         gitDiffFile,
+        gitDiffFileExternal,
         gitDiffRepoCommit,
         gitDiffRepoShow,
         gitResetFile,
@@ -127,6 +122,7 @@ class GitPlugin : public IPlugin
         gitBranchSwitchRemote,
         gitCommitList,
         gitBlame,
+        gitBlameSummary,
         gitRevlist,
         gitRebase,
         gitGarbageCollection,
@@ -152,6 +148,7 @@ class GitPlugin : public IPlugin
     wxString m_pathGITExecutable;
     wxString m_pathGITKExecutable;
     wxString m_repositoryDirectory;
+    wxString m_userEnteredRepositoryDirectory;
     wxString m_currentBranch;
     std::list<gitAction> m_gitActionQueue;
     wxTimer m_progressTimer;
@@ -160,25 +157,35 @@ class GitPlugin : public IPlugin
     bool m_bActionRequiresTreUpdate;
     IProcess* m_process;
     wxEvtHandler* m_eventHandler;
-    wxWindow* m_topWindow;
     clToolBar* m_pluginToolbar;
     wxMenu* m_pluginMenu;
     IntMap_t m_treeImageMapping;
     int m_baseImageCount;
     GitConsole* m_console;
-    wxFileName m_workspaceFilename;
+    wxString m_workspace_file;
     GitCommitListDlg* m_commitListDlg;
     wxArrayString m_filesSelected;
     wxString m_selectedFolder;
     clCommandProcessor* m_commandProcessor;
     clTabTogglerHelper::Ptr_t m_tabToggler;
-    GitBlameDlg* m_gitBlameDlg;
+    std::unordered_map<wxString, std::vector<wxString>>
+        m_blameMap; // contains file: comment per line (extracted from the 'git blame' info)
+    size_t m_configFlags = 0;
+    wxString m_lastBlameMessage;
+    bool m_isRemoteWorkspace = false;
+    wxString m_remoteWorkspaceAccount;
+    clCodeLiteRemoteProcess m_remoteProcess;
+    wxString m_codeliteRemoteScriptPath;
+    bool m_isEnabled = false;
+    bool m_commitDialogIsShown = false;
 
 private:
-    void DoCreateTreeImages();
+    void StartCodeLiteRemote();
+    void ClearCodeLiteRemoteInfo();
     void DoShowDiffViewer(const wxString& headFile, const wxString& fileName);
     void DoExecuteCommands(const GitCmd::Vec_t& commands, const wxString& workingDir);
-    bool DoExecuteCommandSync(const wxString& command, const wxString& workingDir, wxString& commandOutput);
+    bool DoExecuteCommandSync(const wxString& command, wxString* commandOutput,
+                              const wxString& workingDir = wxEmptyString);
 
     void DoSetTreeItemImage(clTreeCtrl* ctrl, const wxTreeItemId& item, OverlayTool::BmpType bmpType) const;
     void InitDefaults();
@@ -192,9 +199,8 @@ private:
 
     /// Workspace management
     bool IsWorkspaceOpened() const;
-    wxString GetWorkspaceName() const;
-    wxFileName GetWorkspaceFileName() const;
-
+    wxString GetCommitMessageFile() const;
+    wxString FindRepositoryRoot(const wxString& starting_dir) const;
     void FinishGitListAction(const gitAction& ga);
     void ListBranchAction(const gitAction& ga);
     void GetCurrentBranchAction(const gitAction& ga);
@@ -207,13 +213,14 @@ private:
     void DoResetFiles(const wxArrayString& files);
     void DoGetFileViewSelectedFiles(wxArrayString& files, bool relativeToRepo);
     void DoShowDiffsForFiles(const wxArrayString& files, bool useFileAsBase = false);
-    void DoSetRepoPath(const wxString& repoPath = "", bool promptUser = true);
-    void DoRecoverFromGitCommandError();
-
+    void DoSetRepoPath(const wxString& repo_path = wxEmptyString);
+    void DoRecoverFromGitCommandError(bool clear_queue = true);
+    void DoLoadBlameInfo(bool clearCache);
+    void DoUpdateBlameInfo(const wxString& info, const wxString& fullpath);
+    void DoAnyFileModified();
     DECLARE_EVENT_TABLE()
 
     // Event handlers
-    void OnInitDone(wxCommandEvent& e);
     void OnProgressTimer(wxTimerEvent& Event);
     void OnProcessTerminated(clProcessEvent& event);
     void OnProcessOutput(clProcessEvent& event);
@@ -222,11 +229,13 @@ private:
 
     void OnFileCreated(clFileSystemEvent& event);
     void OnReplaceInFiles(clFileSystemEvent& event);
+    void OnEditorChanged(wxCommandEvent& event);
     void OnFileSaved(clCommandEvent& e);
+    void OnFileModifiedExternally(clFileSystemEvent& e);
     void OnFilesAddedToProject(clCommandEvent& e);
     void OnFilesRemovedFromProject(clCommandEvent& e);
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnWorkspaceConfigurationChanged(wxCommandEvent& e);
     void OnMainFrameTitle(clCommandEvent& e);
     void OnSetGitRepoPath(wxCommandEvent& e);
@@ -254,17 +263,14 @@ private:
     void OnGarbageColletion(wxCommandEvent& e);
     void OnOpenMSYSGit(wxCommandEvent& e);
     void OnActiveProjectChanged(clProjectSettingsEvent& event);
+    void OnFileCommitListSelected(wxCommandEvent& e);
     void OnFileGitBlame(wxCommandEvent& event);
     void OnAppActivated(wxCommandEvent& event);
-
-#if 0
-    void OnBisectStart(wxCommandEvent& e);
-    void OnBisectGood(wxCommandEvent& e);
-    void OnBisectBad(wxCommandEvent& e);
-    void OnBisectReset(wxCommandEvent& e);
-#endif
+    void OnUpdateNavBar(clCodeCompletionEvent& event);
+    void OnEditorClosed(wxCommandEvent& event);
     void OnEnableGitRepoExists(wxUpdateUIEvent& e);
     void OnClone(wxCommandEvent& e);
+    void OnSftpFileSaved(clCommandEvent& event);
 
     // Event handlers from folder context menu
     void OnFolderPullRebase(wxCommandEvent& event);
@@ -274,17 +280,42 @@ private:
     void OnFolderStashPop(wxCommandEvent& event);
     void OnFolderGitBash(wxCommandEvent& event);
 
+    // Respond to local events
+    void OnGitActionDone(clSourceControlEvent& event);
+    bool HandleErrorsOnRemoteRepo(const wxString& output) const;
+
+    // Remote callbacks
+    void OnFindPath(clCommandEvent& event);
+    void OpenURLInBrowser(const wxString& url);
+
 public:
     GitPlugin(IManager* manager);
-    ~GitPlugin();
+    virtual ~GitPlugin();
 
-    void StoreWorkspaceRepoDetails();
+    const wxString& GetRepositoryPath() const { return m_repositoryDirectory; }
     void WorkspaceClosed();
 
+    bool IsRemoteWorkspace() const { return m_isRemoteWorkspace; }
+
+    /**
+     * @brief create git process and return the process handle
+     */
+    IProcess* AsyncRunGit(wxEvtHandler* handler, const wxString& git_args, size_t create_flags,
+                          const wxString& working_directory, bool logMessage = false);
+    /**
+     * @brief create a git process and direct the output to a callback
+     */
+    void AsyncRunGitWithCallback(const wxString& git_args, std::function<void(const wxString&)> callback,
+                                 size_t create_flags, const wxString& working_directory, bool logMessage = false);
     /**
      * @brief is git enabled for the current workspace?
      */
     bool IsGitEnabled() const;
+
+    /**
+     * @brief open a file. The path is relative to the workspace location
+     */
+    IEditor* OpenFile(const wxString& relativePathFile);
 
     /**
      * @brief fetch the next 100 commits (skip 'skip' first commits)
@@ -294,13 +325,13 @@ public:
     void FetchNextCommits(int skip, const wxString& args);
 
     GitConsole* GetConsole() { return m_console; }
-    const wxString& GetRepositoryDirectory() const { return m_repositoryDirectory; }
     IProcess* GetProcess() { return m_process; }
     clCommandProcessor* GetFolderProcess() { return m_commandProcessor; }
 
     IManager* GetManager() { return m_mgr; }
 
     void ShowDiff(const wxArrayString& files) { DoShowDiffsForFiles(files); }
+    void ShowExternalDiff(const wxString& file, const wxString& tool);
 
     void ApplyPatch(const wxString& filename, const wxString& extraFlags);
     void AddFiles(const wxArrayString& files) { DoAddFiles(files); }
@@ -333,7 +364,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();

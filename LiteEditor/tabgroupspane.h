@@ -26,11 +26,11 @@
 #ifndef TABGROUPSPANE_H
 #define TABGROUPSPANE_H
 
+#include "clWorkspaceEvent.hpp"
 #include "wx/panel.h"
-#include <wx/treectrl.h>
-#include <vector>
 #include <utility>
-#include "theme_handler_helper.h"
+#include <vector>
+#include <wx/treectrl.h>
 
 class clThemedTreeCtrl;
 enum tabgrouptype { TGT_group, TGT_item };
@@ -64,7 +64,6 @@ class TabgroupsPane : public wxPanel
         TGM_ID_CutItem,
         TGM_ID_RemoveItem
     };
-    ThemeHandlerHelper* m_themeHelper;
 
 public:
     TabgroupsPane() { m_node = NULL; }
@@ -77,13 +76,11 @@ public:
      * \brief Returns the 'root' item for either Global or Workspace tabgroups
      */
     wxTreeItemId GetRootItemForTabgroup(bool global);
-    
+
 protected:
     void AddFile(const wxString& filename);
-    
-    void AddTreeItem(bool isGlobal, 
-                     const wxString& tabgroupname,
-                     const wxArrayString& tabfilepaths,
+
+    void AddTreeItem(bool isGlobal, const wxString& tabgroupname, const wxArrayString& tabfilepaths,
                      const wxTreeItemId insertafter = wxTreeItemId());
     void AddTabgroupItem();
     void PasteTabgroupItem(wxTreeItemId itemtopaste = wxTreeItemId());
@@ -107,7 +104,7 @@ protected:
 
     void OnBeginDrag(wxTreeEvent& event);
     void OnEndDrag(wxTreeEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnInitDone(wxCommandEvent& e);
     clThemedTreeCtrl* m_tree;
     /*!

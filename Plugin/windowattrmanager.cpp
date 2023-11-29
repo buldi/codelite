@@ -23,8 +23,10 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "editor_config.h"
 #include "windowattrmanager.h"
+
+#include "editor_config.h"
+
 #include <wx/persist.h>
 #include <wx/persist/bookctrl.h>
 #include <wx/persist/toplevel.h>
@@ -32,22 +34,33 @@
 
 void WindowAttrManager::Load(wxTopLevelWindow* win)
 {
-    if(win->GetName().IsEmpty()) { return; }
+    if(win->GetName().IsEmpty()) {
+        return;
+    }
 
-    // Is this object already registered?
+    // Check if this object is registered with our persistency manager
+    if(!wxPersistenceManager::Get().Find(win)) {
+        // register it
+        wxPersistenceManager::Get().Register(win);
+    }
+
+    // restore the object (size and position)
+    // note that we do not do this linux due to bug
+    // the on some DE, the restored window gets
+    // larger and larger...
     if(wxPersistenceManager::Get().Find(win)) {
         wxPersistenceManager::Get().Restore(win);
-    } else {
-        // Register and restore the object and recurse into its children
-        wxPersistenceManager::Get().RegisterAndRestore(win);
     }
+
     DoLoad(win, win->GetName(), 0);
-    if(win->GetParent()) { win->CentreOnParent(); }
 }
 
 void WindowAttrManager::DoLoad(wxWindow* win, const wxString& parentName, int depth)
 {
-    if(!win) return;
+    if(!win) {
+        return;
+    }
+
     int childIndex(0);
     wxWindowList::compatibility_iterator pclNode = win->GetChildren().GetFirst();
     while(pclNode) {

@@ -23,19 +23,20 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+#include "editor_config.h"
 #include "gitDiffDlg.h"
 #include "gitentry.h"
-#include "editor_config.h"
 #include "windowattrmanager.h"
 
-#include <wx/tokenzr.h>
-#include "gitCommitEditor.h"
-#include "asyncprocess.h"
-#include "processreaderthread.h"
-#include "cl_config.h"
-#include "gitdiffchoosecommitishdlg.h"
-#include "git.h"
 #include "GitDiffOutputParser.h"
+#include "asyncprocess.h"
+#include "cl_config.h"
+#include "git.h"
+#include "gitCommitEditor.h"
+#include "gitdiffchoosecommitishdlg.h"
+#include "globals.h"
+#include "processreaderthread.h"
+#include <wx/tokenzr.h>
 
 BEGIN_EVENT_TABLE(GitDiffDlg, wxDialog)
 
@@ -49,7 +50,6 @@ GitDiffDlg::GitDiffDlg(wxWindow* parent, const wxString& workingDir, GitPlugin* 
     clConfig conf("git.conf");
     GitEntry data;
     conf.ReadItem(&data);
-    m_gitPath = data.GetGITExecutablePath();
 
     SetName("GitDiffDlg");
     WindowAttrManager::Load(this);
@@ -59,6 +59,7 @@ GitDiffDlg::GitDiffDlg(wxWindow* parent, const wxString& workingDir, GitPlugin* 
     Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &GitDiffDlg::OnProcessTerminated, this);
 
     CreateDiff();
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 /*******************************************************************************/
@@ -80,7 +81,8 @@ void GitDiffDlg::CreateDiff()
 
     wxString command = PrepareCommand();
     m_plugin->DisplayMessage("GitDiff: " + command);
-    m_process = CreateAsyncProcess(this, command, IProcessCreateDefault, m_plugin->GetRepositoryDirectory());
+    m_process = m_plugin->AsyncRunGit(this, command, IProcessCreateDefault | IProcessWrapInShell,
+                                      m_plugin->GetRepositoryPath());
 }
 
 wxString GitDiffDlg::PrepareCommand() const
@@ -105,7 +107,7 @@ wxString GitDiffDlg::PrepareCommand() const
         command << "--ignore-all-space "; // -w
     }
 
-    return m_gitPath + command + commitsString;
+    return command + commitsString;
 }
 
 void GitDiffDlg::SetDiff(const wxString& diff)
@@ -166,5 +168,3 @@ void GitDiffDlg::OnProcessTerminated(clProcessEvent& event)
 }
 
 void GitDiffDlg::OnOptionsChanged(wxCommandEvent& event) { CreateDiff(); }
-
-void GitDiffDlg::OnClose(wxCommandEvent& event) { EndModal(wxID_OK); }

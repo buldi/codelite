@@ -24,19 +24,24 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "ps_general_page.h"
-#include "project_settings_dlg.h"
-#include "build_settings_config.h"
-#include "project.h"
-#include "dirsaver.h"
-#include "manager.h"
-#include <wx/filedlg.h>
-#include <wx/dirdlg.h>
-#include "globals.h"
-#include <algorithm>
-#include "buildmanager.h"
 
-PSGeneralPage::PSGeneralPage(
-    wxWindow* parent, const wxString& projectName, const wxString& conf, ProjectSettingsDlg* dlg)
+#include "build_settings_config.h"
+#include "builder.h"
+#include "buildmanager.h"
+#include "dirsaver.h"
+#include "globals.h"
+#include "manager.h"
+#include "project.h"
+#include "project_settings_dlg.h"
+
+#include <algorithm>
+#include <vector>
+#include <wx/dirdlg.h>
+#include <wx/filedlg.h>
+#include <wx/regex.h>
+
+PSGeneralPage::PSGeneralPage(wxWindow* parent, const wxString& projectName, const wxString& conf,
+                             ProjectSettingsDlg* dlg)
     : PSGeneralPageBase(parent)
     , m_dlg(dlg)
     , m_projectName(projectName)
@@ -84,21 +89,35 @@ void PSGeneralPage::Load(BuildConfigPtr buildConf)
     m_pgPropMakeGenerator->SetChoices(builders);
     m_pgPropMakeGeneratorArgs->SetValue(buildConf->GetBuildSystemArguments());
     m_pgPropMakeGenerator->SetExpanded(false);
-    
-    sel = builders.Index(buildConf->GetBuildSystem());
+
+    wxString builderName = buildConf->GetBuildSystem();
+    sel = builders.Index(builderName);
     if(sel != wxNOT_FOUND) {
         m_pgPropMakeGenerator->SetChoiceSelection(sel);
     }
-    
+
     // Compilers
     choices.Clear();
     wxString cmpType = buildConf->GetCompilerType();
     BuildSettingsConfigCookie cookie;
     CompilerPtr cmp = BuildSettingsConfigST::Get()->GetFirstCompiler(cookie);
+
+    std::vector<wxString> compiler_names;
+    compiler_names.reserve(10);
+
+    // build the compiler list + sort it
     while(cmp) {
-        choices.Add(cmp->GetName());
+        compiler_names.push_back(cmp->GetName());
         cmp = BuildSettingsConfigST::Get()->GetNextCompiler(cookie);
     }
+
+    std::sort(compiler_names.begin(), compiler_names.end(),
+              [](const wxString& a, const wxString& b) { return a.CmpNoCase(b) < 0; });
+
+    for(const wxString& name: compiler_names) {
+        choices.Add(name);
+    }
+
     m_pgPropCompiler->SetChoices(choices);
     sel = choices.Index(buildConf->GetCompiler()->GetName());
     if(sel != wxNOT_FOUND) {
@@ -131,7 +150,6 @@ void PSGeneralPage::Save(BuildConfigPtr buildConf, ProjectSettingsPtr projSettin
     projSettingsPtr->SetProjectType(GetPropertyAsString(m_pgPropProjectType));
     buildConf->SetBuildSystemArguments(GetPropertyAsString(m_pgPropMakeGeneratorArgs));
     buildConf->SetBuildSystem(GetPropertyAsString(m_pgPropMakeGenerator));
-    buildConf->SetCompilerType(GetPropertyAsString(m_pgPropCompiler));
     buildConf->SetDebuggerType(GetPropertyAsString(m_pgPropDebugger));
     buildConf->SetPauseWhenExecEnds(GetPropertyAsBool(m_pgPropPause));
     buildConf->SetProjectType(GetPropertyAsString(m_pgPropProjectType));
@@ -139,6 +157,12 @@ void PSGeneralPage::Save(BuildConfigPtr buildConf, ProjectSettingsPtr projSettin
     buildConf->SetIsGUIProgram(GetPropertyAsBool(m_pgPropGUIApp));
     buildConf->SetIsProjectEnabled(m_checkBoxEnabled->IsChecked());
     buildConf->SetUseSeparateDebugArgs(GetPropertyAsBool(m_pgPropUseSeparateDebuggerArgs));
+
+    // Do not set an empty compiler, this will be prompted later by the CompilersModifiedDlg
+    wxString compilerType = GetPropertyAsString(m_pgPropCompiler);
+    if(!compilerType.IsEmpty()) {
+        buildConf->SetCompilerType(compilerType);
+    }
 }
 
 void PSGeneralPage::Clear()
@@ -152,7 +176,59 @@ void PSGeneralPage::Clear()
     m_checkBoxEnabled->SetValue(true);
 }
 
-void PSGeneralPage::OnValueChanged(wxPropertyGridEvent& event) { m_dlg->SetIsDirty(true); }
+void PSGeneralPage::OnValueChanging(wxPropertyGridEvent& event)
+{
+    event.Skip();
+    if(event.GetProperty() == m_pgPropProjectType) {
+        BuilderPtr builder = BuildManagerST::Get()->GetBuilder(m_pgPropMakeGenerator->GetValueAsString());
+        if(!builder) {
+            return;
+        }
+        // The project type has changed, adjust the output file extension
+        wxVariant variant = event.GetPropertyValue();
+        wxString oldProjectType = m_pgPropProjectType->GetValueAsString(),
+                 newProjectType = m_pgPropProjectType->ValueToString(variant);
+        static const wxRegEx reFileExt("^(.*)(\\.[a-zA-Z]+)$"); // libfoobar.a -> (libfoobar) (.a)
+        wxString outputFile = m_pgPropOutputFile->GetValueAsString();
+        if(outputFile.IsEmpty()) {
+            // The output file was blank, simply set a default value
+            outputFile = builder->GetOptimalBuildConfig(newProjectType).outputFile;
+        } else if(reFileExt.Matches(outputFile) &&
+                  reFileExt.GetMatch(outputFile, 2).IsSameAs(builder->GetOutputFileSuffix(oldProjectType), false)) {
+            // Update the old file extension
+            outputFile = reFileExt.GetMatch(outputFile, 1) + builder->GetOutputFileSuffix(newProjectType);
+        } else {
+            // Append a file extension because no known extension was set
+            outputFile << builder->GetOutputFileSuffix(newProjectType);
+        }
+        m_pgPropOutputFile->SetValue(outputFile);
+    }
+}
+
+void PSGeneralPage::OnValueChanged(wxPropertyGridEvent& event)
+{
+    m_dlg->SetIsDirty(true);
+
+    if(event.GetProperty() == m_pgPropMakeGenerator) {
+        BuilderPtr builder = BuildManagerST::Get()->GetBuilder(m_pgPropMakeGenerator->GetValueAsString());
+        if(!builder) {
+            return;
+        }
+        wxString dlgmsg;
+        dlgmsg = _("Adjust settings to fit this generator?");
+        if(::wxMessageBox(dlgmsg, "CodeLite", wxICON_QUESTION | wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT,
+                          ::wxGetTopLevelParent(this)) != wxYES) {
+            return;
+        }
+        // Update the settings
+        Builder::OptimalBuildConfig optimalConf =
+            builder->GetOptimalBuildConfig(m_pgPropProjectType->GetValueAsString());
+        m_pgPropIntermediateFolder->SetValue(optimalConf.intermediateDirectory);
+        m_pgPropOutputFile->SetValue(optimalConf.outputFile);
+        m_pgPropProgram->SetValue(optimalConf.command);
+        m_pgPropWorkingDirectory->SetValue(optimalConf.workingDirectory);
+    }
+}
 
 bool PSGeneralPage::GetPropertyAsBool(wxPGProperty* prop) const
 {

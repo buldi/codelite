@@ -33,36 +33,41 @@
 #ifndef ZOOM_NAV_TEXT
 #define ZOOM_NAV_TEXT
 
-#include <wx/stc/stc.h>
 #include "ieditor.h"
+
+#include <wx/stc/stc.h>
+#include <wx/timer.h>
 
 class ZoomText : public wxStyledTextCtrl
 {
     int m_zoomFactor;
     wxColour m_colour;
     wxString m_filename;
-    wxString m_classes;
-    wxString m_locals;
     wxTimer* m_timer;
-    
+
+public:
+    enum MarkerType {
+        MARKER_ERROR,
+        MARKER_WARNING,
+    };
+
 protected:
     void OnThemeChanged(wxCommandEvent& e);
     void OnTimer(wxTimerEvent& event);
     void DoClear();
-    
+    void SetSemanticTokens(const wxString& classes, const wxString& variables, const wxString& methods,
+                           const wxString& others);
+
 public:
-    ZoomText(wxWindow* parent,
-             wxWindowID id = wxID_ANY,
-             const wxPoint& pos = wxDefaultPosition,
-             const wxSize& size = wxDefaultSize,
-             long style = 0,
-             const wxString& name = wxSTCNameStr);
+    ZoomText(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+             const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxSTCNameStr);
     virtual ~ZoomText();
     void UpdateLexer(IEditor* editor);
     void OnSettingsChanged(wxCommandEvent& e);
     void UpdateText(IEditor* editor);
     void HighlightLines(int start, int end);
-    
+    void UpdateMarkers(const std::vector<int>& lines, MarkerType type);
+    void DeleteAllMarkers();
     void Startup();
 };
 

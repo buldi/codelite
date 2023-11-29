@@ -1,15 +1,85 @@
 #ifndef CLTOOLBAR_H
 #define CLTOOLBAR_H
 
+#include "bitmap_loader.h"
+#include "cl_command_event.h"
 #include "codelite_exports.h"
+#include "wxCustomControls.hpp"
+
 #include <unordered_map>
 #include <vector>
 #include <wx/menu.h>
 #include <wx/panel.h>
-#include "cl_command_event.h"
+#include <wx/toolbar.h>
+
+#define INVALID_BITMAP_ID wxString::npos
+#define USE_NATIVE_TOOLBAR 1
 
 class clToolBarButtonBase;
-class WXDLLIMPEXP_SDK clToolBar : public wxPanel
+#if wxUSE_NATIVE_TOOLBAR
+class WXDLLIMPEXP_SDK clToolBarNative : public wxToolBar
+{
+    clBitmapList* m_bitmaps = nullptr;
+    bool m_ownedBitmaps = false;
+
+public:
+    clToolBarNative(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                    const wxSize& size = wxDefaultSize, long style = wxTAB_TRAVERSAL | wxNO_BORDER,
+                    const wxString& name = "clToolBarNative");
+    virtual ~clToolBarNative();
+    void SetMiniToolBar(bool) {}
+    void ShowOverflowButton(bool) {}
+    wxToolBarToolBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex,
+                               const wxString& helpString = "", wxItemKind kind = wxITEM_NORMAL);
+    void AddSpacer() { AddSeparator(); }
+
+    wxToolBarToolBase* AddToggleButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "")
+    {
+        return AddTool(id, label, bitmapIndex, wxEmptyString, wxITEM_CHECK);
+    }
+
+    wxToolBarToolBase* AddButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "")
+    {
+        return AddTool(id, label, bitmapIndex, wxEmptyString, wxITEM_NORMAL);
+    }
+
+    bool DeleteById(wxWindowID toolId) { return DeleteTool(toolId); }
+
+    /**
+     * @brief return a pointer to the bitmaps list. Create one if no such bitmap list exists
+     */
+    clBitmapList* GetBitmapsCreateIfNeeded();
+    /**
+     * @brief set a bitmaps pointer. the caller is still the owner (i.e. he is responsible for deleting it)
+     * the pointer must be in scope as long as this class exists
+     */
+    void SetBitmaps(clBitmapList* bitmaps);
+
+    clBitmapList* GetBitmaps() const { return m_bitmaps; }
+
+    /**
+     * @brief assign bitmap list to the toolbar. the toolbar is the owner
+     */
+    void AssignBitmaps(clBitmapList* bitmaps);
+
+    const wxBitmap& GetBitmap(size_t index) const;
+
+    /**
+     * @brief show a drop down menu for a button
+     */
+    void ShowMenuForButton(wxWindowID buttonID, wxMenu* menu);
+
+    /**
+     * @brief display a menu for a button and return the user selected menu item ID
+     */
+    int GetMenuSelectionFromUser(wxWindowID buttonID, wxMenu* menu);
+
+    void SetGroupSpacing(int) {}
+    void EnableCustomisation(bool) {}
+};
+#endif
+
+class WXDLLIMPEXP_SDK clToolBarGeneric : public wxControl
 {
 public:
     typedef std::vector<clToolBarButtonBase*> ToolVect_t;
@@ -21,9 +91,12 @@ private:
     bool m_popupShown = false;
     size_t m_flags = 0;
     wxRect m_chevronRect;
-    int m_groupSpacing = 30;
+    int m_groupSpacing;
     wxColour m_bgColour;
     bool m_useCustomBgColour = false;
+    clBitmapList* m_bitmaps = nullptr;
+    bool m_ownedBitmaps = false;
+    bool m_hasOverflowButton = true;
 
 public:
     enum eFlags {
@@ -48,14 +121,33 @@ protected:
     wxRect CalculateRect(wxDC& dc) const;
     void DoShowOverflowMenu();
     void PrepareForDrawings(wxDC& dc, std::vector<ToolVect_t>& G, const wxRect& rect);
-    void RenderGroup(int& xx, const clToolBar::ToolVect_t& G, wxDC& gcdc, bool isLastGroup);
+    void RenderGroup(int& xx, const clToolBarGeneric::ToolVect_t& G, wxDC& gcdc, bool isLastGroup);
     void OnColoursChanged(clCommandEvent& event);
 
 public:
-    clToolBar(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-              const wxSize& size = wxDefaultSize, long style = wxTAB_TRAVERSAL | wxNO_BORDER,
-              const wxString& name = "clToolBar");
-    virtual ~clToolBar();
+    clToolBarGeneric(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
+                     const wxSize& size = wxDefaultSize, long style = wxTAB_TRAVERSAL | wxNO_BORDER,
+                     const wxString& name = "clToolBarGeneric");
+    virtual ~clToolBarGeneric();
+
+    const wxBitmap& GetBitmap(size_t index) const;
+
+    /**
+     * @brief set a bitmaps pointer. the caller is still the owner (i.e. he is responsible for deleting it)
+     * the pointer must be in scope as long as this class exists
+     */
+    void SetBitmaps(clBitmapList* bitmaps);
+
+    clBitmapList* GetBitmaps() const { return m_bitmaps; }
+    /**
+     * @brief return a pointer to the bitmaps list. Create one if no such bitmap list exists
+     */
+    clBitmapList* GetBitmapsCreateIfNeeded();
+
+    /**
+     * @brief assign bitmap list to the toolbar. the toolbar is the owner
+     */
+    void AssignBitmaps(clBitmapList* bitmaps);
 
     void EnableFlag(eFlags f, bool b)
     {
@@ -94,8 +186,9 @@ public:
     void EnableCustomisation(bool b) { EnableFlag(kShowCustomiseMenu, b); }
     bool IsCustomisationEnabled() const { return HasFlag(kShowCustomiseMenu); }
     void SetMiniToolBar(bool b) { EnableFlag(kMiniToolBar, b); }
+    void ShowOverflowButton(bool b) { m_hasOverflowButton = b; }
     bool IsMiniToolBar() const { return HasFlag(kMiniToolBar); }
-    void SetGroupSpacing(int spacing) { m_groupSpacing = spacing; }
+    void SetGroupSpacing(int spacing);
     int GetGroupSpacing() const { return m_groupSpacing; }
 
     /**
@@ -114,9 +207,9 @@ public:
      * if where can not be found, this function returns null     */
     clToolBarButtonBase* InsertAfter(wxWindowID where, clToolBarButtonBase* button);
 
-    clToolBarButtonBase* AddButton(wxWindowID id, const wxBitmap& bmp, const wxString& label = "");
-    clToolBarButtonBase* AddMenuButton(wxWindowID id, const wxBitmap& bmp, const wxString& label = "");
-    clToolBarButtonBase* AddToggleButton(wxWindowID id, const wxBitmap& bmp, const wxString& label = "");
+    clToolBarButtonBase* AddButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "");
+    clToolBarButtonBase* AddMenuButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "");
+    clToolBarButtonBase* AddToggleButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "");
     clToolBarButtonBase* AddSeparator();
     clToolBarButtonBase* AddStretchableSpace();
     clToolBarButtonBase* AddSpacer();
@@ -128,30 +221,29 @@ public:
     clToolBarButtonBase* AddControl(wxWindow* control);
 
     // Compatibility API with wxToolBar
-    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, const wxBitmap& bmp,
+    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex,
                                  const wxString& helpString = "", wxItemKind kind = wxITEM_NORMAL)
     {
         wxUnusedVar(helpString);
         switch(kind) {
         case wxITEM_DROPDOWN:
-            return AddMenuButton(id, bmp, label);
+            return AddMenuButton(id, bitmapIndex, label);
         case wxITEM_CHECK:
-            return AddToggleButton(id, bmp, label);
+            return AddToggleButton(id, bitmapIndex, label);
         case wxITEM_NORMAL:
         default:
-            return AddButton(id, bmp, label);
+            return AddButton(id, bitmapIndex, label);
         }
     }
 
-    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, const wxBitmap& bitmap,
-                                 const wxBitmap& bmpDisabled, wxItemKind kind = wxITEM_NORMAL,
-                                 const wxString& shortHelp = wxEmptyString, const wxString& longHelp = wxEmptyString,
-                                 wxObject* data = NULL)
+    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex, size_t bitmapIndexDisabled,
+                                 wxItemKind kind = wxITEM_NORMAL, const wxString& shortHelp = wxEmptyString,
+                                 const wxString& longHelp = wxEmptyString, wxObject* data = NULL)
     {
-        wxUnusedVar(bmpDisabled);
+        wxUnusedVar(bitmapIndexDisabled);
         wxUnusedVar(longHelp);
         wxUnusedVar(data);
-        return AddTool(id, label, bitmap, shortHelp, kind);
+        return AddTool(id, label, bitmapIndex, shortHelp, kind);
     }
 
     void SetToolBitmapSize(const wxSize& size) { wxUnusedVar(size); }
@@ -188,4 +280,12 @@ public:
     bool DeleteTool(wxWindowID id) { return DeleteById(id); }
 };
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TOOLBAR_CUSTOMISE, wxCommandEvent);
+
+#if !wxUSE_NATIVE_TOOLBAR
+// use the generic version, always
+typedef clToolBarGeneric clToolBar;
+typedef clToolBarGeneric clToolBarNative;
+#else
+typedef clToolBarGeneric clToolBar;
+#endif
 #endif // CLTOOLBAR_H

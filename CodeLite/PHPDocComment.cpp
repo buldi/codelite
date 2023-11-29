@@ -3,34 +3,49 @@
 #include "PHPDocProperty.h"
 #include "PHPDocVar.h"
 #include "wxStringHash.h"
+#include <algorithm>
 #include <wx/regex.h>
 #include <wx/tokenzr.h>
-#include <algorithm>
 
 PHPDocComment::PHPDocComment(PHPSourceFile& sourceFile, const wxString& comment)
     : m_sourceFile(sourceFile)
     , m_comment(comment)
+    , m_returnNullable(false)
 {
     static std::unordered_set<wxString> nativeTypes;
     if(nativeTypes.empty()) {
+        // List taken from https://www.php.net/manual/en/language.types.intro.php
+        // Native types
+        nativeTypes.insert("bool");
         nativeTypes.insert("int");
-        nativeTypes.insert("integer");
-        nativeTypes.insert("real");
-        nativeTypes.insert("double");
         nativeTypes.insert("float");
         nativeTypes.insert("string");
-        nativeTypes.insert("binary");
         nativeTypes.insert("array");
         nativeTypes.insert("object");
-        nativeTypes.insert("bool");
-        nativeTypes.insert("boolean");
-        nativeTypes.insert("mixed");
+        nativeTypes.insert("iterable");
+        nativeTypes.insert("callable");
         nativeTypes.insert("null");
+        nativeTypes.insert("mixed");
+        nativeTypes.insert("void");
+        // Types that are common in documentation
+        nativeTypes.insert("boolean");
+        nativeTypes.insert("integer");
+        nativeTypes.insert("double");
+        nativeTypes.insert("real");
+        nativeTypes.insert("binery");
+        nativeTypes.insert("resource");
+        nativeTypes.insert("number");
+        nativeTypes.insert("callback");
     }
 
-    static wxRegEx reReturnStatement(wxT("@(return)[ \t]+([\\a-zA-Z_]{1}[\\|\\a-zA-Z0-9_]*)"));
+    static wxRegEx reReturnStatement(wxT("@(return)[ \t]+([\\?\\a-zA-Z_]{1}[\\|\\a-zA-Z0-9_]*)"));
     if(reReturnStatement.IsValid() && reReturnStatement.Matches(m_comment)) {
         wxString returnValue = reReturnStatement.GetMatch(m_comment, 2);
+        if(returnValue.StartsWith("?")) {
+            returnValue.Remove(0, 1);
+            m_returnNullable = true;
+        }
+
         wxArrayString types = ::wxStringTokenize(returnValue, "|", wxTOKEN_STRTOK);
         if(types.size() > 1) {
             // Multiple return types, guess the best match
@@ -97,6 +112,8 @@ const wxString& PHPDocComment::GetParam(size_t n) const
 
 const wxString& PHPDocComment::GetReturn() const { return m_returnValue; }
 
+const bool PHPDocComment::IsReturnNullable() const { return m_returnNullable; }
+
 const wxString& PHPDocComment::GetVar() const { return m_varType; }
 
 const wxString& PHPDocComment::GetParam(const wxString& name) const
@@ -110,7 +127,7 @@ const wxString& PHPDocComment::GetParam(const wxString& name) const
 
 void PHPDocComment::ProcessMethods()
 {
-    // The phpdoc for method does not confirm to the PHP syntax.
+    // The phpdoc for method does not conform to the PHP syntax.
     // We need to alter the signature so we can use our parse to parse
     // the signature
     // @method syntax is:
@@ -126,7 +143,9 @@ void PHPDocComment::ProcessMethods()
 
         wxString strBuffer;
         strBuffer << "<?php function " << methodName << signature;
-        if(!returnType.IsEmpty()) { strBuffer << " : " << returnType << " "; }
+        if(!returnType.IsEmpty()) {
+            strBuffer << " : " << returnType << " ";
+        }
         strBuffer << " {} ";
 
         PHPSourceFile buffer(strBuffer, NULL);
@@ -136,7 +155,9 @@ void PHPDocComment::ProcessMethods()
         if(!buffer.CurrentScope()->GetChildren().empty()) {
             PHPEntityBase::Ptr_t func = *buffer.CurrentScope()->GetChildren().begin();
             if(func && func->Is(kEntityTypeFunction)) {
-                if(func->Parent()) { func->Parent()->RemoveChild(func); }
+                if(func->Parent()) {
+                    func->Parent()->RemoveChild(func);
+                }
                 m_methods.push_back(func);
             }
         }

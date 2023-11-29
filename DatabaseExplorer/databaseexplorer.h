@@ -39,12 +39,10 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();
-
-    bool IsDbViewDetached();
 
     static IManager* GetManager();
     static DbViewerPanel* GetViewerPanel() { return m_dbViewerPanel; }

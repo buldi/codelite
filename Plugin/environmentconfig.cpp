@@ -22,17 +22,20 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "wx/utils.h"
-#include "xmlutils.h"
-#include "wx/regex.h"
-#include "wx/filename.h"
 #include "environmentconfig.h"
+
 #include "evnvarlist.h"
-#include "wx_xml_compatibility.h"
-#include <wx/log.h>
-#include "macromanager.h"
 #include "file_logger.h"
+#include "macromanager.h"
+#include "wx/filename.h"
+#include "wx/regex.h"
+#include "wx/utils.h"
+#include "wx_xml_compatibility.h"
+#include "xmlutils.h"
+
 #include <algorithm>
+#include <wx/log.h>
+#include <wx/window.h>
 
 const wxString __NO_SUCH_ENV__ = wxT("__NO_SUCH_ENV__");
 
@@ -83,8 +86,8 @@ bool EnvironmentConfig::Load()
                 wxXmlNode* child = node->GetChildren();
                 while(child) {
                     if(child->GetName() == wxT("MapEntry")) {
-                        wxString key = child->GetPropVal(wxT("Key"), wxT(""));
-                        wxString val = child->GetPropVal(wxT("Value"), wxT(""));
+                        wxString key = child->GetAttribute(wxT("Key"), wxT(""));
+                        wxString val = child->GetAttribute(wxT("Value"), wxT(""));
                         content << key << wxT("=") << val << wxT("\n");
                     }
                     child = child->GetNext();
@@ -121,11 +124,9 @@ void EnvironmentConfig::ApplyEnv(wxStringMap_t* overrideMap, const wxString& pro
     ++m_envApplied;
 
     if(m_envApplied > 1) {
-        // CL_DEBUG("Thread-%d: Applying environment variables... (not needed)", (int)wxThread::GetCurrentId());
         return;
     }
 
-    // CL_DEBUG("Thread-%d: Applying environment variables...", (int)wxThread::GetCurrentId());
     // read the environments variables
     EvnVarList vars;
     ReadObject(wxT("Variables"), &vars);
@@ -176,7 +177,6 @@ void EnvironmentConfig::UnApplyEnv()
 {
     --m_envApplied;
     if(m_envApplied == 0) {
-        // CL_DEBUG("Thread-%d: Un-Applying environment variables", (int)wxThread::GetCurrentId());
         // loop over the old values and restore them
         wxStringMap_t::iterator iter = m_envSnapshot.begin();
         for(; iter != m_envSnapshot.end(); iter++) {
@@ -228,9 +228,11 @@ wxString EnvironmentConfig::DoExpandVariables(const wxString& in)
                 unresolvedVars.insert(std::make_pair(replacement, text));
             }
         }
-        
-        // dont allow recrusive replacements
-        if(replacement.Contains(text)) { break; }
+
+        // dont allow recursive replacements
+        if(replacement.Contains(text)) {
+            break;
+        }
         result.Replace(text, replacement);
     }
 
@@ -239,7 +241,7 @@ wxString EnvironmentConfig::DoExpandVariables(const wxString& in)
 
     // and restore all those unresolved variables
     std::for_each(unresolvedVars.begin(), unresolvedVars.end(),
-        [&](const std::pair<wxString, wxString>& p) { result.Replace(p.first, p.second); });
+                  [&](const std::pair<wxString, wxString>& p) { result.Replace(p.first, p.second); });
     return result;
 }
 

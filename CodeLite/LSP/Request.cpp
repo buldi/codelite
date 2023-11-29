@@ -1,5 +1,5 @@
-#include "LSP/Request.h"
 #include "JSON.h"
+#include "LSP/Request.h"
 
 LSP::Request::Request() { m_id = Message::GetNextID(); }
 

@@ -12,7 +12,7 @@ class WXDLLIMPEXP_CL ResponseError : public Message
 {
     int m_errorCode = wxNOT_FOUND;
     wxString m_message;
-
+    
 public:
     enum eErrorCodes {
         kErrorCodeParseError = -32700,
@@ -33,6 +33,7 @@ public:
     ResponseError();
     virtual ~ResponseError();
     void FromJSON(const JSONItem& json);
+    JSONItem ToJSON(const wxString& name) const;
     virtual std::string ToString() const;
     void SetErrorCode(int errorCode) { this->m_errorCode = errorCode; }
     void SetMessage(const wxString& message) { this->m_message = message; }

@@ -7,6 +7,8 @@
 #include <wx/stc/stc.h>
 //#include <wx/chartype.h>
 
+#define VISUAL_BLOCK_INDICATOR 13
+
 enum class COMMAND_PART {
     REPEAT_NUM,
     FIRST_CMD,
@@ -21,6 +23,8 @@ enum class VIM_MODI {
     NORMAL_MODUS,
     INSERT_MODUS,
     VISUAL_MODUS,
+    VISUAL_LINE_MODUS,
+    VISUAL_BLOCK_MODUS,
     COMMAND_MODUS,
     SEARCH_MODUS,
     SEARCH_CURR_MODUS,
@@ -62,12 +66,17 @@ enum class COMMANDVI {
     F,
     t,
     T,
+    semicolon,
+    comma,
     G,
     gg,
     i,
     I,
+    block_I,
     a,
     A,
+    block_A,
+    block_c,
     o,
     O,
     perc,
@@ -78,17 +87,23 @@ enum class COMMANDVI {
     cb,
     ce,
     c0,
-    cV, /*c^*/
+    c_caret, /*c^*/
     c$,
     caw,
-    ci34, /*ci"*/
-    ci39, /*ci'*/
-    ci40, /*ci(*/
-    ci91, /*ci[*/
-    ci60, /*ci<*/
-    ci123,/*ci{*/
+    ciw,
+    cf,
+    cF,
+    ct,
+    cT,
+    ci_quot, /*ci"*/
+    ci_apos, /*ci'*/
+    ci_pare, /*ci(*/
+    ci_square, /*ci[*/
+    ci_lt, /*ci<*/
+    ci_curly,/*ci{*/
     C,
     cc,
+    s,
     S,
     x,
     X,
@@ -99,14 +114,21 @@ enum class COMMANDVI {
     de,
     d0,
     d$,
-    dV, /*d^*/
+    d_caret, /*d^*/
     daw,
-    di34, /*di"*/
-    di39, /*di'*/
-    di40, /*di(*/
-    di91, /*di[*/
-    di60, /*di<*/
-    di123,/*di{*/
+    diw,
+    df,
+    dF,
+    dt,
+    dT,
+    di_quot, /*di"*/
+    di_apos, /*di'*/
+    di_pare, /*di(*/
+    di_square, /*di[*/
+    di_lt, /*di<*/
+    di_curly,/*di{*/
+    dG,
+    dgg,
     D,
     diesis,
     diesis_N,
@@ -125,18 +147,27 @@ enum class COMMANDVI {
     yb,
     ye,
     y0,
-    yV, /*y^*/
+    y_caret, /*y^*/
     y$,
     yaw,
-    yi34, /*yi"*/
-    yi39, /*yi'*/
-    yi40, /*yi(*/
-    yi91, /*yi[*/
-    yi60, /*yi<*/
-    yi123,/*yi{*/
+    yiw,
+    yf,
+    yF,
+    yt,
+    yT,
+    yi_quot, /*yi"*/
+    yi_apos, /*yi'*/
+    yi_pare, /*yi(*/
+    yi_square, /*yi[*/
+    yi_lt, /*yi<*/
+    yi_curly,/*yi{*/
+    yG,
+    ygg,
     J,
     v,
-    V
+    ctrl_V,
+    V,
+    tilde
 };
 
 /**
@@ -248,6 +279,9 @@ public:
     void RepeatIssueCommand(wxString buf);
     bool Command_call();
     bool Command_call_visual_mode();
+    bool command_call_visual_line_mode();
+    bool command_call_visual_block_mode();
+    bool command_move_cmd_call(bool& repeat_command);
     bool is_cmd_complete();
     void set_current_word(wxString word);
     void set_current_modus(VIM_MODI modus);
@@ -257,7 +291,7 @@ public:
     void set_ctrl(wxStyledTextCtrl* ctrl);
 
 private:
-    /*~~~~~~~~ PRIVAT METHODS ~~~~~~~~~*/
+    /*~~~~~~~~ PRIVATE METHODS ~~~~~~~~~*/
     int getNumRepeat();
     int getNumActions();
     void evidentiate_word();
@@ -271,6 +305,9 @@ private:
     bool search_word(SEARCH_DIRECTION direction, int flag, long pos);
     long goToMatchingParentesis(long start_pos);
     bool findMatchingParentesis(wxChar lch, wxChar rch, long minPos, long maxPos, long& leftPos, long& rightPos);
+    long findCharInLine(wxChar key, long setup = 1, bool posPrev = false, bool reFind = false);
+    long findNextCharPos(int line, int col);
+    long findPrevCharPos(int line, int col);
     void normal_modus(wxChar ch);
     void visual_modus(wxChar ch);
     void command_modus(wxChar ch);
@@ -283,6 +320,15 @@ private:
     COMMAND_PART m_currentCommandPart; /*!< current part of the command */
     VIM_MODI m_currentModus;           /*!< actual mode the editor is in */
     bool m_saveCommand;
+    int m_initialVisualPos;  /*!< initial position of cursor when changing to visual mode*/
+    int m_initialVisualLine; /*!< initial line which cursor is on when changing to visual line mode*/
+    
+    /* visual block insert */
+    int m_visualBlockBeginLine;
+    int m_visualBlockEndLine;
+    int m_visualBlockBeginCol;
+    int m_visualBlockEndCol;
+    
     /*~~~~~~~~ COMMAND ~~~~~~~~~*/
     int m_repeat;           /*!< number of repetition for the command */
     wxChar m_baseCommand;   /*!< base command (first char of the cmd)*/
@@ -298,7 +344,11 @@ private:
     wxString m_tmpbuf;
     wxString m_searchWord;
     bool m_newLineCopy; /*!< take track if we copy/pase the complete line (dd,yy)*/
+    bool m_visualBlockCopy;
     std::vector<wxString> m_listCopiedStr;
+    wxChar m_findKey;
+    long m_findStep;
+    bool m_findPosPrev;
 
     /*~~~~~~~ EDITOR ~~~~~~~~~*/
     wxStyledTextCtrl* m_ctrl;

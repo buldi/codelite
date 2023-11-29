@@ -1,12 +1,14 @@
 #ifndef JSONRPC_PARAMS_H
 #define JSONRPC_PARAMS_H
 
-#include "codelite_exports.h"
+#include "IPathConverter.hpp"
 #include "JSON.h"
 #include "LSP/JSONObject.h"
-#include <wx/sharedptr.h>
 #include "basic_types.h"
+#include "codelite_exports.h"
+
 #include <vector>
+#include <wx/sharedptr.h>
 
 namespace LSP
 {
@@ -44,6 +46,89 @@ public:
     const Position& GetPosition() const { return m_position; }
     const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
 };
+
+//===----------------------------------------------------------------------------------
+// RenameParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL RenameParams : public TextDocumentPositionParams
+{
+    /**
+     * The new name of the symbol. If the given name is not valid the
+     * request must return a [ResponseError](#ResponseError) with an
+     * appropriate message set.
+     */
+    wxString m_newName;
+
+public:
+    RenameParams();
+    virtual ~RenameParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+    void SetNewName(const wxString& newName) { this->m_newName = newName; }
+    const wxString& GetNewName() const { return m_newName; }
+};
+
+//===----------------------------------------------------------------------------------
+// TextDocumentPositionParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL ReferenceParams : public TextDocumentPositionParams
+{
+    bool m_includeDeclaration = true;
+
+public:
+    ReferenceParams(bool includeDeclaration);
+    virtual ~ReferenceParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+    void SetIncludeDeclaration(bool includeDeclaration) { this->m_includeDeclaration = includeDeclaration; }
+    bool IsIncludeDeclaration() const { return m_includeDeclaration; }
+};
+
+//===----------------------------------------------------------------------------------
+// SemanticTokensParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL SemanticTokensParams : public Params
+{
+    TextDocumentIdentifier m_textDocument;
+
+public:
+    SemanticTokensParams();
+    virtual ~SemanticTokensParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
+    const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
+};
+
+struct WXDLLIMPEXP_CL SemanticTokenRange {
+    int line = wxNOT_FOUND;
+    int column = wxNOT_FOUND;
+    int length = wxNOT_FOUND;
+    int token_type = wxNOT_FOUND;
+};
+
+//===----------------------------------------------------------------------------------
+// DocumentSymbolParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL DocumentSymbolParams : public Params
+{
+    TextDocumentIdentifier m_textDocument;
+
+public:
+    DocumentSymbolParams();
+    virtual ~DocumentSymbolParams() {}
+
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON(const wxString& name) const;
+
+    void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
+    const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
+};
+
 //===----------------------------------------------------------------------------------
 // CompletionParams
 //===----------------------------------------------------------------------------------
@@ -55,6 +140,48 @@ public:
 
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
+};
+
+//===----------------------------------------------------------------------------------
+// CompletionParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL ExecuteCommandParams : public Params
+{
+    wxString m_command;
+    wxString m_arguments;
+
+public:
+    ExecuteCommandParams(const wxString& command, const wxString& arguments);
+    virtual ~ExecuteCommandParams() {}
+
+    void FromJSON(const JSONItem& json) override;
+    JSONItem ToJSON(const wxString& name) const override;
+};
+
+//===----------------------------------------------------------------------------------
+// CodeActionParams
+//===----------------------------------------------------------------------------------
+class WXDLLIMPEXP_CL CodeActionParams : public Params
+{
+    TextDocumentIdentifier m_textDocument;
+    Range m_range;
+    std::vector<LSP::Diagnostic> m_diagnostics;
+
+public:
+    CodeActionParams();
+    virtual ~CodeActionParams() {}
+
+    void FromJSON(const JSONItem& json) override;
+    JSONItem ToJSON(const wxString& name) const override;
+
+    void SetTextDocument(const TextDocumentIdentifier& textDocument) { this->m_textDocument = textDocument; }
+    const TextDocumentIdentifier& GetTextDocument() const { return m_textDocument; }
+
+    void SetRange(const Range& range) { this->m_range = range; }
+    const Range& GetRange() const { return m_range; }
+
+    void SetDiagnostics(const std::vector<LSP::Diagnostic>& diagnostics) { this->m_diagnostics = diagnostics; }
+    const std::vector<LSP::Diagnostic>& GetDiagnostics() const { return this->m_diagnostics; }
 };
 
 //===----------------------------------------------------------------------------------

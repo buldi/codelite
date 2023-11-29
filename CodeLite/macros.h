@@ -26,13 +26,13 @@
 #define MACROS_H
 
 #include "cl_standard_paths.h"
-#include <wx/stdpaths.h>
-#include <wx/intl.h>
+#include "wxStringHash.h"
 #include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
-#include "wxStringHash.h"
+#include <wx/intl.h>
+#include <wx/stdpaths.h>
 
 //-------------------------------------------------------
 // wxWidgets Connect macros
@@ -87,24 +87,24 @@
 // Constants
 //-----------------------------------------------------
 
-#define clCMD_NEW  "<New...>"
-#define clCMD_EDIT "<Edit...>"
+#define clCMD_NEW _("<New...>")
+#define clCMD_EDIT _("<Edit...>")
 
 // constant message
-#define BUILD_START_MSG "----------Build Started--------\n"
-#define BUILD_END_MSG "----------Build Ended----------\n"
-#define BUILD_PROJECT_PREFIX "----------Building project:[ "
-#define CLEAN_PROJECT_PREFIX "----------Cleaning project:[ "
+#define BUILD_START_MSG _("----------Build Started--------\n")
+#define BUILD_END_MSG _("----------Build Ended----------\n")
+#define BUILD_PROJECT_PREFIX _("----------Building project:[ ")
+#define CLEAN_PROJECT_PREFIX _("----------Cleaning project:[ ")
 
 // Find in files options
-#define SEARCH_IN_WORKSPACE "<Entire Workspace>"
-#define SEARCH_IN_PROJECT "<Active Project>"
-#define SEARCH_IN_CURR_FILE_PROJECT "<Current File's Project>"
-#define SEARCH_IN_CURRENT_FILE "<Current File>"
-#define SEARCH_IN_OPEN_FILES "<Open Files>"
-#define SEARCH_IN_WORKSPACE_FOLDER "<Workspace Folder>"
-#define USE_WORKSPACE_ENV_VAR_SET _("<Use Defaults>")
-#define USE_GLOBAL_SETTINGS _("<Use Defaults>")
+#define SEARCH_IN_WORKSPACE wxTRANSLATE("<Entire Workspace>")
+#define SEARCH_IN_PROJECT wxTRANSLATE("<Active Project>")
+#define SEARCH_IN_CURR_FILE_PROJECT wxTRANSLATE("<Current File's Project>")
+#define SEARCH_IN_CURRENT_FILE wxTRANSLATE("<Current File>")
+#define SEARCH_IN_OPEN_FILES wxTRANSLATE("<Open Files>")
+#define SEARCH_IN_WORKSPACE_FOLDER wxTRANSLATE("<Workspace Folder>")
+#define USE_WORKSPACE_ENV_VAR_SET wxTRANSLATE("<Use Defaults>")
+#define USE_GLOBAL_SETTINGS wxTRANSLATE("<Use Defaults>")
 
 // terminal macro
 #ifdef __WXGTK__
@@ -135,31 +135,49 @@
 
 // Useful macros
 #define CHECK_PTR_RET(p) \
-    if(!p) return
+    if(!p)               \
+    return
 #define CHECK_PTR_RET_FALSE(p) \
-    if(!p) return false
+    if(!p)                     \
+    return false
 #define CHECK_PTR_RET_NULL(p) \
-    if(!p) return NULL
+    if(!p)                    \
+    return NULL
+
 #define CHECK_PTR_RET_EMPTY_STRING(p) \
-    if(!p) return wxEmptyString
+    if(!p)                            \
+    return wxEmptyString
+
+// If expression != expected -> return
+#define CHECK_EXPECTED_RETURN(expression, expected) \
+    if((expression) != (expected))                  \
+    return
 
 #define CHECK_COND_RET(p) \
-    if(!(p)) return
+    if(!(p))              \
+    return
 #define CHECK_COND_RET_FALSE(p) \
-    if(!(p)) return false
+    if(!(p))                    \
+    return false
 #define CHECK_COND_RET_NULL(p) \
-    if(!(p)) return NULL
+    if(!(p))                   \
+    return NULL
 #define CHECK_COND_RET_EMPTY_STRING(p) \
-    if(!(p)) return wxEmptyString
+    if(!(p))                           \
+    return wxEmptyString
 
 #define CHECK_ITEM_RET(item) \
-    if(!item.IsOk()) return
+    if(!item.IsOk())         \
+    return
 #define CHECK_ITEM_RET_FALSE(item) \
-    if(!item.IsOk()) return false
+    if(!item.IsOk())               \
+    return false
 #define CHECK_ITEM_RET_NULL(item) \
-    if(!item.IsOk()) return NULL
+    if(!item.IsOk())              \
+    return NULL
 #define CHECK_ITEM_RET_EMPTY_STRING(item) \
-    if(!item.IsOk()) return wxEmptyString
+    if(!item.IsOk())                      \
+    return wxEmptyString
 
 // PATH environment variable separator
 #ifdef __WXMSW__

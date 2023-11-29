@@ -32,12 +32,12 @@
 #include "list"
 #include "map"
 #include "serialized_object.h"
-#include "vector"
-#include "wx/arrstr.h"
-#include "wx/string.h"
+
+#include <vector>
+#include <wx/arrstr.h>
+#include <wx/string.h>
 
 class EnvironmentConfig;
-class BreakptMgr;
 
 // sent when a "QueryLocals" command is completed (only for locals - not for function arguments)
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DEBUGGER_QUERY_LOCALS, clCommandEvent);
@@ -77,8 +77,8 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_DEBUGGER_FRAME_SELECTED, clComma
 
 class WXDLLIMPEXP_SDK DebuggerMgr
 {
-    std::map<wxString, IDebugger*> m_debuggers;
-    wxArrayString m_pluginsDebuggers;
+    std::unordered_map<wxString, IDebugger*> m_debuggers;
+    std::unordered_map<wxString, wxArrayString> m_pluginsDebuggers;
     wxString m_baseDir;
     std::vector<clDynamicLibrary*> m_dl;
     wxString m_activeDebuggerName;
@@ -106,7 +106,7 @@ public:
      * which are located udner $(HOME)/.liteeditor/debuggers/ on Linux, and on Windows
      * under C:\Program Files\LiteEditor\debuggers\
      */
-    bool LoadDebuggers();
+    bool LoadDebuggers(IDebuggerObserver* observer);
 
     /**
      * Return list of all available debuggers which were loaded
@@ -130,6 +130,15 @@ public:
     // get/set debugger information
     void SetDebuggerInformation(const wxString& name, const DebuggerInformation& info);
     bool GetDebuggerInformation(const wxString& name, DebuggerInformation& info);
+
+    /**
+     * @brief register debuggers from a plugin
+     */
+    void RegisterDebuggers(const wxString& plugin_name, const wxArrayString& names);
+    /**
+     * @brief remove all debuggers registered by a given plugin
+     */
+    void UnregisterDebuggers(const wxString& plugin_name);
 
     /**
      * @brief do we have an active debugger which is running?

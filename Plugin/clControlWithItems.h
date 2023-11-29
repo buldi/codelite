@@ -5,7 +5,9 @@
 #include "clHeaderBar.h"
 #include "clRowEntry.h"
 #include "clScrolledPanel.h"
+
 #include <array>
+#include <memory>
 #include <wx/imaglist.h>
 
 #ifdef __WXOSX__
@@ -41,6 +43,32 @@ public:
     bool IsEnabled() const { return m_enabled; }
 };
 
+/// base class for custom row renderers
+class WXDLLIMPEXP_SDK clControlWithItemsRowRenderer
+{
+public:
+    clControlWithItemsRowRenderer() {}
+    virtual ~clControlWithItemsRowRenderer() {}
+
+    /**
+     * @brief override this method to provide a custom row drawing.
+     * The text, bitmap and other info that needs to be drawn are stored
+     * in the `entry` field.
+     */
+    virtual void RenderItem(wxWindow* window, wxDC& dc, const clColours& colours, int row_index, clRowEntry* entry) = 0;
+
+    /**
+     * @brief draw the background of a given entry
+     */
+    virtual void RenderItemBackground(wxDC& dc, long tree_style, const clColours& colours, int row_index,
+                                      clRowEntry* entry) = 0;
+
+    /**
+     * @brief render the list background
+     */
+    virtual void RenderBackground(wxDC& dc, const wxRect& rect, long tree_style, const clColours& colours) = 0;
+};
+
 class WXDLLIMPEXP_SDK clControlWithItems : public clScrolledPanel
 {
 public:
@@ -60,13 +88,17 @@ protected:
     clSearchControl* m_searchControl = nullptr;
     bool m_maxList = false;
     bool m_nativeTheme = false;
+    std::unique_ptr<clControlWithItemsRowRenderer> m_customRenderer;
+    wxFont m_defaultFont = wxNullFont;
+    bool m_recalcColumnWidthOnPaint = true;
+    bool m_disableView = false;
 
 protected:
     void DoInitialize();
-    int GetNumLineCanFitOnScreen() const;
+    int GetNumLineCanFitOnScreen(bool fully_fit = false) const;
     virtual clRowEntry* GetFirstItemOnScreen();
     virtual void SetFirstItemOnScreen(clRowEntry* item);
-    void RenderItems(wxDC& dc, const clRowEntry::Vec_t& items);
+    void RenderItems(wxDC& dc, long tree_style, const clRowEntry::Vec_t& items);
     void AssignRects(const clRowEntry::Vec_t& items);
     void OnSize(wxSizeEvent& event);
     void DoUpdateHeader(clRowEntry* row);
@@ -85,6 +117,21 @@ public:
                        const wxSize& size = wxDefaultSize, long style = 0);
     virtual ~clControlWithItems();
     clControlWithItems();
+
+    virtual void SetDefaultFont(const wxFont& font);
+    virtual wxFont GetDefaultFont() const;
+
+    /**
+     * @brief give the view a "disabled" look and feel
+     */
+    void SetDisabled(bool b);
+    bool IsDisabled() const { return m_disableView; }
+
+    /**
+     * @brief set a custom renderer to draw the rows for this control
+     * `this` takes ownership for the renderer (i.e. it will free it)
+     */
+    void SetCustomRenderer(clControlWithItemsRowRenderer* renderer);
 
     void SetNativeTheme(bool nativeTheme);
     bool IsNativeTheme() const { return m_nativeTheme; }
@@ -155,19 +202,13 @@ public:
      */
     virtual void UpdateScrollBar();
 
-    void SetColours(const clColours& colours)
-    {
-        this->m_colours = colours;
-        GetVScrollBar()->SetColours(m_colours);
-        GetHScrollBar()->SetColours(m_colours);
-        Refresh();
-    }
+    void SetColours(const clColours& colours);
 
     const clColours& GetColours() const { return m_colours; }
     clColours& GetColours() { return m_colours; }
 
     // Horizontal scrolling implementation
-    void ScollToColumn(int firstColumn);
+    void ScrollToColumn(int firstColumn);
     void ScrollColumns(int steps, wxDirection direction);
 
     //===-----------------------------------------

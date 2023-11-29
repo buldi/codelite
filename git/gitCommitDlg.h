@@ -33,11 +33,12 @@
 #ifndef __gitCommitDlg__
 #define __gitCommitDlg__
 
-#include "gitui.h"
-#include <map>
 #include "clEditorEditEventsHandler.h"
-#include <wx/tokenzr.h> 
+#include "gitui.h"
 #include "macros.h"
+
+#include <map>
+#include <wx/tokenzr.h>
 
 class GitPlugin;
 
@@ -47,26 +48,21 @@ class GitCommitDlg : public GitCommitDlgBase
     wxString m_workingDir;
     wxStringMap_t m_diffMap;
     bool m_toggleChecks;
-    clEditEventsHandler::Ptr_t m_editEventsHandlerCommitStc;
-    clEditEventsHandler::Ptr_t m_editEventsHandlerDiffStc;
     wxString m_previousCommitMessage;
     wxArrayString m_history;
     wxString m_stashedMessage;
+    bool m_dismissedWithOk = false;
 
 public:
     GitCommitDlg(wxWindow* parent, GitPlugin* plugin, const wxString& workingDir);
-    ~GitCommitDlg();
+    virtual ~GitCommitDlg();
 
     void AppendDiff(const wxString& diff);
 
     wxArrayString GetSelectedFiles();
     wxString GetCommitMessage();
-    void SetPreviousCommitMessage(const wxString& previous) {
-        m_previousCommitMessage = previous;
-    }
-    void SetHistory(const wxString& history) {
-        m_history = wxStringTokenize(history, "\n");
-    }
+    void SetPreviousCommitMessage(const wxString& previous) { m_previousCommitMessage = previous; }
+    void SetHistory(const wxString& history) { m_history = wxStringTokenize(history, "\n"); }
     bool IsAmending() const { return m_checkBoxAmend->IsChecked(); }
 
 private:

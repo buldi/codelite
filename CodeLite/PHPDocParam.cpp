@@ -26,13 +26,32 @@ const PHPDocParam::Vec_t& PHPDocParam::Parse()
                 break;
             }
             stype = tokenizer.GetNextToken();
-            stype = m_sourceFile.MakeIdentifierAbsolute(stype);
 
             // Next comes the name
             if(!tokenizer.HasMoreTokens()) {
                 break;
             }
             sname = tokenizer.GetNextToken();
+
+            // Handle common developer mistake
+            if (stype.StartsWith("$") || stype.StartsWith("&")) {
+                sname.swap(stype);
+            }
+
+            // TODO Support nullable parameters
+            if (stype.StartsWith("?")) {
+                stype.Remove(0, 1);
+            }
+
+            // TODO Support by reference parameters
+            if (sname.StartsWith("&")) {
+                sname.Remove(0, 1);
+            } else if (stype.EndsWith("&")) {
+                stype.RemoveLast();
+            }
+
+            stype = m_sourceFile.MakeIdentifierAbsolute(stype);
+
             m_params.push_back(std::make_pair(sname, stype));
         }
     }

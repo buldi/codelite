@@ -26,8 +26,10 @@
 #ifndef COMPILERMAINPAGE_H
 #define COMPILERMAINPAGE_H
 
-#include "compiler_pages.h"
 #include "compiler.h"
+#include "compiler_pages.h"
+
+#include <wx/dataview.h>
 
 // =================--------------------
 // Helper classes
@@ -38,8 +40,8 @@ public:
     CompilerPatternDlg(wxWindow* parent, const wxString& title);
     virtual ~CompilerPatternDlg();
 
-    void
-    SetPattern(const wxString& pattern, const wxString& lineIdx, const wxString& fileIdx, const wxString& columnIndex);
+    void SetPattern(const wxString& pattern, const wxString& lineIdx, const wxString& fileIdx,
+                    const wxString& columnIndex);
 
 protected:
     virtual void OnSubmit(wxCommandEvent& event);
@@ -55,10 +57,7 @@ public:
 class CompilerOptionDialog : public CompilerOptionDlgBase
 {
 public:
-    CompilerOptionDialog(wxWindow* parent,
-                         const wxString& title,
-                         const wxString& name,
-                         const wxString& help,
+    CompilerOptionDialog(wxWindow* parent, const wxString& title, const wxString& name, const wxString& help,
                          wxWindowID id = wxID_ANY)
         : CompilerOptionDlgBase(parent, id, title)
     {
@@ -99,11 +98,12 @@ class CompilerMainPage : public CompilerMainPageBase
     CompilerPtr m_compiler;
     wxString m_selSwitchName;
     wxString m_selSwitchValue;
-    long m_selectedFileType;
     long m_selectedCmpOption;
     long m_selectedLnkOption;
 
 protected:
+    virtual void OnLinkLineActivated(wxDataViewEvent& event);
+    virtual void OnLinkerUseFileInput(wxCommandEvent& event);
     virtual void OnAddExistingCompiler(wxCommandEvent& event);
     virtual void OnCloneCompiler(wxCommandEvent& event);
     virtual void OnScanCompilers(wxCommandEvent& event);
@@ -122,8 +122,10 @@ protected:
     // Patterns
     void InitializePatterns();
     void SavePatterns();
-    void DoUpdateErrPattern(long item);
-    void DoUpdateWarnPattern(long item);
+    void DoUpdateErrPattern(const wxDataViewItem& item);
+    void DoUpdateWarnPattern(const wxDataViewItem& item);
+    void DoUpdatePattern(clThemedListCtrl* list, const wxDataViewItem& item, const wxString& dialog_title);
+    void DoAddPattern(clThemedListCtrl* list, const Compiler::CmpInfoPattern& pattern);
 
     // Compiler Switches
     void AddSwitch(const wxString& name, const wxString& value, bool choose);
@@ -132,8 +134,8 @@ protected:
     void InitializeSwitches();
 
     // File Types
-    void InitializeFileTypes();
-    void SaveFileTypes();
+    void InitialiseTemplates();
+    void SaveTemplates();
 
     // Advanced page
     void InitializeAdvancePage();
@@ -148,6 +150,7 @@ protected:
     void SaveLinkerOptions();
 
     void LoadCompiler(const wxString& compilerName);
+    void DoFileTypeActivated(const wxDataViewItem& item);
 
 public:
     CompilerMainPage(wxWindow* parent);
@@ -173,11 +176,9 @@ protected:
     virtual void OnDeleteLinkerOption(wxCommandEvent& event);
     virtual void OnEditIncludePaths(wxCommandEvent& event);
     virtual void OnEditLibraryPaths(wxCommandEvent& event);
-    virtual void OnErrItemActivated(wxListEvent& event);
+    virtual void OnErrItemActivated(wxDataViewEvent& event);
     virtual void OnErrorPatternSelectedUI(wxUpdateUIEvent& event);
-    virtual void OnFileTypeActivated(wxListEvent& event);
-    virtual void OnFileTypeDeSelected(wxListEvent& event);
-    virtual void OnFileTypeSelected(wxListEvent& event);
+    virtual void OnFileTypeActivated(wxDataViewEvent& event);
     virtual void OnItemActivated(wxListEvent& event);
     virtual void OnItemSelected(wxListEvent& event);
     virtual void OnLinkerOptionActivated(wxListEvent& event);
@@ -186,7 +187,7 @@ protected:
     virtual void OnNewCompilerOption(wxCommandEvent& event);
     virtual void OnNewFileType(wxCommandEvent& event);
     virtual void OnNewLinkerOption(wxCommandEvent& event);
-    virtual void OnWarnItemActivated(wxListEvent& event);
+    virtual void OnWarnItemActivated(wxDataViewEvent& event);
     virtual void OnWarningPatternSelectedUI(wxUpdateUIEvent& event);
 };
 #endif // COMPILERMAINPAGE_H

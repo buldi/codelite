@@ -17,6 +17,7 @@
 #include <wx/toolbar.h>
 #include "clToolBar.h"
 #include <wx/textctrl.h>
+#include "clThemedTextCtrl.hpp"
 #include <wx/button.h>
 #include "clThemedButton.h"
 #include <wx/popupwin.h>
@@ -52,7 +53,7 @@ public:
 
 protected:
     clToolBar* m_toolbar;
-    wxTextCtrl* m_textCtrlFind;
+    clThemedTextCtrl* m_textCtrlFind;
     clThemedButton* m_buttonFind;
     clThemedButton* m_buttonFindPrev;
     clThemedButton* m_buttonFindAll;
@@ -81,7 +82,7 @@ protected:
 
 public:
     clToolBar* GetToolbar() { return m_toolbar; }
-    wxTextCtrl* GetTextCtrlFind() { return m_textCtrlFind; }
+    clThemedTextCtrl* GetTextCtrlFind() { return m_textCtrlFind; }
     clThemedButton* GetButtonFind() { return m_buttonFind; }
     clThemedButton* GetButtonFindPrev() { return m_buttonFindPrev; }
     clThemedButton* GetButtonFindAll() { return m_buttonFindAll; }
@@ -134,7 +135,8 @@ public:
     QuickFindBarImages();
     const wxBitmap& Bitmap(const wxString& name) const
     {
-        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        if(!m_bitmaps.count(name + m_resolution))
+            return wxNullBitmap;
         return m_bitmaps.find(name + m_resolution)->second;
     }
 

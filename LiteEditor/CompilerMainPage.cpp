@@ -24,66 +24,50 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "CompilerMainPage.h"
+
+#include "EditCmpTemplateDialog.h"
+#include "NewFileTemplateDialog.h"
+#include "advanced_settings.h"
 #include "compiler.h"
+#include "imanager.h"
+
+#include <EditDlg.h>
+#include <build_config.h>
 #include <build_settings_config.h>
+#include <event_notifier.h>
 #include <globals.h>
 #include <windowattrmanager.h>
-#include "editcmpfileinfodlg.h"
-#include <EditDlg.h>
-#include <event_notifier.h>
 #include <workspace.h>
-#include <build_config.h>
-#include <cl_aui_notebook_art.h>
-#include <wx/wupdlock.h>
+#include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
-#include "advanced_settings.h"
-#include <wx/menu.h>
-#include <wx/textdlg.h>
+#include <wx/wupdlock.h>
 
 CompilerMainPage::CompilerMainPage(wxWindow* parent)
     : CompilerMainPageBase(parent)
     , m_isDirty(false)
     , m_compiler(NULL)
-    , m_selectedFileType(-1)
     , m_selectedCmpOption(-1)
     , m_selectedLnkOption(-1)
 {
     // =============-----------------------------
     // Patterns page initialization
     // =============-----------------------------
-    m_listErrPatterns->InsertColumn(0, _("Pattern"));
-    m_listErrPatterns->InsertColumn(1, _("File name index"));
-    m_listErrPatterns->InsertColumn(2, _("Line number index"));
-    m_listErrPatterns->InsertColumn(3, _("Column index"));
+    m_dvListCtrlErrors->AddHeader(_("Pattern"));
+    m_dvListCtrlErrors->AddHeader(_("File name index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
+    m_dvListCtrlErrors->AddHeader(_("Line number index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
+    m_dvListCtrlErrors->AddHeader(_("Column index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
 
-    m_listErrPatterns->SetColumnWidth(0, 200);
-    m_listErrPatterns->SetColumnWidth(1, 50);
-    m_listErrPatterns->SetColumnWidth(2, 50);
-    m_listErrPatterns->SetColumnWidth(3, 50);
-
-    m_listWarnPatterns->InsertColumn(0, _("Pattern"));
-    m_listWarnPatterns->InsertColumn(1, _("File name index"));
-    m_listWarnPatterns->InsertColumn(2, _("Line number index"));
-    m_listWarnPatterns->InsertColumn(3, _("Column index"));
-
-    m_listWarnPatterns->SetColumnWidth(0, 200);
-    m_listWarnPatterns->SetColumnWidth(1, 50);
-    m_listWarnPatterns->SetColumnWidth(2, 50);
-    m_listWarnPatterns->SetColumnWidth(3, 50);
+    m_dvListCtrlWarnings->AddHeader(_("Pattern"));
+    m_dvListCtrlWarnings->AddHeader(_("File name index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
+    m_dvListCtrlWarnings->AddHeader(_("Line number index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
+    m_dvListCtrlWarnings->AddHeader(_("Column index"), wxNullBitmap, wxCOL_WIDTH_DEFAULT);
 
     // ==============------------------
     // Switches
     // ==============------------------
     m_listSwitches->InsertColumn(0, _("Name"));
     m_listSwitches->InsertColumn(1, _("Value"));
-
-    // =============----------------------
-    // File Types
-    // =============----------------------
-    m_listCtrlFileTypes->InsertColumn(0, _("Extension"));
-    m_listCtrlFileTypes->InsertColumn(1, _("Kind"));
-    m_listCtrlFileTypes->InsertColumn(2, _("Compilation Line"));
 
     // =====---------------------------------
     // Compiler options
@@ -96,6 +80,15 @@ CompilerMainPage::CompilerMainPage(wxWindow* parent)
     // =====---------------------------------
     m_listLinkerOptions->InsertColumn(0, _("Switch"));
     m_listLinkerOptions->InsertColumn(1, _("Help"));
+
+    auto images = m_toolbar->GetBitmapsCreateIfNeeded();
+    m_toolbar->AddTool(wxID_NEW, _("Add an existing compiler"), images->Add("file_new"));
+    m_toolbar->AddTool(wxID_COPY, _("Copy compiler"), images->Add("copy"));
+    m_toolbar->AddTool(wxID_FIND, _("Scan for compilers"), images->Add("find"));
+    m_toolbar->Realize();
+    m_toolbar->Bind(wxEVT_TOOL, &CompilerMainPage::OnAddExistingCompiler, this, wxID_NEW);
+    m_toolbar->Bind(wxEVT_TOOL, &CompilerMainPage::OnCloneCompiler, this, wxID_COPY);
+    m_toolbar->Bind(wxEVT_TOOL, &CompilerMainPage::OnScanCompilers, this, wxID_FIND);
 }
 
 CompilerMainPage::~CompilerMainPage() {}
@@ -104,11 +97,10 @@ void CompilerMainPage::OnBtnAddErrPattern(wxCommandEvent& event)
 {
     CompilerPatternDlg dlg(wxGetTopLevelParent(this), _("Add compiler error pattern"));
     if(dlg.ShowModal() == wxID_OK) {
-        long item = AppendListCtrlRow(m_listErrPatterns);
-        SetColumnText(m_listErrPatterns, item, 0, dlg.GetPattern());
-        SetColumnText(m_listErrPatterns, item, 1, dlg.GetFileIndex());
-        SetColumnText(m_listErrPatterns, item, 2, dlg.GetLineIndex());
-        SetColumnText(m_listErrPatterns, item, 3, dlg.GetColumnIndex());
+        auto item = m_dvListCtrlErrors->AppendItem(dlg.GetPattern());
+        m_dvListCtrlErrors->SetItemText(item, dlg.GetFileIndex(), 1);
+        m_dvListCtrlErrors->SetItemText(item, dlg.GetLineIndex(), 2);
+        m_dvListCtrlErrors->SetItemText(item, dlg.GetColumnIndex(), 3);
         m_isDirty = true;
     }
 }
@@ -117,52 +109,51 @@ void CompilerMainPage::OnBtnAddWarnPattern(wxCommandEvent& event)
 {
     CompilerPatternDlg dlg(wxGetTopLevelParent(this), _("Add compiler warning pattern"));
     if(dlg.ShowModal() == wxID_OK) {
+        auto item = m_dvListCtrlWarnings->AppendItem(dlg.GetPattern());
+        m_dvListCtrlWarnings->SetItemText(item, dlg.GetFileIndex(), 1);
+        m_dvListCtrlWarnings->SetItemText(item, dlg.GetLineIndex(), 2);
+        m_dvListCtrlWarnings->SetItemText(item, dlg.GetColumnIndex(), 3);
         m_isDirty = true;
-        long item = AppendListCtrlRow(m_listWarnPatterns);
-        SetColumnText(m_listWarnPatterns, item, 0, dlg.GetPattern());
-        SetColumnText(m_listWarnPatterns, item, 1, dlg.GetFileIndex());
-        SetColumnText(m_listWarnPatterns, item, 2, dlg.GetLineIndex());
-        SetColumnText(m_listWarnPatterns, item, 3, dlg.GetColumnIndex());
     }
 }
 
 void CompilerMainPage::OnBtnDelErrPattern(wxCommandEvent& event)
 {
-    int sel = m_listErrPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if(sel == wxNOT_FOUND) {
-        return;
-    }
-    m_listErrPatterns->DeleteItem(sel);
+    wxUnusedVar(event);
+    auto item = m_dvListCtrlErrors->GetSelection();
+    CHECK_ITEM_RET(item);
+
+    m_dvListCtrlErrors->DeleteItem(m_dvListCtrlErrors->ItemToRow(item));
     m_isDirty = true;
 }
 
 void CompilerMainPage::OnBtnDelWarnPattern(wxCommandEvent& event)
 {
-    int sel = m_listWarnPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if(sel == wxNOT_FOUND) {
-        return;
-    }
-    m_listWarnPatterns->DeleteItem(sel);
+    wxUnusedVar(event);
+    auto item = m_dvListCtrlWarnings->GetSelection();
+    CHECK_ITEM_RET(item);
+
+    m_dvListCtrlWarnings->DeleteItem(m_dvListCtrlWarnings->ItemToRow(item));
     m_isDirty = true;
 }
 
 void CompilerMainPage::OnBtnUpdateErrPattern(wxCommandEvent& event)
 {
-    int sel = m_listErrPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if(sel == wxNOT_FOUND) {
-        return;
-    }
-    DoUpdateErrPattern(sel);
+    wxUnusedVar(event);
+    auto item = m_dvListCtrlErrors->GetSelection();
+    CHECK_ITEM_RET(item);
+
+    DoUpdateErrPattern(item);
     m_isDirty = true;
 }
 
 void CompilerMainPage::OnBtnUpdateWarnPattern(wxCommandEvent& event)
 {
-    int sel = m_listWarnPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    if(sel == wxNOT_FOUND) {
-        return;
-    }
-    DoUpdateWarnPattern(sel);
+    wxUnusedVar(event);
+    auto item = m_dvListCtrlWarnings->GetSelection();
+    CHECK_ITEM_RET(item);
+
+    DoUpdateWarnPattern(item);
     m_isDirty = true;
 }
 
@@ -216,8 +207,7 @@ void CompilerMainPage::OnCustomEditorButtonClicked(wxCommandEvent& event)
 void CompilerMainPage::OnDeleteCompilerOption(wxCommandEvent& event)
 {
     if(m_selectedCmpOption != wxNOT_FOUND) {
-        if(wxMessageBox(_("Are you sure you want to delete this compiler option?"),
-                        _("CodeLite"),
+        if(wxMessageBox(_("Are you sure you want to delete this compiler option?"), _("CodeLite"),
                         wxYES_NO | wxCANCEL) == wxYES) {
             m_listCompilerOptions->DeleteItem(m_selectedCmpOption);
             m_listCompilerOptions->SetColumnWidth(1, wxLIST_AUTOSIZE);
@@ -229,13 +219,20 @@ void CompilerMainPage::OnDeleteCompilerOption(wxCommandEvent& event)
 
 void CompilerMainPage::OnDeleteFileType(wxCommandEvent& event)
 {
-    if(m_selectedFileType != wxNOT_FOUND) {
-        if(wxMessageBox(_("Are you sure you want to delete this file type?"), _("CodeLite"), wxYES_NO | wxCANCEL) ==
-           wxYES) {
-            m_listCtrlFileTypes->DeleteItem(m_selectedFileType);
-            m_selectedFileType = wxNOT_FOUND;
-            m_isDirty = true;
-        }
+    if(m_dvListCtrlFileTemplates->GetSelectedItemsCount() == 0) {
+        return;
+    }
+    int sel = m_dvListCtrlFileTemplates->GetSelectedRow();
+    if(sel == wxNOT_FOUND) {
+        return;
+    }
+    wxDataViewItem item = m_dvListCtrlFileTemplates->RowToItem(sel);
+    wxString filetype = m_dvListCtrlFileTemplates->GetItemText(item);
+
+    if(wxMessageBox(wxString() << _("Are you sure you want to delete '") << filetype << "'?", _("CodeLite"),
+                    wxYES_NO | wxCANCEL) == wxYES) {
+        m_dvListCtrlFileTemplates->DeleteItem(sel);
+        m_isDirty = true;
     }
 }
 
@@ -278,81 +275,70 @@ void CompilerMainPage::OnEditLibraryPaths(wxCommandEvent& event)
     }
 }
 
-void CompilerMainPage::OnErrItemActivated(wxListEvent& event)
+void CompilerMainPage::OnErrItemActivated(wxDataViewEvent& event)
 {
-    DoUpdateErrPattern(event.GetIndex());
+    DoUpdateErrPattern(event.GetItem());
     m_isDirty = true;
 }
 
 void CompilerMainPage::OnErrorPatternSelectedUI(wxUpdateUIEvent& event)
 {
-    int sel = m_listErrPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    event.Enable(sel != wxNOT_FOUND);
+    event.Enable(!m_dvListCtrlErrors->IsEmpty());
 }
 
-void CompilerMainPage::DoUpdateWarnPattern(long item)
+void CompilerMainPage::DoUpdatePattern(clThemedListCtrl* list, const wxDataViewItem& item, const wxString& dialog_title)
 {
-    wxString pattern = GetColumnText(m_listWarnPatterns, item, 0);
-    wxString fileIdx = GetColumnText(m_listWarnPatterns, item, 1);
-    wxString lineIdx = GetColumnText(m_listWarnPatterns, item, 2);
-    wxString colIdx = GetColumnText(m_listWarnPatterns, item, 3);
-    CompilerPatternDlg dlg(wxGetTopLevelParent(this), _("Update compiler warning pattern"));
+    wxString pattern = list->GetItemText(item, 0);
+    wxString fileIdx = list->GetItemText(item, 1);
+    wxString lineIdx = list->GetItemText(item, 2);
+    wxString colIdx = list->GetItemText(item, 3);
+
+    CompilerPatternDlg dlg(wxGetTopLevelParent(this), dialog_title);
     dlg.SetPattern(pattern, lineIdx, fileIdx, colIdx);
-    if(dlg.ShowModal() == wxID_OK) {
-        SetColumnText(m_listWarnPatterns, item, 0, dlg.GetPattern());
-        SetColumnText(m_listWarnPatterns, item, 1, dlg.GetFileIndex());
-        SetColumnText(m_listWarnPatterns, item, 2, dlg.GetLineIndex());
-        SetColumnText(m_listWarnPatterns, item, 3, dlg.GetColumnIndex());
+    if(dlg.ShowModal() != wxID_OK) {
+        return;
     }
+
+    list->SetItemText(item, dlg.GetPattern(), 0);
+    list->SetItemText(item, dlg.GetFileIndex(), 1);
+    list->SetItemText(item, dlg.GetLineIndex(), 2);
+    list->SetItemText(item, dlg.GetColumnIndex(), 3);
 }
 
-void CompilerMainPage::DoUpdateErrPattern(long item)
+void CompilerMainPage::DoUpdateWarnPattern(const wxDataViewItem& item)
 {
-    wxString pattern = GetColumnText(m_listErrPatterns, item, 0);
-    wxString fileIdx = GetColumnText(m_listErrPatterns, item, 1);
-    wxString lineIdx = GetColumnText(m_listErrPatterns, item, 2);
-    wxString colIdx = GetColumnText(m_listErrPatterns, item, 3);
-    CompilerPatternDlg dlg(wxGetTopLevelParent(this), _("Update compiler error pattern"));
-    dlg.SetPattern(pattern, lineIdx, fileIdx, colIdx);
-    if(dlg.ShowModal() == wxID_OK) {
-        SetColumnText(m_listErrPatterns, item, 0, dlg.GetPattern());
-        SetColumnText(m_listErrPatterns, item, 1, dlg.GetFileIndex());
-        SetColumnText(m_listErrPatterns, item, 2, dlg.GetLineIndex());
-        SetColumnText(m_listErrPatterns, item, 3, dlg.GetColumnIndex());
-    }
+    DoUpdatePattern(m_dvListCtrlWarnings, item, _("Update compiler warning pattern"));
 }
 
-void CompilerMainPage::OnFileTypeActivated(wxListEvent& event)
+void CompilerMainPage::DoUpdateErrPattern(const wxDataViewItem& item)
 {
-    if(m_selectedFileType != wxNOT_FOUND) {
-        EditCmpFileInfo dlg(wxGetTopLevelParent(this));
-        dlg.SetCompilationLine(GetColumnText(m_listCtrlFileTypes, m_selectedFileType, 2));
-        dlg.SetExtension(GetColumnText(m_listCtrlFileTypes, m_selectedFileType, 0));
-        dlg.SetKind(GetColumnText(m_listCtrlFileTypes, m_selectedFileType, 1));
+    DoUpdatePattern(m_dvListCtrlErrors, item, _("Update compiler error pattern"));
+}
 
-        if(dlg.ShowModal() == wxID_OK) {
-            SetColumnText(m_listCtrlFileTypes, m_selectedFileType, 2, dlg.GetCompilationLine());
-            SetColumnText(m_listCtrlFileTypes, m_selectedFileType, 0, dlg.GetExtension().Lower());
-            SetColumnText(m_listCtrlFileTypes, m_selectedFileType, 1, dlg.GetKind());
-        }
+void CompilerMainPage::DoFileTypeActivated(const wxDataViewItem& item)
+{
+    if(!item.IsOk()) {
+        return;
+    }
+
+    NewFileTemplateDialog dlg(wxGetTopLevelParent(this));
+    wxString ext = m_dvListCtrlFileTemplates->GetItemText(item, 0);
+    wxString kind = m_dvListCtrlFileTemplates->GetItemText(item, 1);
+    wxString pattern = m_dvListCtrlFileTemplates->GetItemText(item, 2);
+
+    dlg.SetPattern(pattern);
+    dlg.SetExtension(ext);
+    dlg.SetKind(kind);
+
+    if(dlg.ShowModal() == wxID_OK) {
+        m_dvListCtrlFileTemplates->SetItemText(item, dlg.GetExtension().Lower(), 0);
+        m_dvListCtrlFileTemplates->SetItemText(item, dlg.GetKind(), 1);
+        m_dvListCtrlFileTemplates->SetItemText(item, dlg.GetPattern(), 2);
         m_isDirty = true;
     }
-    event.Skip();
 }
 
-void CompilerMainPage::OnFileTypeDeSelected(wxListEvent& event)
-{
-#ifndef __WXMAC__
-    m_selectedFileType = wxNOT_FOUND;
-#endif
-    event.Skip();
-}
-
-void CompilerMainPage::OnFileTypeSelected(wxListEvent& event)
-{
-    m_selectedFileType = event.m_itemIndex;
-    event.Skip();
-}
+void CompilerMainPage::OnFileTypeActivated(wxDataViewEvent& event) { DoFileTypeActivated(event.GetItem()); }
 
 void CompilerMainPage::OnItemActivated(wxListEvent& event)
 {
@@ -437,12 +423,11 @@ void CompilerMainPage::OnNewCompilerOption(wxCommandEvent& event)
 
 void CompilerMainPage::OnNewFileType(wxCommandEvent& event)
 {
-    EditCmpFileInfo dlg(wxGetTopLevelParent(this));
+    NewFileTemplateDialog dlg(wxGetTopLevelParent(this));
     if(dlg.ShowModal() == wxID_OK) {
-        long newItem = AppendListCtrlRow(m_listCtrlFileTypes);
-        SetColumnText(m_listCtrlFileTypes, newItem, 2, dlg.GetCompilationLine());
-        SetColumnText(m_listCtrlFileTypes, newItem, 0, dlg.GetExtension().Lower());
-        SetColumnText(m_listCtrlFileTypes, newItem, 1, dlg.GetKind());
+        wxDataViewItem item = m_dvListCtrlFileTemplates->AppendItem(dlg.GetExtension().Lower());
+        m_dvListCtrlFileTemplates->SetItemText(item, dlg.GetKind(), 1);
+        m_dvListCtrlFileTemplates->SetItemText(item, dlg.GetPattern(), 2);
         m_isDirty = true;
     }
 }
@@ -458,44 +443,40 @@ void CompilerMainPage::OnNewLinkerOption(wxCommandEvent& event)
     }
 }
 
-void CompilerMainPage::OnWarnItemActivated(wxListEvent& event)
+void CompilerMainPage::OnWarnItemActivated(wxDataViewEvent& event)
 {
-    DoUpdateWarnPattern(event.GetIndex());
+    DoUpdateWarnPattern(event.GetItem());
     m_isDirty = true;
 }
 
 void CompilerMainPage::OnWarningPatternSelectedUI(wxUpdateUIEvent& event)
 {
-    int sel = m_listWarnPatterns->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-    event.Enable(sel != wxNOT_FOUND);
+    event.Enable(!m_dvListCtrlWarnings->IsEmpty());
+}
+
+void CompilerMainPage::DoAddPattern(clThemedListCtrl* list, const Compiler::CmpInfoPattern& pattern)
+{
+    auto item = list->AppendItem(pattern.pattern);
+    list->SetItemText(item, pattern.fileNameIndex, 1);
+    list->SetItemText(item, pattern.lineNumberIndex, 2);
+    list->SetItemText(item, pattern.columnIndex, 3);
 }
 
 void CompilerMainPage::InitializePatterns()
 {
     // Clear the content
-    m_listErrPatterns->DeleteAllItems();
-    m_listWarnPatterns->DeleteAllItems();
+    m_dvListCtrlErrors->DeleteAllItems();
+    m_dvListCtrlWarnings->DeleteAllItems();
 
     // Populate with new content
     CHECK_PTR_RET(m_compiler);
 
-    const Compiler::CmpListInfoPattern& errPatterns = m_compiler->GetErrPatterns();
-    Compiler::CmpListInfoPattern::const_iterator itPattern;
-    for(itPattern = errPatterns.begin(); itPattern != errPatterns.end(); ++itPattern) {
-        long item = AppendListCtrlRow(m_listErrPatterns);
-        SetColumnText(m_listErrPatterns, item, 0, itPattern->pattern);
-        SetColumnText(m_listErrPatterns, item, 1, itPattern->fileNameIndex);
-        SetColumnText(m_listErrPatterns, item, 2, itPattern->lineNumberIndex);
-        SetColumnText(m_listErrPatterns, item, 3, itPattern->columnIndex);
+    for(const auto& pattern : m_compiler->GetErrPatterns()) {
+        DoAddPattern(m_dvListCtrlErrors, pattern);
     }
 
-    const Compiler::CmpListInfoPattern& warnPatterns = m_compiler->GetWarnPatterns();
-    for(itPattern = warnPatterns.begin(); itPattern != warnPatterns.end(); ++itPattern) {
-        long item = AppendListCtrlRow(m_listWarnPatterns);
-        SetColumnText(m_listWarnPatterns, item, 0, itPattern->pattern);
-        SetColumnText(m_listWarnPatterns, item, 1, itPattern->fileNameIndex);
-        SetColumnText(m_listWarnPatterns, item, 2, itPattern->lineNumberIndex);
-        SetColumnText(m_listWarnPatterns, item, 3, itPattern->columnIndex);
+    for(const auto& pattern : m_compiler->GetWarnPatterns()) {
+        DoAddPattern(m_dvListCtrlWarnings, pattern);
     }
 }
 
@@ -505,6 +486,7 @@ void CompilerMainPage::LoadCompiler(const wxString& compilerName)
     if(m_isDirty) {
         Save();
     }
+
     m_compiler = BuildSettingsConfigST::Get()->GetCompiler(compilerName);
 
     // Start initialization
@@ -515,23 +497,26 @@ void CompilerMainPage::SavePatterns()
 {
     CHECK_PTR_RET(m_compiler);
     Compiler::CmpListInfoPattern errPatterns;
-    for(int i = 0; i < m_listErrPatterns->GetItemCount(); ++i) {
+
+    for(int i = 0; i < m_dvListCtrlErrors->GetItemCount(); ++i) {
+        auto item = m_dvListCtrlErrors->RowToItem(i);
         Compiler::CmpInfoPattern infoPattern;
-        infoPattern.pattern = GetColumnText(m_listErrPatterns, i, 0);
-        infoPattern.fileNameIndex = GetColumnText(m_listErrPatterns, i, 1);
-        infoPattern.lineNumberIndex = GetColumnText(m_listErrPatterns, i, 2);
-        infoPattern.columnIndex = GetColumnText(m_listErrPatterns, i, 3);
+        infoPattern.pattern = m_dvListCtrlErrors->GetItemText(item, 0);
+        infoPattern.fileNameIndex = m_dvListCtrlErrors->GetItemText(item, 1);
+        infoPattern.lineNumberIndex = m_dvListCtrlErrors->GetItemText(item, 2);
+        infoPattern.columnIndex = m_dvListCtrlErrors->GetItemText(item, 3);
         errPatterns.push_back(infoPattern);
     }
     m_compiler->SetErrPatterns(errPatterns);
 
     Compiler::CmpListInfoPattern warnPatterns;
-    for(int i = 0; i < m_listWarnPatterns->GetItemCount(); ++i) {
+    for(int i = 0; i < m_dvListCtrlWarnings->GetItemCount(); ++i) {
+        auto item = m_dvListCtrlWarnings->RowToItem(i);
         Compiler::CmpInfoPattern infoPattern;
-        infoPattern.pattern = GetColumnText(m_listWarnPatterns, i, 0);
-        infoPattern.fileNameIndex = GetColumnText(m_listWarnPatterns, i, 1);
-        infoPattern.lineNumberIndex = GetColumnText(m_listWarnPatterns, i, 2);
-        infoPattern.columnIndex = GetColumnText(m_listWarnPatterns, i, 3);
+        infoPattern.pattern = m_dvListCtrlWarnings->GetItemText(item, 0);
+        infoPattern.fileNameIndex = m_dvListCtrlWarnings->GetItemText(item, 1);
+        infoPattern.lineNumberIndex = m_dvListCtrlWarnings->GetItemText(item, 2);
+        infoPattern.columnIndex = m_dvListCtrlWarnings->GetItemText(item, 3);
         warnPatterns.push_back(infoPattern);
     }
     m_compiler->SetWarnPatterns(warnPatterns);
@@ -581,7 +566,7 @@ void CompilerMainPage::Initialize()
     InitializeTools();
     InitializePatterns();
     InitializeSwitches();
-    InitializeFileTypes();
+    InitialiseTemplates();
     InitializeAdvancePage();
     InitializeCompilerOptions();
     InitializeLinkerOptions();
@@ -589,10 +574,11 @@ void CompilerMainPage::Initialize()
 
 void CompilerMainPage::Save()
 {
+    CHECK_PTR_RET(m_compiler);
     SaveTools();
     SavePatterns();
     SaveSwitches();
-    SaveFileTypes();
+    SaveTemplates();
     SaveAdvancedPage();
     SaveComilerOptions();
     SaveLinkerOptions();
@@ -649,48 +635,61 @@ void CompilerMainPage::InitializeSwitches()
 
 void CompilerMainPage::SaveSwitches() {}
 
-void CompilerMainPage::InitializeFileTypes()
+void CompilerMainPage::InitialiseTemplates()
 {
-    // populate the list control
-    wxWindowUpdateLocker locker(m_listCtrlFileTypes);
+    m_dvListCtrlFileTemplates->DeleteAllItems();
+    m_dvListCtrlLinkType->DeleteAllItems();
 
-    m_listCtrlFileTypes->DeleteAllItems();
     CHECK_PTR_RET(m_compiler);
+    m_checkBoxReadObjectsFromFile->SetValue(m_compiler->GetReadObjectFilesFromList());
 
-    m_selectedFileType = -1;
-    std::map<wxString, Compiler::CmpFileTypeInfo> fileTypes = m_compiler->GetFileTypes();
-    std::map<wxString, Compiler::CmpFileTypeInfo>::iterator iter = fileTypes.begin();
-    for(; iter != fileTypes.end(); iter++) {
-        Compiler::CmpFileTypeInfo ft = iter->second;
-
-        long item = AppendListCtrlRow(m_listCtrlFileTypes);
-        SetColumnText(m_listCtrlFileTypes, item, 0, ft.extension);
-        SetColumnText(
-            m_listCtrlFileTypes, item, 1, ft.kind == Compiler::CmpFileKindSource ? _("Source") : _("Resource"));
-        SetColumnText(m_listCtrlFileTypes, item, 2, ft.compilation_line);
+    const auto& fileTypes = m_compiler->GetFileTypes();
+    wxVector<wxVariant> cols;
+    for(const auto& vt : fileTypes) {
+        const Compiler::CmpFileTypeInfo& ft = vt.second;
+        cols.clear();
+        cols.push_back(ft.extension);
+        cols.push_back(ft.kind == Compiler::CmpFileKindResource ? "Resource" : "Source");
+        cols.push_back(ft.compilation_line);
+        m_dvListCtrlFileTemplates->AppendItem(cols);
     }
 
-    m_listCtrlFileTypes->SetColumnWidth(0, 70);
-    m_listCtrlFileTypes->SetColumnWidth(1, 70);
-    m_listCtrlFileTypes->SetColumnWidth(2, wxLIST_AUTOSIZE);
+    bool useFile = m_checkBoxReadObjectsFromFile->IsChecked();
+    const auto& linkerLines = m_compiler->GetLinkerLines();
+    for(const auto& vt : linkerLines) {
+        const auto& type = vt.first;
+        const auto& line = useFile ? vt.second.lineFromFile : vt.second.line;
+        cols.clear();
+        cols.push_back(type);
+        cols.push_back(line);
+        m_dvListCtrlLinkType->AppendItem(cols);
+    }
 }
 
-void CompilerMainPage::SaveFileTypes()
+void CompilerMainPage::SaveTemplates()
 {
     CHECK_PTR_RET(m_compiler);
 
     std::map<wxString, Compiler::CmpFileTypeInfo> fileTypes;
-    int count = m_listCtrlFileTypes->GetItemCount();
-    for(int i = 0; i < count; i++) {
+    size_t count = m_dvListCtrlFileTemplates->GetItemCount();
+    for(size_t i = 0; i < count; ++i) {
         Compiler::CmpFileTypeInfo ft;
-        ft.extension = GetColumnText(m_listCtrlFileTypes, i, 0);
-        ft.kind = GetColumnText(m_listCtrlFileTypes, i, 1) == _("Resource") ? Compiler::CmpFileKindResource :
-                                                                              Compiler::CmpFileKindSource;
-        ft.compilation_line = GetColumnText(m_listCtrlFileTypes, i, 2);
-
+        wxDataViewItem item = m_dvListCtrlFileTemplates->RowToItem(i);
+        ft.extension = m_dvListCtrlFileTemplates->GetItemText(item, 0);
+        ft.kind = (m_dvListCtrlFileTemplates->GetItemText(item, 1) == "Resource") ? Compiler::CmpFileKindResource
+                                                                                  : Compiler::CmpFileKindSource;
+        ft.compilation_line = m_dvListCtrlFileTemplates->GetItemText(item, 2);
         fileTypes[ft.extension] = ft;
     }
     m_compiler->SetFileTypes(fileTypes);
+
+    count = m_dvListCtrlLinkType->GetItemCount();
+    for(size_t i = 0; i < count; ++i) {
+        wxDataViewItem item = m_dvListCtrlLinkType->RowToItem(i);
+        wxString type = m_dvListCtrlLinkType->GetItemText(item, 0);
+        wxString pattern = m_dvListCtrlLinkType->GetItemText(item, 1);
+        m_compiler->SetLinkLine(type, pattern, m_checkBoxReadObjectsFromFile->IsChecked());
+    }
 }
 
 void CompilerMainPage::InitializeAdvancePage()
@@ -699,20 +698,20 @@ void CompilerMainPage::InitializeAdvancePage()
     m_textObjectExtension->ChangeValue("");
     m_textDependExtension->ChangeValue("");
     m_textPreprocessExtension->ChangeValue("");
+    m_checkBoxGenerateDependenciesFiles->Enable(false);
     m_checkBoxGenerateDependenciesFiles->SetValue(false);
     m_textCtrlGlobalIncludePath->ChangeValue("");
     m_textCtrlGlobalLibPath->ChangeValue("");
-    m_checkBoxReadObjectsFromFile->SetValue(false);
     m_checkBoxObjectNameSameAsFileName->SetValue(false);
 
     CHECK_PTR_RET(m_compiler);
     m_textObjectExtension->ChangeValue(m_compiler->GetObjectSuffix());
     m_textDependExtension->ChangeValue(m_compiler->GetDependSuffix());
     m_textPreprocessExtension->ChangeValue(m_compiler->GetPreprocessSuffix());
+    m_checkBoxGenerateDependenciesFiles->Enable(m_compiler->IsGnuCompatibleCompiler());
     m_checkBoxGenerateDependenciesFiles->SetValue(m_compiler->GetGenerateDependeciesFile());
     m_textCtrlGlobalIncludePath->ChangeValue(m_compiler->GetGlobalIncludePath());
     m_textCtrlGlobalLibPath->ChangeValue(m_compiler->GetGlobalLibPath());
-    m_checkBoxReadObjectsFromFile->SetValue(m_compiler->GetReadObjectFilesFromList());
     m_checkBoxObjectNameSameAsFileName->SetValue(m_compiler->GetObjectNameIdenticalToFileName());
 }
 
@@ -834,14 +833,23 @@ CompilerPatternDlg::CompilerPatternDlg(wxWindow* parent, const wxString& title)
     : CompilerPatternDlgBase(parent, wxID_ANY, title)
 {
     SetName("CompilerPatternDlg");
-    WindowAttrManager::Load(this);
+
+    if(parent) {
+        wxSize parentSize = parent->GetSize();
+        double dlgWidth = (double)parentSize.GetWidth() * 0.67;
+        parentSize.SetWidth(dlgWidth);
+        parentSize.SetHeight(wxNOT_FOUND);
+        SetSize(parentSize);
+        SetSizeHints(parentSize);
+        GetSizer()->Fit(this);
+        GetSizer()->Layout();
+        CentreOnParent();
+    }
 }
 
-CompilerPatternDlg::~CompilerPatternDlg() {  }
+CompilerPatternDlg::~CompilerPatternDlg() {}
 
-void CompilerPatternDlg::SetPattern(const wxString& pattern,
-                                    const wxString& lineIdx,
-                                    const wxString& fileIdx,
+void CompilerPatternDlg::SetPattern(const wxString& pattern, const wxString& lineIdx, const wxString& fileIdx,
                                     const wxString& columnIndex)
 {
     m_textPattern->ChangeValue(pattern);
@@ -869,8 +877,8 @@ void CompilerMainPage::OnContextMenu(wxContextMenuEvent& event)
     menu.Enable(wxID_DELETE, selection != wxNOT_FOUND);
     menu.Enable(XRCID("rename_compiler"), selection != wxNOT_FOUND);
 
-    m_listBoxCompilers->Bind(
-        wxEVT_COMMAND_MENU_SELECTED, &CompilerMainPage::OnRenameCompiler, this, XRCID("rename_compiler"));
+    m_listBoxCompilers->Bind(wxEVT_COMMAND_MENU_SELECTED, &CompilerMainPage::OnRenameCompiler, this,
+                             XRCID("rename_compiler"));
     m_listBoxCompilers->Bind(wxEVT_COMMAND_MENU_SELECTED, &CompilerMainPage::OnDeleteCompiler, this, wxID_DELETE);
 
     m_listBoxCompilers->PopupMenu(&menu);
@@ -879,12 +887,12 @@ void CompilerMainPage::OnContextMenu(wxContextMenuEvent& event)
 void CompilerMainPage::OnDeleteCompiler(wxCommandEvent& event)
 {
     int selection = m_listBoxCompilers->GetSelection();
-    if(selection == wxNOT_FOUND) return;
+    if(selection == wxNOT_FOUND)
+        return;
 
     if(::wxMessageBox(wxString() << _("Are you sure you want to delete compiler\n'")
                                  << m_listBoxCompilers->GetStringSelection() << "'?",
-                      _("Delete Compiler"),
-                      wxYES_NO | wxCENTER | wxICON_WARNING) != wxYES)
+                      _("Delete Compiler"), wxYES_NO | wxCENTER | wxICON_WARNING) != wxYES)
         return;
 
     wxString compilerName = m_listBoxCompilers->GetStringSelection();
@@ -897,14 +905,17 @@ void CompilerMainPage::OnDeleteCompiler(wxCommandEvent& event)
 void CompilerMainPage::OnRenameCompiler(wxCommandEvent& event)
 {
     int selection = m_listBoxCompilers->GetSelection();
-    if(selection == wxNOT_FOUND) return;
+    if(selection == wxNOT_FOUND)
+        return;
 
     wxString newName =
         ::wxGetTextFromUser(_("New Compiler Name"), _("Rename Compiler"), m_listBoxCompilers->GetStringSelection());
-    if(newName.IsEmpty()) return;
+    if(newName.IsEmpty())
+        return;
 
     CompilerPtr compiler = BuildSettingsConfigST::Get()->GetCompiler(m_listBoxCompilers->GetStringSelection());
-    if(!compiler) return;
+    if(!compiler)
+        return;
 
     // Delete the old compiler
     BuildSettingsConfigST::Get()->DeleteCompiler(compiler->GetName());
@@ -943,4 +954,23 @@ void CompilerMainPage::OnScanCompilers(wxCommandEvent& event)
 {
     BuildSettingsDialog* dlg = dynamic_cast<BuildSettingsDialog*>(wxGetTopLevelParent(this));
     dlg->CallAfter(&BuildSettingsDialog::OnScanAndSuggestCompilers);
+}
+void CompilerMainPage::OnLinkerUseFileInput(wxCommandEvent& event)
+{
+    CHECK_PTR_RET(m_compiler);
+    m_compiler->SetReadObjectFilesFromList(event.IsChecked());
+    InitialiseTemplates();
+    m_isDirty = true;
+}
+void CompilerMainPage::OnLinkLineActivated(wxDataViewEvent& event)
+{
+    wxDataViewItem item = event.GetItem();
+    CHECK_ITEM_RET(item);
+
+    EditCmpTemplateDialog dlg(wxGetTopLevelParent(this));
+    dlg.SetPattern(m_dvListCtrlLinkType->GetItemText(item, 1));
+    if(dlg.ShowModal() == wxID_OK) {
+        m_dvListCtrlLinkType->SetItemText(item, dlg.GetPattern(), 1);
+        m_isDirty = true;
+    }
 }

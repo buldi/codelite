@@ -22,17 +22,19 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "debuggermanager.h"
+
 #include "cl_command_event.h"
 #include "cl_defs.h"
 #include "cl_standard_paths.h"
 #include "codelite_events.h"
 #include "codelite_exports.h"
 #include "debuggerconfigtool.h"
-#include "debuggermanager.h"
 #include "editor_config.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "wx/filename.h"
+
 #include <wx/dir.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
@@ -62,13 +64,16 @@ DebuggerMgr::~DebuggerMgr()
         (*iter)->Detach();
         delete(*iter);
     }
+
     m_dl.clear();
     m_debuggers.clear();
 }
 
 DebuggerMgr& DebuggerMgr::Get()
 {
-    if(!ms_instance) { ms_instance = new DebuggerMgr(); }
+    if(!ms_instance) {
+        ms_instance = new DebuggerMgr();
+    }
     return *ms_instance;
 }
 
@@ -78,11 +83,11 @@ void DebuggerMgr::Free()
     ms_instance = NULL;
 }
 
-bool DebuggerMgr::LoadDebuggers()
+bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
 {
     wxString ext;
 
-#if defined(__WXMSW__)
+#if defined(__WXMSW__) || defined(__CYGWIN__)
     ext = wxT("dll");
 
 #elif defined(__WXMAC__)
@@ -119,18 +124,13 @@ bool DebuggerMgr::LoadDebuggers()
     for(size_t i = 0; i < files.GetCount(); i++) {
         clDynamicLibrary* dl = new clDynamicLibrary();
         wxString fileName(files.Item(i));
-        
-#if defined(__WXMSW__) && CL_DEBUG_BUILD
-        // Under MSW loading a release plugin while in debug mode will cause a crash
-        if(!fileName.EndsWith("-dbg.dll")) { continue; }
-#elif defined(__WXMSW__)
-        // filter debug plugins
-        if(fileName.EndsWith("-dbg.dll")) { continue; }
-#endif
-        clDEBUG() << "Attempting to load debugger:" << fileName;
+
+        clDEBUG() << "Attempting to load debugger:" << fileName << endl;
         if(!dl->Load(fileName)) {
-            CL_WARNING("Failed to load debugger: %s", fileName);
-            if(!dl->GetError().IsEmpty()) { CL_WARNING("%s", dl->GetError()); }
+            clWARNING() << "Failed to load debugger:" << fileName << endl;
+            if(!dl->GetError().IsEmpty()) {
+                clWARNING() << dl->GetError() << endl;
+            }
             wxDELETE(dl);
             continue;
         }
@@ -139,7 +139,9 @@ bool DebuggerMgr::LoadDebuggers()
         GET_DBG_INFO_FUNC pfn = (GET_DBG_INFO_FUNC)dl->GetSymbol(wxT("GetDebuggerInfo"), &success);
         if(!success) {
             clLogMessage(wxT("Failed to find GetDebuggerInfo() in dll: ") + fileName);
-            if(!dl->GetError().IsEmpty()) { clLogMessage(dl->GetError()); }
+            if(!dl->GetError().IsEmpty()) {
+                clLogMessage(dl->GetError());
+            }
             // dl->Unload();
             delete dl;
             continue;
@@ -151,7 +153,9 @@ bool DebuggerMgr::LoadDebuggers()
         GET_DBG_CREATE_FUNC pfnInitDbg = (GET_DBG_CREATE_FUNC)dl->GetSymbol(info.initFuncName, &success);
         if(!success) {
             clLogMessage(wxT("Failed to find init function in dll: ") + fileName);
-            if(!dl->GetError().IsEmpty()) { clLogMessage(dl->GetError()); }
+            if(!dl->GetError().IsEmpty()) {
+                clLogMessage(dl->GetError());
+            }
             dl->Detach();
             delete dl;
             continue;
@@ -162,31 +166,29 @@ bool DebuggerMgr::LoadDebuggers()
 
         // set the environment
         dbg->SetEnvironment(m_env);
-
+        dbg->SetObserver(observer);
         m_debuggers[info.name] = dbg;
 
         // keep the dynamic load library
         m_dl.push_back(dl);
     }
-
-    // Load all debuggers in the form of plugin (i.e. they dont implement the IDebugger interface)
-    // and append them to a special list
-    clDebugEvent queryPlugins(wxEVT_DBG_IS_PLUGIN_DEBUGGER);
-    EventNotifier::Get()->ProcessEvent(queryPlugins);
-    m_pluginsDebuggers.swap(queryPlugins.GetStrings());
     return true;
 }
 
 wxArrayString DebuggerMgr::GetAvailableDebuggers()
 {
     wxArrayString dbgs;
-    std::map<wxString, IDebugger*>::iterator iter = m_debuggers.begin();
+    dbgs.reserve(m_pluginsDebuggers.size() + m_debuggers.size());
+
+    auto iter = m_debuggers.begin();
     for(; iter != m_debuggers.end(); iter++) {
         dbgs.Add(iter->first);
     }
 
     // append all the plugins that were registered themself as debugger
-    dbgs.insert(dbgs.end(), m_pluginsDebuggers.begin(), m_pluginsDebuggers.end());
+    for(const auto& vt : m_pluginsDebuggers) {
+        dbgs.insert(dbgs.end(), vt.second.begin(), vt.second.end());
+    }
     return dbgs;
 }
 
@@ -194,7 +196,7 @@ IDebugger* DebuggerMgr::GetActiveDebugger()
 {
     if(m_activeDebuggerName.IsEmpty()) {
         // no active debugger is set, use the first one
-        std::map<wxString, IDebugger*>::const_iterator iter = m_debuggers.begin();
+        auto iter = m_debuggers.begin();
         if(iter != m_debuggers.end()) {
             SetActiveDebugger(iter->first);
             return iter->second;
@@ -202,8 +204,10 @@ IDebugger* DebuggerMgr::GetActiveDebugger()
         return NULL;
     }
 
-    std::map<wxString, IDebugger*>::iterator iter = m_debuggers.find(m_activeDebuggerName);
-    if(iter != m_debuggers.end()) { return iter->second; }
+    auto iter = m_debuggers.find(m_activeDebuggerName);
+    if(iter != m_debuggers.end()) {
+        return iter->second;
+    }
     return NULL;
 }
 
@@ -221,9 +225,19 @@ bool DebuggerMgr::GetDebuggerInformation(const wxString& name, DebuggerInformati
 
 bool DebuggerMgr::IsNativeDebuggerRunning() const
 {
-    std::map<wxString, IDebugger*>::const_iterator iter = m_debuggers.find(m_activeDebuggerName);
-    if(iter == m_debuggers.end()) { return false; }
+    auto iter = m_debuggers.find(m_activeDebuggerName);
+    if(iter == m_debuggers.end()) {
+        return false;
+    }
 
     IDebugger* d = iter->second;
     return d && d->IsRunning();
 }
+
+void DebuggerMgr::RegisterDebuggers(const wxString& plugin_name, const wxArrayString& names)
+{
+    m_pluginsDebuggers.erase(plugin_name);
+    m_pluginsDebuggers.insert({ plugin_name, names });
+}
+
+void DebuggerMgr::UnregisterDebuggers(const wxString& plugin_name) { m_pluginsDebuggers.erase(plugin_name); }

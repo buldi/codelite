@@ -1,5 +1,7 @@
 #include "clDataViewListCtrl.h"
+
 #include "clHeaderItem.h"
+
 #include <algorithm>
 #include <wx/dataview.h>
 #include <wx/dcbuffer.h>
@@ -16,15 +18,46 @@ IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewTextBitmap, WXDLLIMPEXP_SDK);
 wxIMPLEMENT_DYNAMIC_CLASS(clDataViewCheckbox, wxObject);
 IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewCheckbox, WXDLLIMPEXP_SDK);
 
-wxIMPLEMENT_DYNAMIC_CLASS(clDataViewChoice, wxObject);
-IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewChoice, WXDLLIMPEXP_SDK);
+wxIMPLEMENT_DYNAMIC_CLASS(clDataViewTextWithButton, wxObject);
+IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewTextWithButton, WXDLLIMPEXP_SDK);
+
+wxIMPLEMENT_DYNAMIC_CLASS(clDataViewColour, wxObject);
+IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewColour, WXDLLIMPEXP_SDK);
+
+wxIMPLEMENT_DYNAMIC_CLASS(clDataViewButton, wxObject);
+IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewButton, WXDLLIMPEXP_SDK);
+
+wxIMPLEMENT_DYNAMIC_CLASS(clDataViewControl, wxObject);
+IMPLEMENT_VARIANT_OBJECT_EXPORTED(clDataViewControl, WXDLLIMPEXP_SDK);
 
 wxDEFINE_EVENT(wxEVT_DATAVIEW_SEARCH_TEXT, wxDataViewEvent);
 wxDEFINE_EVENT(wxEVT_DATAVIEW_CLEAR_SEARCH, wxDataViewEvent);
-wxDEFINE_EVENT(wxEVT_DATAVIEW_CHOICE_BUTTON, wxDataViewEvent);
+wxDEFINE_EVENT(wxEVT_DATAVIEW_ACTION_BUTTON, wxDataViewEvent);
 wxDEFINE_EVENT(wxEVT_DATAVIEW_CHOICE, wxDataViewEvent);
+wxDEFINE_EVENT(wxEVT_DATAVIEW_SELECTION_CHANGING, wxDataViewEvent);
 
 std::unordered_map<int, int> clDataViewListCtrl::m_stylesMap;
+
+namespace
+{
+const wxString DROPDOWN_ARROW_UNICODE = wxT("\u25BC");
+const wxString ELLIPSIS_UNICODE = wxT("\u22EF");
+const wxString NO_BUTTON_UNICODE = wxT("");
+} // namespace
+
+const wxString& clDataViewTextWithButton::GetButtonUnicodeSymbol() const
+{
+    switch(m_button_kind) {
+    case eCellButtonType::BT_ELLIPSIS:
+        return ELLIPSIS_UNICODE;
+    case eCellButtonType::BT_DROPDOWN_ARROW:
+        return DROPDOWN_ARROW_UNICODE;
+    default:
+    case eCellButtonType::BT_NONE:
+        return NO_BUTTON_UNICODE;
+    }
+}
+
 clDataViewListCtrl::clDataViewListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size,
                                        long style)
     : clTreeCtrl(parent, id, pos, size, style)
@@ -35,12 +68,23 @@ clDataViewListCtrl::clDataViewListCtrl(wxWindow* parent, wxWindowID id, const wx
         m_stylesMap.insert({ wxDV_ROW_LINES, wxTR_ROW_LINES });
         m_stylesMap.insert({ wxDV_MULTIPLE, wxTR_MULTIPLE });
         m_stylesMap.insert({ wxDV_ENABLE_SEARCH, wxTR_ENABLE_SEARCH });
+        m_stylesMap.insert({ wxDV_COLUMN_WIDTH_NEVER_SHRINKS, wxTR_COLUMN_WIDTH_NEVER_SHRINKS });
     }
 
     int my_style = 0;
-    if(style & wxDV_ROW_LINES) { my_style |= wxTR_ROW_LINES; }
-    if(style & wxDV_MULTIPLE) { my_style |= wxTR_MULTIPLE; }
-    if(style & wxDV_NO_HEADER) { SetShowHeader(false); }
+    if(style & wxDV_ROW_LINES) {
+        my_style |= wxTR_ROW_LINES;
+    }
+    if(style & wxDV_MULTIPLE) {
+        my_style |= wxTR_MULTIPLE;
+    }
+    if(style & wxDV_NO_HEADER) {
+        SetShowHeader(false);
+    }
+    if(style & wxDV_COLUMN_WIDTH_NEVER_SHRINKS) {
+        my_style |= wxTR_COLUMN_WIDTH_NEVER_SHRINKS;
+    }
+
     my_style |= wxTR_HIDE_ROOT;
     m_treeStyle = my_style;
 
@@ -54,10 +98,11 @@ clDataViewListCtrl::clDataViewListCtrl(wxWindow* parent, wxWindowID id, const wx
 
     // Translate the following events to wxDVC events
     Bind(wxEVT_TREE_ITEM_VALUE_CHANGED, &clDataViewListCtrl::OnConvertEvent, this);
-    Bind(wxEVT_TREE_CHOICE, &clDataViewListCtrl::OnConvertEvent, this);
+    Bind(wxEVT_TREE_ACTIONBUTTON_CLICKED, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_BEGIN_DRAG, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_END_DRAG, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_SEL_CHANGED, &clDataViewListCtrl::OnConvertEvent, this);
+    Bind(wxEVT_TREE_SEL_CHANGING, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_ITEM_ACTIVATED, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_ITEM_MENU, &clDataViewListCtrl::OnConvertEvent, this);
     Bind(wxEVT_TREE_SEARCH_TEXT, &clDataViewListCtrl::OnConvertEvent, this);
@@ -69,15 +114,16 @@ clDataViewListCtrl::clDataViewListCtrl(wxWindow* parent, wxWindowID id, const wx
 clDataViewListCtrl::~clDataViewListCtrl()
 {
     Unbind(wxEVT_TREE_BEGIN_DRAG, &clDataViewListCtrl::OnConvertEvent, this);
-    Unbind(wxEVT_TREE_CHOICE, &clDataViewListCtrl::OnConvertEvent, this);
+    Unbind(wxEVT_TREE_ACTIONBUTTON_CLICKED, &clDataViewListCtrl::OnConvertEvent, this);
     Unbind(wxEVT_TREE_END_DRAG, &clDataViewListCtrl::OnConvertEvent, this);
     Unbind(wxEVT_TREE_SEL_CHANGED, &clDataViewListCtrl::OnConvertEvent, this);
+    Unbind(wxEVT_TREE_SEL_CHANGING, &clDataViewListCtrl::OnConvertEvent, this);
     Unbind(wxEVT_TREE_ITEM_ACTIVATED, &clDataViewListCtrl::OnConvertEvent, this);
     Unbind(wxEVT_TREE_ITEM_MENU, &clDataViewListCtrl::OnConvertEvent, this);
     Unbind(wxEVT_TREE_ITEM_VALUE_CHANGED, &clDataViewListCtrl::OnConvertEvent, this);
 }
 
-void clDataViewListCtrl::AppendItem(const wxVector<wxVariant>& values, wxUIntPtr data)
+wxDataViewItem clDataViewListCtrl::AppendItem(const wxVector<wxVariant>& values, wxUIntPtr data)
 {
     wxTreeItemId item = clTreeCtrl::AppendItem(GetRootItem(), "", -1, -1, nullptr);
     clRowEntry* child = m_model.ToPtr(item);
@@ -89,6 +135,7 @@ void clDataViewListCtrl::AppendItem(const wxVector<wxVariant>& values, wxUIntPtr
         DoSetCellValue(child, i, v);
     }
     UpdateScrollBar();
+    return DV_ITEM(item);
 }
 
 wxDataViewColumn* clDataViewListCtrl::AppendIconTextColumn(const wxString& label, wxDataViewCellMode mode, int width,
@@ -143,8 +190,17 @@ void clDataViewListCtrl::OnConvertEvent(wxTreeEvent& event)
         type = wxEVT_DATAVIEW_ITEM_DROP;
     } else if(event.GetEventType() == wxEVT_TREE_SEL_CHANGED) {
         type = wxEVT_DATAVIEW_SELECTION_CHANGED;
+    } else if(event.GetEventType() == wxEVT_TREE_SEL_CHANGING) {
+        type = wxEVT_DATAVIEW_SELECTION_CHANGING;
     } else if(event.GetEventType() == wxEVT_TREE_ITEM_ACTIVATED) {
+        // we user hit ENTER or d-clicked on an entry in the list
+        // if the current line has action button, covnert this event
+        // into action button event
         type = wxEVT_DATAVIEW_ITEM_ACTIVATED;
+        auto entry = m_model.ToPtr(event.GetItem());
+        if(entry && entry->HasButton(1)) {
+            type = wxEVT_DATAVIEW_ACTION_BUTTON;
+        }
     } else if(event.GetEventType() == wxEVT_TREE_ITEM_MENU) {
         type = wxEVT_DATAVIEW_ITEM_CONTEXT_MENU;
     } else if(event.GetEventType() == wxEVT_TREE_SEARCH_TEXT) {
@@ -154,10 +210,12 @@ void clDataViewListCtrl::OnConvertEvent(wxTreeEvent& event)
         type = wxEVT_DATAVIEW_CLEAR_SEARCH;
     } else if(event.GetEventType() == wxEVT_TREE_ITEM_VALUE_CHANGED) {
         type = wxEVT_DATAVIEW_ITEM_VALUE_CHANGED;
-    } else if(event.GetEventType() == wxEVT_TREE_CHOICE) {
-        type = wxEVT_DATAVIEW_CHOICE_BUTTON;
+    } else if(event.GetEventType() == wxEVT_TREE_ACTIONBUTTON_CLICKED) {
+        type = wxEVT_DATAVIEW_ACTION_BUTTON;
     }
-    if(type != wxEVT_ANY) { SendDataViewEvent(type, event, eventText); }
+    if(type != wxEVT_ANY) {
+        SendDataViewEvent(type, event, eventText);
+    }
 }
 
 bool clDataViewListCtrl::SendDataViewEvent(const wxEventType& type, wxTreeEvent& treeEvent, const wxString& text)
@@ -185,7 +243,9 @@ void clDataViewListCtrl::DeleteAllItems(const std::function<void(wxUIntPtr)>& de
         clRowEntry::Vec_t& children = m_model.GetRoot()->GetChildren();
         for(size_t i = 0; i < children.size(); ++i) {
             wxUIntPtr userData = children[i]->GetData();
-            if(userData) { deleterFunc(userData); }
+            if(userData) {
+                deleterFunc(userData);
+            }
             children[i]->SetData(0);
         }
     }
@@ -201,7 +261,9 @@ wxDataViewItem clDataViewListCtrl::AppendItem(const wxString& text, int image, i
     m_model.ToPtr(child)->SetListItem(true);
     wxDataViewItem dvItem = DV_ITEM(child);
     SetItemData(dvItem, data);
-    UpdateScrollBar();
+    if(!m_bulkInsert) {
+        UpdateScrollBar();
+    }
     return dvItem;
 }
 
@@ -276,20 +338,26 @@ wxFont clDataViewListCtrl::GetItemFont(const wxDataViewItem& item, size_t col) c
 
 void clDataViewListCtrl::EnableStyle(int style, bool enable, bool refresh)
 {
-    if(m_stylesMap.count(style) == 0) { return; }
+    if(m_stylesMap.count(style) == 0) {
+        return;
+    }
     clTreeCtrl::EnableStyle(m_stylesMap[style], enable, refresh);
 }
 
 clHeaderItem* clDataViewListCtrl::GetColumn(size_t index)
 {
-    if(index >= GetHeader()->size()) { return nullptr; }
+    if(index >= GetHeader()->size()) {
+        return nullptr;
+    }
     return &GetHeader()->Item(index);
 }
 
 size_t clDataViewListCtrl::GetItemCount() const
 {
     clRowEntry* root = m_model.GetRoot();
-    if(!root) { return 0; }
+    if(!root) {
+        return 0;
+    }
     return root->GetChildrenCount(false);
 }
 
@@ -298,22 +366,30 @@ wxDataViewItem clDataViewListCtrl::RowToItem(size_t row) const
     // Since a clDataViewListCtrl is basically a tree with a single hidden node (the root)
     // A row is simply a child at a given index
     clRowEntry* root = m_model.GetRoot();
-    if(!root) { return wxDataViewItem(); }
-    if(row >= root->GetChildren().size()) { return wxDataViewItem(); }
+    if(!root) {
+        return wxDataViewItem();
+    }
+    if(row >= root->GetChildren().size()) {
+        return wxDataViewItem();
+    }
     return wxDataViewItem(root->GetChildren()[row]);
 }
 
 void clDataViewListCtrl::DeleteItem(size_t row)
 {
     wxDataViewItem item = RowToItem(row);
-    if(!item.IsOk()) { return; }
+    if(!item.IsOk()) {
+        return;
+    }
     Delete(TREE_ITEM(item));
 }
 
 void clDataViewListCtrl::SetValue(const wxVariant& value, size_t row, size_t col)
 {
     wxDataViewItem item = RowToItem(row);
-    if(!item.IsOk()) { return; }
+    if(!item.IsOk()) {
+        return;
+    }
     clRowEntry* r = m_model.ToPtr(TREE_ITEM(item));
     DoSetCellValue(r, col, value);
 }
@@ -323,18 +399,22 @@ void clDataViewListCtrl::DoSetCellValue(clRowEntry* row, size_t col, const wxVar
     wxString variantType = value.GetType();
     if(variantType == "bool") {
         row->SetChecked(value.GetBool(), wxNOT_FOUND, wxString(), col);
+
     } else if(variantType == "string") {
         row->SetLabel(value.GetString(), col);
+
     } else if(variantType == "clDataViewCheckbox") {
         clDataViewCheckbox check;
         check << value;
         row->SetChecked(check.IsChecked(), check.GetBitmapIndex(), check.GetText(), col);
+
     } else if(variantType == "wxDataViewIconText") {
         // Extract the iamge + text from the wxDataViewIconText class
         wxDataViewIconText iconText;
         iconText << value;
         //  update the row with the icon + text
         row->SetLabel(iconText.GetText(), col);
+
     } else if(variantType == "clDataViewTextBitmap") {
         // Extract the iamge + text from the wxDataViewIconText class
         clDataViewTextBitmap iconText;
@@ -342,17 +422,36 @@ void clDataViewListCtrl::DoSetCellValue(clRowEntry* row, size_t col, const wxVar
         //  update the row with the icon + text
         row->SetLabel(iconText.GetText(), col);
         row->SetBitmapIndex(iconText.GetBitmapIndex(), col);
-    } else if(variantType == "clDataViewChoice") {
-        clDataViewChoice choice;
-        choice << value;
-        row->SetChoice(true, col);
-        row->SetBitmapIndex(choice.GetBitmapIndex(), col);
-        row->SetLabel(choice.GetLabel(), col);
+
+    } else if(variantType == "clDataViewTextWithButton") {
+        clDataViewTextWithButton text_with_button;
+        text_with_button << value;
+        row->SetHasButton(text_with_button.GetButtonType(), text_with_button.GetButtonUnicodeSymbol(), col);
+        row->SetBitmapIndex(text_with_button.GetBitmapIndex(), col);
+        row->SetLabel(text_with_button.GetLabel(), col);
+
+    } else if(variantType == "clDataViewButton") {
+        clDataViewButton button;
+        button << value;
+        row->SetIsButton(button.GetLabel(), col);
+        row->SetBitmapIndex(button.GetBitmapIndex(), col);
+
     } else if(variantType == "double") {
         row->SetLabel(wxString() << value.GetDouble(), col);
+
     } else if(variantType == "datetime") {
         row->SetLabel(value.GetDateTime().FormatDate(), col);
+
+    } else if(variantType == "clDataViewColour") {
+        clDataViewColour c;
+        c << value;
+        row->SetColour(c.GetColour(), col);
+    } else if(variantType == "clDataViewControl") {
+        clDataViewControl c;
+        c << value;
+        row->SetIsControl(c.GetControl(), col);
     }
+
     // Call this to update the view + update the header bar
     clTreeCtrl::SetItemText(wxTreeItemId(row), row->GetLabel(col), col);
 }
@@ -360,7 +459,9 @@ void clDataViewListCtrl::DoSetCellValue(clRowEntry* row, size_t col, const wxVar
 void clDataViewListCtrl::SetSortFunction(const clSortFunc_t& CompareFunc)
 {
     clRowEntry* root = m_model.GetRoot();
-    if(!root) { return; }
+    if(!root) {
+        return;
+    }
 
     // Disconnect the current function, if any
     m_model.SetSortFunction(nullptr);
@@ -402,14 +503,20 @@ void clDataViewListCtrl::SetSortFunction(const clSortFunc_t& CompareFunc)
 int clDataViewListCtrl::ItemToRow(const wxDataViewItem& item) const
 {
     clRowEntry* pItem = m_model.ToPtr(TREE_ITEM(item));
-    if(!pItem) { return wxNOT_FOUND; }
+    if(!pItem) {
+        return wxNOT_FOUND;
+    }
 
     clRowEntry* root = m_model.GetRoot();
-    if(!root) { return wxNOT_FOUND; }
+    if(!root) {
+        return wxNOT_FOUND;
+    }
 
     const clRowEntry::Vec_t& children = root->GetChildren();
     for(size_t i = 0; i < children.size(); ++i) {
-        if(children[i] == pItem) { return i; }
+        if(children[i] == pItem) {
+            return i;
+        }
     }
     return wxNOT_FOUND;
 }
@@ -459,16 +566,20 @@ bool clDataViewListCtrl::IsItemChecked(const wxDataViewItem& item, size_t col) c
 void clDataViewListCtrl::ShowMenuForItem(const wxDataViewItem& item, wxMenu& menu, size_t col)
 {
     clRowEntry* row = m_model.ToPtr(TREE_ITEM(item));
-    if(!row) { return; }
+    if(!row) {
+        return;
+    }
 
-    wxRect r = row->GetCellRect(col);
+    wxRect r = row->GetCellButtonRect(col);
     PopupMenu(&menu, r.GetBottomLeft());
 }
 
 void clDataViewListCtrl::ShowStringSelectionMenu(const wxDataViewItem& item, const wxArrayString& choices, size_t col)
 {
     clRowEntry* row = m_model.ToPtr(TREE_ITEM(item));
-    if(!row) { return; }
+    if(!row) {
+        return;
+    }
     const wxString& currentSelection = row->GetLabel(col);
     wxMenu menu;
     wxString selectedString;
@@ -479,12 +590,15 @@ void clDataViewListCtrl::ShowStringSelectionMenu(const wxDataViewItem& item, con
         item->Check(currentSelection == str);
         M.insert({ id, str });
     }
-    menu.Bind(wxEVT_MENU,
-              [&](wxCommandEvent& event) {
-                  if(M.count(event.GetId())) { selectedString = M[event.GetId()]; }
-              },
-              wxID_ANY);
-    wxRect r = row->GetCellRect(col);
+    menu.Bind(
+        wxEVT_MENU,
+        [&](wxCommandEvent& event) {
+            if(M.count(event.GetId())) {
+                selectedString = M[event.GetId()];
+            }
+        },
+        wxID_ANY);
+    wxRect r = row->GetCellButtonRect(col);
     PopupMenu(&menu, r.GetBottomLeft());
     if(!selectedString.IsEmpty()) {
         // fire selection made event
@@ -502,5 +616,115 @@ void clDataViewListCtrl::ShowStringSelectionMenu(const wxDataViewItem& item, con
         if(e.IsAllowed()) {
             SetItemText(item, selectedString, col);
         }
+    }
+}
+
+int clDataViewListCtrl::GetSelectedRow() const
+{
+    wxDataViewItem sel = GetSelection();
+    if(!sel.IsOk()) {
+        return wxNOT_FOUND;
+    }
+    return ItemToRow(sel);
+}
+
+void clDataViewListCtrl::SelectRow(size_t row)
+{
+    wxDataViewItem item = RowToItem(row);
+    if(!item.IsOk()) {
+        return;
+    }
+    Select(item);
+}
+
+void clDataViewListCtrl::UnselectRow(size_t row)
+{
+    wxDataViewItem item = RowToItem(row);
+    if(!item.IsOk()) {
+        return;
+    }
+    clTreeCtrl::SelectItem(TREE_ITEM(item), false);
+}
+
+bool clDataViewListCtrl::IsRowSelected(size_t row) const
+{
+    wxDataViewItem item = RowToItem(row);
+    if(!item.IsOk()) {
+        return false;
+    }
+    return IsSelected(TREE_ITEM(item));
+}
+
+void clDataViewListCtrl::ScrollToBottom()
+{
+    size_t num_items_can_fit = GetNumLineCanFitOnScreen(true);
+    if(GetItemCount() <= num_items_can_fit) {
+        ScrollToRow(0);
+        return;
+    }
+
+    size_t new_first_item = GetItemCount() - num_items_can_fit;
+    ScrollToRow(new_first_item);
+}
+
+void clDataViewListCtrl::SetFirstVisibleRow(size_t row)
+{
+    wxDataViewItem item = RowToItem(row);
+    if(!item.IsOk()) {
+        return;
+    }
+
+    auto row_ptr = m_model.ToPtr(TREE_ITEM(item));
+    if(!row_ptr) {
+        return;
+    }
+    m_model.SetFirstItemOnScreen(row_ptr);
+    UpdateScrollBar();
+    Refresh();
+}
+
+void clDataViewListCtrl::CenterRow(size_t row)
+{
+    size_t max_rows = GetNumLineCanFitOnScreen(true);
+    if(max_rows >= row) {
+        return;
+    }
+    size_t first_row = row - max_rows + (max_rows / 2);
+    SetFirstVisibleRow(first_row);
+}
+
+CellType clDataViewListCtrl::GetCellDataType(size_t row, size_t col) const
+{
+    return GetCellDataType(RowToItem(row), col);
+}
+
+CellType clDataViewListCtrl::GetCellDataType(const wxDataViewItem& item, size_t col) const
+{
+    auto row = m_model.ToPtr(TREE_ITEM(item));
+    if(!row) {
+        return CellType::UNKNOWN;
+    }
+    const auto& cell = row->GetColumn(col);
+    if(!cell.IsOk()) {
+        return CellType::UNKNOWN;
+    }
+
+    if(cell.IsColour()) {
+        return CellType::COLOUR;
+
+    } else if(cell.IsBool()) {
+        return CellType::CHECKBOX_TEXT;
+
+    } else if(cell.IsString()) {
+        return CellType::TEXT;
+
+    } else if(cell.HasButton() && cell.GetButtonType() == eCellButtonType::BT_DROPDOWN_ARROW) {
+        return CellType::TEXT_OPTIONS;
+
+    } else if(cell.HasButton() && cell.GetButtonType() == eCellButtonType::BT_ELLIPSIS) {
+        return CellType::TEXT_EDIT;
+
+    } else {
+        return CellType::UNKNOWN;
     }
 }

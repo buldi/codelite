@@ -26,7 +26,6 @@
 #include "clFileViwerTreeCtrl.h"
 #include <wx/dataview.h>
 #include "clThemedListCtrl.h"
-#include <wx/srchctrl.h>
 #include <wx/scrolwin.h>
 #include <wx/statbmp.h>
 #include "clThemedButton.h"
@@ -170,7 +169,7 @@ public:
     wxPanel* GetPanel161() { return m_panel161; }
     NotebookNavigationDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Select Tab"),
                               const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(400, 200),
-                              long style = wxRESIZE_BORDER);
+                              long style = wxCAPTION | wxRESIZE_BORDER | wxCLOSE_BOX);
     virtual ~NotebookNavigationDlgBase();
 };
 
@@ -194,20 +193,17 @@ public:
 class clSingleChoiceDialogBase : public wxDialog
 {
 protected:
-    wxSearchCtrl* m_searchCtrl;
-    wxDataViewListCtrl* m_dvListCtrl;
+    clThemedListCtrl* m_dvListCtrl;
     wxStdDialogButtonSizer* m_stdBtnSizer183;
     wxButton* m_button185;
     wxButton* m_button187;
 
 protected:
-    virtual void OnFilter(wxCommandEvent& event) { event.Skip(); }
     virtual void OnActivated(wxDataViewEvent& event) { event.Skip(); }
     virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
 
 public:
-    wxSearchCtrl* GetSearchCtrl() { return m_searchCtrl; }
-    wxDataViewListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
+    clThemedListCtrl* GetDvListCtrl() { return m_dvListCtrl; }
     clSingleChoiceDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT(""),
                              const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(400, 300),
                              long style = wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
@@ -235,6 +231,7 @@ protected:
     clThemedButton* m_buttonScope;
     clThemedButton* m_buttonFilePath;
     clThemedButton* m_buttonBookmarks;
+    wxStaticText* m_labelText;
 
 protected:
     virtual void OnButtonScope(wxCommandEvent& event) { event.Skip(); }
@@ -245,6 +242,7 @@ public:
     clThemedButton* GetButtonScope() { return m_buttonScope; }
     clThemedButton* GetButtonFilePath() { return m_buttonFilePath; }
     clThemedButton* GetButtonBookmarks() { return m_buttonBookmarks; }
+    wxStaticText* GetLabelText() { return m_labelText; }
     clEditorBarBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                     const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~clEditorBarBase();

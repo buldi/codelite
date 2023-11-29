@@ -26,14 +26,15 @@
 #ifndef __localoptions__
 #define __localoptions__
 
-#include <wx/filename.h>
-#include "singleton.h"
-#include "optionsconfig.h"
+#include "VirtualDirectoryColour.h"
 #include "codelite_exports.h"
+#include "optionsconfig.h"
+#include "singleton.h"
+
 #include <list>
 #include <map>
 #include <wx/colour.h>
-#include "VirtualDirectoryColour.h"
+#include <wx/filename.h>
 
 // Denotes whether we're dealing with preferences at a global, workspace, project or (maybe one day) file level
 enum prefsLevel { pLevel_global, pLevel_workspace, pLevel_project, pLevel_file, pLevel_dunno };
@@ -76,7 +77,7 @@ class WXDLLIMPEXP_SDK LocalOptionsConfig
     validVar<wxFontEncoding> m_localfileFontEncoding;
     validVar<int> m_localshowWhitspaces;
     validVar<wxString> m_localeolMode;
-    validVar<bool> m_localhideChangeMarkerMargin;
+    validVar<bool> m_localTrackChanges;
 
 public:
     LocalOptionsConfig(); // Used for setting local values
@@ -86,7 +87,7 @@ public:
                        wxXmlNode* node); // Used for storing local values in a previously-empty instance
     virtual ~LocalOptionsConfig(void) {}
 
-    bool HideChangeMarkerMarginIsValid() const { return m_localhideChangeMarkerMargin.isValid(); }
+    bool IsTrackChangesIsValid() const { return m_localTrackChanges.isValid(); }
     bool DisplayFoldMarginIsValid() const { return m_localdisplayFoldMargin.isValid(); }
     bool DisplayBookmarkMarginIsValid() const { return m_localdisplayBookmarkMargin.isValid(); }
     bool HighlightCaretLineIsValid() const { return m_localhighlightCaretLine.isValid(); }
@@ -105,51 +106,66 @@ public:
     // Setters/Getters
     //-------------------------------------
 
-    bool GetHideChangeMarkerMargin() const
+    bool IsTrackChanges() const
     {
-        if(m_localhideChangeMarkerMargin.isValid()) { return m_localhideChangeMarkerMargin.GetDatum(); }
+        if(m_localTrackChanges.isValid()) {
+            return m_localTrackChanges.GetDatum();
+        }
         return false; // It's invalid anyway, so false will do as well as anything
     }
+
     bool GetDisplayFoldMargin() const
     {
-        if(m_localdisplayFoldMargin.isValid()) { return m_localdisplayFoldMargin.GetDatum(); }
+        if(m_localdisplayFoldMargin.isValid()) {
+            return m_localdisplayFoldMargin.GetDatum();
+        }
         return false;
     }
+
     bool GetDisplayBookmarkMargin() const
     {
-        if(m_localdisplayBookmarkMargin.isValid()) { return m_localdisplayBookmarkMargin.GetDatum(); }
+        if(m_localdisplayBookmarkMargin.isValid()) {
+            return m_localdisplayBookmarkMargin.GetDatum();
+        }
         return false;
     }
     bool GetHighlightCaretLine() const
     {
-        if(m_localhighlightCaretLine.isValid()) { return m_localhighlightCaretLine.GetDatum(); }
+        if(m_localhighlightCaretLine.isValid()) {
+            return m_localhighlightCaretLine.GetDatum();
+        }
         return false;
     }
     bool GetTrimLine() const
     {
-        if(m_localTrimLine.isValid()) { return m_localTrimLine.GetDatum(); }
+        if(m_localTrimLine.isValid()) {
+            return m_localTrimLine.GetDatum();
+        }
         return false;
     }
     bool GetAppendLF() const
     {
-        if(m_localAppendLF.isValid()) { return m_localAppendLF.GetDatum(); }
+        if(m_localAppendLF.isValid()) {
+            return m_localAppendLF.GetDatum();
+        }
         return false;
     }
     bool GetDisplayLineNumbers() const
     {
-        if(m_localdisplayLineNumbers.isValid()) { return m_localdisplayLineNumbers.GetDatum(); }
+        if(m_localdisplayLineNumbers.isValid()) {
+            return m_localdisplayLineNumbers.GetDatum();
+        }
         return false;
     }
     bool GetShowIndentationGuidelines() const
     {
-        if(m_localshowIndentationGuidelines.isValid()) { return m_localshowIndentationGuidelines.GetDatum(); }
+        if(m_localshowIndentationGuidelines.isValid()) {
+            return m_localshowIndentationGuidelines.GetDatum();
+        }
         return false;
     }
 
-    void SetHideChangeMarkerMargin(bool hideChangeMarkerMargin)
-    {
-        m_localhideChangeMarkerMargin.Set(hideChangeMarkerMargin);
-    }
+    void SetTrackChanges(bool b) { m_localTrackChanges.Set(b); }
     void SetDisplayFoldMargin(bool b) { m_localdisplayFoldMargin.Set(b); }
     void SetDisplayBookmarkMargin(bool b) { m_localdisplayBookmarkMargin.Set(b); }
     void SetHighlightCaretLine(bool b) { m_localhighlightCaretLine.Set(b); }
@@ -160,25 +176,33 @@ public:
     void SetIndentUsesTabs(const bool& indentUsesTabs) { m_localindentUsesTabs.Set(indentUsesTabs); }
     bool GetIndentUsesTabs() const
     {
-        if(m_localindentUsesTabs.isValid()) { return m_localindentUsesTabs.GetDatum(); }
+        if(m_localindentUsesTabs.isValid()) {
+            return m_localindentUsesTabs.GetDatum();
+        }
         return false;
     }
     void SetIndentWidth(const int& indentWidth) { m_localindentWidth.Set(indentWidth); }
     int GetIndentWidth() const
     {
-        if(m_localindentWidth.isValid()) { return m_localindentWidth.GetDatum(); }
+        if(m_localindentWidth.isValid()) {
+            return m_localindentWidth.GetDatum();
+        }
         return wxNOT_FOUND;
     }
     void SetTabWidth(const int& tabWidth) { m_localtabWidth.Set(tabWidth); }
     int GetTabWidth() const
     {
-        if(m_localtabWidth.isValid()) { return m_localtabWidth.GetDatum(); }
+        if(m_localtabWidth.isValid()) {
+            return m_localtabWidth.GetDatum();
+        }
         return wxNOT_FOUND;
     }
 
     wxFontEncoding GetFileFontEncoding() const
     {
-        if(m_localfileFontEncoding.isValid()) { return m_localfileFontEncoding.GetDatum(); }
+        if(m_localfileFontEncoding.isValid()) {
+            return m_localfileFontEncoding.GetDatum();
+        }
         return (wxFontEncoding)(wxFONTENCODING_MAX + 1);
     }
     void SetFileFontEncoding(const wxString& strFileFontEncoding);
@@ -186,14 +210,18 @@ public:
     void SetShowWhitespaces(const int& showWhitespaces) { m_localshowWhitspaces.Set(showWhitespaces); }
     int GetShowWhitespaces() const
     {
-        if(m_localshowWhitspaces.isValid()) { return m_localshowWhitspaces.GetDatum(); }
+        if(m_localshowWhitspaces.isValid()) {
+            return m_localshowWhitspaces.GetDatum();
+        }
         return wxNOT_FOUND;
     }
 
     void SetEolMode(const wxString& eolMode) { m_localeolMode.Set(eolMode); }
     wxString GetEolMode() const
     {
-        if(m_localeolMode.isValid()) { return m_localeolMode.GetDatum(); }
+        if(m_localeolMode.isValid()) {
+            return m_localeolMode.GetDatum();
+        }
         return wxT("");
     }
 
@@ -211,7 +239,8 @@ public:
         EnableCpp11 = 0x00000001,
         EnableCpp14 = 0x00000002,
         EnableCpp17 = 0x00000004,
-        EnableSWTLW = 0x00000008 // Save Parse folders to Workspace file.
+        EnableSWTLW = 0x00000008, // Save Parse folders to Workspace file.
+        EnableCpp20 = 0x00000010,
     };
 
 private:
@@ -302,6 +331,12 @@ public:
 
     void SetCustomData(const wxString& name, const wxString& value);
     wxString GetCustomData(const wxString& name);
+
+    /**
+     * @brief set and get the currently selected build configuration name
+     */
+    void SetSelectedBuildConfiguration(const wxString& confName);
+    wxString GetSelectedBuildConfiguration();
 
     /**
      * @brief set and get the active environment variables set name

@@ -26,9 +26,9 @@
 #ifndef __QMakePlugin__
 #define __QMakePlugin__
 
+#include "cl_command_event.h"
 #include "plugin.h"
 #include "qmakeplugindata.h"
-#include "cl_command_event.h"
 
 class QMakeTab;
 class QmakeConf;
@@ -52,12 +52,12 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void HookProjectSettingsTab(wxBookCtrlBase* book, const wxString& projectName, const wxString& configName);
-    virtual void
-    UnHookProjectSettingsTab(wxBookCtrlBase* book, const wxString& projectName, const wxString& configName);
+    virtual void UnHookProjectSettingsTab(wxBookCtrlBase* book, const wxString& projectName,
+                                          const wxString& configName);
     virtual void UnPlug();
 
     // event handlers

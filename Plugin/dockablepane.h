@@ -26,39 +26,34 @@
 #ifndef __dockablepane__
 #define __dockablepane__
 
+#include "Notebook.h"
+#include "codelite_exports.h"
+#include "imanager.h"
+
 #include <wx/panel.h>
 #include <wx/toolbar.h>
-#include "codelite_exports.h"
-#include "Notebook.h"
 
 extern WXDLLIMPEXP_SDK const wxEventType wxEVT_CMD_NEW_DOCKPANE;
 extern WXDLLIMPEXP_SDK const wxEventType wxEVT_CMD_DELETE_DOCKPANE;
 
 class WXDLLIMPEXP_SDK DockablePane : public wxPanel
 {
-    wxWindow* m_child;
-    Notebook* m_book;
+    wxWindow* m_child = nullptr;
     wxString m_text;
-    wxBitmap m_bmp;
-    bool m_notifiedDestroyed;
+    int m_paneId = wxNOT_FOUND;
+    int m_bmp = wxNOT_FOUND;
+    bool m_notifiedDestroyed = false;
 
+protected:
     void ClosePane(wxCommandEvent& e);
-
     void OnEraseBg(wxEraseEvent& e) { wxUnusedVar(e); }
     void OnPaint(wxPaintEvent& e);
 
-    DECLARE_EVENT_TABLE();
-
 public:
-    DockablePane(wxWindow* parent,
-                 Notebook* book,
-                 const wxString& title,
-                 bool initialFloat = true,
-                 const wxBitmap& bmp = wxNullBitmap,
-                 wxSize size = wxDefaultSize);
+    DockablePane(wxWindow* parent, PaneId pane_id, const wxString& title, bool initialFloat = true,
+                 const wxSize& size = wxDefaultSize);
     virtual ~DockablePane();
     wxString GetName() { return m_text; }
-    Notebook* GetBook() { return m_book; }
     void SetChildNoReparent(wxWindow* child);
 };
 #endif // __dockablepane__

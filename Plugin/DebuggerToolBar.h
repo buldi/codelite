@@ -1,13 +1,14 @@
 #ifndef DEBUGGERTOOLBAR_H
 #define DEBUGGERTOOLBAR_H
 
-#include <wx/minifram.h>
+#include "clToolBar.h"
 #include "codelite_exports.h"
-#include <wx/frame.h>
-#include <wx/popupwin.h>
-#include <wx/panel.h>
 
-class clToolBar;
+#include <wx/frame.h>
+#include <wx/minifram.h>
+#include <wx/panel.h>
+#include <wx/popupwin.h>
+
 class WXDLLIMPEXP_SDK Gripper : public wxPanel
 {
     wxPoint m_offset;
@@ -26,7 +27,7 @@ public:
 
 class WXDLLIMPEXP_SDK DebuggerToolBar : public wxPanel
 {
-    clToolBar* m_tb = nullptr;
+    clToolBarGeneric* m_tb = nullptr;
     Gripper* m_gripper = nullptr;
 
 public:

@@ -26,16 +26,17 @@
 #ifndef LEXERCONFMANAGER_H
 #define LEXERCONFMANAGER_H
 
+#include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "lexer_configuration.h"
-#include <vector>
-#include <map>
-#include <wx/string.h>
-#include <wx/filename.h>
-#include <wx/event.h>
-#include "cl_command_event.h"
-#include <wx/font.h>
 #include "wxStringHash.h"
+
+#include <map>
+#include <vector>
+#include <wx/event.h>
+#include <wx/filename.h>
+#include <wx/font.h>
+#include <wx/string.h>
 
 // When the version is 0, it means that we need to upgrade the colours for the line numbers
 // and for the default state
@@ -51,31 +52,49 @@ class WXDLLIMPEXP_SDK ColoursAndFontsManager : public wxEvtHandler
     typedef std::unordered_map<wxString, ColoursAndFontsManager::Vec_t> Map_t;
 
 protected:
-    bool m_initialized;
+    bool m_initialized = false;
+    /// Map lexers by name (c++, rust, etc)
     ColoursAndFontsManager::Map_t m_lexersMap;
+    /// List of all lexers available
     ColoursAndFontsManager::Vec_t m_allLexers;
     wxString m_globalTheme;
     LexerConf::Ptr_t m_defaultLexer;
-    int m_lexersVersion;
+    int m_lexersVersion = wxNOT_FOUND;
     wxFont m_globalFont;
 
 private:
     ColoursAndFontsManager();
     virtual ~ColoursAndFontsManager();
 
-    void LoadOldXmls(const std::vector<wxXmlDocument*>& xmlFiles, bool userLexers = false);
-    LexerConf::Ptr_t DoAddLexer(wxXmlNode* node);
     LexerConf::Ptr_t DoAddLexer(JSONItem json);
     void Clear();
     wxFileName GetConfigFile() const;
     void LoadJSON(const wxFileName& path);
+    void LoadDb(const wxFileName& path);
+    bool IsBackupRequired() const;
+    void BackupUserOldJsonFileIfNeeded();
+    void LoadDefaultLexers();
+
+    /**
+     * @brief load lexers from lexers.json
+     */
+    void LoadLexersFromFile();
+
+    /**
+     * @brief load lexers from lexers.db
+     */
+    void LoadLexersFromDb();
 
 protected:
     void OnAdjustTheme(clCommandEvent& event);
 
 public:
     static ColoursAndFontsManager& Get();
-    
+
+    /**
+     * @brief return the default editor font (monospaced)
+     */
+    wxFont GetFixedFont(bool small = false) const;
     /**
      * @brief return a suitable background colour that matches the lexer's bg colour
      */
@@ -94,7 +113,7 @@ public:
     /**
      * @brief save the global settings
      */
-    void SaveGlobalSettings();
+    void SaveGlobalSettings(bool notify = true);
     /**
      * @brief adjust the lexer colours to fit codelite's general look and feel
      */
@@ -125,13 +144,21 @@ public:
 
     /**
      * @brief save the lexers into their proper file name
+     * @param lexer_json optional output file
      */
-    void Save(bool forExport = false);
+    void Save(const wxFileName& lexer_json = {});
 
     /**
      * @brief set the active theme for a lexer by name
      */
     void SetActiveTheme(const wxString& lexerName, const wxString& themeName);
+
+    /**
+     * @brief update a theme text selection colours
+     */
+    void SetThemeTextSelectionColours(const wxString& theme_name, const wxColour& bg, const wxColour& fg,
+                                      bool useCustomerFgColour = true);
+
     /**
      * @brief return the lexer by name.
      * @param lexerName the lexer name, e.g. "c++"
@@ -166,15 +193,9 @@ public:
     void RestoreDefaults();
 
     /**
-     * @brief import an eclipse theme into codelite
+     * @brief import an eclipse theme into CodeLite, return its name
      */
-    bool ImportEclipseTheme(const wxString& eclipseXml);
-
-    /**
-     * @brief callback called by the helper thread indicating that it finished caching
-     * the XML files
-     */
-    void OnLexerFilesLoaded(const std::vector<wxXmlDocument*>& userLexers);
+    wxString ImportEclipseTheme(const wxString& theme_file);
 
     /**
      * @brief set a unified theme for all lexers. If the requested theme is not available for a given lexer,
@@ -187,6 +208,11 @@ public:
      * @brief add new lexer (replace an existing one if exists)
      */
     void AddLexer(LexerConf::Ptr_t lexer);
+
+    /**
+     * @brief return true if the current theme is dark
+     */
+    bool IsDarkTheme() const;
 };
 
 #endif // LEXERCONFMANAGER_H

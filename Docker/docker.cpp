@@ -1,11 +1,13 @@
+#include "docker.h"
+
 #include "DockerOutputPane.h"
 #include "DockerSettingsDlg.h"
 #include "bitmap_loader.h"
 #include "clDockerWorkspace.h"
 #include "clWorkspaceManager.h"
-#include "docker.h"
 #include "event_notifier.h"
 #include "wxterminal.h"
+
 #include <imanager.h>
 #include <wx/xrc/xmlres.h>
 
@@ -38,22 +40,19 @@ Docker::Docker(IManager* manager)
     m_longName = _("Docker for CodeLite");
     m_shortName = wxT("Docker");
     m_driver.reset(new clDockerDriver(this));
-    
+
     clWorkspaceManager::Get().RegisterWorkspace(new clDockerWorkspace(false, nullptr, m_driver));
     clDockerWorkspace::Initialise(this);
     clDockerWorkspace::Get(); // Make sure that the workspace instance is up and all events are hooked
 
-    Notebook* book = m_mgr->GetOutputPaneNotebook();
-    m_outputView = new DockerOutputPane(book, m_driver);
-    book->AddPage(m_outputView, _("Docker"), false, m_mgr->GetStdIcons()->LoadBitmap("docker"));
-
+    m_outputView = new DockerOutputPane(m_mgr->BookGet(PaneId::BOTTOM_BAR), m_driver);
+    m_mgr->BookAddPage(PaneId::BOTTOM_BAR, m_outputView, _("Docker"));
     m_tabToggler.reset(new clTabTogglerHelper(_("Docker"), m_outputView, "", NULL));
-    m_tabToggler->SetOutputTabBmp(m_mgr->GetStdIcons()->LoadBitmap("docker"));
 }
 
 Docker::~Docker() {}
 
-void Docker::CreateToolBar(clToolBar* toolbar)
+void Docker::CreateToolBar(clToolBarGeneric* toolbar)
 {
     // You can add items to the main toolbar here
     wxUnusedVar(toolbar);
@@ -64,25 +63,21 @@ void Docker::CreatePluginMenu(wxMenu* pluginsMenu)
     wxMenu* menu = new wxMenu();
     menu->Append(XRCID("ID_DOCKER_SETTINGS"), _("Settings"));
     pluginsMenu->Append(wxID_ANY, _("Docker"), menu);
-    menu->Bind(wxEVT_MENU,
-               [&](wxCommandEvent& event) {
-                   DockerSettingsDlg dlg(EventNotifier::Get()->TopFrame());
-                   if(dlg.ShowModal() == wxID_OK) {
-                   }
-               },
-               XRCID("ID_DOCKER_SETTINGS"));
+    menu->Bind(
+        wxEVT_MENU,
+        [&](wxCommandEvent& event) {
+            DockerSettingsDlg dlg(EventNotifier::Get()->TopFrame());
+            if(dlg.ShowModal() == wxID_OK) {}
+        },
+        XRCID("ID_DOCKER_SETTINGS"));
 }
 
 void Docker::UnPlug()
 {
     clDockerWorkspace::Shutdown();
-
-    // before this plugin is un-plugged we must remove the tab we added
-    for(size_t i = 0; i < m_mgr->GetOutputPaneNotebook()->GetPageCount(); i++) {
-        if(m_outputView == m_mgr->GetOutputPaneNotebook()->GetPage(i)) {
-            m_mgr->GetOutputPaneNotebook()->RemovePage(i);
-            m_outputView->Destroy();
-            break;
-        }
+    if(!m_mgr->BookDeletePage(PaneId::BOTTOM_BAR, m_outputView)) {
+        // failed to delete, delete it manually
+        m_outputView->Destroy();
     }
+    m_outputView = nullptr;
 }

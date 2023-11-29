@@ -1,4 +1,5 @@
 #include "clInfoBar.h"
+
 #include <algorithm>
 
 clInfoBar::clInfoBar(wxWindow* parent, wxWindowID winid)
@@ -15,12 +16,16 @@ void clInfoBar::Clear()
 }
 
 void clInfoBar::DisplayMessage(const wxString& message, int flags,
-                               const std::vector<std::pair<wxWindowID, wxString> >& buttons)
+                               const std::vector<std::pair<wxWindowID, wxString>>& buttons)
 {
     Clear();
     m_buttons = buttons;
-    if(m_buttons.empty()) { m_buttons.push_back({ wxID_OK, "" }); }
-    std::for_each(m_buttons.begin(), m_buttons.end(),
-                  [&](const std::pair<wxWindowID, wxString>& btn) { AddButton(btn.first, btn.second); });
+    if(m_buttons.empty()) {
+        m_buttons.push_back({ wxID_OK, "" });
+    }
+
+    for(const auto& [id, label] : m_buttons) {
+        AddButton(id, label);
+    }
     ShowMessage(message, flags);
 }

@@ -26,14 +26,15 @@
 #ifndef __PHP__
 #define __PHP__
 
+#include "PhpSFTPHandler.h"
 #include "XDebugManager.h"
 #include "php_event.h"
 #include "plugin.h"
 #include "plugin_settings.h"
+
 #include <cl_command_event.h>
 #include <wx/filename.h>
 #include <wx/sharedptr.h>
-#include "PhpSFTPHandler.h"
 
 class EvalPane;
 class LocalsView;
@@ -57,7 +58,7 @@ protected:
     bool m_showWelcomePage;
 #if USE_SFTP
     PhpSFTPHandler::Ptr_t m_sftpHandler;
-#endif //USE_SFTP
+#endif // USE_SFTP
 
 public:
     enum {
@@ -87,7 +88,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();

@@ -1,359 +1,211 @@
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//
-// copyright            : (C) 2014 Eran Ifrah
-// file name            : outline_tab.cpp
-//
-// -------------------------------------------------------------------------
-// A
-//              _____           _      _     _ _
-//             /  __ \         | |    | |   (_) |
-//             | /  \/ ___   __| | ___| |    _| |_ ___
-//             | |    / _ \ / _  |/ _ \ |   | | __/ _ )
-//             | \__/\ (_) | (_| |  __/ |___| | ||  __/
-//              \____/\___/ \__,_|\___\_____/_|\__\___|
-//
-//                                                  F i l e
-//
-//    This program is free software; you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation; either version 2 of the License, or
-//    (at your option) any later version.
-//
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
+#include "outline_tab.h"
 
 #include "ColoursAndFontsManager.h"
-#include "bitmap_loader.h"
-#include "clToolBar.h"
-#include "cl_config.h"
+#include "clAnsiEscapeCodeColourBuilder.hpp"
+#include "codelite_events.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "fileextmanager.h"
-#include "fileutils.h"
 #include "globals.h"
-#include "lexer_configuration.h"
-#include "outline_symbol_tree.h"
-#include "outline_tab.h"
-#include "plugin.h"
-#include <imanager.h>
-#include <wx/menu.h>
+#include "imanager.h"
+#include "macros.h"
+
+#include <unordered_set>
+#include <wx/colour.h>
 #include <wx/stc/stc.h>
-#include <wx/wupdlock.h>
 
-const wxEventType wxEVT_SV_GOTO_DEFINITION = wxNewEventType();
-const wxEventType wxEVT_SV_GOTO_DECLARATION = wxNewEventType();
-const wxEventType wxEVT_SV_FIND_REFERENCES = wxNewEventType();
-const wxEventType wxEVT_SV_RENAME_SYMBOL = wxNewEventType();
-const wxEventType wxEVT_SV_OPEN_FILE = wxNewEventType();
-
-#define OUTLINE_TAB_CXX 0
-#define OUTLINE_TAB_PHP 1
-#define OUTLINE_PLACE_HOLDER_PAGE 2
-
-#define CHECK_ENABLED()                                      \
-    if(!m_isEnabled) {                                       \
-        clDEBUG1() << "Outline: view is disabled" << clEndl; \
-        return;                                              \
-    }
-
-OutlineTab::OutlineTab(wxWindow* parent, IManager* mgr)
-    : OutlineTabBaseClass(parent)
-    , m_mgr(mgr)
-    , m_sortCxxTreeAlphabetically(false)
-    , m_isEnabled(false)
+namespace
 {
-    m_tree = new svSymbolTree(m_panelCxx, m_mgr, wxID_ANY);
-    m_sortCxxTreeAlphabetically =
-        clConfig::Get().Read("OutlineView/SortCxxAlphabetically", m_sortCxxTreeAlphabetically);
-    m_tree->SetSortByLineNumber(!m_sortCxxTreeAlphabetically);
+const wxString FUNCTION_SYMBOL = wxT("\u2A10");
+const wxString CLASS_SYMBOL = wxT("\u2394");
+const wxString VARIABLE_SYMBOL = wxT("\u2027");
+const wxString MODULE_SYMBOL = wxT("{}");
+const wxString ENUMERATOR_SYMBOL = wxT("#");
+} // namespace
 
-    m_panelCxx->GetSizer()->Add(m_tree, 1, wxEXPAND);
-    m_tree->Connect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(OutlineTab::OnMenu), NULL, this);
+using namespace LSP;
 
-    m_tree->SetBitmaps(clGetManager()->GetStdIcons()->GetStandardMimeBitmapListPtr());
-    m_treeCtrlPhp->SetManager(m_mgr);
-
-    EventNotifier::Get()->Connect(wxEVT_ACTIVE_EDITOR_CHANGED, wxCommandEventHandler(OutlineTab::OnActiveEditorChanged),
-                                  NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_EDITOR_CLOSING, wxCommandEventHandler(OutlineTab::OnEditorClosed), NULL, this);
-    EventNotifier::Get()->Connect(wxEVT_ALL_EDITORS_CLOSED, wxCommandEventHandler(OutlineTab::OnAllEditorsClosed), NULL,
-                                  this);
-    EventNotifier::Get()->Connect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(OutlineTab::OnWorkspaceClosed), NULL,
-                                  this);
-    EventNotifier::Get()->Connect(wxEVT_CMD_RETAG_COMPLETED, wxCommandEventHandler(OutlineTab::OnFilesTagged), NULL,
-                                  this);
-    EventNotifier::Get()->Bind(wxEVT_FILE_SAVED, &OutlineTab::OnEditorSaved, this);
-    EventNotifier::Get()->Bind(wxEVT_CMD_PAGE_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
-    Connect(wxEVT_SV_GOTO_DEFINITION, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-            this);
-    Connect(wxEVT_SV_GOTO_DECLARATION, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-            this);
-    Connect(wxEVT_SV_FIND_REFERENCES, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-            this);
-    Connect(wxEVT_SV_RENAME_SYMBOL, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL, this);
-    m_themeHelper = new ThemeHandlerHelper(this);
-    m_toolbar = new clToolBar(m_panelCxx);
-    m_toolbar->AddTool(wxID_SORT_ASCENDING, _("Sort"), clGetManager()->GetStdIcons()->LoadBitmap("sort"), "",
-                       wxITEM_CHECK);
-    m_toolbar->Realize();
-    m_toolbar->Bind(wxEVT_TOOL, &OutlineTab::OnSortAlpha, this, wxID_SORT_ASCENDING);
-    m_toolbar->Bind(wxEVT_UPDATE_UI, &OutlineTab::OnSortAlphaUI, this, wxID_SORT_ASCENDING);
-    m_panelCxx->GetSizer()->Insert(0, m_toolbar, 0, wxEXPAND);
+OutlineTab::OutlineTab(wxWindow* parent)
+    : OutlineTabBaseClass(parent)
+{
+    EventNotifier::Get()->Bind(wxEVT_LSP_DOCUMENT_SYMBOLS_QUICK_OUTLINE, &OutlineTab::OnOutlineSymbols, this);
+    EventNotifier::Get()->Bind(wxEVT_ACTIVE_EDITOR_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
+    EventNotifier::Get()->Bind(wxEVT_ALL_EDITORS_CLOSED, &OutlineTab::OnAllEditorsClosed, this);
 }
 
 OutlineTab::~OutlineTab()
 {
-    wxDELETE(m_themeHelper);
-    m_toolbar->Unbind(wxEVT_TOOL, &OutlineTab::OnSortAlpha, this, wxID_SORT_ASCENDING);
-    m_toolbar->Unbind(wxEVT_UPDATE_UI, &OutlineTab::OnSortAlphaUI, this, wxID_SORT_ASCENDING);
-    m_tree->Disconnect(wxEVT_CONTEXT_MENU, wxContextMenuEventHandler(OutlineTab::OnMenu), NULL, this);
-
-    EventNotifier::Get()->Disconnect(wxEVT_ACTIVE_EDITOR_CHANGED,
-                                     wxCommandEventHandler(OutlineTab::OnActiveEditorChanged), NULL, this);
-    EventNotifier::Get()->Unbind(wxEVT_CMD_PAGE_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
-    EventNotifier::Get()->Disconnect(wxEVT_EDITOR_CLOSING, wxCommandEventHandler(OutlineTab::OnEditorClosed), NULL,
-                                     this);
-    EventNotifier::Get()->Disconnect(wxEVT_ALL_EDITORS_CLOSED, wxCommandEventHandler(OutlineTab::OnAllEditorsClosed),
-                                     NULL, this);
-    EventNotifier::Get()->Disconnect(wxEVT_WORKSPACE_CLOSED, wxCommandEventHandler(OutlineTab::OnWorkspaceClosed), NULL,
-                                     this);
-    EventNotifier::Get()->Disconnect(wxEVT_CMD_RETAG_COMPLETED, wxCommandEventHandler(OutlineTab::OnFilesTagged), NULL,
-                                     this);
-    EventNotifier::Get()->Unbind(wxEVT_FILE_SAVED, &OutlineTab::OnEditorSaved, this);
-    Disconnect(wxEVT_SV_GOTO_DEFINITION, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-               this);
-    Disconnect(wxEVT_SV_GOTO_DECLARATION, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-               this);
-    Disconnect(wxEVT_SV_FIND_REFERENCES, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-               this);
-    Disconnect(wxEVT_SV_RENAME_SYMBOL, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutlineTab::OnItemSelectedUI), NULL,
-               this);
+    EventNotifier::Get()->Unbind(wxEVT_LSP_DOCUMENT_SYMBOLS_QUICK_OUTLINE, &OutlineTab::OnOutlineSymbols, this);
+    EventNotifier::Get()->Unbind(wxEVT_ACTIVE_EDITOR_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
+    EventNotifier::Get()->Unbind(wxEVT_ALL_EDITORS_CLOSED, &OutlineTab::OnAllEditorsClosed, this);
 }
 
-void OutlineTab::OnSearchSymbol(wxCommandEvent& event)
+void OutlineTab::OnOutlineSymbols(LSPEvent& event)
 {
     event.Skip();
-    if(m_simpleBook->GetSelection() == OUTLINE_TAB_PHP) {
-        // PHP
-        m_treeCtrlPhp->Select(m_textCtrlSearch->GetValue());
-
-    } else {
-        // C++
-        wxString name = m_textCtrlSearch->GetValue();
-        name.Trim().Trim(false);
-        m_tree->SelectItemByName(name);
+    if(!IsShown()) {
+        return;
     }
+    RenderSymbols(event.GetSymbolsInformation(), event.GetFileName());
 }
 
-void OutlineTab::OnSearchEnter(wxCommandEvent& event)
+void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbols, const wxString& filename)
 {
-    event.Skip();
-    if(m_simpleBook->GetSelection() == OUTLINE_TAB_PHP) {
-        wxTreeItemId selection = m_treeCtrlPhp->GetSelection();
-        if(selection.IsOk()) { m_treeCtrlPhp->ItemSelected(selection, true); }
+    ClearView();
 
-    } else {
-        wxString name = m_textCtrlSearch->GetValue();
-        name.Trim().Trim(false);
-        if(name.IsEmpty() == false) { m_tree->ActivateSelectedItem(); }
+    auto editor = clGetManager()->GetActiveEditor();
+    CHECK_PTR_RET(editor);
+
+    wxString remote_path;
+    if(editor->IsRemoteFile()) {
+        remote_path = editor->GetRemotePath();
     }
-}
 
-void OutlineTab::OnActiveEditorChanged(wxCommandEvent& e)
-{
-    e.Skip();
-    EditorChanged();
-}
-
-void OutlineTab::OnAllEditorsClosed(wxCommandEvent& e)
-{
-    e.Skip();
-    m_tree->Clear();
-    m_tree->ClearCache();
-    m_treeCtrlPhp->Clear();
-}
-
-void OutlineTab::OnEditorClosed(wxCommandEvent& e)
-{
-    e.Skip();
-    IEditor* editor = reinterpret_cast<IEditor*>(e.GetClientData());
-    if(editor) {
-        if(m_tree->GetFilename() == editor->GetFileName()) {
-            m_tree->Clear();
-            m_tree->ClearCache();
-
-        } else if(m_treeCtrlPhp->GetFilename() == editor->GetFileName()) {
-            m_treeCtrlPhp->Clear();
-        }
+    wxString local_path = editor->GetFileName().GetFullPath();
+    if(local_path != filename && remote_path != filename) {
+        // the symbols do not match the ative editor
+        return;
     }
-}
 
-void OutlineTab::OnWorkspaceClosed(wxCommandEvent& e)
-{
-    e.Skip();
-    wxWindowUpdateLocker locker(this);
-    m_tree->Clear();
-    m_treeCtrlPhp->DeleteAllItems();
-}
+    m_currentSymbolsFileName = filename;
+    m_symbols = symbols;
 
-void OutlineTab::OnFilesTagged(wxCommandEvent& e)
-{
-    e.Skip();
-    CHECK_ENABLED();
-    IEditor* editor = m_mgr->GetActiveEditor();
-    if(editor) {
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("python");
+    if(symbols.empty()) {
+        clAnsiEscapeCodeColourBuilder builder;
+        builder.SetTheme(lexer->IsDark() ? eColourTheme::DARK : eColourTheme::LIGHT);
+        builder.Add(_("Language Server is still not ready... "), AnsiColours::NormalText(), false);
+        builder.Add(_("(hit ESCAPE key to dismiss)"), AnsiColours::Gray(), false);
+        m_dvListCtrl->AddLine(builder.GetString(), false, (wxUIntPtr)0);
+        return;
+    }
 
-        wxWindow* oldFocusedWindow = wxWindow::FindFocus();
-        m_tree->BuildTree(editor->GetFileName(), false);
-        wxWindow* focusedWindow = wxWindow::FindFocus();
-        if(oldFocusedWindow != focusedWindow && oldFocusedWindow) {
-            // restore the focus back the old window
-            oldFocusedWindow->SetFocus();
+    m_dvListCtrl->Begin();
+    m_dvListCtrl->SetScrollToBottom(false);
+
+    // reduce the outline font size
+    wxFont font = lexer->GetFontForStyle(0, m_dvListCtrl);
+    font.SetFractionalPointSize(static_cast<double>(font.GetPointSize()) * 0.8);
+    m_dvListCtrl->SetDefaultFont(font);
+
+    // build the tree
+    wxColour class_colour = lexer->GetProperty(wxSTC_P_WORD2).GetFgColour();
+    wxColour variable_colour = lexer->GetProperty(wxSTC_P_IDENTIFIER).GetFgColour();
+    wxColour module_colour = lexer->GetProperty(wxSTC_P_STRING).GetFgColour();
+    wxColour function_colour = lexer->GetProperty(wxSTC_P_DEFNAME).GetFgColour();
+    wxColour operator_colour = lexer->GetProperty(wxSTC_P_OPERATOR).GetFgColour();
+
+    constexpr int INITIAL_DEPTH = 0;
+    constexpr int DEPTH_WIDTH = 2;
+
+    std::unordered_set<wxString> containers;
+    clAnsiEscapeCodeColourBuilder builder;
+    for(const SymbolInformation& si : m_symbols) {
+        builder.Clear();
+
+        if(!si.GetContainerName().empty() && containers.count(si.GetContainerName()) == 0) {
+            // probably a fake container
+            containers.insert(si.GetContainerName());
+            builder.Add(CLASS_SYMBOL + " ", AnsiColours::NormalText());
+            builder.Add(si.GetContainerName(), class_colour, true);
+            m_dvListCtrl->AddLine(builder.GetString(), false, (wxUIntPtr)&si);
+            builder.Clear();
         }
 
-    } else {
-        m_tree->Clear();
+        size_t indent_level = si.GetContainerName().empty() ? INITIAL_DEPTH : DEPTH_WIDTH;
+        builder.Add(wxString(' ', indent_level), AnsiColours::NormalText());
+
+        // determine the symbol
+        switch(si.GetKind()) {
+        case kSK_File:
+        case kSK_Module:
+        case kSK_Package:
+            builder.Add(MODULE_SYMBOL + " ", AnsiColours::NormalText());
+            builder.Add(si.GetName(), module_colour);
+            break;
+        case kSK_Class:
+        case kSK_Struct:
+        case kSK_Interface:
+        case kSK_Object:
+        case kSK_Enum:
+            builder.Add(CLASS_SYMBOL + " ", AnsiColours::NormalText());
+            builder.Add(si.GetName(), class_colour, true);
+            break;
+        case kSK_Method:
+        case kSK_Function:
+        case kSK_Constructor:
+            builder.Add(FUNCTION_SYMBOL + " ", AnsiColours::NormalText());
+            if(si.GetName().Contains("(") && si.GetName().Contains(")")) {
+                // the name also has the signature
+                wxString signature = si.GetName().AfterFirst('(');
+                signature = signature.BeforeLast(')');
+                wxString name_only = si.GetName().BeforeFirst('(');
+                builder.Add(name_only, function_colour);
+                builder.Add("(", operator_colour);
+                builder.Add(signature, AnsiColours::NormalText());
+                builder.Add(")", operator_colour);
+            } else {
+                builder.Add(si.GetName(), function_colour);
+                builder.Add("()", operator_colour);
+            }
+            break;
+        case kSK_TypeParameter: // define
+        case kSK_EnumMember:
+            builder.Add(ENUMERATOR_SYMBOL + " ", AnsiColours::NormalText());
+            builder.Add(si.GetName(), AnsiColours::NormalText());
+            break;
+        default:
+            builder.Add(VARIABLE_SYMBOL + " ", AnsiColours::NormalText());
+            builder.Add(si.GetName(), variable_colour);
+            break;
+        }
+        m_dvListCtrl->AddLine(builder.GetString(), false, (wxUIntPtr)&si);
     }
-}
-void OutlineTab::OnMenu(wxContextMenuEvent& e)
-{
-    wxMenu menu;
-
-    if(IsIncludeFileNode()) {
-        menu.Append(wxEVT_SV_OPEN_FILE, _("Open..."));
-        menu.Connect(wxEVT_SV_OPEN_FILE, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutlineTab::OnOpenFile),
-                     NULL, this);
-
-    } else {
-        menu.Append(wxEVT_SV_GOTO_DECLARATION, _("Goto Declaration"));
-        menu.Append(wxEVT_SV_GOTO_DEFINITION, _("Goto Implementation"));
-        menu.AppendSeparator();
-        menu.Append(wxEVT_SV_FIND_REFERENCES, _("Find References..."));
-        menu.AppendSeparator();
-        menu.Append(wxEVT_SV_RENAME_SYMBOL, _("Rename Symbol..."));
-
-        menu.Connect(wxEVT_SV_GOTO_DEFINITION, wxEVT_COMMAND_MENU_SELECTED,
-                     wxCommandEventHandler(OutlineTab::OnGotoImpl), NULL, this);
-        menu.Connect(wxEVT_SV_GOTO_DECLARATION, wxEVT_COMMAND_MENU_SELECTED,
-                     wxCommandEventHandler(OutlineTab::OnGotoDecl), NULL, this);
-        menu.Connect(wxEVT_SV_FIND_REFERENCES, wxEVT_COMMAND_MENU_SELECTED,
-                     wxCommandEventHandler(OutlineTab::OnFindReferenes), NULL, this);
-        menu.Connect(wxEVT_SV_RENAME_SYMBOL, wxEVT_COMMAND_MENU_SELECTED,
-                     wxCommandEventHandler(OutlineTab::OnRenameSymbol), NULL, this);
+    if(!m_dvListCtrl->IsEmpty()) {
+        m_dvListCtrl->SelectRow(0);
     }
-
-    m_tree->PopupMenu(&menu);
+    m_dvListCtrl->Commit();
 }
 
-void OutlineTab::OnGotoDecl(wxCommandEvent& e)
-{
-    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("find_decl"));
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(evt);
-}
-
-void OutlineTab::OnGotoImpl(wxCommandEvent& e)
-{
-    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("find_impl"));
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(evt);
-}
-
-void OutlineTab::OnFindReferenes(wxCommandEvent& e)
-{
-    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("find_references"));
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(evt);
-}
-
-void OutlineTab::OnRenameSymbol(wxCommandEvent& e)
-{
-    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("rename_symbol"));
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(evt);
-}
-
-void OutlineTab::OnItemSelectedUI(wxUpdateUIEvent& e)
-{
-    IEditor* editor = m_mgr->GetActiveEditor();
-    e.Enable(editor && editor->GetSelection().IsEmpty() == false);
-}
-
-bool OutlineTab::IsIncludeFileNode() { return m_tree->IsSelectedItemIncludeFile(); }
-
-void OutlineTab::OnOpenFile(wxCommandEvent& e)
-{
-    wxString includedFile = m_tree->GetSelectedIncludeFile();
-    if(includedFile.IsEmpty()) return;
-
-    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("open_include_file"));
-    evt.SetString(includedFile);
-    EventNotifier::Get()->TopFrame()->GetEventHandler()->AddPendingEvent(evt);
-}
-
-void OutlineTab::OnPhpItemSelected(wxTreeEvent& event)
+void OutlineTab::OnAllEditorsClosed(wxCommandEvent& event)
 {
     event.Skip();
-    m_treeCtrlPhp->ItemSelected(event.GetItem(), false);
+    ClearView();
 }
 
-void OutlineTab::OnEditorSaved(clCommandEvent& event)
+void OutlineTab::OnActiveEditorChanged(wxCommandEvent& event)
 {
     event.Skip();
-    CHECK_ENABLED();
-    wxFileName filename(event.GetFileName());
-    if(FileExtManager::IsPHPFile(filename)) {
-        m_treeCtrlPhp->BuildTree(filename);
-    } else if(FileExtManager::IsCxxFile(filename)) {
-        clDEBUG() << "Outline: editor saved";
-        m_tree->BuildTree(filename, true);
-    }
+    ClearView();
 }
 
-void OutlineTab::OnPhpItemActivated(wxTreeEvent& event)
+void OutlineTab::ClearView()
 {
-    event.Skip();
-    m_treeCtrlPhp->ItemSelected(event.GetItem(), true);
+    // clear the view
+    m_currentSymbolsFileName.clear();
+    m_dvListCtrl->DeleteAllItems();
+    m_symbols.clear();
 }
 
-void OutlineTab::OnSortAlpha(wxCommandEvent& event)
+void OutlineTab::OnItemSelected(wxDataViewEvent& event)
 {
-    m_sortCxxTreeAlphabetically = event.IsChecked();
-    clConfig::Get().Write("OutlineView/SortCxxAlphabetically", m_sortCxxTreeAlphabetically);
-    m_tree->SetSortByLineNumber(!m_sortCxxTreeAlphabetically);
-    CallAfter(&OutlineTab::DoRefreshCxxView);
-}
+    auto item = event.GetItem();
+    CHECK_ITEM_RET(item);
 
-void OutlineTab::OnSortAlphaUI(wxUpdateUIEvent& event) { event.Check(m_sortCxxTreeAlphabetically); }
+    // select the line
+    SymbolInformation* psi = reinterpret_cast<SymbolInformation*>(m_dvListCtrl->GetItemData(item));
+    CHECK_PTR_RET(psi);
 
-void OutlineTab::DoRefreshCxxView()
-{
-    wxFileName fn = m_tree->GetFilename();
-    m_tree->Clear();
-    m_tree->BuildTree(fn, true);
-}
+    auto editor = clGetManager()->GetActiveEditor();
+    CHECK_PTR_RET(editor);
 
-void OutlineTab::EditorChanged()
-{
-    CHECK_ENABLED();
-    IEditor* editor = m_mgr->GetActiveEditor();
-    LexerConf::Ptr_t phpLexer = ColoursAndFontsManager::Get().GetLexer("php");
-    LexerConf::Ptr_t cxxLexer = ColoursAndFontsManager::Get().GetLexer("c++");
+    int line_number = psi->GetLocation().GetRange().GetStart().GetLine();
+    CHECK_EXPECTED_RETURN(line_number >= 0, true);
 
-    clDEBUG() << "Outline: editor changed event";
+    // make sure this line is not folded
+    editor->GetCtrl()->EnsureVisible(line_number);
+    // center the editor around it
+    editor->CenterLine(line_number);
 
-    // Use the lexer to determine if we can show outline
-    if(editor && cxxLexer && FileExtManager::IsCxxFile(editor->GetFileName())) {
-        m_tree->BuildTree(editor->GetFileName(), true);
-        m_simpleBook->SetSelection(OUTLINE_TAB_CXX);
-        m_textCtrlSearch->Enable(true);
-
-    } else if(editor && phpLexer && FileExtManager::IsPHPFile(editor->GetFileName())) {
-        m_tree->Clear();
-        m_treeCtrlPhp->BuildTree(editor->GetFileName());
-        m_simpleBook->SetSelection(OUTLINE_TAB_PHP);
-        m_textCtrlSearch->Enable(true);
-
-    } else {
-        if(editor) { clDEBUG() << "Could not match an Outline to file:" << editor->GetFileName(); }
-        m_simpleBook->SetSelection(OUTLINE_PLACE_HOLDER_PAGE);
-        m_textCtrlSearch->Enable(false);
-    }
+    // set the focus to the editor
+    editor->GetCtrl()->CallAfter(&wxStyledTextCtrl::SetFocus);
 }

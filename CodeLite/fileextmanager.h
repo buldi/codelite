@@ -23,17 +23,18 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __fileextmanager__
-#define __fileextmanager__
+#ifndef __FILEEXTMANAGER__
+#define __FILEEXTMANAGER__
 
-#include <wx/filename.h>
-#include <wx/string.h>
-#include <map>
 #include "codelite_exports.h"
-#include <wx/regex.h>
 #include "smart_ptr.h"
-#include <vector>
 #include "wxStringHash.h"
+
+#include <map>
+#include <vector>
+#include <wx/filename.h>
+#include <wx/regex.h>
+#include <wx/string.h>
 
 class WXDLLIMPEXP_CL FileExtManager
 {
@@ -61,22 +62,24 @@ public:
         TypeExe,
         TypeHtml,
         TypeArchive,
+        TypeZip,
         TypeDll,
         TypeBmp,
         TypeSvg,
         TypeMakefile,
         TypeText,
-        TypeScript,
+        TypeShellScript,
         TypeWxCrafter,
         TypeXRC,
         TypeSQL,
         TypeFolder,
-        TypeFolderExpanded, // For UI purposes only
-        TypeProjectActive,  // For UI purposes only
-        TypeProjectExpanded, // For UI purposes only
-        TypeWorkspaceFolder, // For UI purposes only
+        TypeFolderExpanded,          // For UI purposes only
+        TypeProjectActive,           // For UI purposes only
+        TypeProjectExpanded,         // For UI purposes only
+        TypeWorkspaceFolder,         // For UI purposes only
         TypeWorkspaceFolderExpanded, // For UI purposes only
         TypeWorkspacePHP,
+        TypeWorkspaceFileSystem,
         TypeWorkspaceDocker,
         TypeWorkspaceNodeJS,
         TypeWorkspacePHPTags,
@@ -88,12 +91,36 @@ public:
         TypeDockerfile,
         TypeYAML,
         TypeDatabase,
+        TypeFileSymlink,
+        TypeFolderSymlink,
+        TypeFolderSymlinkExpanded, // For UI purposes only
+        TypeLua,
+        TypeRust,
+        TypeRuby,
+        TypeDiff,
+        TypePatch,
+        TypeJSON,
+        TypeMarkdown,
+        TypeDart,
+        TypePhar,
+        TypeSLite,
+        TypeTar,
+        TypeTcl,
         TypeLast,
     };
 
 public:
     static FileType GetType(const wxString& filename, FileExtManager::FileType defaultType = FileExtManager::TypeOther);
     static void Init();
+
+    static bool IsSymlinkFolder(const wxString& filename);
+    static bool IsSymlinkFolder(const wxFileName& filename) { return IsSymlinkFolder(filename.GetFullPath()); }
+
+    static bool IsSymlinkFile(const wxString& filename);
+    static bool IsSymlinkFile(const wxFileName& filename) { return IsSymlinkFile(filename.GetFullPath()); }
+
+    static bool IsSymlink(const wxString& filename) { return IsSymlinkFolder(filename) || IsSymlinkFile(filename); }
+    static bool IsSymlink(const wxFileName& filename) { return IsSymlinkFolder(filename) || IsSymlinkFile(filename); }
 
     /**
      * @brief return true if the file is a C/C++ file
@@ -132,6 +159,10 @@ public:
      * @brief attempt to autodetect the file type by examining its content
      */
     static bool AutoDetectByContent(const wxString& filename, FileExtManager::FileType& fileType);
+    /**
+     * @brief given input string, return the content type
+     */
+    static bool GetContentType(const wxString& string_content, FileExtManager::FileType& fileType);
 
     /**
      * @brief return the file type only by checking its extension
@@ -141,6 +172,18 @@ public:
         return GetTypeFromExtension(wxFileName(filename));
     }
     static FileExtManager::FileType GetTypeFromExtension(const wxFileName& filename);
+
+    /**
+     * @brief return map of all supported file types
+     * the returned map contains pairs of file extension -> FileType enumerator
+     */
+    static std::unordered_map<wxString, FileExtManager::FileType> GetAllSupportedFileTypes();
+    /**
+     * @brief return map of file types grouped by languages
+     */
+    static std::unordered_map<wxString, std::vector<FileExtManager::FileType>> GetLanguageBundles();
+
+    static wxString GetLanguageFromType(FileExtManager::FileType file_type);
 };
 
 #endif // __fileextmanager__

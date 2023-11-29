@@ -1,8 +1,10 @@
-#include "clTableLineEditorDlg.h"
 #include "clTableWithPagination.h"
+
+#include "clTableLineEditorDlg.h"
 #include "clThemedListCtrl.h"
 #include "globals.h"
 #include "macros.h"
+
 #include <wx/dataview.h>
 #include <wx/sizer.h>
 
@@ -78,11 +80,15 @@ void clTableWithPagination::ClearAll()
 void clTableWithPagination::ShowPage(int nPage)
 {
     m_ctrl->DeleteAllItems();
-    if(m_data.empty()) return;
+    if(m_data.empty())
+        return;
     int startIndex = (nPage * m_linesPerPage);
     int lastIndex = startIndex + m_linesPerPage - 1; // last index, including
-    if(lastIndex >= (int)m_data.size()) { lastIndex = (m_data.size() - 1); }
+    if(lastIndex >= (int)m_data.size()) {
+        lastIndex = (m_data.size() - 1);
+    }
     m_currentPage = nPage;
+    m_ctrl->Begin();
     for(int i = startIndex; i <= lastIndex; ++i) {
         wxVector<wxVariant> cols;
         const wxArrayString& items = m_data[i];
@@ -92,7 +98,7 @@ void clTableWithPagination::ShowPage(int nPage)
         }
         m_ctrl->AppendItem(cols, (wxUIntPtr)&items);
     }
-
+    m_ctrl->Commit();
     m_staticText->SetLabel(wxString() << _("Showing entries from: ") << startIndex << _(":") << lastIndex
                                       << " Total of: " << m_data.size() << _(" entries"));
 }

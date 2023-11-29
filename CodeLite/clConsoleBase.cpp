@@ -1,16 +1,20 @@
 #include "clConsoleBase.h"
+
+#include "clConsoleAlacritty.hpp"
 #include "clConsoleCMD.h"
 #include "clConsoleGnomeTerminal.h"
+#include "clConsoleKitty.hpp"
 #include "clConsoleKonsole.h"
 #include "clConsoleLXTerminal.h"
-#include "clConsoleQTerminal.h"
 #include "clConsoleMateTerminal.h"
 #include "clConsoleOSXTerminal.h"
-#include "clConsoleXfce4Terminal.h"
+#include "clConsoleQTerminal.h"
 #include "clConsoleRXVTerminal.h"
-#include "clConsoleCodeLiteTerminal.h"
+#include "clConsoleXfce4Terminal.h"
 #include "cl_config.h"
 #include "file_logger.h"
+#include "fileutils.h"
+
 #include <algorithm>
 #include <wx/utils.h>
 
@@ -49,14 +53,18 @@ clConsoleBase::Ptr_t clConsoleBase::GetTerminal()
     clConsoleBase::Ptr_t terminal;
     wxString terminalName = GetSelectedTerminalName();
 #ifdef __WXMSW__
-    if(terminalName.CmpNoCase("codelite-terminal") == 0) {
-        terminal.reset(new clConsoleCodeLiteTerminal());
+    if(terminalName.CmpNoCase("alacritty") == 0) {
+        terminal.reset(new clConsoleAlacritty());
     } else {
         terminal.reset(new clConsoleCMD());
     }
 #elif defined(__WXGTK__)
     if(terminalName.CmpNoCase("konsole") == 0) {
         terminal.reset(new clConsoleKonsole());
+    } else if(terminalName.CmpNoCase("alacritty") == 0) {
+        terminal.reset(new clConsoleAlacritty());
+    } else if(terminalName.CmpNoCase("kitty") == 0) {
+        terminal.reset(new clConsoleKitty());
     } else if(terminalName.CmpNoCase("lxterminal") == 0) {
         terminal.reset(new clConsoleLXTerminal());
     } else if(terminalName.CmpNoCase("mate-terminal") == 0) {
@@ -67,19 +75,19 @@ clConsoleBase::Ptr_t clConsoleBase::GetTerminal()
         terminal.reset(new clConsoleQTerminal());
     } else if(terminalName.CmpNoCase("rxvt-unicode") == 0) {
         terminal.reset(new clConsoleRXVTTerminal());
-    } else if(terminalName.CmpNoCase("codelite-terminal") == 0) {
-        terminal.reset(new clConsoleCodeLiteTerminal());
     } else {
         // the default terminal is "gnome-terminal"
         terminal.reset(new clConsoleGnomeTerminal());
     }
 #else
-    if(terminalName.CmpNoCase("codelite-terminal") == 0) {
-        terminal.reset(new clConsoleCodeLiteTerminal());
-    } else {
-        clConsoleOSXTerminal* t = new clConsoleOSXTerminal();
-        terminal.reset(t);
-        if(terminalName.CmpNoCase("iTerm2") == 0) { t->SetTerminalApp("iTerm"); }
+    clConsoleOSXTerminal* t = new clConsoleOSXTerminal();
+    terminal.reset(t);
+    if(terminalName.CmpNoCase("iTerm2") == 0) {
+        t->SetTerminalApp("iTerm");
+    } else if(terminalName.CmpNoCase("alacritty") == 0) {
+        terminal.reset(new clConsoleAlacritty());
+    } else if(terminalName.CmpNoCase("kitty") == 0) {
+        terminal.reset(new clConsoleKitty());
     }
 #endif
     return terminal;
@@ -98,11 +106,13 @@ wxArrayString clConsoleBase::GetAvailaleTerminals()
     terminals.Add("qterminal");
     terminals.Add("xfce4-terminal");
     terminals.Add("rxvt-unicode");
+    terminals.Add("Kitty");
 #else
     terminals.Add("Terminal");
     terminals.Add("iTerm2");
+    terminals.Add("Kitty");
 #endif
-    terminals.Add("codelite-terminal");
+    terminals.Add("alacritty");
     return terminals;
 }
 
@@ -124,7 +134,9 @@ wxString clConsoleBase::WrapWithQuotesIfNeeded(const wxString& s) const
 {
     wxString strimmed = s;
     strimmed.Trim().Trim(false);
-    if(strimmed.Contains(" ")) { strimmed.Prepend("\"").Append("\""); }
+    if(strimmed.Contains(" ")) {
+        strimmed.Prepend("\"").Append("\"");
+    }
     return strimmed;
 }
 
@@ -137,6 +149,10 @@ wxString clConsoleBase::EscapeString(const wxString& str, const wxString& c) con
 
 bool clConsoleBase::StartProcess(const wxString& command)
 {
+    // Apply the environment variables before we launch the process
+    clConsoleEnvironment env(GetEnvironment());
+    env.Apply();
+
     wxProcess* callback = nullptr;
     if(m_callback) {
         // user provided callback
@@ -145,6 +161,8 @@ bool clConsoleBase::StartProcess(const wxString& command)
         // using events. This object will get deleted when the process exits
         callback = new ConsoleProcess(m_sink, m_callbackUID);
     }
+
+    clDEBUG() << "Console: running command: `" << command << "`" << endl;
 
     SetPid(::wxExecute(command, wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER | GetExecExtraFlags(), callback));
     // reset the m_callback (it will auto-delete itself)
@@ -157,8 +175,9 @@ bool clConsoleBase::StartProcess(const wxString& command)
 wxString clConsoleBase::GetSelectedTerminalName()
 {
     wxString terminalName = clConfig::Get().Read("Terminal", wxString());
-    if(terminalName.IsEmpty()) {
+    if(terminalName.empty()) {
 #ifdef __WXGTK__
+        wxFileName file;
         terminalName = "gnome-terminal";
 #elif defined(__WXOSX__)
         terminalName = "Terminal";
@@ -185,7 +204,9 @@ void clConsoleEnvironment::Apply()
         clWARNING() << "Refusing to apply environment. Already in a dirty state";
         return;
     }
-    if(m_environment.empty()) { return; }
+    if(m_environment.empty()) {
+        return;
+    }
 
     // keep a copy of the old environment before we apply the new values
     m_oldEnvironment.clear();
@@ -202,7 +223,9 @@ void clConsoleEnvironment::Apply()
 
 void clConsoleEnvironment::UnApply()
 {
-    if(m_oldEnvironment.empty()) { return; }
+    if(m_oldEnvironment.empty()) {
+        return;
+    }
     std::for_each(m_oldEnvironment.begin(), m_oldEnvironment.end(), [&](const wxStringMap_t::value_type& vt) {
         if(vt.second == "__no_such_env__") {
             ::wxUnsetEnv(vt.second);
@@ -218,11 +241,13 @@ clConsoleEnvironment::clConsoleEnvironment(const wxStringMap_t& env)
 {
 }
 
-#define ADD_CURRENT_TOKEN()                                  \
-    if(!curtoken.IsEmpty()) {                                \
-        curtoken.Trim().Trim(false);                         \
-        if(!curtoken.IsEmpty()) { outputArr.Add(curtoken); } \
-        curtoken.Clear();                                    \
+#define ADD_CURRENT_TOKEN()          \
+    if(!curtoken.IsEmpty()) {        \
+        curtoken.Trim().Trim(false); \
+        if(!curtoken.IsEmpty()) {    \
+            outputArr.Add(curtoken); \
+        }                            \
+        curtoken.Clear();            \
     }
 
 wxArrayString clConsoleBase::SplitArguments(const wxString& args)
@@ -281,4 +306,31 @@ wxArrayString clConsoleBase::SplitArguments(const wxString& args)
     // if we still got some unprocessed token, add it
     ADD_CURRENT_TOKEN();
     return outputArr;
+}
+
+void clConsoleBase::SetEnvironment(const clEnvList_t& environment)
+{
+    // convert the list into map
+    m_environment.clear();
+    for(const auto& p : environment) {
+        m_environment.insert({ p.first, p.second });
+    }
+}
+
+void clConsoleBase::MacAddArgsIfNeeded(wxString* outcmd)
+{
+    if(!IsTerminalNeeded()) {
+        return;
+    }
+
+#ifndef __WXMAC__
+    wxUnusedVar(outcmd);
+#else
+    if(!GetWorkingDirectory().empty() || !GetCommand().empty()) {
+        if(!outcmd->empty()) {
+            *outcmd << " ";
+        }
+        *outcmd << "--args ";
+    }
+#endif
 }

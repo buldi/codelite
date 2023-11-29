@@ -25,30 +25,85 @@
 #ifndef LEXER_CONFIGURATION_H
 #define LEXER_CONFIGURATION_H
 
-#include "wx/string.h"
-#include "wx/filename.h"
-#include "attribute_style.h"
-#include "wx/xml/xml.h"
-#include <wx/font.h>
-#include "codelite_exports.h"
-#include <wx/stc/stc.h>
-#include <wx/sharedptr.h>
-#include <smart_ptr.h>
 #include "JSON.h"
+#include "attribute_style.h"
+#include "codelite_exports.h"
+#include "wx/filename.h"
+#include "wx/string.h"
+#include "wx/xml/xml.h"
+
+#include <smart_ptr.h>
+#include <wx/font.h>
+#include <wx/sharedptr.h>
+#include <wx/stc/stc.h>
 
 #define ANNOTATION_STYLE_WARNING 210
 #define ANNOTATION_STYLE_ERROR 211
 #define ANNOTATION_STYLE_CC_ERROR 212
 
+#define INDICATOR_DEBUGGER 11
+#define INDICATOR_MATCH 10
+#define INDICATOR_WORD_HIGHLIGHT 2
+#define INDICATOR_USER 3
+#define INDICATOR_HYPERLINK 4
+#define INDICATOR_FIND_BAR_WORD_HIGHLIGHT 5
+#define INDICATOR_CONTEXT_WORD_HIGHLIGHT 6
+
+struct WXDLLIMPEXP_SDK WordSetIndex {
+    int index = wxNOT_FOUND;
+    // when set to true, the `index` is the style to which we append substyles
+    bool is_substyle = false;
+    WordSetIndex(int idx, bool b)
+        : index(idx)
+        , is_substyle(b)
+    {
+    }
+    WordSetIndex() {}
+    JSONItem to_json() const
+    {
+        auto item = JSONItem::createObject();
+        item.addProperty("index", index);
+        item.addProperty("is_substyle", is_substyle);
+        return item;
+    }
+
+    void from_json(const JSONItem& json)
+    {
+        if(json.isNumber()) {
+            // old style, for migration purposes
+            index = json.toInt(wxNOT_FOUND);
+        } else {
+            index = json["index"].toInt(wxNOT_FOUND);
+            is_substyle = json["is_substyle"].toBool(false);
+        }
+    }
+
+    bool is_ok() const { return index != wxNOT_FOUND; }
+};
+
 class WXDLLIMPEXP_SDK LexerConf
 {
-    StyleProperty::Map_t m_properties;
+public:
+    enum eWordSetIndex {
+        WS_FIRST = 0,
+        WS_CLASS = WS_FIRST,
+        WS_FUNCTIONS,
+        WS_VARIABLES,
+        WS_OTHERS,
+        WS_LAST = WS_OTHERS,
+    };
+
+private:
+    StyleProperty::Vec_t m_properties;
     int m_lexerId;
     wxString m_name;
     wxString m_extension;
     wxString m_keyWords[10];
     wxString m_themeName;
-    size_t m_flags;
+    size_t m_flags = 0;
+
+    WordSetIndex m_wordSets[4];
+    int m_substyleBase = wxNOT_FOUND;
 
 public:
     typedef SmartPtr<LexerConf> Ptr_t;
@@ -89,11 +144,9 @@ public:
     };
 
 public:
-    // Return an xml representation from this object
-    wxXmlNode* ToXml() const;
-
-    // Parse lexer object from xml node
-    void FromXml(wxXmlNode* node);
+    void SetSubstyleBase(int style) { m_substyleBase = style; }
+    int GetSubStyleBase() const { return m_substyleBase; }
+    bool IsSubstyleSupported() const { return m_substyleBase != wxNOT_FOUND; }
 
     /**
      * @brief convert the lexer settings into a JSON object
@@ -105,6 +158,10 @@ public:
      * @param json
      */
     void FromJSON(const JSONItem& json);
+
+    void SetWordSet(eWordSetIndex index, const WordSetIndex& word_set) { this->m_wordSets[index] = word_set; }
+    const WordSetIndex& GetWordSet(eWordSetIndex index) const { return m_wordSets[index]; }
+    void ApplyWordSet(wxStyledTextCtrl* ctrl, eWordSetIndex index, const wxString& keywords);
 
 public:
     LexerConf();
@@ -131,14 +188,25 @@ public:
     void Apply(wxStyledTextCtrl* ctrl, bool applyKeywords = false);
 
     /**
+     * @brief apply the current lexer configuration on an input
+     * wxStyledTextCtrl
+     */
+    void ApplyFont(wxWindow* cb);
+
+    /**
+     * @brief similar to `Apply`, but use the system colours instead of the theme colours
+     */
+    void ApplySystemColours(wxStyledTextCtrl* ctrl);
+
+    /**
      * Get the lexer ID, which should be in sync with values of Scintilla
-     * \return
+     * @return
      */
     int GetLexerId() const { return m_lexerId; }
 
     /**
      * Set the lexer ID
-     * \param id
+     * @param id
      */
     void SetLexerId(int id) { m_lexerId = id; }
 
@@ -150,7 +218,7 @@ public:
     void SetName(const wxString& name) { m_name = name; }
     /**
      * Return the lexer keywords
-     * \return
+     * @return
      */
     const wxString& GetKeyWords(int set) const { return m_keyWords[set]; }
 
@@ -162,15 +230,15 @@ public:
     const wxString& GetFileSpec() const { return m_extension; }
     /**
      * Return a list of the lexer properties
-     * \return
+     * @return
      */
-    const StyleProperty::Map_t& GetLexerProperties() const { return m_properties; }
+    const StyleProperty::Vec_t& GetLexerProperties() const { return m_properties; }
 
     /**
      * Return a list of the lexer properties
-     * \return
+     * @return
      */
-    StyleProperty::Map_t& GetLexerProperties() { return m_properties; }
+    StyleProperty::Vec_t& GetLexerProperties() { return m_properties; }
 
     /**
      * @brief return property. Check for IsNull() to make sure we got a valid property
@@ -192,12 +260,12 @@ public:
 
     /**
      * Set the lexer properties
-     * \param &properties
+     * @param &properties
      */
-    void SetProperties(StyleProperty::Map_t& properties) { m_properties.swap(properties); }
+    void SetProperties(StyleProperty::Vec_t& properties) { m_properties.swap(properties); }
     /**
      * Set file spec for the lexer
-     * \param &spec
+     * @param &spec
      */
     void SetFileSpec(const wxString& spec) { m_extension = spec; }
 
@@ -205,7 +273,7 @@ public:
      * @brief return the font for a given style id
      * @return return wxNullFont if error occurred or could locate the style
      */
-    wxFont GetFontForSyle(int styleId) const;
+    wxFont GetFontForStyle(int styleId, const wxWindow* win) const;
 };
 
 #endif // LEXER_CONFIGURATION_H

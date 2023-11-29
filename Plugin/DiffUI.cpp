@@ -63,7 +63,9 @@ DiffSelectFoldersBaseDlg::DiffSelectFoldersBaseDlg(wxWindow* parent, wxWindowID 
 
     SetName(wxT("DiffSelectFoldersBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -87,7 +89,7 @@ DiffSelectFoldersBaseDlg::~DiffSelectFoldersBaseDlg()
 
 DiffFoldersBaseDlg::DiffFoldersBaseDlg(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos,
                                        const wxSize& size, long style)
-    : wxDialog(parent, id, title, pos, size, style)
+    : wxFrame(parent, id, title, pos, size, style)
 {
     if(!bBitmapLoaded) {
         // We need to initialise the default bitmap handler
@@ -123,7 +125,9 @@ DiffFoldersBaseDlg::DiffFoldersBaseDlg(wxWindow* parent, wxWindowID id, const wx
 
     SetName(wxT("DiffFoldersBaseDlg"));
     SetSize(wxDLG_UNIT(this, wxSize(500, 300)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {

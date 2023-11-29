@@ -1,6 +1,8 @@
 #include "CxxTokenizer.h"
-#include <stack>
+
 #include "CxxScannerTokens.h"
+
+#include <stack>
 
 #define SCP_STATE_NORMAL 0
 #define SCP_STATE_IN_IF 1
@@ -23,9 +25,19 @@ CxxTokenizer::~CxxTokenizer()
 
 bool CxxTokenizer::NextToken(CxxLexerToken& token)
 {
-    if(!m_scanner) return false;
+    if(!m_scanner)
+        return false;
     m_lastToken = token;
     return ::LexerNext(m_scanner, token);
+}
+
+bool CxxTokenizer::UngetToken()
+{
+    if(!m_scanner) {
+        return false;
+    }
+    ::LexerUnget(m_scanner);
+    return true;
 }
 
 void CxxTokenizer::Reset(const wxString& buffer)
@@ -96,7 +108,7 @@ wxString CxxTokenizer::GetVisibleScope(const wxString& inputString)
     wxString currentScope;
     int parenthesisDepth = 0;
     int state = SCP_STATE_NORMAL;
-    CppLexerUserData *scannerData = GetUserData();
+    CppLexerUserData* scannerData = GetUserData();
     while(NextToken(token)) {
         // Skip pre-processor block
         if(scannerData && scannerData->IsInPreProcessorSection()) {
@@ -113,7 +125,8 @@ wxString CxxTokenizer::GetVisibleScope(const wxString& inputString)
                 currentScope.clear();
                 break;
             case '}':
-                if(scopes.empty()) return ""; // Invalid braces count
+                if(scopes.empty())
+                    return ""; // Invalid braces count
                 currentScope = scopes.top();
                 scopes.pop();
                 currentScope << "} ";
@@ -244,12 +257,64 @@ wxString CxxTokenizer::GetVisibleScope(const wxString& inputString)
 
 CppLexerUserData* CxxTokenizer::GetUserData() const
 {
-    if(!m_scanner) return NULL;
+    if(!m_scanner)
+        return NULL;
     return ::LexerGetUserData(m_scanner);
 }
 
 bool CxxTokenizer::IsInPreProcessorSection() const
 {
-    if(!GetUserData()) return false;
+    if(!GetUserData())
+        return false;
     return GetUserData()->IsInPreProcessorSection();
+}
+
+void CxxTokenizer::read_until_find(CxxLexerToken& token, int type_1, int type_2, int* what_was_found,
+                                   wxString* consumed)
+{
+    int depth = 0;
+    consumed->clear();
+    *what_was_found = 0;
+    consumed->reserve(256); // 256 bytes should be enough for most cases
+
+    while(NextToken(token)) {
+        if(depth == 0 && token.GetType() == type_1) {
+            *what_was_found = type_1;
+            consumed->Trim().Trim(false);
+            return;
+        } else if(depth == 0 && token.GetType() == type_2) {
+            *what_was_found = type_2;
+            consumed->Trim().Trim(false);
+            return;
+        }
+
+        if(token.is_keyword() || token.is_builtin_type()) {
+            consumed->Append(token.GetWXString() + " ");
+            continue;
+        } else if(token.is_pp_keyword()) {
+            continue;
+        }
+
+        // append it
+        consumed->Append(token.GetWXString());
+        switch(token.GetType()) {
+        case '<':
+        case '{':
+        case '[':
+        case '(':
+            depth++;
+            break;
+        case '>':
+        case '}':
+        case ']':
+        case ')':
+            depth--;
+            break;
+        default:
+            break;
+        }
+    }
+
+    // eof
+    consumed->Trim().Trim(false);
 }

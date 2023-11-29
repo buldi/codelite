@@ -27,31 +27,41 @@
 #define CXXPREPROCESSOR_H
 
 #include "CxxLexerAPI.h"
-#include <wx/filename.h>
 #include "CxxPreProcessorScanner.h"
-#include <set>
 #include "codelite_exports.h"
+#include <set>
+#include <wx/filename.h>
 
 class WXDLLIMPEXP_CL CxxPreProcessor
 {
     CxxPreProcessorToken::Map_t m_tokens;
     wxArrayString m_includePaths;
     std::set<wxString> m_noSuchFiles;
-    std::map<wxString, wxString> m_fileMapping;
+    std::unordered_map<wxString, wxString> m_fileMapping;
     size_t m_options;
     int m_maxDepth;
     int m_currentDepth;
 
 public:
     CxxPreProcessor();
+    CxxPreProcessor(const wxArrayString& search_paths, int maxDepth)
+        : m_includePaths(search_paths)
+        , m_options(0)
+        , m_maxDepth(maxDepth)
+        , m_currentDepth(0)
+    {
+    }
     virtual ~CxxPreProcessor();
 
     void SetMaxDepth(int maxDepth) { this->m_maxDepth = maxDepth; }
     int GetMaxDepth() const { return m_maxDepth; }
     void SetCurrentDepth(int currentDepth) { this->m_currentDepth = currentDepth; }
-    void SetFileMapping(const std::map<wxString, wxString>& fileMapping) { this->m_fileMapping = fileMapping; }
+    void SetFileMapping(const std::unordered_map<wxString, wxString>& fileMapping)
+    {
+        this->m_fileMapping = fileMapping;
+    }
     int GetCurrentDepth() const { return m_currentDepth; }
-    const std::map<wxString, wxString>& GetFileMapping() const { return m_fileMapping; }
+    const std::unordered_map<wxString, wxString>& GetFileMapping() const { return m_fileMapping; }
     void SetIncludePaths(const wxArrayString& includePaths);
     const wxArrayString& GetIncludePaths() const { return m_includePaths; }
 
@@ -94,19 +104,19 @@ public:
      * @return
      */
     wxArrayString GetDefinitions() const;
-    
+
     /**
-     * @brief return true if we can open another include file or not (depends on the max depts set 
+     * @brief return true if we can open another include file or not (depends on the max depts set
      * and the current depth)
-     * @return 
+     * @return
      */
     bool CanGoDeeper() const;
-    
+
     /**
      * @brief increase the current include depth
      */
     void IncDepth();
-    
+
     /**
      * @brief decrease the current include depth
      */

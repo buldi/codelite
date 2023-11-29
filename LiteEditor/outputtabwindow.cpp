@@ -22,7 +22,11 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "outputtabwindow.h"
+
+#include "clSTCHelper.hpp"
 #include "clToolBar.h"
+#include "cl_config.h"
 #include "editor_config.h"
 #include "event_notifier.h"
 #include "frame.h"
@@ -31,11 +35,10 @@
 #include "macros.h"
 #include "manager.h"
 #include "output_pane.h"
-#include "outputtabwindow.h"
 #include "pluginmanager.h"
 #include "quickfindbar.h"
+
 #include <wx/xrc/xmlres.h>
-#include "clThemeUpdater.h"
 
 BEGIN_EVENT_TABLE(OutputTabWindow, wxPanel)
 EVT_MENU(XRCID("scroll_on_output"), OutputTabWindow::OnOutputScrolls)
@@ -64,7 +67,6 @@ OutputTabWindow::OutputTabWindow(wxWindow* parent, wxWindowID id, const wxString
     , m_autoAppearErrors(false)
     , m_errorsFirstLine(false)
 {
-    clThemeUpdater::Get().RegisterWindow(this);
     m_styler.Reset(new clFindResultsStyler());
     CreateGUIControls();
     wxTheApp->Connect(wxID_COPY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutputTabWindow::OnEdit), NULL,
@@ -75,14 +77,11 @@ OutputTabWindow::OutputTabWindow(wxWindow* parent, wxWindowID id, const wxString
     wxTheApp->Connect(wxID_SELECTALL, wxEVT_UPDATE_UI, wxUpdateUIEventHandler(OutputTabWindow::OnEditUI), NULL, this);
     EventNotifier::Get()->Connect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(OutputTabWindow::OnThemeChanged), NULL,
                                   this);
-    m_themeHelper = new ThemeHandlerHelper(this);
 }
 
 OutputTabWindow::~OutputTabWindow()
 {
-    clThemeUpdater::Get().UnRegisterWindow(this);
     m_styler.Reset(NULL);
-    wxDELETE(m_themeHelper);
     EventNotifier::Get()->Disconnect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(OutputTabWindow::OnThemeChanged),
                                      NULL, this);
     wxTheApp->Disconnect(wxID_COPY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutputTabWindow::OnEdit), NULL,
@@ -112,7 +111,7 @@ void OutputTabWindow::InitStyle(wxStyledTextCtrl* sci, int lexer, bool folding)
     }
 
     wxFont defFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-    wxFont font = EditorConfigST::Get()->GetLexer("text")->GetFontForSyle(0);
+    wxFont font = EditorConfigST::Get()->GetLexer("text")->GetFontForStyle(0, sci);
     sci->StyleSetFont(0, font);
 
     sci->SetIndicatorCurrent(1);
@@ -178,6 +177,11 @@ void OutputTabWindow::CreateGUIControls()
     // Create the default scintilla control
     m_sci = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
 
+#if defined(__WXMSW__)
+    bool useDirect2D = clConfig::Get().Read("Editor/UseDirect2D", true);
+    m_sci->SetTechnology(useDirect2D ? wxSTC_TECHNOLOGY_DIRECTWRITE : wxSTC_TECHNOLOGY_DEFAULT);
+#endif
+
     // We dont really want to collect undo in the output tabs...
     m_sci->SetUndoCollection(false);
     m_sci->EmptyUndoBuffer();
@@ -186,23 +190,22 @@ void OutputTabWindow::CreateGUIControls()
 
     // Add the find bar
     mainSizer->Add(m_vSizer, 1, wxEXPAND | wxALL, 0);
-    BitmapLoader* bmpLoader = PluginManager::Get()->GetStdIcons();
 
     // Create the toolbar
     m_tb = new clToolBar(this);
-    m_tb->AddTool(XRCID("hold_pane_open"), _("Keep open"), bmpLoader->LoadBitmap("ToolPin"),
+    auto images = m_tb->GetBitmapsCreateIfNeeded();
+    m_tb->AddTool(XRCID("hold_pane_open"), _("Keep open"), images->Add("ToolPin"),
                   _("Don't close this pane when an editor gets focus"), wxITEM_CHECK);
 
-    m_tb->AddTool(XRCID("scroll_on_output"), _("Scroll on Output"), bmpLoader->LoadBitmap("link_editor"),
-                  _("Scroll on Output"), wxITEM_CHECK);
+    m_tb->AddTool(XRCID("scroll_on_output"), _("Scroll on Output"), images->Add("link_editor"), _("Scroll on Output"),
+                  wxITEM_CHECK);
     m_tb->ToggleTool(XRCID("scroll_on_output"), m_outputScrolls);
 
-    m_tb->AddTool(XRCID("word_wrap_output"), _("Word Wrap"), bmpLoader->LoadBitmap("word_wrap"), _("Word Wrap"),
-                  wxITEM_CHECK);
+    m_tb->AddTool(XRCID("word_wrap_output"), _("Word Wrap"), images->Add("word_wrap"), _("Word Wrap"), wxITEM_CHECK);
 
-    m_tb->AddTool(XRCID("clear_all_output"), _("Clear All"), bmpLoader->LoadBitmap("clear"), _("Clear All"));
-    m_tb->AddTool(XRCID("collapse_all"), _("Fold All Results"), bmpLoader->LoadBitmap("fold"), _("Fold All Results"));
-    m_tb->AddTool(XRCID("repeat_output"), _("Repeat"), bmpLoader->LoadBitmap("debugger_restart"), _("Repeat"));
+    m_tb->AddTool(XRCID("clear_all_output"), _("Clear All"), images->Add("clear"), _("Clear All"));
+    m_tb->AddTool(XRCID("collapse_all"), _("Fold All Results"), images->Add("fold"), _("Fold All Results"));
+    m_tb->AddTool(XRCID("repeat_output"), _("Repeat"), images->Add("debugger_restart"), _("Repeat"));
 
     m_tb->Realize();
 
@@ -223,42 +226,30 @@ void OutputTabWindow::Clear()
     }
 }
 
-void OutputTabWindow::AppendText(const wxString& text)
+void OutputTabWindow::AppendText(const wxString& text, bool toggle_view)
 {
-    if(m_sci) {
-        if(m_autoAppear && m_sci->GetLength() == 0) { ManagerST::Get()->ShowOutputPane(m_name); }
+    CHECK_PTR_RET(m_sci);
+    if(toggle_view && m_autoAppear && m_sci->GetLength() == 0) {
+        ManagerST::Get()->ShowOutputPane(m_name, true, false);
+    }
 
-        //----------------------------------------------
-        // enable writing
-        m_sci->SetReadOnly(false);
+    //----------------------------------------------
+    // enable writing
+    m_sci->SetReadOnly(false);
 
-        if(m_outputScrolls) {
-            // the next 4 lines make sure that the caret is at last line
-            // and is visible
-            m_sci->SetSelectionEnd(m_sci->GetLength());
-            m_sci->SetSelectionStart(m_sci->GetLength());
-            m_sci->SetCurrentPos(m_sci->GetLength());
-            m_sci->EnsureCaretVisible();
-        }
+    // Strip any terminal escape chars from the buffer
+    wxString modText;
+    ::clStripTerminalColouring(text, modText);
 
-        // Strip any terminal escape chars from the buffer
-        wxString modText;
-        ::clStripTerminalColouring(text, modText);
+    // add the text
+    m_sci->InsertText(m_sci->GetLength(), modText);
 
-        // add the text
-        m_sci->InsertText(m_sci->GetLength(), modText);
+    // enable readonly mode
+    m_sci->SetReadOnly(true);
 
-        if(m_outputScrolls) {
-            // the next 4 lines make sure that the caret is at last line
-            // and is visible
-            m_sci->SetSelectionEnd(m_sci->GetLength());
-            m_sci->SetSelectionStart(m_sci->GetLength());
-            m_sci->SetCurrentPos(m_sci->GetLength());
-            m_sci->EnsureCaretVisible();
-        }
-
-        // enable readonly mode
-        m_sci->SetReadOnly(true);
+    if(m_outputScrolls) {
+        m_sci->ScrollToEnd();
+        clSTCHelper::SetCaretAt(m_sci, m_sci->GetLastPosition());
     }
 }
 
@@ -276,7 +267,9 @@ void OutputTabWindow::OnClearAllUI(wxUpdateUIEvent& e) { e.Enable(m_sci && m_sci
 
 void OutputTabWindow::OnWordWrap(wxCommandEvent& e)
 {
-    if(m_sci) { m_sci->SetWrapMode(e.IsChecked() ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE); }
+    if(m_sci) {
+        m_sci->SetWrapMode(e.IsChecked() ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE);
+    }
 }
 
 void OutputTabWindow::OnWordWrapUI(wxUpdateUIEvent& e)
@@ -299,7 +292,9 @@ void OutputTabWindow::OnCollapseAll(wxCommandEvent& e)
         for(int pass = 0; pass < 2 && !done; pass++) {
             for(int line = 0; line < maxLine; line++) {
                 // Only test fold-header lines, otherwise we get false positives from "=== Searching for..."
-                if(!(m_sci->GetFoldLevel(line) & wxSTC_FOLDLEVELHEADERFLAG)) { continue; }
+                if(!(m_sci->GetFoldLevel(line) & wxSTC_FOLDLEVELHEADERFLAG)) {
+                    continue;
+                }
                 int foldLevel = (m_sci->GetFoldLevel(line) & wxSTC_FOLDLEVELNUMBERMASK);
                 if(foldLevel == 2 && m_sci->GetFoldExpanded(line) == !pass) {
                     m_sci->ToggleFold(line);
@@ -322,7 +317,9 @@ void OutputTabWindow::OnHotspotClicked(wxStyledTextEvent& e) { OnMouseDClick(e);
 
 void OutputTabWindow::OnMarginClick(wxStyledTextEvent& e)
 {
-    if(m_sci && e.GetMargin() == 4) { m_sci->ToggleFold(m_sci->LineFromPosition(e.GetPosition())); }
+    if(m_sci && e.GetMargin() == 4) {
+        m_sci->ToggleFold(m_sci->LineFromPosition(e.GetPosition()));
+    }
 }
 
 bool OutputTabWindow::IsFocused()
@@ -333,7 +330,9 @@ bool OutputTabWindow::IsFocused()
 
 void OutputTabWindow::OnEditUI(wxUpdateUIEvent& e)
 {
-    if(!IsFocused() || !m_sci) { return; }
+    if(!IsFocused() || !m_sci) {
+        return;
+    }
 
     switch(e.GetId()) {
     case wxID_COPY:
@@ -378,5 +377,19 @@ void OutputTabWindow::OnToggleHoldOpen(wxCommandEvent& e)
 void OutputTabWindow::OnThemeChanged(wxCommandEvent& e)
 {
     e.Skip();
-    if(m_sci) { InitStyle(m_sci, m_sci->GetLexer(), m_sci->GetMarginWidth(4) == 6); }
+    if(m_sci) {
+        InitStyle(m_sci, m_sci->GetLexer(), m_sci->GetMarginWidth(4) == 6);
+    }
+}
+
+void OutputTabWindow::ScrollToBottom()
+{
+    CHECK_PTR_RET(m_sci);
+
+    // the next 4 lines make sure that the caret is at last line
+    // and is visible
+    m_sci->SetSelectionEnd(m_sci->GetLength());
+    m_sci->SetSelectionStart(m_sci->GetLength());
+    m_sci->SetCurrentPos(m_sci->GetLength());
+    m_sci->EnsureCaretVisible();
 }

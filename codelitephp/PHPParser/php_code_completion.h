@@ -34,11 +34,11 @@
 #include "php_event.h"
 #include "precompiled_header.h"
 #include "wxStringHash.h"
+
 #include <cc_box_tip_window.h>
 #include <cl_command_event.h>
 #include <smart_ptr.h>
 #include <vector>
-#include "ServiceProvider.h"
 
 struct PHPLocation {
     wxString what;     // Token name
@@ -49,8 +49,8 @@ struct PHPLocation {
 };
 
 class IManager;
-class ResourceItem;
-class PHPCodeCompletion : public ServiceProvider
+struct ResourceItem;
+class PHPCodeCompletion : public wxEvtHandler
 {
 public:
     enum {
@@ -71,8 +71,9 @@ protected:
     PHPLookupTable m_lookupTable;
     std::unordered_map<wxString, PHPEntityBase::Ptr_t> m_currentNavBarFunctions;
 
-    static bool CanCodeComplete(clCodeCompletionEvent& e);
+    static bool CanCodeComplete(clCodeCompletionEvent& e, IEditor* editor);
     void DoShowCompletionBox(const PHPEntityBase::List_t& entries, PHPExpression::Ptr_t expr);
+    IEditor* GetEditor(const wxString& filepath) const;
 
 protected:
     /**
@@ -100,9 +101,7 @@ private:
     void OnInsertDoxyBlock(clCodeCompletionEvent& e);
     void OnRetagWorkspace(wxCommandEvent& event);
     void OnParseEnded(clParseEvent& event);
-    void OnUpdateNavigationBar(clCodeCompletionEvent& e);
-    void OnNavigationBarMenuSelectionMade(clCommandEvent& e);
-    void OnNavigationBarMenuShowing(clContextMenuEvent& e);
+    void OnActiveEditorChanged(wxCommandEvent& e);
 
     // Workspace events
     void OnFileSaved(clCommandEvent& event);

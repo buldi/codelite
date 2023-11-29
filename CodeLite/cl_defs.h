@@ -58,27 +58,7 @@
 #define CL_USE_NATIVEBOOK 0
 #endif
 
-// Allow override the default CL_USE_NATIVEBOOK by cmake variable (GTK only)
-#ifdef __WXGTK__
-#if GTK_USE_NATIVEBOOK
-#ifdef CL_USE_NATIVEBOOK
-#undef CL_USE_NATIVEBOOK
-#endif
-#define CL_USE_NATIVEBOOK 1
-#else
-#ifdef CL_USE_NATIVEBOOK
-#undef CL_USE_NATIVEBOOK
-#endif
-#define CL_USE_NATIVEBOOK 0
-#endif
-#endif
-
-#if wxVERSION_NUMBER < 2904
-#define CL_USE_NEW_BUILD_TAB 0
-#else
 #define CL_USE_NEW_BUILD_TAB 1
-#endif
-
 #define CL_N0_OF_BOOKMARK_TYPES 5
 
 #endif // CL_DEFS_H

@@ -25,23 +25,27 @@
 #ifndef WORKSPACE_H
 #define WORKSPACE_H
 
-#include "singleton.h"
-#include "wx/string.h"
-#include <wx/xml/xml.h>
-#include "wx/filename.h"
-#include "project.h"
-#include <map>
-#include "JSON.h"
-#include <wx/event.h>
-#include <cl_command_event.h>
 #include "IWorkspace.h"
-#include "configuration_mapping.h"
-#include "optionsconfig.h"
-#include "localworkspace.h"
+#include "JSON.h"
 #include "codelite_exports.h"
+#include "configuration_mapping.h"
+#include "localworkspace.h"
+#include "optionsconfig.h"
+#include "project.h"
+#include "singleton.h"
+#include "wx/filename.h"
+#include "wx/string.h"
 #include "wxStringHash.h"
 
-#define WORKSPACE_XML_VERSION "10.0.0"
+#include <cl_command_event.h>
+#include <map>
+#include <wx/event.h>
+#include <wx/xml/xml.h>
+
+#define CURRENT_WORKSPACE_VERSION 11000
+#define CURRENT_WORKSPACE_VERSION_STR wxString("11000")
+#define DEFAULT_CURRENT_WORKSPACE_VERSION 10000
+#define DEFAULT_CURRENT_WORKSPACE_VERSION_STR wxString("10000")
 
 /*!
  * \brief
@@ -54,12 +58,14 @@ class WXDLLIMPEXP_SDK clCxxWorkspace : public IWorkspace
     friend class clCxxWorkspaceST;
 
 public:
-    virtual void GetProjectFiles(const wxString& projectName, wxArrayString& files) const;
-    virtual void GetWorkspaceFiles(wxArrayString& files) const;
-    virtual wxString GetFilesMask() const;
-    virtual bool IsBuildSupported() const;
-    virtual bool IsProjectSupported() const;
-    virtual wxString GetProjectFromFile(const wxFileName& filename) const;
+    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
+    void GetWorkspaceFiles(wxArrayString& files) const override;
+    wxString GetFilesMask() const override;
+    bool IsBuildSupported() const override;
+    bool IsProjectSupported() const override;
+    wxString GetProjectFromFile(const wxFileName& filename) const override;
+    void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
 
 public:
     typedef std::unordered_map<wxString, ProjectPtr> ProjectMap_t;
@@ -91,13 +97,13 @@ public:
      * @return
      */
     LocalWorkspace* GetLocalWorkspace() const { return m_localWorkspace; }
-    
+
     // Backtick cache
     bool HasBacktick(const wxString& backtick) const;
     bool GetBacktickValue(const wxString& backtick, wxString& value) const;
     void SetBacktickValue(const wxString& backtick, const wxString& value);
     void ClearBacktickCache();
-    
+
 private:
     void DoUpdateBuildMatrix();
     /**
@@ -135,6 +141,11 @@ private:
 
     void DoVisitWorkspaceFolders(wxXmlNode* parent, const wxString& curpath, wxArrayString& paths) const;
 
+    /**
+     * @brief user clicked on a build output line with file:line
+     */
+    void OnBuildHotspotClicked(clBuildEvent& event);
+
 public:
     /**
      * @brief move 'projectName' to folder. Create the folder if it does not exists
@@ -163,15 +174,18 @@ public:
 
     /**
      * @brief create 'compile_commands' json object for the workspace projects (only the enabled ones)
+     * or compile_flags.txt file
      */
-    cJSON* CreateCompileCommandsJSON() const;
+    cJSON* CreateCompileCommandsJSON(bool createCompileFlagsTxt, wxArrayString* generated_paths) const;
 
     /**
      * @brief generate compile_flags.txt for each project
      */
     void CreateCompileFlags() const;
 
-    wxFileName GetFileName() const { return GetWorkspaceFileName(); }
+    wxString GetFileName() const override { return GetWorkspaceFileName().GetFullPath(); }
+    wxString GetDir() const override { return GetWorkspaceFileName().GetPath(); }
+
     void SetStartupDir(const wxString& startupDir) { this->m_startupDir = startupDir; }
     const wxString& GetStartupDir() const { return m_startupDir; }
 
@@ -184,7 +198,7 @@ public:
      * @brief replace compilers for all projects and build configurations
      * @param compilers a map of compilers where the key is the old compiler and the value is the new compiler
      */
-    void ReplaceCompilers(wxStringMap_t& compilers);
+    void ReplaceCompilers(const wxStringMap_t& compilers);
 
     /**
      * Returns the workspace file name
@@ -305,7 +319,7 @@ public:
     /**
      * \return The active project name or wxEmptyString
      */
-    virtual wxString GetActiveProjectName() const;
+    wxString GetActiveProjectName() const override;
 
     /**
      * @brief return the paths of all projects in the workspace (full paths)
@@ -389,7 +403,7 @@ public:
     /**
      * Return the workspace name
      */
-    wxString GetName() const;
+    wxString GetName() const override;
 
     /**
      * return the project build configuration that matches the
@@ -481,17 +495,22 @@ public:
     /**
      * @brief return the underlying file for a given project name
      */
-    virtual wxFileName GetProjectFileName(const wxString& projectName) const;
+    wxFileName GetProjectFileName(const wxString& projectName) const override;
 
     /**
      * @brief return list of projects for this workspace
      */
-    virtual wxArrayString GetWorkspaceProjects() const;
+    wxArrayString GetWorkspaceProjects() const override;
 
     /**
      * @brief return list of files that are exluded for a given workspace configuration
      */
     size_t GetExcludeFilesForConfig(std::vector<wxString>& files, const wxString& workspaceConfigName = "");
+
+    /**
+     * @brief return the workspce environment
+     */
+    clEnvList_t GetEnvironment() const override;
 
 private:
     /**

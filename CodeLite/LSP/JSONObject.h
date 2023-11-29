@@ -1,8 +1,9 @@
 #ifndef JSONObject_H
 #define JSONObject_H
 
-#include "codelite_exports.h"
 #include "JSON.h"
+#include "codelite_exports.h"
+#include "IPathConverter.hpp"
 
 namespace LSP
 {

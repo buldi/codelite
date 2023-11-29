@@ -1,0 +1,27 @@
+#!/bin/bash -e
+
+. $(dirname $(readlink -f $0))/make-weekly-common
+
+CODELITE_BUILD_DIR=${CODELITE_HOME}/build-release
+OSX_VER=macOS_$(sw_vers |grep ProductVersion|cut -d":" -f2|tr -d [:space:])
+package_file=codelite-${OSX_VER}-${arch}.app.tar.gz
+
+# Build and upload
+mkdir -p ${CODELITE_BUILD_DIR}
+cd ${CODELITE_BUILD_DIR}
+rm -fr codelite.app/
+rm -f ${package_file}
+cmake -DCMAKE_BUILD_TYPE=Release .. -Wno-dev
+make -j${cpu_count} install
+
+# Sign the app
+echo "Signing the app (requires sudo access):"
+sudo codesign --deep -fs codelite-self-signed  codelite.app
+echo "Signing the app..done"
+
+upload_path="/var/www/html/downloads/codelite/${version}"
+ssh root@codelite.org "mkdir -p ${upload_path}"
+tar cvfz ${package_file} codelite.app/*
+scp ${package_file} root@codelite.org:${upload_path}
+ssh root@codelite.org \
+    "cd ${upload_path} && sha256sum ${package_file} |cut -d' ' -f1 > ${package_file}.sha1 && cat ${package_file}.sha1"

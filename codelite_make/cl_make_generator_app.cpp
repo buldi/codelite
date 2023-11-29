@@ -1,13 +1,15 @@
 #include "cl_make_generator_app.h"
-#include <workspace.h>
-#include <wx/filename.h>
-#include <builder_gnumake.h>
-#include <configuration_mapping.h>
-#include <macromanager.h>
-#include <wx/crt.h>
-#include <globals.h>
-#include <build_settings_config.h>
+
 #include <algorithm>
+#include <build_settings_config.h>
+#include <builder_gnumake.h>
+#include <builder_gnumake_default.h>
+#include <configuration_mapping.h>
+#include <globals.h>
+#include <macromanager.h>
+#include <workspace.h>
+#include <wx/crt.h>
+#include <wx/filename.h>
 
 IMPLEMENT_APP_CONSOLE(clMakeGeneratorApp)
 
@@ -26,10 +28,11 @@ static const wxCmdLineEntryDesc g_cmdDesc[] = {
     { wxCMD_LINE_SWITCH, "j", "json",
       "Generate compile_commands.json for this workspace and exit. If not specified, compile_commands.json is "
       "generated as part of the build process" },
+    { wxCMD_LINE_SWITCH, "f", "compile-flags", "Generate compile_flags.txt for this workspace and exit" },
     { wxCMD_LINE_SWITCH, "e", "execute", "Instead of printing the command line, execute it" },
     { wxCMD_LINE_OPTION, "s", "settings",
       "The full path of the build_settings.xml file.\n"
-      "By default, CodeLite-make will load the compiler definitions from\n"
+      "By default, codelite-make will load the compiler definitions from\n"
       "%appdata%\\CodeLite\\config\\build_settings.xml (or the equivalent path on\n"
       "Unix systems). Passing -s|--settings will override the default search\n"
       "location",
@@ -58,7 +61,8 @@ bool clMakeGeneratorApp::OnInit()
     SetAppName("codelite");
     wxLog::EnableLogging(false);
     wxCmdLineParser parser(wxAppConsole::argc, wxAppConsole::argv);
-    if(!DoParseCommandLine(parser)) return false;
+    if(!DoParseCommandLine(parser))
+        return false;
 
     // Load compilers settings
     if(!BuildSettingsConfigST::Get()->Load("2.1", m_buildSettingsXml)) {
@@ -67,7 +71,9 @@ bool clMakeGeneratorApp::OnInit()
     }
 
     wxFileName fnWorkspace(m_workspaceFile);
-    if(fnWorkspace.IsRelative()) { fnWorkspace.MakeAbsolute(m_workingDirectory); }
+    if(fnWorkspace.IsRelative()) {
+        fnWorkspace.MakeAbsolute(m_workingDirectory);
+    }
 
     Info(wxString() << "-- Generating makefile for workspace file " << fnWorkspace.GetFullPath());
     wxString errmsg;
@@ -76,7 +82,9 @@ bool clMakeGeneratorApp::OnInit()
         return false;
     }
 
-    if(m_project.IsEmpty()) { m_project = clCxxWorkspaceST::Get()->GetActiveProjectName(); }
+    if(m_project.IsEmpty()) {
+        m_project = clCxxWorkspaceST::Get()->GetActiveProjectName();
+    }
 
     // Set the active project to the configuration set the by the user
     BuildMatrixPtr buildMatrix = clCxxWorkspaceST::Get()->GetBuildMatrix();
@@ -115,7 +123,7 @@ bool clMakeGeneratorApp::OnInit()
     // First, generate the compile_commands.json
     DoGenerateCompileCommands();
 
-    if(this->m_generateCompileCommands) {
+    if(this->m_generateCompileCommands || this->m_generateCompilerFlags) {
         // If the --json flag was passed, exit now
         Bye();
     } else {
@@ -164,7 +172,9 @@ bool clMakeGeneratorApp::OnInit()
         }
 
         wxString workspace_path = fnWorkspace.GetPath();
-        if(workspace_path.Contains(" ") || workspace_path.Contains("\t")) { workspace_path.Prepend("\"").Append("\""); }
+        if(workspace_path.Contains(" ") || workspace_path.Contains("\t")) {
+            workspace_path.Prepend("\"").Append("\"");
+        }
 
         Info("-- Makefile generation completed successfully!");
         wxString command;
@@ -188,7 +198,8 @@ bool clMakeGeneratorApp::DoParseCommandLine(wxCmdLineParser& parser)
     parser.AddUsageText(_("A makefile generator based on codelite's workspace"));
 
     int res = parser.Parse(false);
-    if(res == wxNOT_FOUND) return false;
+    if(res == wxNOT_FOUND)
+        return false;
 
     if(!parser.Found("w", &m_workspaceFile)) {
         parser.Usage();
@@ -200,10 +211,13 @@ bool clMakeGeneratorApp::DoParseCommandLine(wxCmdLineParser& parser)
         return false;
     }
 
-    if(parser.Found("e")) { m_executeCommand = true; }
+    if(parser.Found("e")) {
+        m_executeCommand = true;
+    }
 
     parser.Found("s", &m_buildSettingsXml);
     m_generateCompileCommands = (parser.FoundSwitch("j") == wxCMD_SWITCH_ON);
+    m_generateCompilerFlags = (parser.FoundSwitch("f") == wxCMD_SWITCH_ON);
 
     wxString command;
     if(parser.Found("d", &command)) {
@@ -273,10 +287,21 @@ void clMakeGeneratorApp::DoGenerateCompileCommands()
     wxFileName fn(clCxxWorkspaceST::Get()->GetFileName());
     fn.SetFullName("compile_commands.json");
 
-    Info(wxString() << "-- Generating: " << fn.GetFullPath());
-    JSON json(clCxxWorkspaceST::Get()->CreateCompileCommandsJSON());
-    // Save the file
-    json.save(fn);
+    if(m_generateCompileCommands) {
+        Info(wxString() << "-- Generating: " << fn.GetFullPath());
+    } else {
+        Info(wxString() << "-- Generating: compile_flags.txt files...");
+    }
+
+    wxArrayString generated_paths;
+    JSON json(clCxxWorkspaceST::Get()->CreateCompileCommandsJSON(!m_generateCompileCommands, &generated_paths));
+    if(json.isOk()) {
+        // Save the file
+        json.save(fn);
+    }
+    for(const wxString& path : generated_paths) {
+        wxFprintf(stdout, "%s\n", path);
+    }
 }
 
 void clMakeGeneratorApp::Bye()

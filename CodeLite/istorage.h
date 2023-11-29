@@ -27,10 +27,10 @@
 #define ISTORAGE_H
 
 #include "comment.h"
+#include "entry.h"
+#include "fileentry.h"
 #include "pptable.h"
 #include "tag_tree.h"
-#include "fileentry.h"
-#include "entry.h"
 
 #define MAX_SEARCH_LIMIT 250
 
@@ -148,6 +148,8 @@ public:
      */
     virtual void GetTagsByPath(const wxArrayString& path, std::vector<TagEntryPtr>& tags) = 0;
     virtual void GetTagsByPath(const wxString& path, std::vector<TagEntryPtr>& tags, int limit = 1) = 0;
+    virtual void GetTagsByPathAndKind(const wxString& path, std::vector<TagEntryPtr>& tags,
+                                      const std::vector<wxString>& kinds, int limit = 1) = 0;
 
     /**
      * @brief return array of items by name and parent
@@ -186,6 +188,15 @@ public:
      * @param tags [output]
      */
     virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds,
+                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true) = 0;
+
+    /**
+     * @brief return list by kind and scope while using a filter
+     * @param scope
+     * @param kinds
+     * @param tags [output]
+     */
+    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds, const wxString& filter,
                                        std::vector<TagEntryPtr>& tags, bool applyLimit = true) = 0;
 
     /**
@@ -298,6 +309,11 @@ public:
     virtual wxString GetSchemaVersion() const = 0;
 
     /**
+     * @brief determine the current scope based on file name and line number
+     */
+    virtual TagEntryPtr GetScope(const wxString& filename, int line_number) = 0;
+
+    /**
      * @brief
      * @param fileName
      * @param scopeName
@@ -305,12 +321,6 @@ public:
      */
     virtual void GetTagsByFileScopeAndKind(const wxFileName& fileName, const wxString& scopeName,
                                            const wxArrayString& kind, std::vector<TagEntryPtr>& tags) = 0;
-
-    /**
-     * @brief return a unique list of names
-     * @param names
-     */
-    virtual void GetAllTagsNames(wxArrayString& names) = 0;
 
     /**
      * @brief return a unique list of names
@@ -325,7 +335,7 @@ public:
      * @param path Database file name
      * @param autoCommit handle the Store operation inside a transaction or let the user hadle it
      */
-    virtual void Store(TagTreePtr tree, const wxFileName& path, bool autoCommit = true) = 0;
+    virtual void Store(const std::vector<TagEntryPtr>& tags, bool auto_commit = true) = 0;
 
     /**
      * A very dengerous API call, which drops all tables from the database
@@ -493,7 +503,7 @@ public:
      * @brief return list of tags for a given partial name
      */
     virtual void GetTagsByPartName(const wxString& partname, std::vector<TagEntryPtr>& tags) = 0;
-    
+
     /**
      * @brief same as above, but allow multiple name parts
      */
@@ -511,6 +521,27 @@ public:
     virtual void RemoveNonWorkspaceSymbols(const std::vector<wxString>& symbols,
                                            std::vector<wxString>& workspaceSymbols,
                                            std::vector<wxString>& nonWorkspaceSymbols) = 0;
+    /**
+     * @brief check the integrity of the database to avoid "malformed disk" errors
+     */
+    virtual bool CheckIntegrity() const = 0;
+    /**
+     * @brief return list of tags only visible to `filepath`
+     * this usually includes static members, or any entity
+     * in an anonymous namespace
+     */
+    virtual size_t GetFileScopedTags(const wxString& filepath, const wxString& name, const wxArrayString& kinds,
+                                     std::vector<TagEntryPtr>& tags) = 0;
+
+    /**
+     * @brief load function parameters
+     */
+    virtual size_t GetParameters(const wxString& function_path, std::vector<TagEntryPtr>& tags) = 0;
+
+    /**
+     * @brief load all lambda functions for a given function
+     */
+    virtual size_t GetLambdas(const wxString& parent_function, std::vector<TagEntryPtr>& tags) = 0;
 };
 
 enum { TagOk = 0, TagExist, TagError };

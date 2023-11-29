@@ -1,0 +1,6 @@
+#ifndef WXCVERSION
+#define WXCVERSION
+
+const char* GIT_REVISION = "@WXCRAFTER_VERSION@";
+
+#endif

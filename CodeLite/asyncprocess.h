@@ -26,11 +26,20 @@
 #ifndef I_PROCESS_H
 #define I_PROCESS_H
 
+#include "clEnvironment.hpp"
 #include "codelite_exports.h"
+#include "macros.h"
+
+#include <functional>
 #include <map>
+#include <memory>
+#include <vector>
 #include <wx/event.h>
 #include <wx/sharedptr.h>
 #include <wx/string.h>
+#include <wx/utils.h>
+
+class ProcessReaderThread;
 
 enum IProcessCreateFlags {
     IProcessCreateDefault = (1 << 0),           // Default: create process with no console window
@@ -43,6 +52,10 @@ enum IProcessCreateFlags {
     IProcessStderrEvent = (1 << 6), // fire a separate event for stderr output
     IProcessRawOutput = (1 << 7),   // return the process output as is, don't strip anything. By default CodeLite strips
                                     // terminal colours escape sequences
+    IProcessCreateSSH = (1 << 8),   // Create a remote process, over SSH
+    IProcessInteractiveSSH = (1 << 9),
+    IProcessWrapInShell = (1 << 10),   // wrap the command in the OS shell (CMD, BASH)
+    IProcessPseudoConsole = (1 << 11), // MSW only: use CreatePseudoConsole API for creating the process
 };
 
 class WXDLLIMPEXP_CL IProcess;
@@ -60,17 +73,18 @@ public:
  * @file i_process.h
  * @brief
  */
-class WXDLLIMPEXP_CL IProcess
+class WXDLLIMPEXP_CL IProcess : public wxEvtHandler
 {
 protected:
-    wxEvtHandler* m_parent;
-    int m_pid;
-    bool m_hardKill;
-    IProcessCallback* m_callback;
+    wxEvtHandler* m_parent = nullptr;
+    int m_pid = wxNOT_FOUND;
+    bool m_hardKill = false;
+    IProcessCallback* m_callback = nullptr;
     size_t m_flags; // The creation flags
+    ProcessReaderThread* m_thr = nullptr;
 
 public:
-    typedef wxSharedPtr<IProcess> Ptr_t;
+    typedef std::shared_ptr<IProcess> Ptr_t;
 
 public:
     IProcess(wxEvtHandler* parent)
@@ -95,8 +109,9 @@ public:
     // to know about its termination
     virtual void Detach() = 0;
 
-    // Read from process stdout - return immediately if no data is available
-    virtual bool Read(wxString& buff, wxString& buffErr) = 0;
+    /// Read from process stdout - return immediately if no data is available
+    /// we return both converted buffer as string and the raw buffer (unconverted)
+    virtual bool Read(wxString& buff, wxString& buffErr, std::string& raw_buff, std::string& raw_buffErr) = 0;
 
     // Write to the process stdin
     // This version add LF to the buffer
@@ -145,9 +160,23 @@ public:
     IProcessCallback* GetCallback() { return m_callback; }
 
     /**
+     * @brief send signal to the process
+     */
+    virtual void Signal(wxSignal sig) = 0;
+
+    /**
      * @brief do we have process redirect enabled?
      */
     bool IsRedirect() const { return !(m_flags & IProcessNoRedirect); }
+
+    /**
+     * @brief stop reading process output in the background thread
+     */
+    void SuspendAsyncReads();
+    /**
+     * @brief resume reading process output in the background
+     */
+    void ResumeAsyncReads();
 };
 
 // Help method
@@ -161,7 +190,27 @@ public:
  */
 WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString& cmd,
                                             size_t flags = IProcessCreateDefault,
-                                            const wxString& workingDir = wxEmptyString);
+                                            const wxString& workingDir = wxEmptyString,
+                                            const clEnvList_t* env = nullptr,
+                                            const wxString& sshAccountName = wxEmptyString);
+/**
+ * @brief same as above, but uses array of instead of a single string
+ */
+WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxArrayString& args,
+                                            size_t flags = IProcessCreateDefault,
+                                            const wxString& workingDir = wxEmptyString,
+                                            const clEnvList_t* env = nullptr,
+                                            const wxString& sshAccountName = wxEmptyString);
+
+/**
+ * @brief a wrapper for the variant that accepts wxArrayString.
+ * This is because wxArrayString does not allow initializer list
+ */
+WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const std::vector<wxString>& args,
+                                            size_t flags = IProcessCreateDefault,
+                                            const wxString& workingDir = wxEmptyString,
+                                            const clEnvList_t* env = nullptr,
+                                            const wxString& sshAccountName = wxEmptyString);
 
 /**
  * @brief create synchronus process
@@ -171,19 +220,19 @@ WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const wxString
  * @return IPorcess handle on succcess
  */
 WXDLLIMPEXP_CL IProcess* CreateSyncProcess(const wxString& cmd, size_t flags = IProcessCreateDefault,
-                                           const wxString& workingDir = wxEmptyString);
+                                           const wxString& workingDir = wxEmptyString,
+                                           const clEnvList_t* env = nullptr);
 
 /**
- * @brief start process
- * @brief cb callback object. Instead of events, OnProcessOutput and OnProcessTerminated will be called respectively
- * @param parent the parent. all events will be sent to this object
+ * @brief start process and execute a callback once the process terminates
  * @param cmd command line to execute
+ * @brief cb callback
  * @param flags possible creation flag
  * @param workingDir set the working directory of the executed process
- * @return
+ * @param env
  */
-WXDLLIMPEXP_CL IProcess* CreateAsyncProcessCB(wxEvtHandler* parent, IProcessCallback* cb, const wxString& cmd,
-                                              size_t flags = IProcessCreateDefault,
-                                              const wxString& workingDir = wxEmptyString);
+WXDLLIMPEXP_CL void CreateAsyncProcessCB(const wxString& cmd, std::function<void(const wxString&)> cb,
+                                         size_t flags = IProcessCreateDefault,
+                                         const wxString& workingDir = wxEmptyString, const clEnvList_t* env = nullptr);
 
 #endif // I_PROCESS_H

@@ -27,12 +27,42 @@
 
 #include "clEditorEditEventsHandler.h"
 #include "clTerminalHistory.h"
+#include "clToolBar.h"
 #include "quickfindbarbase.h"
+
+#include <vector>
 #include <wx/combobox.h>
 #include <wx/panel.h>
 
-class clToolBar;
+class wxStaticText;
 class wxStyledTextCtrl;
+
+struct TargetRange {
+    enum FailReason {
+        NONE,
+        REACHED_EOF,
+        REACHED_SOF,
+        EMPTY_RANGE,
+    };
+    int start_pos = wxNOT_FOUND;
+    int end_pos = wxNOT_FOUND;
+    FailReason why = NONE;
+
+    TargetRange() {}
+
+    // this constructor is required to silence errors on macOS with latest clang
+    TargetRange(int start, int end)
+        : start_pos(start)
+        , end_pos(end)
+        , why(NONE)
+    {
+    }
+
+    bool Equals(const TargetRange& other) const { return start_pos == other.start_pos && end_pos == other.end_pos; }
+    bool PosInside(int pos) const { return start_pos >= pos && pos < end_pos; }
+    bool IsOk() const { return start_pos != wxNOT_FOUND && end_pos != wxNOT_FOUND; }
+    typedef std::vector<TargetRange> Vec_t;
+};
 
 class QuickFindBar : public QuickFindBarBase
 {
@@ -43,6 +73,16 @@ public:
         kRegexPosix,
     };
 
+protected:
+    virtual void OnReplaceTextEnter(wxCommandEvent& event);
+    virtual void OnReplaceTextUpdated(wxCommandEvent& event);
+    enum eFindFlags {
+        FIND_DEFAULT = 0,
+        FIND_PREV = (1 << 0),
+        FIND_INCREMENT = (1 << 1),
+        FIND_GOTOLINE = (1 << 2),
+    };
+
     wxStyledTextCtrl* m_sci;
     wxString m_lastText;
     wchar_t* m_lastTextPtr;
@@ -50,14 +90,11 @@ public:
     bool m_onNextPrev;
     eRegexType m_regexType;
     bool m_disableTextUpdateEvent;
-    clEditEventsHandler::Ptr_t m_findEventsHandler;
-    clEditEventsHandler::Ptr_t m_replaceEventsHandler;
-    size_t m_searchFlags;
+    size_t m_searchFlags = 0;
     bool m_highlightMatches;
-    bool m_replaceInSelection;
+    bool m_inSelection;
     clTerminalHistory m_searchHistory;
     clTerminalHistory m_replaceHistory;
-    wxStaticText* m_matchesFound = nullptr;
 
 protected:
     virtual void OnButtonKeyDown(wxKeyEvent& event);
@@ -68,11 +105,28 @@ protected:
     virtual void OnFindPrev(wxCommandEvent& event);
     virtual void OnFindPrevUI(wxUpdateUIEvent& event);
     virtual void OnFindUI(wxUpdateUIEvent& event);
-    virtual void OnReplaceTextEnter(wxCommandEvent& event);
-    virtual void OnReplaceTextUpdated(wxCommandEvent& event);
 
     void DoArrowDown(clTerminalHistory& history, wxTextCtrl* ctrl);
     void DoArrowUp(clTerminalHistory& history, wxTextCtrl* ctrl);
+
+    /**
+     * @brief find text in the editor the select it
+     * @param find_prev should the search go backward? (i.e. from the current position to the start of the document)
+     * @param target use this range for the search
+     * @return a pair of indexes indicating the selection start and end positions
+     */
+    TargetRange DoFind(size_t find_flags, const TargetRange& target = {});
+
+    /**
+     * @brief same as the above, but also print a message when hitting the bottom or the
+     * top of the document
+     */
+    TargetRange DoFindWithMessage(size_t find_flags, const TargetRange& target = {});
+
+    /**
+     * @brief same as the above, but attempt to wrap incase of failure
+     */
+    TargetRange DoFindWithWrap(size_t find_flags, const TargetRange& target = {});
 
 public:
     enum {
@@ -101,29 +155,31 @@ private:
 
 protected:
     virtual void OnReplaceKeyDown(wxKeyEvent& event);
-    bool DoSearch(size_t searchFlags);
-    void DoSearchCB(size_t searchFlags) { DoSearch(searchFlags); }
-    void DoReplace();
+
+    // replace the current target
+    // returns the length of the replacement text
+    int DoReplace(const TargetRange& range = {});
+
     void DoSetCaretAtEndOfText();
     void DoFixRegexParen(wxString& findwhat);
     wxString DoGetSelectedText();
-    void DoSelectAll(bool addMarkers);
+    void DoSelectAll();
+    TargetRange::Vec_t DoFindAll(const TargetRange& target);
+    size_t DoReplaceInBuffer(const TargetRange& range);
     void DoHighlightMatches(bool checked);
+    bool IsReplacementRegex() const;
 
-    // General events
-    static void DoEnsureLineIsVisible(wxStyledTextCtrl* sci, int line = wxNOT_FOUND);
+    /**
+     * @brief return the best target range taking into account
+     * the `In Selection` flag
+     */
+    TargetRange GetBestTargetRange() const;
 
     // Control events
     void OnHide(wxCommandEvent& e);
-    void OnNext(wxCommandEvent& e);
-    void OnPrev(wxCommandEvent& e);
     void OnFindAll(wxCommandEvent& e);
-    void OnButtonNext(wxCommandEvent& e);
-    void OnButtonPrev(wxCommandEvent& e);
     void OnText(wxCommandEvent& e);
     void OnKeyDown(wxKeyEvent& e);
-    void OnFindMouseWheel(wxMouseEvent& e);
-    void OnButtonReplace(wxCommandEvent& e);
     void OnReplaceAll(wxCommandEvent& e);
     void OnEnter(wxCommandEvent& e);
     void OnReplace(wxCommandEvent& e);
@@ -137,7 +193,7 @@ protected:
     void OnFindPreviousCaret(wxCommandEvent& e);
 
 protected:
-    bool DoShow(bool s, const wxString& findWhat, bool showReplace=false);
+    bool DoShow(bool s, const wxString& findWhat, bool showReplace = false);
     wxStyledTextCtrl* DoCheckPlugins();
 
 public:
@@ -149,15 +205,13 @@ public:
     bool Show(const wxString& findWhat, bool showReplace);
     wxStyledTextCtrl* GetEditor() { return m_sci; }
     void SetEditor(wxStyledTextCtrl* sci);
+    void ShowToolBarOnly();
 
-    /**
-     * @brief search a stc control for 'findwhat'. Use kSearchForward to indicate searching forward, pass 0
-     * for backward.
-     * 'This' is used internally, so pass it NULL
-     */
-    static bool Search(wxStyledTextCtrl* ctrl, const wxString& findwhat, size_t search_flags,
-                       QuickFindBar* This = NULL);
+    /// allow outside controls to trigger the search
+    void FindPrevious();
+    void FindNext();
 
+    size_t GetSearchFlags() const { return m_searchFlags; }
     wxString GetFindWhat() const { return m_textCtrlFind->GetValue(); }
     void SetFindWhat(const wxString& findwhat) { m_textCtrlFind->ChangeValue(findwhat); }
 };

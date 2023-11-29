@@ -26,20 +26,24 @@
 #ifndef IMANAGER_H
 #define IMANAGER_H
 
-#include "ieditor.h"
-#include "iconfigtool.h"
-#include "wx/treectrl.h"
-#include "project.h"
 #include "Notebook.h"
-#include "optionsconfig.h"
-#include "queuecommand.h"
-#include <wx/aui/framemanager.h>
 #include "bitmap_loader.h"
-#include <vector>
-#include "debugger.h"
+#include "clResult.hpp"
 #include "clStatusBar.h"
 #include "clTab.h"
+#include "clToolBar.h"
+#include "debugger.h"
+#include "iconfigtool.h"
+#include "ieditor.h"
 #include "navigationmanager.h"
+#include "optionsconfig.h"
+#include "project.h"
+#include "queuecommand.h"
+#include "wx/treectrl.h"
+
+#include <tuple>
+#include <vector>
+#include <wx/aui/framemanager.h>
 
 class clTreeCtrl;
 class clEditorBar;
@@ -47,7 +51,6 @@ class clWorkspaceView;
 class TagsManager;
 class clCxxWorkspace;
 class EnvironmentConfig;
-class JobQueue;
 class wxApp;
 class IPlugin;
 class BuildManager;
@@ -55,7 +58,7 @@ class BuildSettingsConfig;
 class NavMgr;
 class IMacroManager;
 class wxAuiManager;
-class clToolBar;
+class clInfoBar;
 
 //--------------------------
 // Auxulary class
@@ -79,6 +82,12 @@ enum TreeType { TreeFileView = 0, TreeFileExplorer };
 enum eOutputPaneTab { kOutputTab_Build, kOutputTab_Output };
 
 enum OF_extra { OF_None = 0x00000001, OF_AddJump = 0x00000002, OF_PlaceNextToCurrent = 0x00000004 };
+
+enum class PaneId {
+    BOTTOM_BAR,
+    SIDE_BAR,
+    DEBUG_BAR,
+};
 
 //------------------------------------------------------------------
 // Defines the interface of the manager
@@ -115,7 +124,9 @@ public:
      */
     void AddWorkspaceTab(const wxString& tabLabel)
     {
-        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) { m_workspaceTabs.Add(tabLabel); }
+        if(m_workspaceTabs.Index(tabLabel) == wxNOT_FOUND) {
+            m_workspaceTabs.Add(tabLabel);
+        }
     }
 
     /**
@@ -123,10 +134,16 @@ public:
      */
     void AddOutputTab(const wxString& tabLabel)
     {
-        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) { m_outputTabs.Add(tabLabel); }
+        if(m_outputTabs.Index(tabLabel) == wxNOT_FOUND) {
+            m_outputTabs.Add(tabLabel);
+        }
     }
 
-    virtual clToolBar* GetToolBar() = 0;
+    /// Return the plugins' toolbar managed by CodeLite
+    virtual clToolBarGeneric* GetToolBar() = 0;
+
+    /// Return applicaion menu bar
+    virtual wxMenuBar* GetMenuBar() = 0;
 
     /**
      * @brief show the output pane and if provided, select 'selectedWindow'
@@ -134,6 +151,27 @@ public:
      * the selection
      */
     virtual void ShowOutputPane(const wxString& selectWindow = "") = 0;
+
+    /**
+     * @brief toggle the sidebar pane and if provided, select 'selectedWindow'
+     * @param selectWindow tab within the 'Workspace Pane' to select, if empty don't change
+     * the selection
+     */
+    virtual void ToggleSidebarPane(const wxString& selectWindow = "") = 0;
+
+    /**
+     * @brief toggle the secondary pane and if provided, select 'selectedWindow'
+     * @param selectWindow tab within the 'Workspace Pane' to select, if empty don't change
+     * the selection
+     */
+    virtual void ToggleSecondarySidebarPane(const wxString& selectWindow = "") = 0;
+
+    /// Show / Hide pane
+    /// Possible `pane_names` are:
+    /// - "Workspace View"
+    /// - "Secondary Sidebar"
+    /// - "Output View"
+    virtual void ShowPane(const wxString& pane_name, bool show) = 0;
 
     /**
      * @brief show the toolbar. This only works when using the native toolbar
@@ -160,6 +198,11 @@ public:
     virtual IEditor* GetActiveEditor() = 0;
 
     /**
+     * @brief find `editor` and select it
+     */
+    virtual bool SelectEditor(IEditor* editor) = 0;
+
+    /**
      * @brief return the main frame's status bar
      */
     virtual clStatusBar* GetStatusBar() = 0;
@@ -183,8 +226,24 @@ public:
     /**
      * @brief open a file with a given tooltip and bitmap
      */
-    virtual IEditor* OpenFile(const wxString& fileName, const wxBitmap& bmp,
+    virtual IEditor* OpenFile(const wxString& fileName, const wxString& bmpResourceName,
                               const wxString& tooltip = wxEmptyString) = 0;
+
+    /**
+     * @brief load a remote file content (represented by the local_path) into an `IEdtor`
+     */
+    virtual IEditor* OpenRemoteFile(const wxString& local_path, const wxString& remote_path,
+                                    const wxString& ssh_account, const wxString& tooltip = wxEmptyString) = 0;
+
+    /**
+     * @brief open or select ((if the file is already loaded in CodeLite) editor with a given `file_name` to the
+     * notebook control and make it active Once the page is **visible**, execute the callback provided by the user
+     * @param callback user callback to be executed once the editor is visible on screen
+     * On some platforms (e.g. `GTK`) various operations (e.g. `CenterLine()`) will not work as intended unless the
+     * editor is actually visible on screen. This way you
+     * can delay the call the `CenterLine()` after the editor is visible
+     */
+    virtual void OpenFileAndAsyncExecute(const wxString& fileName, std::function<void(IEditor*)>&& callback) = 0;
 
     /**
      * @brief Open file using browsing record
@@ -215,23 +274,14 @@ public:
     virtual clTreeCtrl* GetWorkspaceTree() = 0;
 
     /**
-     * @brief return a pointer to the workspace pane notebook (the one with the 'workspace' title)
-     * @return pointer to Notebook
-     * @sa Notebook
+     * @brief return the main editor notebook
      */
-    virtual Notebook* GetWorkspacePaneNotebook() = 0;
-
-    /**
-     * @brief return a pointer to the output pane notebook (the one with the 'output' title)
-     * @return pointer to Notebook
-     * @sa Notebook
-     */
-    virtual Notebook* GetOutputPaneNotebook() = 0;
+    virtual Notebook* GetMainNotebook() = 0;
 
     /**
      * @brief append text line to the tab in the "Output View"
      */
-    virtual void AppendOutputTabText(eOutputPaneTab tab, const wxString& text) = 0;
+    virtual void AppendOutputTabText(eOutputPaneTab tab, const wxString& text, bool toggle_view = true) = 0;
 
     /**
      * @brief clear the content of the selected output tab
@@ -346,11 +396,6 @@ public:
      * @sa EnvironmentConfig
      */
     virtual EnvironmentConfig* GetEnv() = 0;
-    /**
-     * @brief return a pointer to the job queue manager
-     * @return job queue manager
-     */
-    virtual JobQueue* GetJobQueue() = 0;
 
     /**
      * @brief return the project execution command as set in the project's settings
@@ -385,7 +430,7 @@ public:
     /**
      * @brief save all modified files
      */
-    virtual bool SaveAll() = 0;
+    virtual bool SaveAll(bool prompt = true) = 0;
 
     /**
      * @brief return the editor's settings object
@@ -497,7 +542,7 @@ public:
      * @brief add a page to the mainbook
      */
     virtual bool AddPage(wxWindow* win, const wxString& text, const wxString& tooltip = wxEmptyString,
-                         const wxBitmap& bmp = wxNullBitmap, bool selected = false) = 0;
+                         const wxString& bmpResourceName = wxEmptyString, bool selected = false) = 0;
 
     /**
      * @brief select a window in mainbook
@@ -572,7 +617,12 @@ public:
     /**
      * @brief return a vector of all the current breakpoints set by the user
      */
-    virtual size_t GetAllBreakpoints(BreakpointInfo::Vec_t& breakpoints) = 0;
+    virtual size_t GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
+
+    /**
+     * @brief create a simple breakpoint from file:line
+     */
+    virtual clDebuggerBreakpoint CreateBreakpoint(const wxString& filepath, int line_number) = 0;
 
     /**
      * @brief delete all breakpoints assigned by the user
@@ -583,7 +633,7 @@ public:
      * @brief set breakpoints (override any existing breakpoints)
      * this function also refreshes the editors markers
      */
-    virtual void SetBreakpoints(const BreakpointInfo::Vec_t& breakpoints) = 0;
+    virtual void SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
 
     /**
      * @brief process a standard edit event ( wxID_COPY, wxID_PASTE etc)
@@ -638,7 +688,57 @@ public:
      * @brief display message to the user using the info bar
      */
     virtual void DisplayMessage(const wxString& message, int flags = wxICON_INFORMATION,
-                                const std::vector<std::pair<wxWindowID, wxString> >& buttons = {}) = 0;
+                                const std::vector<std::pair<wxWindowID, wxString>>& buttons = {}) = 0;
+
+    /**
+     * @brief return the info bar
+     */
+    virtual clInfoBar* GetInfoBar() = 0;
+
+    /**
+     * @brief return list of all breakpoints
+     */
+    virtual void GetBreakpoints(std::vector<clDebuggerBreakpoint>& bpList) = 0;
+
+    /**
+     * @brief build and display the build menu for a toolbar button
+     */
+    virtual void ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId) = 0;
+
+    ///--------------------
+    /// Book management
+    ///--------------------
+
+    /// Add a book page
+    virtual void BookAddPage(PaneId pane_id, wxWindow* page, const wxString& label,
+                             const wxBitmap& bmp = wxNullBitmap) = 0;
+
+    /// Find a book page by its label
+    virtual wxWindow* BookGetPage(PaneId pane_id, const wxString& label) = 0;
+
+    /// Remove a book page (do not destroy it), return the removed page
+    virtual wxWindow* BookRemovePage(PaneId pane_id, const wxString& label) = 0;
+
+    /// Remove a book page (do not destroy it), return the removed page
+    virtual wxWindow* BookRemovePage(PaneId pane_id, wxWindow* page) = 0;
+
+    /// Delete a book page, return true on success, false otherwise
+    virtual bool BookDeletePage(PaneId pane_id, wxWindow* page) = 0;
+
+    /// Delete a book page, return true on success, false otherwise
+    virtual bool BookDeletePage(PaneId pane_id, const wxString& label) = 0;
+
+    /// Delete a book page, return true on success, false otherwise
+    virtual void BookSelectPage(PaneId pane_id, const wxString& label) = 0;
+
+    /// Delete a book page, return true on success, false otherwise
+    virtual void BookSelectPage(PaneId pane_id, wxWindow* win) = 0;
+
+    /// Get the book control
+    virtual wxWindow* BookGet(PaneId pane_id) = 0;
+
+    /// Return the main panel of the top level frame
+    virtual wxPanel* GetMainPanel() = 0;
 };
 
 #endif // IMANAGER_H

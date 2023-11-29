@@ -25,10 +25,16 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#include "Notebook.h"
 #include "codelite_exports.h"
+#include "fileextmanager.h"
+#include "imanager.h"
 #include "macros.h"
 #include "window_locker.h"
 #include "workspace.h"
+
+#include <unordered_map>
+#include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
 #include <wx/brush.h>
@@ -36,10 +42,10 @@
 #include <wx/ctrlsub.h>
 #include <wx/dc.h>
 #include <wx/dcgraph.h>
+#include <wx/infobar.h>
 #include <wx/propgrid/propgrid.h>
 #include <wx/string.h>
 #include <wx/variant.h>
-#include <wx/infobar.h>
 
 class wxDataViewCtrl;
 class IManager;
@@ -68,13 +74,6 @@ public:
     void SetData(const char* buffer, size_t len);
     void* GetData() const { return m_bom.GetData(); }
     bool IsEmpty() const { return m_bom.IsEmpty(); }
-};
-
-class WXDLLIMPEXP_SDK clEventDisabler
-{
-public:
-    clEventDisabler();
-    ~clEventDisabler();
 };
 
 /**
@@ -288,21 +287,16 @@ WXDLLIMPEXP_SDK wxString clGetUserName();
 WXDLLIMPEXP_SDK void GetProjectTemplateList(std::list<ProjectPtr>& list);
 
 /**
- * @brief extract file from Zip and place it under targetDir
- * @param zipPath path to the Zip file (fullpath)
- * @param filename the file name to search in the archive
- * @param targetDir where to place the extracted file
- * @param targetFileName the path of the file that was actually extracted
- * @return true on success, false otherwise
- */
-WXDLLIMPEXP_SDK bool ExtractFileFromZip(const wxString& zipPath, const wxString& filename, const wxString& targetDir,
-                                        wxString& targetFileName);
-
-/**
  * @brief set the native Windows theme for the application
  * @param win [input]
  */
-WXDLLIMPEXP_SDK void MSWSetNativeTheme(wxWindow* win, const wxString& theme = wxT("Explorer"));
+WXDLLIMPEXP_SDK void MSWSetNativeTheme(wxWindow* win, const wxString& theme = "Explorer");
+
+/**
+ * @brief under Windows 10 and later, enable dark mode controls (where it is implemented)
+ * based on the selected editor theme. This is dont recursievly on win
+ */
+WXDLLIMPEXP_SDK void MSWSetWindowDarkTheme(wxWindow* win);
 
 /**
  * @brief make relative only if a subpath of reference_path (or is reference_path itself)
@@ -316,12 +310,7 @@ WXDLLIMPEXP_SDK bool MakeRelativeIfSensible(wxFileName& fn, const wxString& refe
  * @brief joins array element into a string using 'glue' as the array elements
  * separator
  */
-WXDLLIMPEXP_SDK wxString wxImplode(const wxArrayString& arr, const wxString& glue = wxT("\n"));
-
-/**
- * @brief executes a command under the proper shell and return string as the output
- */
-WXDLLIMPEXP_SDK wxString wxShellExec(const wxString& cmd, const wxString& projectName);
+WXDLLIMPEXP_SDK wxString wxImplode(const wxArrayString& arr, const wxString& glue = "\n");
 
 /**
  * @class StringManager
@@ -492,6 +481,11 @@ WXDLLIMPEXP_SDK wxString GetCppExpressionFromPos(long pos, wxStyledTextCtrl* ctr
 WXDLLIMPEXP_SDK bool SaveXmlToFile(wxXmlDocument* doc, const wxString& filename);
 
 /**
+ * @brief an efficient way to load XML from file
+ */
+WXDLLIMPEXP_SDK bool LoadXmlFile(wxXmlDocument* doc, const wxString& filepath);
+
+/**
  * @brief return true if running under Cygwin environment
  * This function returns false under Linux/OSX and under Windows it checks the
  * output of the command 'uname -s'
@@ -524,6 +518,20 @@ WXDLLIMPEXP_SDK void clRecalculateSTCHScrollBar(wxStyledTextCtrl* ctrl);
 WXDLLIMPEXP_SDK wxString clGetTextFromUser(const wxString& title, const wxString& message,
                                            const wxString& initialValue = "", int charsToSelect = wxNOT_FOUND,
                                            wxWindow* parent = NULL);
+
+/**
+ * @brief similar to wxDirSelector, but on a remote machine
+ */
+WXDLLIMPEXP_SDK std::pair<wxString, wxString>
+clRemoteFolderSelector(const wxString& title, const wxString& accountName = wxEmptyString, wxWindow* parent = NULL);
+
+/**
+ * @brief similar to wxFileSelector, but on a remote machine
+ */
+WXDLLIMPEXP_SDK std::pair<wxString, wxString> clRemoteFileSelector(const wxString& title,
+                                                                   const wxString& accountName = wxEmptyString,
+                                                                   const wxString& filter = wxEmptyString,
+                                                                   wxWindow* parent = NULL);
 /**
  * @brief return the instance to the plugin manager. A convinience method
  */
@@ -555,6 +563,11 @@ WXDLLIMPEXP_SDK double clGetContentScaleFactor();
 WXDLLIMPEXP_SDK int clGetScaledSize(int size);
 
 /**
+ * @brief return the real size for based on Window DIP
+ */
+WXDLLIMPEXP_SDK int clGetSize(int size, const wxWindow* win);
+
+/**
  * @param signo singal number
  * @brief send signo to the
  * @param processID the process ID to kill
@@ -574,8 +587,8 @@ WXDLLIMPEXP_SDK void clSetEditorFontEncoding(const wxString& encoding);
  * @param exepath [output]
  * @param hint list of directories to search
  */
-WXDLLIMPEXP_SDK bool clFindExecutable(const wxString& name, wxFileName& exepath,
-                                      const wxArrayString& hint = wxArrayString());
+WXDLLIMPEXP_SDK bool clFindExecutable(const wxString& name, wxFileName& exepath, const wxArrayString& hint = {},
+                                      const wxArrayString& suffix_list = {});
 
 /**
  * @brief given a menu and an item ID, return its position
@@ -626,4 +639,40 @@ WXDLLIMPEXP_SDK void clSetTLWindowBestSizeAndPosition(wxWindow* win);
  * @param win
  */
 WXDLLIMPEXP_SDK void clSetDialogBestSizeAndPosition(wxDialog* win);
+
+/**
+ * @brief similar to clSetDialogBestSizeAndPosition but use a smaller default size
+ */
+WXDLLIMPEXP_SDK void clSetSmallDialogBestSizeAndPosition(wxDialog* win);
+
+/**
+ * @brief set a dialog size and position. Ratio is the size of the dialog compared to its parent
+ * ration <= 0.0 the same size as the parent
+ */
+WXDLLIMPEXP_SDK void clSetDialogSizeAndPosition(wxDialog* win, double ratio);
+
+/**
+ * @brief return true if a C++ workspace is opened
+ */
+WXDLLIMPEXP_SDK bool clIsCxxWorkspaceOpened();
+
+/**
+ * @brief return true if this is a Wayland session
+ */
+WXDLLIMPEXP_SDK bool clIsWaylandSession();
+
+/**
+ * @brief get list of file types from the user
+ */
+WXDLLIMPEXP_SDK bool clShowFileTypeSelectionDialog(wxWindow* parent, const wxArrayString& initial_selection,
+                                                   wxArrayString* selected);
+
+/// Find the best window starting from `win` and give it the focus
+WXDLLIMPEXP_SDK bool SetBestFocus(wxWindow* win);
+
+/// Check if Window `parent` is the parent (or grand parent, or grand-grand-parent ...) of `child`
+WXDLLIMPEXP_SDK bool IsWindowParentOf(wxWindow* parent, wxWindow* child);
+
+/// Find Notebook parent of a `child`
+WXDLLIMPEXP_SDK Notebook* FindNotebookParentOf(wxWindow* child);
 #endif // GLOBALS_H

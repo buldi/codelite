@@ -659,7 +659,6 @@ void var_consumeDefaultValueIfNeeded()
 void var_consumeDefaultValue(char c1, char c2)
 {
     int depth = 0;
-    bool cont(true);
 
     curr_var.m_defaultValue.clear();
     while (depth >= 0) {
@@ -745,9 +744,9 @@ bool is_primitive_type(const std::string &in)
 int
 yyparse()
 {
-    register int yym, yyn, yystate;
+     int yym, yyn, yystate;
 #if YYDEBUG
-    register char *yys;
+     char *yys;
     extern char *getenv();
 
     if (yys = getenv("YYDEBUG"))

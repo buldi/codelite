@@ -23,12 +23,13 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "menu_event_handlers.h"
-#include "manager.h"
-#include "cl_editor.h"
-#include "frame.h"
+
 #include "cl_command_event.h"
-#include "event_notifier.h"
+#include "cl_editor.h"
 #include "codelite_events.h"
+#include "event_notifier.h"
+#include "frame.h"
+#include "manager.h"
 
 //------------------------------------
 // Handle copy events
@@ -90,9 +91,11 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
         }
 
     } else if(event.GetId() == XRCID("label_current_state")) {
-        wxString label =
-            wxGetTextFromUser("What would you like to call the current state?", "Label current state", "", editor);
-        if(!label.empty()) { editor->GetCommandsProcessor().SetUserLabel(label); }
+        wxString label = wxGetTextFromUser(_("What would you like to call the current state?"),
+                                           _("Label current state"), "", editor);
+        if(!label.empty()) {
+            editor->GetCommandsProcessor().SetUserLabel(label);
+        }
 
     } else if(event.GetId() == XRCID("delete_line_end")) {
         editor->DelLineRight();
@@ -110,7 +113,8 @@ void EditHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
         editor->LineCut();
 
     } else if(event.GetId() == XRCID("trim_trailing")) {
-        editor->TrimText(true, false);
+        // trim from the menu ignores the settings defined in `Settings -> Preferences -> Trim`
+        editor->TrimText(TRIM_APPEND_LF | TRIM_ENABLED);
 
     } else if(event.GetId() == XRCID("to_lower")) {
         editor->ChangeCase(true);
@@ -207,7 +211,9 @@ void EditHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 void BraceMatchHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     if(event.GetId() == XRCID("select_to_brace")) {
         editor->MatchBraceAndSelect(true);
@@ -229,9 +235,9 @@ void FindReplaceHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& ev
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
     if(editor) {
-        if(event.GetId() == wxID_FIND) {
+        if(event.GetId() == XRCID("id_find")) {
             clMainFrame::Get()->GetMainBook()->ShowQuickBar(editor->GetFirstSelection(), false);
-        } else if(event.GetId() == wxID_REPLACE) {
+        } else if(event.GetId() == XRCID("id_replace")) {
             clMainFrame::Get()->GetMainBook()->ShowQuickBar(editor->GetFirstSelection(), true);
 
         } else if(event.GetId() == XRCID("ID_QUICK_ADD_NEXT")) {
@@ -257,45 +263,19 @@ void GotoHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     wxUnusedVar(event);
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     wxString msg;
     msg.Printf(_("Go to line number (1 - %i):"), editor->GetLineCount());
 
-    while(1) {
-        wxTextEntryDialog dlg(editor, msg, _("Go To Line"));
-        dlg.SetTextValidator(wxFILTER_NUMERIC);
-
-        if(dlg.ShowModal() == wxID_OK) {
-            wxString val = dlg.GetValue();
-            long line;
-            if(!val.ToLong(&line)) {
-                wxString err;
-                err.Printf(_("'%s' is not a valid line number"), val.GetData());
-                wxMessageBox(err, _("Go To Line"), wxOK | wxICON_INFORMATION);
-                continue;
-            }
-
-            if(line > editor->GetLineCount()) {
-                wxString err;
-                err.Printf(_("Please insert a line number in the range of (1 - %i)"), editor->GetLineCount());
-                wxMessageBox(err, _("Go To Line"), wxOK | wxICON_INFORMATION);
-                continue;
-            }
-
-            if(line > 0) {
-                editor->CenterLine(line - 1);
-                break;
-            } else {
-                editor->GotoLine(0);
-                break;
-            }
-        } else {
-            // wxID_CANCEL
-            return;
-        }
+    wxNumberEntryDialog dlg(editor, msg, wxEmptyString, _("Go To Line"), 0, 1, editor->GetLineCount());
+    if(dlg.ShowModal() == wxID_OK) {
+        long line = dlg.GetValue();
+        editor->CenterLine(line - 1);
+        editor->SetActive();
     }
-    editor->SetActive();
 }
 
 void GotoHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
@@ -310,7 +290,9 @@ void GotoHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
 void BookmarkHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     if(event.GetId() == XRCID("toggle_bookmark")) {
         editor->ToggleMarker();
@@ -337,8 +319,12 @@ void BookmarkHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& eve
 void GotoDefinitionHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
-    if(event.GetId() == XRCID("goto_definition")) { editor->GotoDefinition(); }
+    if(!editor) {
+        return;
+    }
+    if(event.GetId() == XRCID("goto_definition")) {
+        editor->GotoDefinition();
+    }
 }
 
 void GotoDefinitionHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& event)
@@ -370,7 +356,9 @@ void WordWrapHandler::ProcessUpdateUIEvent(wxWindow* owner, wxUpdateUIEvent& eve
 void WordWrapHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     editor->SetWrapMode(event.IsChecked() ? wxSTC_WRAP_WORD : wxSTC_WRAP_NONE);
 }
@@ -382,7 +370,9 @@ void FoldHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     wxUnusedVar(event);
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     if(event.GetId() == XRCID("toggle_fold"))
         editor->ToggleCurrentFold();
@@ -415,21 +405,35 @@ void FoldHandler::ProcessUpdateUIEvent(wxWindow* owner,
 void DebuggerMenuHandler::ProcessCommandEvent(wxWindow* owner, wxCommandEvent& event)
 {
     clEditor* editor = dynamic_cast<clEditor*>(owner);
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
-    if(event.GetId() == XRCID("add_breakpoint")) { editor->AddBreakpoint(); }
-    if(event.GetId() == XRCID("insert_breakpoint")) { editor->ToggleBreakpoint(); }
+    if(event.GetId() == XRCID("add_breakpoint")) {
+        editor->AddBreakpoint();
+    }
+    if(event.GetId() == XRCID("insert_breakpoint")) {
+        editor->ToggleBreakpoint();
+    }
     if((event.GetId() == XRCID("insert_temp_breakpoint")) || (event.GetId() == XRCID("insert_disabled_breakpoint")) ||
        (event.GetId() == XRCID("insert_cond_breakpoint"))) {
         editor->AddOtherBreakpointType(event);
     }
-    if(event.GetId() == XRCID("delete_breakpoint")) { editor->DelBreakpoint(); }
+    if(event.GetId() == XRCID("delete_breakpoint")) {
+        editor->DelBreakpoint();
+    }
 
-    if(event.GetId() == XRCID("toggle_breakpoint_enabled_status")) { editor->ToggleBreakpointEnablement(); }
+    if(event.GetId() == XRCID("toggle_breakpoint_enabled_status")) {
+        editor->ToggleBreakpointEnablement();
+    }
 
-    if(event.GetId() == XRCID("ignore_breakpoint")) { editor->OnIgnoreBreakpoint(); }
+    if(event.GetId() == XRCID("ignore_breakpoint")) {
+        editor->OnIgnoreBreakpoint();
+    }
 
-    if(event.GetId() == XRCID("edit_breakpoint")) { editor->OnEditBreakpoint(); }
+    if(event.GetId() == XRCID("edit_breakpoint")) {
+        editor->OnEditBreakpoint();
+    }
 
     if(event.GetId() == XRCID("disable_all_breakpoints")) {
         clDebugEvent event(wxEVT_DBG_UI_DISABLE_ALL_BREAKPOINTS);

@@ -25,27 +25,15 @@
 #ifndef FIND_REPLACE_DLG_H
 #define FIND_REPLACE_DLG_H
 
+#include "clFilesCollector.h"
 #include "cl_config.h"
+
 #include <wx/dialog.h>
 
 class wxTextCtrl;
 class wxCheckBox;
 class wxButton;
 class wxStaticText;
-
-#define wxFRD_MATCHCASE (1 << 0)
-#define wxFRD_MATCHWHOLEWORD (1 << 1)
-#define wxFRD_REGULAREXPRESSION (1 << 2)
-#define wxFRD_SEARCHUP (1 << 3)
-#define wxFRD_WRAPSEARCH (1 << 4)
-#define wxFRD_SELECTIONONLY (1 << 5)
-#define wxFRD_DISPLAYSCOPE (1 << 6)
-#define wxFRD_SAVE_BEFORE_SEARCH (1 << 7)
-#define wxFRD_SKIP_COMMENTS (1 << 8)
-#define wxFRD_SKIP_STRINGS (1 << 9)
-#define wxFRD_COLOUR_COMMENTS (1 << 10)
-#define wxFRD_SEPARATETAB_DISPLAY (1 << 11)
-#define wxFRD_ENABLE_PIPE_SUPPORT (1 << 12)
 
 #define FIND_DLG 0
 #define REPLACE_DLG 1
@@ -71,11 +59,12 @@ class FindReplaceData : public clConfigItem
 {
     wxArrayString m_replaceString;
     wxArrayString m_findString;
+    wxArrayString m_findWhere;
     size_t m_flags;
-    wxString m_paths;
     wxString m_encoding;
     wxArrayString m_fileMask;
     wxString m_selectedMask;
+    size_t m_file_scanner_flags = clFilesScanner::SF_DEFAULT;
 
 protected:
     void TruncateArray(wxArrayString& arr, size_t maxSize);
@@ -94,6 +83,9 @@ public:
     FindReplaceData();
     virtual ~FindReplaceData() {}
 
+    void SetFileScannerFlags(size_t f) { m_file_scanner_flags = f; }
+    size_t GetFileScannerFlags() const { return m_file_scanner_flags; }
+
     wxString GetFindString() const;
     wxString GetReplaceString() const;
     void SetFindString(const wxString& str);
@@ -106,13 +98,16 @@ public:
     void SetEncoding(const wxString& encoding) { this->m_encoding = encoding; }
     void SetFileMask(const wxArrayString& fileMask) { this->m_fileMask = fileMask; }
     void SetFlags(size_t flags) { this->m_flags = flags; }
-    void SetSearchPaths(const wxString& searchPaths);
+    void SetWhereOptions(const wxArrayString& where);
+    wxString GetWhere() const;
     void SetSelectedMask(const wxString& selectedMask) { this->m_selectedMask = selectedMask; }
     const wxString& GetEncoding() const { return m_encoding; }
     const wxArrayString& GetFileMask() const { return m_fileMask; }
     size_t GetFlags() const { return m_flags; }
-    const wxString& GetSearchPaths() const { return m_paths; }
+    const wxArrayString& GetWhereOptions() const { return m_findWhere; }
     const wxString& GetSelectedMask() const { return m_selectedMask; }
+    void SetFindStrings(const wxArrayString& findStrings) { this->m_findString = findStrings; }
+    void SetReplaceStrings(const wxArrayString& replaceStrings) { this->m_replaceString = replaceStrings; }
 };
 
 class wxStaticText;

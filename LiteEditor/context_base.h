@@ -25,15 +25,16 @@
 #ifndef CONTEXT_BASE_H
 #define CONTEXT_BASE_H
 
-#include "wx/string.h"
-#include <wx/stc/stc.h>
+#include "entry.h"
+#include "lexer_configuration.h"
+#include "macros.h"
 #include "smart_ptr.h"
 #include "wx/filename.h"
-#include "lexer_configuration.h"
-#include <vector>
-#include "entry.h"
+#include "wx/string.h"
+
 #include <set>
-#include "macros.h"
+#include <vector>
+#include <wx/stc/stc.h>
 
 class clEditor;
 
@@ -126,7 +127,7 @@ public:
     virtual void OnFileSaved() {}
     virtual void OnEnterHit() {}
     virtual void RetagFile() {}
-    virtual void OnUserTypedXChars(const wxString& word);
+    virtual void OnUserTypedXChars(int pos);
     virtual wxString CallTipContent() { return wxEmptyString; }
     virtual void SetActive() {}
     virtual bool IsCommentOrString(long WXUNUSED(pos)) { return false; }
@@ -154,26 +155,17 @@ public:
     virtual int DoGetCalltipParamterIndex();
 
     // ctrl-click style navigation support
-    virtual int GetHyperlinkRange(int pos, int& start, int& end);
-    virtual void GoHyperlink(int start, int end, int type, bool alt);
+    virtual bool GetHyperlinkRange(int& start, int& end);
 
     // override this method if you wish to provide context based right click menu
     virtual wxMenu* GetMenu();
 
     /**
-     * @brief colour tokens in the current editor
-     * @param workspaceTokens list of token that are associated with the workspace
-     */
-    virtual void ColourContextTokens(const wxString& workspaceTokensStr, const wxString& localsTokensStr)
-    {
-        wxUnusedVar(workspaceTokensStr);
-        wxUnusedVar(localsTokensStr);
-    }
-
-    /**
      * @brief process any idle actions by the context
      */
     virtual void ProcessIdleActions() {}
+
+    int PositionBeforeCurrent() const;
 };
 
 typedef SmartPtr<ContextBase> ContextBasePtr;

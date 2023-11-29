@@ -25,19 +25,22 @@
 #ifndef SEARCH_THREAD_H
 #define SEARCH_THREAD_H
 
+#include "JSON.h"
+#include "clFilesCollector.h"
 #include "codelite_exports.h"
-#include "cppwordscanner.h"
 #include "singleton.h"
 #include "worker_thread.h"
 #include "wx/event.h"
 #include "wx/filename.h"
 #include "wxStringHash.h"
+
 #include <deque>
 #include <list>
 #include <map>
+#include <vector>
 #include <wx/regex.h>
+#include <wx/stopwatch.h>
 #include <wx/string.h>
-#include "JSON.h"
 
 class wxEvtHandler;
 class SearchResult;
@@ -73,6 +76,7 @@ class WXDLLIMPEXP_CL SearchData : public ThreadRequest
     wxEvtHandler* m_owner;
     wxString m_encoding;
     wxArrayString m_excludePatterns;
+    size_t m_file_scanner_flags = clFilesScanner::SF_DONT_FOLLOW_SYMLINKS | clFilesScanner::SF_EXCLUDE_HIDDEN_DIRS;
     friend class SearchThread;
 
 private:
@@ -107,6 +111,8 @@ public:
     //------------------------------------------
     // Setters / Getters
     //------------------------------------------
+    size_t GetFileScannerFlags() const { return m_file_scanner_flags; }
+    void SetFileScannerFlags(size_t flags) { m_file_scanner_flags = flags; }
     bool IsMatchCase() const { return m_flags & wxSD_MATCHCASE ? true : false; }
     bool IsEnablePipeSupport() const { return m_flags & wxSD_ENABLE_PIPE_SUPPORT; }
     void SetEnablePipeSupport(bool b) { SetOption(wxSD_ENABLE_PIPE_SUPPORT, b); }
@@ -163,8 +169,8 @@ class WXDLLIMPEXP_CL SearchResult : public wxObject
     size_t m_flags;
     int m_columnInChars;
     int m_lenInChars;
-    short m_matchState;
     wxString m_scope;
+    wxArrayString m_regexCaptures;
 
 public:
     // ctor-dtor, copy constructor and assignment operator
@@ -176,7 +182,8 @@ public:
 
     SearchResult& operator=(const SearchResult& rhs)
     {
-        if(this == &rhs) return *this;
+        if(this == &rhs)
+            return *this;
         m_position = rhs.m_position;
         m_column = rhs.m_column;
         m_lineNumber = rhs.m_lineNumber;
@@ -187,8 +194,8 @@ public:
         m_flags = rhs.m_flags;
         m_columnInChars = rhs.m_columnInChars;
         m_lenInChars = rhs.m_lenInChars;
-        m_matchState = rhs.m_matchState;
         m_scope = rhs.m_scope.c_str();
+        m_regexCaptures = rhs.m_regexCaptures;
         return *this;
     }
 
@@ -228,11 +235,20 @@ public:
     void SetLenInChars(const int& len) { this->m_lenInChars = len; }
     const int& GetLenInChars() const { return m_lenInChars; }
 
-    void SetMatchState(short matchState) { this->m_matchState = matchState; }
-    short GetMatchState() const { return m_matchState; }
-
     void SetScope(const wxString& scope) { this->m_scope = scope.c_str(); }
     const wxString& GetScope() const { return m_scope; }
+
+    void SetRegexCaptures(const wxArrayString& regexCaptures) { this->m_regexCaptures = regexCaptures; }
+    const wxArrayString& GetRegexCaptures() const { return m_regexCaptures; }
+    wxString GetRegexCapture(size_t backref) const
+    {
+        if(m_regexCaptures.size() > backref) {
+            return m_regexCaptures[backref];
+        } else {
+            return wxEmptyString;
+        }
+    }
+
     // return a foramtted message
     wxString GetMessage() const
     {
@@ -243,7 +259,7 @@ public:
     }
 };
 
-typedef std::list<SearchResult> SearchResultList;
+typedef std::vector<SearchResult> SearchResultList;
 
 class WXDLLIMPEXP_CL SearchSummary : public wxObject
 {
@@ -268,7 +284,8 @@ public:
 
     SearchSummary& operator=(const SearchSummary& rhs)
     {
-        if(this == &rhs) return *this;
+        if(this == &rhs)
+            return *this;
 
         m_fileScanned = rhs.m_fileScanned;
         m_matchesFound = rhs.m_matchesFound;
@@ -297,9 +314,12 @@ public:
     void SetElapsedTime(long elapsed) { m_elapsed = elapsed; }
     wxString GetMessage() const
     {
-        wxString msg(wxString(wxT("====== ")) + _("Number of files scanned: "));
-        msg << m_fileScanned << wxT(",");
-        msg << _(" Matches found: ");
+        wxString msg;
+        if(m_fileScanned) {
+            msg << _("====== Number of files scanned: ") << m_fileScanned << _(", Matches found: ");
+        } else {
+            msg << _("====== Matches found: ");
+        }
         msg << m_matchesFound;
         int secs = m_elapsed / 1000;
         int msecs = m_elapsed % 1000;
@@ -324,7 +344,6 @@ class WXDLLIMPEXP_CL SearchThread : public WorkerThread
 {
     friend class SearchThreadST;
     wxString m_wordChars;
-    std::unordered_map<wxChar, bool> m_wordCharsMap; //< Internal
     SearchResultList m_results;
     bool m_stopSearch;
     SearchSummary m_summary;
@@ -332,7 +351,8 @@ class WXDLLIMPEXP_CL SearchThread : public WorkerThread
     wxRegEx m_regex;
     bool m_matchCase;
     wxCriticalSection m_cs;
-    int m_counter = 0;
+    wxStopWatch m_stopWatch;
+    long m_msPassed = 0;
 
 public:
     /**
@@ -362,15 +382,6 @@ public:
      */
     void StopSearch(bool stop = true);
 
-    /**
-     *  The search thread has several functions that operate on words,
-     *  which are defined to be contiguous sequences of characters from a particular set of characters.
-     *  Defines which characters are members of that set. The default is set to:
-     * "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-     * \param chars sequence of characters that are considered part of a word
-     */
-    void SetWordChars(const wxString& chars);
-
 private:
     /**
      * Return files to search
@@ -378,11 +389,6 @@ private:
      * \param data search data
      */
     void GetFiles(const SearchData* data, wxArrayString& files);
-
-    /**
-     * Index the word chars from the array into a map
-     */
-    void IndexWordChars();
 
     // Test to see if user asked to cancel the search
     bool TestStopSearch();
@@ -398,12 +404,11 @@ private:
 
     // Perform search on a line
     void DoSearchLine(const wxString& line, const int lineNum, const int lineOffset, const wxString& fileName,
-                      const SearchData* data, const wxString& findWhat, const wxArrayString& filters,
-                      TextStatesPtr statesPtr);
+                      const SearchData* data, const wxString& findWhat, const wxArrayString& filters);
 
     // Perform search on a line using regular expression
     void DoSearchLineRE(const wxString& line, const int lineNum, const int lineOffset, const wxString& fileName,
-                        const SearchData* data, TextStatesPtr statesPtr);
+                        const SearchData* data);
 
     // Send an event to the notified window
     void SendEvent(wxEventType type, wxEvtHandler* owner);

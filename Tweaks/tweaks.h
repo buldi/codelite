@@ -47,7 +47,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();
@@ -55,8 +55,8 @@ public:
     // Event handlers
     void OnSettings(wxCommandEvent& e);
     void OnColourTab(clColourEvent& e);
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnFileViewBuildTree(clCommandEvent& e);
     void OnCustomizeProject(clColourEvent& e);
     void OnTabBorderColour(clColourEvent& e);

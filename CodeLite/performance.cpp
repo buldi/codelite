@@ -28,21 +28,21 @@
 
 #ifdef __WXMSW__
 
+#include "wx/msw/wrapwin.h" // includes windows.h
 #include <assert.h>
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include <windows.h>
 
 #if 0
 static FILE* dbgFile(NULL);
 static std::string output = "";
 static std::vector<std::pair<DWORD, DWORD> > tickCounts;
 #endif
-void PERF_OUTPUT(const char* path) 
-{ 
+void PERF_OUTPUT(const char* path)
+{
 #if 0
-    output = path; 
+    output = path;
 #endif
 }
 

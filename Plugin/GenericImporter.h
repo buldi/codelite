@@ -26,11 +26,11 @@
 #ifndef GENERICIMPORTER_H
 #define GENERICIMPORTER_H
 
-#include <wx/string.h>
-#include <wx/arrstr.h>
-#include <vector>
 #include <map>
 #include <memory>
+#include <vector>
+#include <wx/arrstr.h>
+#include <wx/string.h>
 
 #ifdef __WXMSW__
 #define STATIC_LIBRARY_EXT wxT(".lib")
@@ -105,7 +105,7 @@ typedef std::shared_ptr<GenericWorkspace> GenericWorkspacePtr;
 class GenericImporter
 {
 public:
-    virtual bool OpenWordspace(const wxString& filename, const wxString& defaultCompiler) = 0;
+    virtual bool OpenWorkspace(const wxString& filename, const wxString& defaultCompiler) = 0;
     virtual bool isSupportedWorkspace() = 0;
     virtual GenericWorkspacePtr PerformImport() = 0;
 };

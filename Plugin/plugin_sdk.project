@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<CodeLite_Project Name="plugin_sdk" Version="10.0.0">
+<CodeLite_Project Name="plugin_sdk" Version="11000">
   <Plugins>
     <Plugin Name="qmake">
       <![CDATA[00070001N0011CMake_Debug0000000000000001N0015WinDebugUnicode0000000000000001N0011WinDebug_290000000000000001N0017WinReleaseUnicode0000000000000001N0013WinRelease_290000000000000001N0013Win_x64_Debug0000000000000001N0015Win_x64_Release000000000000]]>
@@ -44,6 +44,36 @@
  }]]]>
     </Plugin>
   </Plugins>
+  <VirtualDirectory Name="CodeLiteRemote">
+    <File Name="CodeLiteRemoteHelper.cpp"/>
+    <File Name="CodeLiteRemoteHelper.hpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="Rust">
+    <File Name="clRustup.hpp"/>
+    <File Name="clRustup.cpp"/>
+    <File Name="clRustLocator.hpp"/>
+    <File Name="clRustLocator.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="FileSystemWorkspace">
+    <File Name="clShellHelper.cpp"/>
+    <File Name="clShellHelper.hpp"/>
+    <File Name="clFSWNewConfigDlg.h"/>
+    <File Name="clFSWNewConfigDlg.cpp"/>
+    <File Name="NewFileSystemWorkspaceDialog.cpp"/>
+    <File Name="NewFileSystemWorkspaceDialog.h"/>
+    <File Name="FSConfigPage.cpp"/>
+    <File Name="FSConfigPage.h"/>
+    <File Name="clFileSystemWorkspaceConfig.cpp"/>
+    <File Name="clFileSystemWorkspaceConfig.hpp"/>
+    <File Name="BuildTargetDlg.cpp"/>
+    <File Name="BuildTargetDlg.h"/>
+    <File Name="clFileSystemWorkspaceDlg.cpp"/>
+    <File Name="clFileSystemWorkspaceDlg.h"/>
+    <File Name="clFileSystemWorkspaceView.cpp"/>
+    <File Name="clFileSystemWorkspaceView.hpp"/>
+    <File Name="clFileSystemWorkspace.cpp"/>
+    <File Name="clFileSystemWorkspace.hpp"/>
+  </VirtualDirectory>
   <VirtualDirectory Name="LanguageServerProtocol">
     <File Name="LSPNetworkSTDIO.cpp"/>
     <File Name="LSPNetworkSTDIO.h"/>
@@ -57,6 +87,20 @@
     <File Name="LanguageServerProtocol.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="CustomControls">
+    <File Name="clPropertiesPage.cpp"/>
+    <File Name="clPropertiesPage.hpp"/>
+    <File Name="clThemedTextCtrl.cpp"/>
+    <File Name="clThemedTextCtrl.hpp"/>
+    <File Name="wxCustomControlsMSW.hpp"/>
+    <File Name="wxCustomControlsMacOS.hpp"/>
+    <File Name="wxCustomControlsGTK.hpp"/>
+    <File Name="wxCustomControls.hpp"/>
+    <File Name="clThemedComboBox.cpp"/>
+    <File Name="clThemedComboBox.hpp"/>
+    <File Name="clComboBox.hpp"/>
+    <File Name="clComboBox.cpp"/>
+    <File Name="clThemedSTC.cpp"/>
+    <File Name="clThemedSTC.hpp"/>
     <File Name="clThemedChoice.cpp"/>
     <File Name="clThemedChoice.h"/>
     <File Name="clChoice.h"/>
@@ -71,6 +115,19 @@
     <File Name="clButton.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="clTreeCtrl">
+    <File Name="clAnsiEscapeCodeColourBuilder.cpp"/>
+    <File Name="clAnsiEscapeCodeHandler.cpp"/>
+    <File Name="clAnsiEscapeCodeColourBuilder.hpp"/>
+    <File Name="clAnsiEscapeCodeHandler.hpp"/>
+    <File Name="clTerminalViewCtrl.cpp"/>
+    <File Name="clTerminalViewCtrl.hpp"/>
+    <File Name="clCaptionBar.hpp"/>
+    <File Name="clCaptionBar.cpp"/>
+    <File Name="clThemedMenuBar.cpp"/>
+    <File Name="clThemedMenuBar.hpp"/>
+    <File Name="clMenuBar.hpp"/>
+    <File Name="clMenuBar.cpp"/>
+    <File Name="clThemedCtrl.hpp"/>
     <File Name="clThemedSplitterWindow.cpp"/>
     <File Name="clThemedSplitterWindow.h"/>
     <File Name="clCustomScrollBar.cpp"/>
@@ -105,6 +162,8 @@
     <File Name="clTreeNodeVisitor.h"/>
   </VirtualDirectory>
   <VirtualDirectory Name="clToolBar">
+    <File Name="clEnhancedToolBar.cpp"/>
+    <File Name="clEnhancedToolBar.hpp"/>
     <File Name="clToolBarStretchableSpace.h"/>
     <File Name="clToolBarStretchableSpace.cpp"/>
     <File Name="clToolBarSpacer.h"/>
@@ -143,6 +202,25 @@
     <Topleveldir>/src/codelite/Plugin</Topleveldir>
   </Reconciliation>
   <VirtualDirectory Name="src">
+    <File Name="WorkspaceHelper.cpp"/>
+    <File Name="clLocaleManager.hpp"/>
+    <File Name="clLocaleManager.cpp"/>
+    <File Name="DefaultLexerJSON.cpp"/>
+    <File Name="clCodeLiteRemoteProcess.hpp"/>
+    <File Name="clCodeLiteRemoteProcess.cpp"/>
+    <File Name="libplugin_pch.h"/>
+    <File Name="SwitchToWorkspaceDlg.h"/>
+    <File Name="SwitchToWorkspaceDlg.cpp"/>
+    <File Name="SwitchToWorkspaceBase_plugin_bitmaps.cpp"/>
+    <File Name="SwitchToWorkspaceBase.wxcp"/>
+    <File Name="SwitchToWorkspaceBase.h"/>
+    <File Name="SwitchToWorkspaceBase.cpp"/>
+    <File Name="clBacktickCache.hpp"/>
+    <File Name="clBacktickCache.cpp"/>
+    <File Name="clRegistery.cpp"/>
+    <File Name="clRegistery.hpp"/>
+    <File Name="clSnippetManager.cpp"/>
+    <File Name="clSnippetManager.hpp"/>
     <VirtualDirectory Name="clangd">
       <File Name="CompileFlagsTxt.cpp"/>
       <File Name="CompileFlagsTxt.h"/>
@@ -187,59 +265,67 @@
     <File Name="unredobase.h"/>
     <File Name="ColoursAndFontsManager.h"/>
     <File Name="ColoursAndFontsManager.cpp"/>
-    <VirtualDirectory Name="EclipseImporters">
-      <File Name="EclipseYAMLThemeImporter.cpp"/>
-      <File Name="EclipseYAMLThemeImporter.h"/>
-      <File Name="EclipseDockerfileThemeImporter.cpp"/>
-      <File Name="EclipseDockerfileThemeImporter.h"/>
-      <File Name="EclipseCMakeThemeImporter.cpp"/>
-      <File Name="EclipseCMakeThemeImporter.h"/>
-      <File Name="EclipseCXXThemeImporter.cpp"/>
-      <File Name="EclipseCXXThemeImporter.h"/>
-      <File Name="EclipseMakefileThemeImporter.cpp"/>
-      <File Name="EclipseMakefileThemeImporter.h"/>
-      <File Name="EclipseTextThemeImporter.cpp"/>
-      <File Name="EclipseTextThemeImporter.h"/>
-      <File Name="EclipseThemeImporterBase.cpp"/>
-      <File Name="EclipseThemeImporterBase.h"/>
-      <File Name="EclipseThemeImporterManager.cpp"/>
-      <File Name="EclipseThemeImporterManager.h"/>
-      <File Name="EclipseDiffThemeImporter.h"/>
-      <File Name="EclipseDiffThemeImporter.cpp"/>
-      <File Name="EclipsePHPThemeImporter.h"/>
-      <File Name="EclipsePHPThemeImporter.cpp"/>
-      <File Name="EclipseCSSThemeImporter.h"/>
-      <File Name="EclipseCSSThemeImporter.cpp"/>
-      <File Name="EclipseXMLThemeImporter.h"/>
-      <File Name="EclipseXMLThemeImporter.cpp"/>
-      <File Name="EclipseJavaScriptThemeImporter.h"/>
-      <File Name="EclipseJavaScriptThemeImporter.cpp"/>
-      <File Name="EclipseINIThemeImporter.h"/>
-      <File Name="EclipseINIThemeImporter.cpp"/>
-      <File Name="EclipseASMThemeImporter.h"/>
-      <File Name="EclipseASMThemeImporter.cpp"/>
-      <File Name="EclipseBatchThemeImporter.h"/>
-      <File Name="EclipseBatchThemeImporter.cpp"/>
-      <File Name="EclipsePythonThemeImporter.cpp"/>
-      <File Name="EclipsePythonThemeImporter.h"/>
-      <File Name="EclipseCobraThemeImporter.h"/>
-      <File Name="EclipseCobraThemeImporter.cpp"/>
-      <File Name="EclipseCobraAltThemeImporter.h"/>
-      <File Name="EclipseCobraAltThemeImporter.cpp"/>
-      <File Name="EclipseFortranThemeImporter.h"/>
-      <File Name="EclipseFortranThemeImporter.cpp"/>
-      <File Name="EclipseInnoSetupThemeImporter.h"/>
-      <File Name="EclipseInnoSetupThemeImporter.cpp"/>
-      <File Name="EclipseJavaThemeImporter.h"/>
-      <File Name="EclipseJavaThemeImporter.cpp"/>
-      <File Name="EclipseLuaThemeImporter.h"/>
-      <File Name="EclipseLuaThemeImporter.cpp"/>
-      <File Name="EclipseScriptThemeImporter.h"/>
-      <File Name="EclipseScriptThemeImporter.cpp"/>
-      <File Name="EclipseSQLThemeImporter.h"/>
-      <File Name="EclipseSQLThemeImporter.cpp"/>
-      <File Name="EclipseSCSSThemeImporter.h"/>
-      <File Name="EclipseSCSSThemeImporter.cpp"/>
+    <VirtualDirectory Name="ThemeImporters">
+      <File Name="ThemeImporterMarkdown.cpp"/>
+      <File Name="ThemeImporterMarkdown.hpp"/>
+      <File Name="ThemeImporterFortran.hpp"/>
+      <File Name="ThemeImporterManager.cpp"/>
+      <File Name="ThemeImporterManager.hpp"/>
+      <File Name="ThemeImporterYAML.hpp"/>
+      <File Name="ThemeImporterYAML.cpp"/>
+      <File Name="ThemeImporterXML.hpp"/>
+      <File Name="ThemeImporterXML.cpp"/>
+      <File Name="ThemeImporterBase.hpp"/>
+      <File Name="ThemeImporterBase.cpp"/>
+      <File Name="ThemeImporterText.hpp"/>
+      <File Name="ThemeImporterText.cpp"/>
+      <File Name="ThemeImporterSQL.hpp"/>
+      <File Name="ThemeImporterSQL.cpp"/>
+      <File Name="ThemeImporterSCSS.hpp"/>
+      <File Name="ThemeImporterSCSS.cpp"/>
+      <File Name="ThemeImporterScript.hpp"/>
+      <File Name="ThemeImporterScript.cpp"/>
+      <File Name="ThemeImporterRust.hpp"/>
+      <File Name="ThemeImporterRust.cpp"/>
+      <File Name="ThemeImporterRuby.hpp"/>
+      <File Name="ThemeImporterRuby.cpp"/>
+      <File Name="ThemeImporterPython.hpp"/>
+      <File Name="ThemeImporterPython.cpp"/>
+      <File Name="ThemeImporterPHP.hpp"/>
+      <File Name="ThemeImporterPHP.cpp"/>
+      <File Name="ThemeImporterMakefile.hpp"/>
+      <File Name="ThemeImporterMakefile.cpp"/>
+      <File Name="ThemeImporterLUA.hpp"/>
+      <File Name="ThemeImporterLUA.cpp"/>
+      <File Name="ThemeImporterJSON.hpp"/>
+      <File Name="ThemeImporterJSON.cpp"/>
+      <File Name="ThemeImporterJava.hpp"/>
+      <File Name="ThemeImporterJava.cpp"/>
+      <File Name="ThemeImporterJavaScript.hpp"/>
+      <File Name="ThemeImporterJavaScript.cpp"/>
+      <File Name="ThemeImporterInnoSetup.hpp"/>
+      <File Name="ThemeImporterInnoSetup.cpp"/>
+      <File Name="ThemeImporterINI.hpp"/>
+      <File Name="ThemeImporterINI.cpp"/>
+      <File Name="ThemeImporterFortran.cpp"/>
+      <File Name="ThemeImporterDockerfile.hpp"/>
+      <File Name="ThemeImporterDockerfile.cpp"/>
+      <File Name="ThemeImporterDiff.hpp"/>
+      <File Name="ThemeImporterDiff.cpp"/>
+      <File Name="ThemeImporterCXX.hpp"/>
+      <File Name="ThemeImporterCXX.cpp"/>
+      <File Name="ThemeImporterCSS.hpp"/>
+      <File Name="ThemeImporterCSS.cpp"/>
+      <File Name="ThemeImporterCobra.hpp"/>
+      <File Name="ThemeImporterCobra.cpp"/>
+      <File Name="ThemeImporterCobraAlt.hpp"/>
+      <File Name="ThemeImporterCobraAlt.cpp"/>
+      <File Name="ThemeImporterCMake.hpp"/>
+      <File Name="ThemeImporterCMake.cpp"/>
+      <File Name="ThemeImporterBatch.hpp"/>
+      <File Name="ThemeImporterBatch.cpp"/>
+      <File Name="ThemeImporterASM.hpp"/>
+      <File Name="ThemeImporterASM.cpp"/>
     </VirtualDirectory>
     <File Name="clNotebookTheme.h"/>
     <File Name="clNotebookTheme.cpp"/>
@@ -264,6 +350,7 @@
     <File Name="EnvironmentVariablesDlg.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="include">
+    <File Name="WorkspaceHelper.hpp"/>
     <File Name="async_executable_cmd.h"/>
     <File Name="buildmanager.h"/>
     <File Name="clean_request.h"/>
@@ -284,8 +371,12 @@
     <File Name="clStrings.h"/>
   </VirtualDirectory>
   <VirtualDirectory Name="Commons">
-    <File Name="clThemeUpdater.cpp"/>
-    <File Name="clThemeUpdater.h"/>
+    <File Name="MSWDarkMode.cpp"/>
+    <File Name="MSWDarkMode.hpp"/>
+    <File Name="mdparser.hpp"/>
+    <File Name="mdparser.cpp"/>
+    <File Name="clFileCache.cpp"/>
+    <File Name="clFileCache.hpp"/>
     <File Name="clGenericSTCStyler.cpp"/>
     <File Name="clGenericSTCStyler.h"/>
     <File Name="xmlutils.cpp"/>
@@ -306,8 +397,6 @@
     <File Name="wx_tree_traverser.cpp"/>
     <File Name="macromanager.cpp"/>
     <File Name="macromanager.h"/>
-    <File Name="theme_handler_helper.h"/>
-    <File Name="theme_handler_helper.cpp"/>
     <File Name="clStringHistory.h"/>
     <File Name="clStringHistory.cpp"/>
     <File Name="clFindResultsStyler.h"/>
@@ -324,6 +413,10 @@
     <File Name="clGotoAnythingManager.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="Builders">
+    <File Name="BuilderGnuMakeMSYS.cpp"/>
+    <File Name="BuilderGnuMakeMSYS.hpp"/>
+    <File Name="clRemoteBuilder.cpp"/>
+    <File Name="clRemoteBuilder.hpp"/>
     <File Name="builder_gnumake_default.h"/>
     <File Name="builder_gnumake_default.cpp"/>
     <File Name="builder.h"/>
@@ -367,6 +460,8 @@
     <File Name="debuggersettings.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="configuration">
+    <File Name="GCCMetadata.cpp"/>
+    <File Name="GCCMetadata.hpp"/>
     <File Name="attribute_style.h"/>
     <File Name="build_settings_config.cpp"/>
     <File Name="editor_config.cpp"/>
@@ -397,8 +492,6 @@
     <File Name="tagsmanagementconf.cpp"/>
     <File Name="tagsmanagementconf.h"/>
     <File Name="build_config_common.h"/>
-    <File Name="includepathlocator.cpp"/>
-    <File Name="includepathlocator.h"/>
     <File Name="cl_registry.h"/>
     <File Name="cl_registry.cpp"/>
     <File Name="clPersistenceManager.h"/>
@@ -413,6 +506,8 @@
   </VirtualDirectory>
   <VirtualDirectory Name="GUI">
     <VirtualDirectory Name="Controls">
+      <File Name="clMarkdownRenderer.cpp"/>
+      <File Name="clMarkdownRenderer.hpp"/>
       <File Name="symbol_tree.h"/>
       <File Name="symbol_tree.cpp"/>
       <File Name="clTableLineEditorDlg.cpp"/>
@@ -431,10 +526,6 @@
       <File Name="listctrl_improved.cpp"/>
       <File Name="cl_editor_tip_window.cpp"/>
       <File Name="cl_editor_tip_window.h"/>
-      <File Name="cl_treelistctrl.h"/>
-      <File Name="cl_treelistctrl.cpp"/>
-      <File Name="my_menu_bar.h"/>
-      <File Name="my_menu_bar.cpp"/>
       <File Name="cc_box_tip_window.cpp"/>
       <File Name="cc_box_tip_window.h"/>
       <File Name="wxCustomStatusBar.cpp"/>
@@ -446,6 +537,11 @@
       <File Name="clGetTextFromUserDialog.h"/>
       <File Name="clGetTextFromUserDialog.cpp"/>
       <VirtualDirectory Name="CodeCompletionBox">
+        <File Name="addincludefiledlgbase.h"/>
+        <File Name="addincludefiledlgbase.cpp"/>
+        <File Name="addincludefiledlg.h"/>
+        <File Name="addincludefiledlg.cpp"/>
+        <File Name="AddIncludeFile.wxcp"/>
         <File Name="wxCodeCompletionBox.cpp"/>
         <File Name="wxCodeCompletionBox.h"/>
         <File Name="wxCodeCompletionBox.wxcp"/>
@@ -474,6 +570,8 @@
       <File Name="clEditorBar.cpp"/>
     </VirtualDirectory>
     <VirtualDirectory Name="Dialogs">
+      <File Name="SelectFileTypesDialog.cpp"/>
+      <File Name="SelectFileTypesDialog.hpp"/>
       <File Name="clPluginsFindBar.cpp"/>
       <File Name="clPluginsFindBar.h"/>
       <File Name="quickfindbarbase.wxcp"/>
@@ -514,10 +612,12 @@
       <File Name="GotoAnythingDlg.h"/>
     </VirtualDirectory>
     <VirtualDirectory Name="Notebook">
-      <File Name="clTabRendererGTK3.cpp"/>
-      <File Name="clTabRendererGTK3.h"/>
-      <File Name="clMultiBook.cpp"/>
-      <File Name="clMultiBook.h"/>
+      <File Name="clTabRendererMinimal.cpp"/>
+      <File Name="clTabRendererMinimal.hpp"/>
+      <File Name="GTKNotebook.hpp"/>
+      <File Name="GTKNotebook.cpp"/>
+      <File Name="clGenericNotebook.hpp"/>
+      <File Name="clGenericNotebook.cpp"/>
       <File Name="clTab.h"/>
       <File Name="clTabHistory.cpp"/>
       <File Name="clTabHistory.h"/>
@@ -536,22 +636,12 @@
       <File Name="NotebookNavigationDlg.cpp"/>
       <File Name="clTabRenderer.h"/>
       <File Name="clTabRenderer.cpp"/>
-      <File Name="clTabRendererCurved.h"/>
-      <File Name="clTabRendererCurved.cpp"/>
-      <File Name="clTabRendererSquare.h"/>
-      <File Name="clTabRendererSquare.cpp"/>
-      <File Name="clTabRendererClassic.h"/>
-      <File Name="clTabRendererClassic.cpp"/>
     </VirtualDirectory>
     <VirtualDirectory Name="wxAUI">
       <File Name="cl_aui_dock_art.h"/>
       <File Name="cl_aui_dock_art.cpp"/>
       <File Name="cl_aui_tb_are.cpp"/>
       <File Name="cl_aui_tb_are.h"/>
-      <File Name="cl_aui_notebook_art.cpp"/>
-      <File Name="cl_aui_notebook_art.h"/>
-      <File Name="clAuiMainNotebookTabArt.h"/>
-      <File Name="clAuiMainNotebookTabArt.cpp"/>
       <File Name="clAuiCaptionEnabler.h"/>
       <File Name="clAuiCaptionEnabler.cpp"/>
       <File Name="clDockingManager.h"/>
@@ -575,12 +665,6 @@
     <File Name="clMainFrameHelper.cpp"/>
     <File Name="VirtualDirectoryColour.h"/>
     <File Name="VirtualDirectoryColour.cpp"/>
-  </VirtualDirectory>
-  <VirtualDirectory Name="JobQueue">
-    <File Name="jobqueue.cpp"/>
-    <File Name="jobqueue.h"/>
-    <File Name="job.h"/>
-    <File Name="job.cpp"/>
   </VirtualDirectory>
   <Dependencies/>
   <VirtualDirectory Name="BrowsingRecords">
@@ -619,11 +703,16 @@
   <Dependencies Name="WinDebug_29"/>
   <Dependencies Name="WinRelease_29"/>
   <VirtualDirectory Name="wxcrafter">
+    <File Name="SelectFileTypesDialogBase.wxcp"/>
+    <File Name="clFileSystemWorkspaceDlgBase.wxcp"/>
     <File Name="NewProjectDialogBase.wxcp"/>
     <File Name="DiffUI.wxcp"/>
     <File Name="clResizableTooltipBase.wxcp"/>
     <File Name="clAboutDialogBase.wxcp"/>
     <VirtualDirectory Name="resources">
+      <File Name="SelectFileTypesDialogBase_plugin_bitmaps.cpp"/>
+      <File Name="AddIncludeFile_liteeditor_bitmaps.cpp"/>
+      <File Name="clFileSystemWorkspaceDlgBase_plugin_bitmaps.cpp"/>
       <File Name="quickfindbarbase_bitmaps.cpp"/>
       <File Name="NewProjectDialogBase_plugin_bitmaps.cpp"/>
       <File Name="DiffUI_plugin_bitmaps.cpp"/>
@@ -645,6 +734,10 @@
       <File Name="GotoAnythingBaseUI_plugin_bitmaps.cpp"/>
     </VirtualDirectory>
     <VirtualDirectory Name="base">
+      <File Name="SelectFileTypesDialogBase.cpp"/>
+      <File Name="SelectFileTypesDialogBase.hpp"/>
+      <File Name="clFileSystemWorkspaceDlgBase.cpp"/>
+      <File Name="clFileSystemWorkspaceDlgBase.h"/>
       <File Name="NewProjectDialogBase.cpp"/>
       <File Name="NewProjectDialogBase.h"/>
       <File Name="DiffUI.cpp"/>
@@ -686,6 +779,16 @@
     <File Name="GotoAnythingBaseUI.wxcp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="sftp_ui">
+    <File Name="clRemoteFinderHelper.cpp"/>
+    <File Name="clRemoteFinderHelper.hpp"/>
+    <File Name="clRemoteFindDialog.cpp"/>
+    <File Name="clRemoteFindDialog.h"/>
+    <File Name="sftp_item_comparator.hpp"/>
+    <File Name="sftp_item_comparator.cpp"/>
+    <File Name="clRemoteDirCtrl.cpp"/>
+    <File Name="clRemoteDirCtrl.hpp"/>
+    <File Name="clSFTPManager.cpp"/>
+    <File Name="clSFTPManager.hpp"/>
     <File Name="SFTPSessionInfo.cpp"/>
     <File Name="SFTPSessionInfo.h"/>
     <File Name="AddSSHAcountDlg.cpp"/>
@@ -695,8 +798,6 @@
     <File Name="SFTPBrowserDlg.h"/>
     <File Name="sftptreemodel.cpp"/>
     <File Name="sftptreemodel.h"/>
-    <File Name="ssh_account_info.cpp"/>
-    <File Name="ssh_account_info.h"/>
     <File Name="SSHAccountManagerDlg.cpp"/>
     <File Name="SSHAccountManagerDlg.h"/>
     <File Name="sftp_settings.cpp"/>
@@ -729,12 +830,16 @@
     <File Name="clPatch.cpp"/>
   </VirtualDirectory>
   <VirtualDirectory Name="Compilers">
+    <File Name="CompilerLocatorMSYS2Clang.cpp"/>
+    <File Name="CompilerLocatorMSYS2Clang.hpp"/>
+    <File Name="CompilerLocatorRustc.cpp"/>
+    <File Name="CompilerLocatorRustc.hpp"/>
+    <File Name="CompilerLocatorMSYS2.cpp"/>
+    <File Name="CompilerLocatorMSYS2.hpp"/>
     <File Name="CompilerLocatorEosCDT.cpp"/>
     <File Name="CompilerLocatorEosCDT.h"/>
     <File Name="ICompilerLocator.h"/>
     <File Name="ICompilerLocator.cpp"/>
-    <File Name="CompilerLocatorMinGW.h"/>
-    <File Name="CompilerLocatorMinGW.cpp"/>
     <File Name="CompilersDetectorManager.h"/>
     <File Name="CompilersDetectorManager.cpp"/>
     <File Name="CompilerLocatorGCC.h"/>
@@ -771,20 +876,19 @@
     <File Name="clNodeJS.h"/>
     <File Name="NodeJSLocator.h"/>
     <File Name="NodeJSLocator.cpp"/>
-    <File Name="clJSCTags.cpp"/>
-    <File Name="clJSCTags.h"/>
-    <File Name="jsctags.zip"/>
   </VirtualDirectory>
+  <Dependencies Name="CMake_Debug"/>
   <Dependencies Name="Custom"/>
   <Dependencies Name="Win_wxWidgets_29"/>
-  <Dependencies Name="Win_x64_Debug"/>
+  <Dependencies Name="Win_x64_Debug">
+    <Project Name="libCodeLite"/>
+  </Dependencies>
   <Dependencies Name="Win_x86_Release"/>
   <Dependencies Name="Win_x64_Release">
-    <Project Name="libCodeLite"/>
     <Project Name="sqlite3"/>
     <Project Name="wxsqlite3"/>
-    <Project Name="databaselayer_sqlite"/>
-    <Project Name="wxshapeframework"/>
+    <Project Name="ctagsdlib"/>
+    <Project Name="libCodeLite"/>
   </Dependencies>
   <Settings Type="Dynamic Library">
     <GlobalSettings>
@@ -800,8 +904,8 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="CMake_Debug" CompilerType="gnu gcc" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="CMake_Debug" CompilerType="gnu gcc" DebuggerType="lldb-vscode" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-fstandalone-debug -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="-O0" Required="yes">
@@ -809,8 +913,8 @@
         <LibraryPath Value="Debug"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
-      <General OutputFile="" IntermediateDirectory="./Debug" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./Debug" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./Debug" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -843,8 +947,8 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Custom" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="Custom" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-fstandalone-debug -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
       </Compiler>
       <Linker Options="-O0" Required="yes">
@@ -852,8 +956,8 @@
         <LibraryPath Value="Debug"/>
       </Linker>
       <ResourceCompiler Options="" Required="no"/>
-      <General OutputFile="" IntermediateDirectory="./Debug" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./Debug" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="./Debug" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[
       ]]>
@@ -886,8 +990,8 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_wxWidgets_29" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="$(shell wx-config --cxxflags  --unicode=yes);-g;-Wall" C_Options="$(shell wx-config --cxxflags  --unicode=yes);-g;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="Win_wxWidgets_29" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="$(shell wx-config --cxxflags  --unicode=yes);-g;-fstandalone-debug;-Wall" C_Options="$(shell wx-config --cxxflags  --unicode=yes);-g;-fstandalone-debug;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="./include"/>
         <IncludePath Value="../CodeLite"/>
@@ -900,8 +1004,8 @@
         <Library Value="libCodeLiteud.dll"/>
       </Linker>
       <ResourceCompiler Options="" Required="yes"/>
-      <General OutputFile="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib/libplugin_sdkud.dll" IntermediateDirectory="./WinDbg_29" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="libplugin_sdkud.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[
       
@@ -937,8 +1041,8 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_x64_Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;-Wall;$(shell wx-config --cxxflags  --unicode=yes);-Winvalid-pch" C_Options="-Wall;-g" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+    <Configuration Name="Win_x64_Debug" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-fstandalone-debug;-Wall;$(shell wx-config --cxxflags  --unicode=yes);-Winvalid-pch" C_Options="-Wall;-g;-fstandalone-debug" Assembler="" Required="yes" PreCompiledHeader="libplugin_dbg_pch.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
         <IncludePath Value="./include"/>
         <IncludePath Value="../CodeLite"/>
@@ -948,15 +1052,15 @@
         <Preprocessor Value="USE_SFTP=1"/>
         <Preprocessor Value="CL_DEBUG_BUILD=1"/>
       </Compiler>
-      <Linker Options="$(shell wx-config --libs std,stc,ribbon,propgrid  --unicode=yes)" Required="yes">
+      <Linker Options="$(shell wx-config --libs std,stc,ribbon,propgrid,aui  --unicode=yes)" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib"/>
         <Library Value="libwxsqlite3ud.dll"/>
         <Library Value="libCodeLiteud.dll"/>
         <Library Value="UxTheme"/>
       </Linker>
       <ResourceCompiler Options="" Required="yes"/>
-      <General OutputFile="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib/libplugin_sdkud.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="libplugin_sdkud.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="--no-plugins" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -990,8 +1094,8 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_x64_Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O2;-std=c++11;-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes);-Winvalid-pch" C_Options="-Wall" Assembler="" Required="yes" PreCompiledHeader="../PCH/precompiled_header_release.h" PCHInCommandLine="yes" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
+    <Configuration Name="Win_x64_Release" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-O2;-std=c++11;-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes);-Winvalid-pch" C_Options="-Wall" Assembler="" Required="yes" PreCompiledHeader="libplugin_pch.h" PCHInCommandLine="yes" PCHFlags="" PCHFlagsPolicy="1">
         <IncludePath Value="."/>
         <IncludePath Value="./include"/>
         <IncludePath Value="../CodeLite"/>
@@ -1002,15 +1106,15 @@
         <Preprocessor Value="USE_SFTP=1"/>
         <Preprocessor Value="CL_BUILD=1"/>
       </Compiler>
-      <Linker Options=";$(shell wx-config --libs std,stc,ribbon,propgrid --debug=no --unicode=yes)" Required="yes">
+      <Linker Options=";$(shell wx-config --libs std,stc,ribbon,propgrid,aui --debug=no --unicode=yes)" Required="yes">
         <LibraryPath Value="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib"/>
         <Library Value="libcodeliteu.dll"/>
         <Library Value="libwxsqlite3u.dll"/>
         <Library Value="UxTheme"/>
       </Linker>
       <ResourceCompiler Options="" Required="yes"/>
-      <General OutputFile="$(IntermediateDirectory)/libplugin_sdku.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="libplugin_sdku.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="yes" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -1044,8 +1148,8 @@
         <SearchPaths/>
       </Completion>
     </Configuration>
-    <Configuration Name="Win_x86_Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes);-Winvalid-pch;-O2" C_Options="-Wall" Assembler="" Required="yes" PreCompiledHeader="../PCH/precompiled_header_release.h" PCHInCommandLine="yes" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
+    <Configuration Name="Win_x86_Release" CompilerType="GCC (i686)" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-Wall;$(shell wx-config --cxxflags --debug=no --unicode=yes);-Winvalid-pch;-O2" C_Options="-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="$(shell wx-config --cxxflags --unicode=yes --debug=no) -O2" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <IncludePath Value="./include"/>
         <IncludePath Value="../CodeLite"/>
@@ -1061,8 +1165,8 @@
         <Library Value="libwxsqlite3u.dll"/>
       </Linker>
       <ResourceCompiler Options="" Required="yes"/>
-      <General OutputFile="$(WorkspacePath)/build-$(WorkspaceConfiguration)/lib/libplugin_sdku.dll" IntermediateDirectory="$(ConfigurationName)" Command="" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
-      <BuildSystem Name="Default"/>
+      <General OutputFile="libplugin_sdku.dll" IntermediateDirectory="" Command="$(WorkspacePath)/build-$(WorkspaceConfiguration)/bin/$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="yes" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="CodeLite Makefile Generator"/>
       <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
         <![CDATA[]]>
       </Environment>
@@ -1073,7 +1177,7 @@
       </Debugger>
       <PreBuild/>
       <PostBuild>
-        <Command Enabled="yes">copy ..\lib\gcc_lib\libplugin_sdku.dll ..\Runtime</Command>
+        <Command Enabled="yes">copy "$(OutputFile)"  ..\Runtime32</Command>
       </PostBuild>
       <CustomBuild Enabled="no">
         <RebuildCommand/>

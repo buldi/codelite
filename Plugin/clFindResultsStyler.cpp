@@ -1,6 +1,8 @@
-#include "ColoursAndFontsManager.h"
 #include "clFindResultsStyler.h"
+
+#include "ColoursAndFontsManager.h"
 #include "editor_config.h"
+#include "globals.h"
 #include "lexer_configuration.h"
 #include "optionsconfig.h"
 
@@ -21,16 +23,20 @@ clFindResultsStyler::clFindResultsStyler(wxStyledTextCtrl* stc)
 
 clFindResultsStyler::~clFindResultsStyler()
 {
-    if(m_stc) { m_stc->Unbind(wxEVT_STC_STYLENEEDED, &clFindResultsStyler::OnStyleNeeded, this); }
+    if(m_stc) {
+        m_stc->Unbind(wxEVT_STC_STYLENEEDED, &clFindResultsStyler::OnStyleNeeded, this);
+    }
 }
 
 void clFindResultsStyler::SetStyles(wxStyledTextCtrl* sci)
 {
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("c++");
-    if(!lexer) { lexer = ColoursAndFontsManager::Get().GetLexer("text"); }
+    if(!lexer) {
+        lexer = ColoursAndFontsManager::Get().GetLexer("text");
+    }
 
     const StyleProperty& defaultStyle = lexer->GetProperty(0);
-    wxFont defaultFont = lexer->GetFontForSyle(0);
+    wxFont defaultFont = lexer->GetFontForStyle(0, sci);
 
     for(size_t i = 0; i < wxSTC_STYLE_MAX; ++i) {
         sci->StyleSetForeground(i, defaultStyle.GetFgColour());
@@ -40,29 +46,33 @@ void clFindResultsStyler::SetStyles(wxStyledTextCtrl* sci)
 
     // Show/hide whitespace
     sci->SetViewWhiteSpace(EditorConfigST::Get()->GetOptions()->GetShowWhitspaces());
-    StyleProperty::Map_t& props = lexer->GetLexerProperties();
-    // Set the whitespace colours
-    sci->SetWhitespaceForeground(true, props[WHITE_SPACE_ATTR_ID].GetFgColour());
+    auto white_space_prop = lexer->GetProperty(WHITE_SPACE_ATTR_ID);
+    auto default_prop = lexer->GetProperty(0);
+    auto line_numbers_prop = lexer->GetProperty(33);
+    auto identifier_prop = lexer->GetProperty(wxSTC_C_IDENTIFIER);
+    auto class_prop = lexer->GetProperty(wxSTC_C_GLOBALCLASS);
+    auto comment_prop = lexer->GetProperty(wxSTC_C_COMMENTLINE);
+    auto word_prop = lexer->GetProperty(wxSTC_C_WORD);
 
-    sci->StyleSetForeground(LEX_FIF_HEADER, props[11].GetFgColour());
-    sci->StyleSetBackground(LEX_FIF_HEADER, props[11].GetBgColour());
+    // Set the whitespace colours
+    sci->SetWhitespaceForeground(true, white_space_prop.GetFgColour());
+
+    sci->StyleSetForeground(LEX_FIF_HEADER, default_prop.GetFgColour());
+    sci->StyleSetBackground(LEX_FIF_HEADER, default_prop.GetBgColour());
 
     // 33 is the style for line numbers
-    sci->StyleSetForeground(LEX_FIF_LINE_NUMBER, props[33].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_LINE_NUMBER, line_numbers_prop.GetFgColour());
 
-    // 11 is the style number for "identifier"
-    sci->StyleSetForeground(LEX_FIF_MATCH, props[11].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_MATCH, identifier_prop.GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_SCOPE, class_prop.GetFgColour());
 
-    // 16 is the stule for colouring classes
-    sci->StyleSetForeground(LEX_FIF_SCOPE, props[16].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_MATCH_COMMENT, comment_prop.GetFgColour());
 
-    sci->StyleSetForeground(LEX_FIF_MATCH_COMMENT, props[wxSTC_C_COMMENTLINE].GetFgColour());
-
-    sci->StyleSetForeground(LEX_FIF_FILE, props[wxSTC_C_WORD].GetFgColour());
+    sci->StyleSetForeground(LEX_FIF_FILE, word_prop.GetFgColour());
     sci->StyleSetEOLFilled(LEX_FIF_FILE, true);
 
-    sci->StyleSetForeground(LEX_FIF_DEFAULT, props[11].GetFgColour());
-    sci->StyleSetBackground(LEX_FIF_DEFAULT, props[11].GetBgColour());
+    sci->StyleSetForeground(LEX_FIF_DEFAULT, default_prop.GetFgColour());
+    sci->StyleSetBackground(LEX_FIF_DEFAULT, default_prop.GetBgColour());
 
     sci->StyleSetHotSpot(LEX_FIF_MATCH, true);
     sci->StyleSetHotSpot(LEX_FIF_FILE, true);
@@ -91,19 +101,27 @@ void clFindResultsStyler::SetStyles(wxStyledTextCtrl* sci)
 #endif
     sci->IndicatorSetUnder(1, true);
 
-    sci->SetMarginWidth(0, 0);
-    sci->SetMarginWidth(1, 16);
-    sci->SetMarginWidth(2, 0);
-    sci->SetMarginWidth(3, 0);
+    sci->SetMarginWidth(0, 0);                    // line numbers
+    sci->SetMarginWidth(1, ::clGetSize(16, sci)); // symbols margin
+    sci->SetMarginWidth(2, 0);                    // folding margin
+    sci->SetMarginWidth(3, 0);                    // separator margin
+    sci->SetMarginType(3, wxSTC_MARGIN_FORE);
+    sci->SetMarginMask(3, 0);
+
     sci->SetMarginWidth(4, 0);
     sci->SetMarginSensitive(1, true);
     sci->HideSelection(true);
-
+#if wxCHECK_VERSION(3, 1, 0)
+    sci->SetMarginBackground(3, *wxBLACK);
+#endif
     // Indentation
     OptionsConfigPtr options = EditorConfigST::Get()->GetOptions();
     sci->SetUseTabs(options->GetIndentUsesTabs());
     sci->SetTabWidth(options->GetIndentWidth());
     sci->SetIndent(options->GetIndentWidth());
+    for(int i = 0; i <= 4; ++i) { // there are 5 margins defined from 0 -> 4 (including)
+        sci->SetMarginCursor(i, wxSTC_CURSORARROW);
+    }
     sci->Refresh();
 }
 
@@ -112,12 +130,8 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
     int startPos = ctrl->GetEndStyled();
     int endPos = e.GetPosition();
     wxString text = ctrl->GetTextRange(startPos, endPos);
-#if wxCHECK_VERSION(3, 1, 1) && !defined(__WXOSX__)
     // The scintilla syntax in wx3.1.1 changed
     ctrl->StartStyling(startPos);
-#else
-    ctrl->StartStyling(startPos, 0x1f);
-#endif
 
     wxString::const_iterator iter = text.begin();
     size_t headerStyleLen = 0;
@@ -127,9 +141,11 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
     size_t matchStyleLen = 0;
     size_t i = 0;
     for(; iter != text.end(); ++iter) {
-        bool advance2Pos = false;
         const wxUniChar& ch = *iter;
-        if((long)ch >= 128) { advance2Pos = true; }
+        size_t chWidth = 1;
+        if(!ch.IsAscii()) {
+            chWidth = wxString(ch).mb_str(wxConvUTF8).length();
+        }
 
         switch(m_curstate) {
         default:
@@ -146,7 +162,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
                 ctrl->SetStyling(1, LEX_FIF_DEFAULT);
             } else {
                 // File name
-                filenameStyleLen = 1;
+                filenameStyleLen = chWidth;
                 m_curstate = kFile;
             }
             break;
@@ -165,8 +181,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kScope:
-            ++scopeStyleLen;
-
+            scopeStyleLen += chWidth;
             if(ch == ']') {
                 // end of scope
                 ctrl->SetStyling(scopeStyleLen, LEX_FIF_SCOPE);
@@ -175,8 +190,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kMatch:
-            ++matchStyleLen;
-            if(advance2Pos) { ++matchStyleLen; }
+            matchStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetStyling(matchStyleLen, LEX_FIF_MATCH);
@@ -184,7 +198,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kFile:
-            ++filenameStyleLen;
+            filenameStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetFoldLevel(ctrl->LineFromPosition(startPos + i), 2 | wxSTC_FOLDLEVELHEADERFLAG);
@@ -193,7 +207,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         case kHeader:
-            ++headerStyleLen;
+            headerStyleLen += chWidth;
             if(ch == '\n') {
                 m_curstate = kStartOfLine;
                 ctrl->SetFoldLevel(ctrl->LineFromPosition(startPos + i), 1 | wxSTC_FOLDLEVELHEADERFLAG);
@@ -202,11 +216,7 @@ void clFindResultsStyler::StyleText(wxStyledTextCtrl* ctrl, wxStyledTextEvent& e
             }
             break;
         }
-        if(advance2Pos) {
-            i += 2;
-        } else {
-            ++i;
-        }
+        i += chWidth;
     }
 
     // Left overs...

@@ -26,30 +26,34 @@
 #ifndef PHPWORKSPACE_H
 #define PHPWORKSPACE_H
 
-#include <map>
-#include <vector>
-#include <set>
-#include "phpexecutor.h"
+#include "IWorkspace.h"
 #include "JSON.h"
-#include <wx/filename.h>
 #include "PHPWrokspaceStorageInterface.h"
-#include <macros.h>
-#include "php_project_settings_data.h"
-#include "php_project.h"
-#include <wx/event.h>
 #include "XDebugBreakpoint.h"
 #include "imanager.h"
-#include "IWorkspace.h"
+#include "php_project.h"
+#include "php_project_settings_data.h"
+#include "phpexecutor.h"
+
+#include <macros.h>
+#include <map>
+#include <set>
+#include <vector>
+#include <wx/event.h>
+#include <wx/filename.h>
 
 // ------------------------------------------------------------------
 // ------------------------------------------------------------------
 
-#define CHECK_PHP_WORKSPACE() \
-    if(!PHPWorkspace::Get()->IsOpen()) return
+#define CHECK_PHP_WORKSPACE()          \
+    if(!PHPWorkspace::Get()->IsOpen()) \
+    return
 #define CHECK_PHP_WORKSPACE_RET_NULL() \
-    if(!PHPWorkspace::Get()->IsOpen()) return NULL
+    if(!PHPWorkspace::Get()->IsOpen()) \
+    return NULL
 #define CHECK_PHP_WORKSPACE_RET_FALSE() \
-    if(!PHPWorkspace::Get()->IsOpen()) return NULL
+    if(!PHPWorkspace::Get()->IsOpen())  \
+    return NULL
 
 // ------------------------------------------------------------------
 // ------------------------------------------------------------------
@@ -66,16 +70,19 @@ protected:
     IManager* m_manager;
     wxStringSet_t m_inSyncProjects;
     wxEvtHandler* m_projectSyncOwner;
-    // IWorkspace API
+
 public:
-    virtual wxFileName GetProjectFileName(const wxString& projectName) const;
-    virtual wxArrayString GetWorkspaceProjects() const;
-    virtual void GetProjectFiles(const wxString& projectName, wxArrayString& files) const;
-    virtual void GetWorkspaceFiles(wxArrayString& files) const;
-    virtual wxString GetProjectFromFile(const wxFileName& filename) const;
-    virtual wxString GetFilesMask() const;
-    virtual bool IsBuildSupported() const;
-    virtual bool IsProjectSupported() const;
+    // IWorkspace API
+    wxFileName GetProjectFileName(const wxString& projectName) const override;
+    wxArrayString GetWorkspaceProjects() const override;
+    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
+    void GetWorkspaceFiles(wxArrayString& files) const override;
+    wxString GetProjectFromFile(const wxFileName& filename) const override;
+    wxString GetFilesMask() const override;
+    bool IsBuildSupported() const override;
+    bool IsProjectSupported() const override;
+    void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
 
 public:
     static PHPWorkspace* Get();
@@ -97,6 +104,11 @@ public:
     PHPProject::Ptr_t GetProject(const wxString& project) const;
     PHPProject::Ptr_t GetActiveProject() const;
     wxString GetPrivateFolder() const;
+
+    /**
+     * @brief return the workspace name
+     */
+    wxString GetName() const override;
 
     /**
      * @brief check if we can create a project with the given file name
@@ -160,10 +172,16 @@ public:
      * @brief return the currently opened workspace filename
      */
     const wxFileName& GetFilename() const { return m_workspaceFile; }
+
     /**
      * @brief as defined in IWorkspace
      */
-    wxFileName GetFileName() const { return GetFilename(); }
+    wxString GetFileName() const override { return GetFilename().GetFullPath(); }
+
+    /**
+     * @brief return the workspace directory
+     */
+    wxString GetDir() const override { return GetFilename().GetPath(); }
 
     /**
      * @brief return the workspace name
@@ -196,7 +214,6 @@ public:
      */
     bool AddProject(const wxFileName& projectFile, wxString& errmsg);
 
-    void SetProjectActive(const wxString& project);
     /**
      * @brief delete a file from a project/folder
      */
@@ -223,7 +240,7 @@ public:
     /**
      * @brief return the active project name
      */
-    wxString GetActiveProjectName() const;
+    wxString GetActiveProjectName() const override;
     /**
      * @brief save the workspace file
      */

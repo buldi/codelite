@@ -1,14 +1,18 @@
 #include "CxxPreProcessorScanner.h"
-#include "CxxScannerTokens.h"
-#include "CxxPreProcessorExpression.h"
-#include <wx/sharedptr.h>
+
 #include "CxxPreProcessor.h"
+#include "CxxPreProcessorExpression.h"
+#include "CxxScannerTokens.h"
 #include "file_logger.h"
 
-CxxPreProcessorScanner::CxxPreProcessorScanner(const wxFileName& filename, size_t options)
+#include <wx/sharedptr.h>
+
+CxxPreProcessorScanner::CxxPreProcessorScanner(const wxFileName& filename, size_t options,
+                                               std::unordered_set<wxString>& visitedFiles)
     : m_scanner(NULL)
     , m_filename(filename)
     , m_options(options)
+    , m_visitedFiles(visitedFiles)
 {
     m_scanner = ::LexerNew(m_filename, m_options);
     wxASSERT(m_scanner);
@@ -75,19 +79,20 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
         case T_PP_INCLUDE_FILENAME: {
             // we found an include statement, recurse into it
             wxFileName include;
-            if(pp->ExpandInclude(m_filename, token.GetWXString(), include)) {
-                CxxPreProcessorScanner* scanner = new CxxPreProcessorScanner(include, pp->GetOptions());
+            if(pp->ExpandInclude(m_filename, token.GetWXString(), include) &&
+               m_visitedFiles.count(include.GetFullPath()) == 0) {
+                m_visitedFiles.insert(include.GetFullPath());
+                CxxPreProcessorScanner scanner(include, pp->GetOptions(), m_visitedFiles);
                 try {
-                    if(scanner && !scanner->IsNull()) {
-                        scanner->Parse(pp);
+                    if(!scanner.IsNull()) {
+                        scanner.Parse(pp);
                     }
                 } catch(CxxLexerException& e) {
                     // catch the exception
-                    CL_DEBUG("Exception caught: %s\n", e.message);
+                    clDEBUG() << "Exception caught:" << e.message << endl;
                 }
                 // make sure we always delete the scanner
-                wxDELETE(scanner);
-                clDEBUG1() << "<== Resuming parser on file:" << m_filename << clEndl;
+                LOG_IF_TRACE { clDEBUG1() << "<== Resuming parser on file:" << m_filename << clEndl; }
             }
             break;
         }
@@ -102,7 +107,8 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
             } else {
                 // skip until we find the next:
                 // else, elif, endif (but do not consume these tokens)
-                if(!ConsumeCurrentBranch()) return;
+                if(!ConsumeCurrentBranch())
+                    return;
             }
             break;
         }
@@ -117,7 +123,8 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
             } else {
                 // skip until we find the next:
                 // else, elif, endif (but do not consume these tokens)
-                if(!ConsumeCurrentBranch()) return;
+                if(!ConsumeCurrentBranch())
+                    return;
             }
             break;
         }
@@ -129,7 +136,8 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
                 if(!CheckIf(ppTable)) {
                     // skip until we find the next:
                     // else, elif, endif (but do not consume these tokens)
-                    if(!ConsumeCurrentBranch()) return;
+                    if(!ConsumeCurrentBranch())
+                        return;
 
                 } else {
                     searchingForBranch = false;
@@ -210,8 +218,7 @@ bool CxxPreProcessorScanner::CheckIfDefined(const CxxPreProcessorToken::Map_t& t
     else                                \
         cur->SetValue((double)v);
 
-struct ExpressionLocker
-{
+struct ExpressionLocker {
     CxxPreProcessorExpression* m_expr;
     ExpressionLocker(CxxPreProcessorExpression* expr)
         : m_expr(expr)

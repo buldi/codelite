@@ -24,17 +24,18 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "addoptioncheckdlg.h"
+
 #include "windowattrmanager.h"
+
+#include <algorithm> // std::find
+#include <globals.h>
+#include <list>
+#include <wx/sstream.h>
 #include <wx/tokenzr.h>
 #include <wx/txtstrm.h>
-#include <wx/sstream.h>
-#include <list>
-#include <algorithm> // std::find
 
-AddOptionCheckDlg::AddOptionCheckDlg(wxWindow* parent,
-                                     const wxString& title,
-                                     const Compiler::CmpCmdLineOptions& cmpOptions,
-                                     const wxString& value)
+AddOptionCheckDlg::AddOptionCheckDlg(wxWindow* parent, const wxString& title,
+                                     const Compiler::CmpCmdLineOptions& cmpOptions, const wxString& value)
     : AddOptionCheckDialogBase(parent, wxID_ANY, title)
     , m_cmpOptions(cmpOptions)
 {
@@ -50,6 +51,8 @@ AddOptionCheckDlg::AddOptionCheckDlg(wxWindow* parent,
 
     // Update controls
     SetValue(value);
+
+    clSetSmallDialogBestSizeAndPosition(this);
 }
 
 AddOptionCheckDlg::~AddOptionCheckDlg() {}
@@ -94,7 +97,8 @@ void AddOptionCheckDlg::UpdateOptions()
                 m_checkListOptions->Check(
                     m_checkListOptions->FindString(cmpOption.help + wxT(" [") + cmpOption.name + wxT("]")));
             } else {
-                if(!customOptions.empty()) customOptions << wxT(";");
+                if(!customOptions.empty())
+                    customOptions << wxT(";");
                 customOptions << token;
             }
         }
@@ -136,7 +140,8 @@ void AddOptionCheckDlg::UpdateCmdLine()
     std::list<wxString>::const_iterator itOption = options.begin();
     for(; itOption != options.end(); ++itOption) {
         if(!value.Contains(*itOption + wxT(";"))) {
-            if(!value.empty()) value << wxT(";");
+            if(!value.empty())
+                value << wxT(";");
             value << *itOption;
         }
     }

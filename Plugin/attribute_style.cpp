@@ -1,16 +1,15 @@
 #include "attribute_style.h"
 
-StyleProperty::StyleProperty(int id, const wxString& fgColour, const wxString& bgColour, const int fontSize,
-                             const wxString& name, const wxString& face, bool bold, bool italic, bool underline,
-                             bool eolFilled, int alpha)
+#include "FontUtils.hpp"
+#include "macros.h"
+
+StyleProperty::StyleProperty(int id, const wxString& name, const wxString& fgColour, const wxString& bgColour,
+                             const int fontSize, bool bold, bool italic, bool underline, bool eolFilled)
     : m_id(id)
+    , m_name(name)
     , m_fgColour(fgColour)
     , m_bgColour(bgColour)
     , m_fontSize(fontSize)
-    , m_name(name)
-    , m_faceName(face)
-    , m_flags(0)
-    , m_alpha(alpha)
 {
     EnableFlag(kBold, bold);
     EnableFlag(kItalic, italic);
@@ -19,40 +18,32 @@ StyleProperty::StyleProperty(int id, const wxString& fgColour, const wxString& b
 }
 
 StyleProperty::StyleProperty()
-    : m_id(0)
-    , m_fgColour(_T("BLACK"))
-    , m_bgColour(_T("WHITE"))
-    , m_fontSize(10)
-    , m_name(wxEmptyString)
-    , m_faceName(_T("Courier"))
-    , m_flags(0)
-    , m_alpha(0)
+    : m_fgColour("BLACK")
+    , m_bgColour("WHITE")
 {
 }
 
-StyleProperty& StyleProperty::operator=(const StyleProperty& rhs)
+StyleProperty::StyleProperty(int id, const wxString& name, const wxString& fontDesc, const wxString& fgColour,
+                             const wxString& bgColour, bool eolFilled)
+    : m_id(id)
+    , m_name(name)
+    , m_fontDesc(fontDesc)
+    , m_fgColour(fgColour)
+    , m_bgColour(bgColour)
 {
-    m_fgColour = rhs.m_fgColour;
-    m_bgColour = rhs.m_bgColour;
-    m_faceName = rhs.m_faceName;
-    m_fontSize = rhs.m_fontSize;
-    m_name = rhs.m_name;
-    m_id = rhs.m_id;
-    m_alpha = rhs.m_alpha;
-    m_flags = rhs.m_flags;
-    return *this;
+    EnableFlag(kEolFilled, eolFilled);
 }
 
-void StyleProperty::FromJSON(JSONItem json)
+void StyleProperty::FromJSON(const JSONItem& json)
 {
-    m_id = json.namedObject("Id").toInt(0);
-    m_name = json.namedObject("Name").toString("DEFAULT");
-    m_flags = json.namedObject("Flags").toSize_t(0);
-    m_alpha = json.namedObject("Alpha").toInt(50);
-    m_faceName = json.namedObject("Face").toString("Courier");
-    m_fgColour = json.namedObject("Colour").toString("BLACK");
-    m_bgColour = json.namedObject("BgColour").toString("WHITE");
-    m_fontSize = json.namedObject("Size").toInt(10);
+    auto M = json.GetAsMap();
+    m_id = M["Id"].toInt(0);
+    m_name = M["Name"].toString("DEFAULT");
+    m_flags = M["Flags"].toSize_t(0);
+    m_fontDesc = M["FontDesc"].toString();
+    m_fgColour = M["Colour"].toString("BLACK");
+    m_bgColour = M["BgColour"].toString("WHITE");
+    m_fontSize = M["Size"].toInt(wxNOT_FOUND);
 }
 
 JSONItem StyleProperty::ToJSON(bool portable) const
@@ -61,10 +52,28 @@ JSONItem StyleProperty::ToJSON(bool portable) const
     json.addProperty("Id", GetId());
     json.addProperty("Name", GetName());
     json.addProperty("Flags", m_flags);
-    json.addProperty("Alpha", GetAlpha());
-    json.addProperty("Face", portable ? wxString() : GetFaceName());
+    json.addProperty("FontDesc", portable ? wxString() : GetFontInfoDesc());
     json.addProperty("Colour", GetFgColour());
     json.addProperty("BgColour", GetBgColour());
-    json.addProperty("Size", GetFontSize());
+    json.addProperty("Size", m_fontSize);
     return json;
 }
+
+void StyleProperty::FromAttributes(wxFont* font) const
+{
+    CHECK_PTR_RET(font);
+    if(HasFontInfoDesc()) {
+        font->SetNativeFontInfo(GetFontInfoDesc());
+    } else {
+        font->SetUnderlined(GetUnderlined());
+        font->SetWeight(IsBold() ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
+        font->SetStyle(GetItalic() ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL);
+        if(m_fontSize != wxNOT_FOUND) {
+            font->SetPointSize(m_fontSize);
+        }
+    }
+}
+
+wxString StyleProperty::GetFontInfoDesc() const { return FontUtils::GetFontInfo(m_fontDesc); }
+
+void StyleProperty::SetFontInfoDesc(const wxString& desc) { m_fontDesc = FontUtils::GetFontInfo(desc); }

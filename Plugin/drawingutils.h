@@ -27,15 +27,17 @@
 
 #include "clColours.h"
 #include "codelite_exports.h"
+#include "ieditor.h"
 #include "wx/colour.h"
 #include "wx/dc.h"
+
 #include <wx/dcgraph.h>
-#include "ieditor.h"
 
 enum class eButtonState {
     kNormal,
     kPressed,
     kHover,
+    kDisabled,
 };
 
 enum class eButtonKind {
@@ -64,8 +66,17 @@ public:
     static void PaintStraightGradientBox(wxDC& dc, const wxRect& rect, const wxColour& startColor,
                                          const wxColour& endColor, bool vertical);
     static bool IsDark(const wxColour& col);
-    static wxFont GetDefaultFixedFont();
-    static wxFont GetBestFixedFont(IEditor* editor = nullptr);
+
+    /**
+     * @brief return a fallback fixed font incase we could not locate one in the
+     * settings
+     * @param win unused
+     */
+    static wxFont GetFallbackFixedFont();
+    static int GetFallbackFixedFontSize();
+
+    static wxString GetFallbackFixedFontFace();
+
     static wxFont GetDefaultGuiFont();
     static wxBitmap CreateDisabledBitmap(const wxBitmap& bmp);
     static wxSize GetBestSize(const wxString& label, int xspacer = 5, int yspacer = 5);
@@ -80,7 +91,8 @@ public:
      * @brief draw a close button
      */
     static void DrawButtonX(wxDC& dc, wxWindow* win, const wxRect& rect, const wxColour& penColour,
-                            const wxColour& bgColouur, eButtonState state);
+                            const wxColour& bgColouur, eButtonState state,
+                            const wxString& unicode_symbol = wxT("\u2715"));
 
     /**
      * @brief draw a close button
@@ -91,8 +103,15 @@ public:
     /**
      * @brief draw a drop down arrow
      * pass an invalid colour to let this function determine the best colour to use
+     * @param flags wxCONTROL_* flags
      */
-    static void DrawDropDownArrow(wxWindow* win, wxDC& dc, const wxRect& rect, const wxColour& colour = wxColour());
+    static void DrawDropDownArrow(wxWindow* win, wxDC& dc, const wxRect& rect, int flags,
+                                  const wxColour& colour = wxColour());
+    /**
+     * @brief draw colour picker. return the rectangle the contains the button part of the picker
+     */
+    static wxRect DrawColourPicker(wxWindow* win, wxDC& dc, const wxRect& rect, const wxColour& pickerColour,
+                                   eButtonState state);
 
     static void DrawNativeChoice(wxWindow* win, wxDC& dc, const wxRect& rect, const wxString& label,
                                  const wxBitmap& bmp = wxNullBitmap,
@@ -111,14 +130,6 @@ public:
      * @param dc
      */
     static bool DrawStippleBackground(const wxRect& rect, wxDC& dc);
-
-    /**
-     * @brief convert wxDC into wxGCDC
-     * @param dc [in] dc
-     * @param gdc [in/out] graphics DC
-     * @return true on success, false otherwise
-     */
-    static bool GetGCDC(wxDC& dc, wxGCDC& gdc);
 
     /**
      * @brief Return true if the current theme dominant colour is dark
@@ -164,6 +175,9 @@ public:
      * @brief get colours object
      */
     static clColours& GetColours(bool darkColours = false);
+
+    /// return GCDC, this function never fails
+    static wxDC& GetGCDC(wxDC& dc, wxGCDC& gdc);
 };
 
 #endif // DRAWINGUTILS_H

@@ -27,24 +27,32 @@
 
 #include "Notebook.h"
 #include "clEditorBar.h"
-#include "clMultiBook.h"
 #include "cl_command_event.h"
+#include "cl_editor.h"
 #include "editorframe.h"
 #include "filehistory.h"
+#include "navigationmanager.h"
 #include "quickfindbar.h"
 #include "sessionmanager.h"
 #include "wxStringHash.h"
+
+#include <deque>
+#include <functional>
 #include <set>
+#include <vector>
 #include <wx/panel.h>
-#include "navigationmanager.h"
 
 class FilesModifiedDlg;
 
-
+class IEditor;
 class MessagePane;
 class clEditorBar;
+class WelcomePage;
+
 class MainBook : public wxPanel
 {
+    typedef std::vector<std::function<void(IEditor*)>> CallbackVec_t;
+
 private:
     FileHistory m_recentFiles;
     clEditorBar* m_navBar;
@@ -55,8 +63,10 @@ private:
     bool m_reloadingDoRaise; // Prevents multiple Raises() during RestoreSession()
     FilesModifiedDlg* m_filesModifiedDlg;
     std::unordered_map<wxString, TagEntryPtr> m_currentNavBarTags;
-    wxWindow* m_welcomePage;
+    WelcomePage* m_welcomePage = nullptr;
     QuickFindBar* m_findBar;
+    std::unordered_map<wxString, CallbackVec_t> m_callbacksTable;
+    bool m_initDone = false;
 
 public:
     enum {
@@ -83,37 +93,34 @@ private:
     void OnPageChanged(wxBookCtrlEvent& e);
     void OnClosePage(wxBookCtrlEvent& e);
     void OnPageChanging(wxBookCtrlEvent& e);
+    void OnEditorModified(clCommandEvent& event);
+    void OnEditorSaved(clCommandEvent& event);
     void OnProjectFileAdded(clCommandEvent& e);
     void OnProjectFileRemoved(clCommandEvent& e);
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnDebugEnded(clDebugEvent& e);
     void OnInitDone(wxCommandEvent& e);
     void OnDetachedEditorClosed(clCommandEvent& e);
-    void OnThemeChanged(wxCommandEvent& e);
+    void OnThemeChanged(clCommandEvent& e);
     void OnColoursAndFontsChanged(clCommandEvent& e);
     bool DoSelectPage(wxWindow* win);
     void DoHandleFrameMenu(clEditor* editor);
     void DoEraseDetachedEditor(IEditor* editor);
-    void OnWorkspaceReloadStarted(clCommandEvent& e);
-    void OnWorkspaceReloadEnded(clCommandEvent& e);
+    void OnWorkspaceReloadStarted(clWorkspaceEvent& e);
+    void OnWorkspaceReloadEnded(clWorkspaceEvent& e);
     void OnEditorSettingsChanged(wxCommandEvent& e);
-    void OnCacheUpdated(clCommandEvent& e);
-    void OnUpdateNavigationBar(clCodeCompletionEvent& e);
-    void OnNavigationBarMenuShowing(clContextMenuEvent& e);
-    void OnNavigationBarMenuSelectionMade(clCommandEvent& e);
     void OnSettingsChanged(wxCommandEvent& e);
+    void OnIdle(wxIdleEvent& event);
 
+    /**
+     * @brief return proper tab label for a given filename
+     */
+    wxString CreateLabel(const wxFileName& fn, bool modified) const;
     /**
      * @brief open file and set an alternate content
      */
     void DoOpenFile(const wxString& filename, const wxString& content = "");
-
-    /**
-     * @brief update the navigation bar (C++)
-     * @param editor
-     */
-    void UpdateNavBar(clEditor* editor);
 
     /**
      * @brief display the welcome page
@@ -124,18 +131,26 @@ private:
     void OnEditorChanged(wxCommandEvent& event);
     void OnAllEditorClosed(wxCommandEvent& event);
 
+    void push_callback(std::function<void(IEditor*)>&& callback, const wxString& fullpath);
+    void execute_callbacks_for_file(const wxString& fullpath);
+    bool has_callbacks(const wxString& fullpath) const;
+
+    int FindEditorIndexByFullPath(const wxString& fullpath);
+    void DoRestoreSession(const SessionEntry& entry);
+
 public:
     MainBook(wxWindow* parent);
     virtual ~MainBook();
 
+    WelcomePage* GetWelcomePage(bool createIfMissing = true);
+
     void SetFindBar(QuickFindBar* findBar);
     QuickFindBar* GetFindBar() const { return m_findBar; }
-    
+
     /**
-     * @brief register a welcome page. This page is displayed whenever there are no tabs open
-     * in CodeLite. If there is already a welcome page registered, this call destroys the previous one
+     * @brief create the welcome page
      */
-    void RegisterWelcomePage(wxWindow* welcomePage);
+    void InitWelcomePage();
 
     static bool AskUserToSave(clEditor* editor);
     /**
@@ -155,15 +170,23 @@ public:
     FileHistory& GetRecentlyOpenedFilesClass() { return m_recentFiles; }
     void ShowQuickBarForPlugins();
     void ShowQuickBar(bool s);
+    void ShowQuickBarToolBar(bool s);
     void ShowQuickBar(const wxString& findWhat, bool showReplace);
     void ShowTabBar(bool b);
     void ShowNavBar(bool s = true);
-    bool IsNavBarShown() { return m_navBar && m_navBar->IsShown(); }
+    /**
+     * @brief is navigation bar enabled by user?
+     */
+    bool IsNavBarEnabled() const { return m_navBar && m_navBar->ShouldShow(); }
+    /**
+     * @brief is navigation bar shown (either by user or automatically)?
+     */
+    bool IsNavBarShown() const { return m_navBar && m_navBar->IsShown(); }
     clEditorBar* GetEditorBar() { return m_navBar; }
     void SetEditorBar(clEditorBar* bar) { m_navBar = bar; }
-    
+
     void SaveSession(SessionEntry& session, wxArrayInt* excludeArr = NULL);
-    void RestoreSession(SessionEntry& session);
+    void RestoreSession(const SessionEntry& session);
     /**
      * @brief create session from current IDE state
      */
@@ -195,12 +218,31 @@ public:
     wxWindow* GetPage(size_t page);
     size_t GetPageCount() const;
     wxWindow* FindPage(const wxString& text);
-
+    /**
+     * @brief return the bitmap index or add it if it is missing and then return its index
+     */
+    int GetBitmapIndexOrAdd(const wxString& name);
     clEditor* NewEditor();
+
+    /**
+     * @brief open or select ((if the file is already loaded in CodeLite) editor with a given `file_name` to the
+     * notebook control and make it active Once the page is **visible**, execute the callback provided by the user
+     * @param callback user callback to be executed once the editor is visible on screen
+     * On some platforms (e.g. `GTK`) various operations (e.g. `CenterLine()`) will not work as intended unless the
+     * editor is actually visible on screen. This way you
+     * can delay the call the `CenterLine()` after the editor is visible
+     */
+    clEditor* OpenFileAsync(const wxString& file_name, std::function<void(IEditor*)>&& callback);
+
+    /**
+     * @brief open a remote file into the editor mainbook
+     */
+    clEditor* OpenRemoteFile(const wxString& local_path, const wxString& remote_path, const wxString& ssh_account,
+                             const wxString& tooltip = wxEmptyString);
 
     clEditor* OpenFile(const wxString& file_name, const wxString& projectName = wxEmptyString, int lineno = wxNOT_FOUND,
                        long position = wxNOT_FOUND, OF_extra extra = OF_AddJump, bool preserveSelection = true,
-                       const wxBitmap& bmp = wxNullBitmap, const wxString& tooltip = wxEmptyString);
+                       int bmp = wxNOT_FOUND, const wxString& tooltip = wxEmptyString);
     /**
      * @brief open file based on a browsing record
      */
@@ -209,16 +251,19 @@ public:
     /**
      * @brief a simpler version: open a file with a given tooltip and bitmap
      */
-    clEditor* OpenFile(const wxString& file_name, const wxBitmap& bmp, const wxString& tooltip = wxEmptyString)
+    clEditor* OpenFile(const wxString& file_name, int bmp, const wxString& tooltip = wxEmptyString)
     {
         return OpenFile(file_name, "", wxNOT_FOUND, wxNOT_FOUND, OF_AddJump, false, bmp, tooltip);
     }
 
-    bool AddPage(wxWindow* win, const wxString& text, const wxString& tooltip = wxEmptyString,
-                 const wxBitmap& bmp = wxNullBitmap, bool selected = false, int insert_at_index = wxNOT_FOUND);
+    /**
+     * @brief add page to the main book
+     */
+    bool AddBookPage(wxWindow* win, const wxString& text, const wxString& tooltip, int bmp, bool selected,
+                     int insert_at_index);
     bool SelectPage(wxWindow* win);
 
-    bool UserSelectFiles(std::vector<std::pair<wxFileName, bool> >& files, const wxString& title,
+    bool UserSelectFiles(std::vector<std::pair<wxFileName, bool>>& files, const wxString& title,
                          const wxString& caption, bool cancellable = true);
 
     bool SaveAll(bool askUser, bool includeUntitled);
@@ -240,9 +285,11 @@ public:
 
     wxString GetPageTitle(wxWindow* win) const;
     void SetPageTitle(wxWindow* page, const wxString& name);
+    void SetPageTitle(wxWindow* page, const wxFileName& filename, bool modified);
     long GetBookStyle();
 
     void ApplySettingsChanges();
+    void ApplyTabLabelChanges();
     void UnHighlightAll();
     void DelAllBreakpointMarkers();
     void SetViewEOL(bool visible);
@@ -255,6 +302,8 @@ public:
 
     void SetUseBuffereLimit(bool useBuffereLimit) { this->m_useBuffereLimit = useBuffereLimit; }
     bool GetUseBuffereLimit() const { return m_useBuffereLimit; }
+
+    Notebook* GetNotebook() { return m_book; }
 };
 
 #endif // MAINBOOK_H

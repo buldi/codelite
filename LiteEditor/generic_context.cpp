@@ -23,10 +23,12 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "generic_context.h"
-#include "editor_config.h"
-#include "cl_editor.h"
-#include "clEditorWordCharsLocker.h"
+
+#include "ColoursAndFontsManager.h"
 #include "clEditorColouriseLocker.h"
+#include "clEditorWordCharsLocker.h"
+#include "cl_editor.h"
+#include "editor_config.h"
 #include "file_logger.h"
 
 ContextGeneric::ContextGeneric(clEditor* container, const wxString& name)
@@ -42,10 +44,7 @@ ContextBase* ContextGeneric::NewInstance(clEditor* container) { return new Conte
 
 void ContextGeneric::ApplySettings()
 {
-    LexerConf::Ptr_t lexPtr;
-    if(EditorConfigST::Get()->IsOk()) {
-        lexPtr = EditorConfigST::Get()->GetLexer(GetName());
-    }
+    LexerConf::Ptr_t lexPtr = ColoursAndFontsManager::Get().GetLexer(GetName());
     clEditor& rCtrl = GetCtrl();
     if(lexPtr) {
         rCtrl.SetLexer(lexPtr->GetLexerId());
@@ -59,6 +58,9 @@ void ContextGeneric::ApplySettings()
         if(lexPtr->GetName() == "css") {
             // set the word characters for the CSS lexer
             GetCtrl().SetWordChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-@");
+        } else if(lexPtr->GetName() == "script") {
+            // script (e.g. bash) should include the $ sign
+            GetCtrl().SetWordChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$");
         }
     } else {
         rCtrl.SetLexer(wxSTC_LEX_NULL);
@@ -80,7 +82,7 @@ void ContextGeneric::ProcessIdleActions()
         int startPos, endPos;
         wxString word = xmlHelper.GetXmlTagAt(ctrl.GetCurrentPosition(), startPos, endPos);
         if(word.IsEmpty()) {
-            ctrl.SetIndicatorCurrent(MARKER_CONTEXT_WORD_HIGHLIGHT);
+            ctrl.SetIndicatorCurrent(INDICATOR_CONTEXT_WORD_HIGHLIGHT);
             ctrl.IndicatorClearRange(0, ctrl.GetLength());
             return;
         }
@@ -105,7 +107,7 @@ void ContextGeneric::ProcessIdleActions()
                 word = xmlHelper.GetXmlTagAt(where, startPos2, endPos2);
                 if((closeTag == word) && (depth == 0)) {
                     // We got the closing brace
-                    ctrl.SetIndicatorCurrent(MARKER_CONTEXT_WORD_HIGHLIGHT);
+                    ctrl.SetIndicatorCurrent(INDICATOR_CONTEXT_WORD_HIGHLIGHT);
                     ctrl.IndicatorClearRange(0, ctrl.GetLength());
 
                     // Set the new markers
@@ -124,13 +126,13 @@ void ContextGeneric::ProcessIdleActions()
         } else if(reCloseHtmlTag.Matches(word)) {
             searchWhat = reCloseHtmlTag.GetMatch(word, 1);
             closeTag << "</" << searchWhat << ">";
-            
+
             wxString reString = "<" + searchWhat + "[>]?";
             wxRegEx reOpenTag(reString, wxRE_DEFAULT | wxRE_ICASE);
             if(!reOpenTag.IsValid()) {
                 clDEBUG() << "Invalid regex:" << reString << clEndl;
             }
-            
+
             int pos = startPos;
             int depth = 0;
             int where = FindPrev(searchWhat, pos, true);
@@ -140,7 +142,7 @@ void ContextGeneric::ProcessIdleActions()
                 word = xmlHelper.GetXmlTagAt(where, startPos2, endPos2);
                 if(reOpenTag.Matches(word) && (depth == 0)) {
                     // We got the closing brace
-                    ctrl.SetIndicatorCurrent(MARKER_CONTEXT_WORD_HIGHLIGHT);
+                    ctrl.SetIndicatorCurrent(INDICATOR_CONTEXT_WORD_HIGHLIGHT);
                     ctrl.IndicatorClearRange(0, ctrl.GetLength());
 
                     // Set the new markers
@@ -158,7 +160,7 @@ void ContextGeneric::ProcessIdleActions()
         }
 
         // Clear the current selection
-        ctrl.SetIndicatorCurrent(MARKER_CONTEXT_WORD_HIGHLIGHT);
+        ctrl.SetIndicatorCurrent(INDICATOR_CONTEXT_WORD_HIGHLIGHT);
         ctrl.IndicatorClearRange(0, ctrl.GetLength());
     }
 }

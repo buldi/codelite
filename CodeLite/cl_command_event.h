@@ -26,16 +26,21 @@
 #ifndef CLCOMMANDEVENT_H
 #define CLCOMMANDEVENT_H
 
+#include "LSP/CompletionItem.h"
+#include "UIBreakpoint.hpp"
+#include "asyncprocess.h"
+#include "clDebuggerBreakpoint.hpp"
 #include "clEditorConfig.h"
 #include "clGotoEntry.h"
 #include "codelite_exports.h"
 #include "entry.h"
-#include "wxCodeCompletionBoxEntry.h"
+#include "ssh/ssh_account_info.h"
+#include "wxCodeCompletionBoxEntry.hpp"
+
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/event.h>
 #include <wx/sharedptr.h>
-#include "LSP/CompletionItem.h"
 
 // Set of flags that can be passed within the 'S{G}etInt' function of clCommandEvent
 enum {
@@ -66,7 +71,8 @@ public:
     {
         // Because GetString() can retrieve the string text only on demand, we
         // need to copy it explicitly.
-        if(m_cmdString.empty()) m_cmdString = event.GetString();
+        if(m_cmdString.empty())
+            m_cmdString = event.GetString();
     }
 
     virtual ~wxCommandEvent() {}
@@ -146,6 +152,8 @@ protected:
     bool m_allowed;
     int m_lineNumber;
     bool m_selected;
+    std::string m_stringRaw;
+    wxString m_sshAccount;
 
 public:
     clCommandEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
@@ -213,15 +221,65 @@ public:
     const wxSharedPtr<wxClientData>& GetPtr() const { return m_ptr; }
     const wxArrayString& GetStrings() const { return m_strings; }
     wxArrayString& GetStrings() { return m_strings; }
+    const std::string& GetStringRaw() const { return m_stringRaw; }
+    void SetStringRaw(const std::string& str) { m_stringRaw = str; }
+    void SetSshAccount(const wxString& sshAccount) { this->m_sshAccount = sshAccount; }
+    const wxString& GetSshAccount() const { return m_sshAccount; }
 };
 
 typedef void (wxEvtHandler::*clCommandEventFunction)(clCommandEvent&);
 #define clCommandEventHandler(func) wxEVENT_HANDLER_CAST(clCommandEventFunction, func)
 
+/// Source control event
+class WXDLLIMPEXP_CL clSourceControlEvent : public clCommandEvent
+{
+protected:
+    wxString m_sourceControlName;
+
+public:
+    clSourceControlEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
+    clSourceControlEvent(const clSourceControlEvent& event);
+    clSourceControlEvent& operator=(const clSourceControlEvent& src);
+    virtual ~clSourceControlEvent();
+    virtual wxEvent* Clone() const;
+    void SetSourceControlName(const wxString& sourceControlName) { this->m_sourceControlName = sourceControlName; }
+    const wxString& GetSourceControlName() const { return m_sourceControlName; }
+};
+
+typedef void (wxEvtHandler::*clSourceControlEventFunction)(clSourceControlEvent&);
+#define clSourceControlEventHandler(func) wxEVENT_HANDLER_CAST(clSourceControlEventFunction, func)
+
+/// Source control event
+struct WXDLLIMPEXP_CL RecentWorkspace {
+    wxString m_category;
+    wxString m_account; // for remote workspaces, which account does this workspace belongs to
+    wxString m_name;
+    wxString path;
+};
+
+class WXDLLIMPEXP_CL clRecentWorkspaceEvent : public clCommandEvent
+{
+protected:
+    std::vector<RecentWorkspace> m_workspaces;
+
+public:
+    clRecentWorkspaceEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
+    clRecentWorkspaceEvent(const clRecentWorkspaceEvent& event);
+    clRecentWorkspaceEvent& operator=(const clRecentWorkspaceEvent& src);
+    virtual ~clRecentWorkspaceEvent();
+    virtual wxEvent* Clone() const;
+
+    void SetWorkspaces(const std::vector<RecentWorkspace>& workspaces) { this->m_workspaces = workspaces; }
+    const std::vector<RecentWorkspace>& GetWorkspaces() const { return m_workspaces; }
+    std::vector<RecentWorkspace>& GetWorkspaces() { return m_workspaces; }
+};
+
+typedef void (wxEvtHandler::*clRecentWorkspaceEventFunction)(clRecentWorkspaceEvent&);
+#define clRecentWorkspaceEventHandler(func) wxEVENT_HANDLER_CAST(clRecentWorkspaceEventFunction, func)
+
 /// a clCodeCompletionEvent
 class WXDLLIMPEXP_CL clCodeCompletionEvent : public clCommandEvent
 {
-    wxObject* m_editor;
     wxString m_word;
     int m_position;
     wxString m_tooltip;
@@ -230,6 +288,10 @@ class WXDLLIMPEXP_CL clCodeCompletionEvent : public clCommandEvent
     wxArrayString m_definitions;
     wxCodeCompletionBoxEntry::Vec_t m_entries;
     LSP::CompletionItem::eTriggerKind m_triggerKind = LSP::CompletionItem::kTriggerUnknown;
+
+    // semantic highlights. We support 2 types variables and classes
+    wxString m_variables;
+    wxString m_classes;
 
 public:
     clCodeCompletionEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
@@ -246,19 +308,19 @@ public:
     void SetInsideCommentOrString(bool insideCommentOrString) { this->m_insideCommentOrString = insideCommentOrString; }
 
     bool IsInsideCommentOrString() const { return m_insideCommentOrString; }
-    void SetEditor(wxObject* editor) { this->m_editor = editor; }
     void SetEntries(const wxCodeCompletionBoxEntry::Vec_t& entries) { this->m_entries = entries; }
     const wxCodeCompletionBoxEntry::Vec_t& GetEntries() const { return m_entries; }
     wxCodeCompletionBoxEntry::Vec_t& GetEntries() { return m_entries; }
 
     const LSP::CompletionItem::eTriggerKind& GetTriggerKind() const { return m_triggerKind; }
     void SetTriggerKind(const LSP::CompletionItem::eTriggerKind& triggerKind) { this->m_triggerKind = triggerKind; }
-    
-    /**
-     * @brief return the Editor object
-     */
-    wxObject* GetEditor() { return m_editor; }
+
     void SetWord(const wxString& word) { this->m_word = word; }
+
+    void SetClasses(const wxString& classes) { this->m_classes = classes; }
+    void SetVariables(const wxString& variables) { this->m_variables = variables; }
+    const wxString& GetClasses() const { return m_classes; }
+    const wxString& GetVariables() const { return m_variables; }
 
     /**
      * @brief return the user typed word up to the caret position
@@ -314,6 +376,14 @@ typedef void (wxEvtHandler::*clColourEventFunction)(clColourEvent&);
 // -------------------------------------------------------------------------
 class WXDLLIMPEXP_CL clBuildEvent : public clCommandEvent
 {
+public:
+    enum eFlags {
+        kClean = (1 << 0),
+        kBuild = (1 << 1),
+        kCustomProject = (1 << 2),
+    };
+
+protected:
     wxString m_projectName;
     wxString m_configurationName;
     wxString m_command;
@@ -321,7 +391,11 @@ class WXDLLIMPEXP_CL clBuildEvent : public clCommandEvent
     size_t m_warningCount;
     size_t m_errorCount;
     wxString m_kind;
-    bool m_isRunning;
+    bool m_isRunning = false;
+    bool m_cleanLog = true;
+    size_t m_flags = 0;
+    wxString m_toolchain;
+    wxString m_buildDir;
 
 public:
     clBuildEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
@@ -330,9 +404,25 @@ public:
     virtual ~clBuildEvent();
     virtual wxEvent* Clone() const { return new clBuildEvent(*this); };
 
+    void SetFlag(eFlags f, bool b)
+    {
+        if(b) {
+            m_flags |= f;
+        } else {
+            m_flags &= ~f;
+        }
+    }
+
+    void SetBuildDir(const wxString& buildDir) { this->m_buildDir = buildDir; }
+    const wxString& GetBuildDir() const { return m_buildDir; }
+
+    void SetToolchain(const wxString& toolchain) { this->m_toolchain = toolchain; }
+    const wxString& GetToolchain() const { return m_toolchain; }
+    bool HasFlag(eFlags f) const { return m_flags & f; }
     void SetIsRunning(bool isRunning) { this->m_isRunning = isRunning; }
     bool IsRunning() const { return m_isRunning; }
-
+    void SetCleanLog(bool cleanLog) { this->m_cleanLog = cleanLog; }
+    bool IsCleanLog() const { return m_cleanLog; }
     void SetKind(const wxString& kind) { this->m_kind = kind; }
     const wxString& GetKind() const { return this->m_kind; }
 
@@ -372,6 +462,10 @@ class WXDLLIMPEXP_CL clDebugEvent : public clCommandEvent
     wxString m_memoryAddress;    // wxEVT_DEBUGGER_SET_MEMORY
     wxString m_memoryBlockValue; // wxEVT_DEBUGGER_SET_MEMORY
     size_t m_memoryBlockSize;    // wxEVT_DEBUGGER_SET_MEMORY
+    clDebuggerBreakpoint::Vec_t m_breakpoints;
+    bool m_isSSHDebugging = false;
+    wxString m_alternateDebuggerPath; // Holds the path to an alternate debugger executable
+    UIBreakpoint m_uiBreakpoint;
 
 public:
     // Special features not available by all the debuggers
@@ -393,6 +487,16 @@ public:
     virtual ~clDebugEvent();
     virtual wxEvent* Clone() const { return new clDebugEvent(*this); };
 
+    void SetUiBreakpoint(const UIBreakpoint& uiBreakpoint) { this->m_uiBreakpoint = uiBreakpoint; }
+    const UIBreakpoint& GetUiBreakpoint() const { return m_uiBreakpoint; }
+
+    void SetAlternateDebuggerPath(const wxString& alternateDebuggerPath)
+    {
+        this->m_alternateDebuggerPath = alternateDebuggerPath;
+    }
+    const wxString& GetAlternateDebuggerPath() const { return m_alternateDebuggerPath; }
+    void SetIsSSHDebugging(bool isSSHDebugging) { this->m_isSSHDebugging = isSSHDebugging; }
+    bool IsSSHDebugging() const { return m_isSSHDebugging; }
     void SetFeatures(size_t features) { m_features = features; }
     size_t GetFeatures() const { return m_features; }
     void SetDebuggerName(const wxString& debuggerName) { this->m_debuggerName = debuggerName; }
@@ -417,6 +521,9 @@ public:
     const wxString& GetMemoryAddress() const { return m_memoryAddress; }
     size_t GetMemoryBlockSize() const { return m_memoryBlockSize; }
     const wxString& GetMemoryBlockValue() const { return m_memoryBlockValue; }
+    void SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints) { this->m_breakpoints = breakpoints; }
+    const clDebuggerBreakpoint::Vec_t& GetBreakpoints() const { return m_breakpoints; }
+    clDebuggerBreakpoint::Vec_t& GetBreakpoints() { return m_breakpoints; }
 };
 
 typedef void (wxEvtHandler::*clDebugEventFunction)(clDebugEvent&);
@@ -536,6 +643,8 @@ public:
     void SetOutput(const wxString& output) { this->m_output = output; }
     void SetProcess(IProcess* process) { this->m_process = process; }
     const wxString& GetOutput() const { return m_output; }
+    void SetOutputRaw(const std::string& output) { SetStringRaw(output); }
+    const std::string& GetOutputRaw() const { return GetStringRaw(); }
     IProcess* GetProcess() { return m_process; }
 };
 
@@ -665,10 +774,27 @@ typedef void (wxEvtHandler::*clFindEventFunction)(clFindEvent&);
 //---------------------------------------------------------------
 class WXDLLIMPEXP_CL clFindInFilesEvent : public clCommandEvent
 {
+public:
+    struct Location {
+        size_t line = 0;
+        size_t column_start = 0;
+        size_t column_end = 0;
+        wxString pattern;
+        typedef std::vector<Location> vec_t;
+    };
+
+    struct Match {
+        wxString file;
+        Location::vec_t locations;
+        typedef std::vector<Match> vec_t;
+    };
+
+protected:
     wxString m_paths;
     wxString m_fileMask;
     size_t m_options = 0;
     wxString m_transientPaths;
+    Match::vec_t m_matches;
 
 public:
     clFindInFilesEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
@@ -684,6 +810,9 @@ public:
     const wxString& GetPaths() const { return m_paths; }
     void SetTransientPaths(const wxString& transientPaths) { this->m_transientPaths = transientPaths; }
     const wxString& GetTransientPaths() const { return m_transientPaths; }
+    Match::vec_t& GetMatches() { return m_matches; }
+    const Match::vec_t& GetMatches() const { return m_matches; }
+    void SetMatches(const Match::vec_t& matches) { m_matches = matches; }
 };
 
 typedef void (wxEvtHandler::*clFindInFilesEventFunction)(clFindInFilesEvent&);
@@ -731,5 +860,89 @@ public:
 
 typedef void (wxEvtHandler::*clEditorConfigEventFunction)(clEditorConfigEvent&);
 #define clEditorConfigEventHandler(func) wxEVENT_HANDLER_CAST(clEditorConfigEventFunction, func)
+
+// --------------------------------------------------------------
+// clEditorEvent event
+// --------------------------------------------------------------
+class WXDLLIMPEXP_CL clEditorEvent : public clCommandEvent
+{
+    wxClientData* m_userData = nullptr;
+
+public:
+    clEditorEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
+    clEditorEvent(const clEditorEvent& event);
+    clEditorEvent& operator=(const clEditorEvent& src);
+    virtual ~clEditorEvent();
+    virtual wxEvent* Clone() const { return new clEditorEvent(*this); }
+    wxClientData* GetUserData() const { return m_userData; }
+    void SetUserData(wxClientData* d) { m_userData = d; }
+};
+
+typedef void (wxEvtHandler::*clEditorEventFunction)(clEditorEvent&);
+#define clEditorEventHandler(func) wxEVENT_HANDLER_CAST(clEditorEventFunction, func)
+
+//---------------------------------------------------------------
+// Language Server events
+//---------------------------------------------------------------
+class WXDLLIMPEXP_CL clLanguageServerEvent : public clCommandEvent
+{
+public:
+    enum eFlags {
+        kEnabled = (1 << 0),
+        kDisaplyDiags = (1 << 2),
+    };
+
+    enum eAction {
+        kInvalidAction = 0,
+        kDelete = 1,
+        kConfigure = 2,
+        kRestart = 3,
+        kRestartAll = 4,
+        kOpenSettings = 5,
+        kEnable = 6,
+    };
+
+protected:
+    wxString m_lspName;
+    wxString m_lspCommand;
+    size_t m_flags = 0;
+    size_t m_priority = 50;
+    wxString m_connectionString;
+    clEnvList_t m_enviroment;
+    wxString m_initOptions;
+    wxArrayString m_languages;
+    eAction m_action = kInvalidAction;
+    wxString m_rootUri;
+
+public:
+    clLanguageServerEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
+    clLanguageServerEvent(const clLanguageServerEvent& event);
+    clLanguageServerEvent& operator=(const clLanguageServerEvent& src);
+    virtual ~clLanguageServerEvent();
+    virtual wxEvent* Clone() const;
+    void SetConnectionString(const wxString& connectionString) { this->m_connectionString = connectionString; }
+    void SetFlags(size_t flags) { this->m_flags = flags; }
+    void SetInitOptions(const wxString& initOptions) { this->m_initOptions = initOptions; }
+    void SetLanguages(const wxArrayString& languages) { this->m_languages = languages; }
+    void SetLspCommand(const wxString& lspCommand) { this->m_lspCommand = lspCommand; }
+    void SetLspName(const wxString& lspName) { this->m_lspName = lspName; }
+    void SetPriority(size_t priority) { this->m_priority = priority; }
+    const wxString& GetConnectionString() const { return m_connectionString; }
+    size_t GetFlags() const { return m_flags; }
+    const wxString& GetInitOptions() const { return m_initOptions; }
+    const wxArrayString& GetLanguages() const { return m_languages; }
+    const wxString& GetLspCommand() const { return m_lspCommand; }
+    const wxString& GetLspName() const { return m_lspName; }
+    size_t GetPriority() const { return m_priority; }
+    void SetAction(const eAction& action) { this->m_action = action; }
+    const eAction& GetAction() const { return m_action; }
+    void SetRootUri(const wxString& rootUri) { this->m_rootUri = rootUri; }
+    const wxString& GetRootUri() const { return m_rootUri; }
+    void SetEnviroment(const clEnvList_t& enviroment) { this->m_enviroment = enviroment; }
+    const clEnvList_t& GetEnviroment() const { return m_enviroment; }
+};
+
+typedef void (wxEvtHandler::*clLanguageServerEventFunction)(clLanguageServerEvent&);
+#define clLanguageServerEventHandler(func) wxEVENT_HANDLER_CAST(clLanguageServerEventFunction, func)
 
 #endif // CLCOMMANDEVENT_H

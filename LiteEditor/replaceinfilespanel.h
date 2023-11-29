@@ -27,19 +27,25 @@
 
 #include "findresultstab.h"
 
+#include <wx/gauge.h>
+
+class clThemedComboBox;
 class ReplaceInFilesPanel : public FindResultsTab
 {
 protected:
-    wxComboBox* m_replaceWith;
+    clThemedComboBox* m_replaceWith;
     wxGauge* m_progress;
-    wxStaticText* m_replaceWithText;
     wxArrayString m_filesModified;
+    bool m_bmpsForDarkTheme = false;
 
 protected:
-    void DoSaveResults(wxStyledTextCtrl* sci, std::map<int, SearchResult>::iterator begin,
-                       std::map<int, SearchResult>::iterator end);
-
+    void DoSaveResults(wxStyledTextCtrl* sci, MatchInfo_t::iterator begin, MatchInfo_t::iterator end);
     wxStyledTextCtrl* DoGetEditor(const wxString& fileName);
+
+    /*
+     * @brief get replacement text (regular expression backrefs applied)
+     */
+    wxString DoGetReplaceWith(const SearchResult& res) const;
 
     // Event handlers
     virtual void OnSearchStart(wxCommandEvent& e);
@@ -61,6 +67,8 @@ protected:
 public:
     ReplaceInFilesPanel(wxWindow* parent, wxWindowID id, const wxString& name);
     virtual ~ReplaceInFilesPanel();
+
+    virtual void SetStyles(wxStyledTextCtrl* sci);
 };
 
 #endif // __replaceinfilespanel__

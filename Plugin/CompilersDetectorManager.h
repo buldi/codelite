@@ -26,9 +26,10 @@
 #ifndef COMPILERSDETECTORMANAGER_H
 #define COMPILERSDETECTORMANAGER_H
 
-#include <ICompilerLocator.h>
 #include "codelite_exports.h"
 #include "compiler.h"
+
+#include <ICompilerLocator.h>
 
 class WXDLLIMPEXP_SDK CompilersDetectorManager
 {
@@ -62,6 +63,8 @@ public:
 
     void MSWFixClangToolChain(CompilerPtr compiler,
                               const ICompilerLocator::CompilerVec_t& allCompilers = ICompilerLocator::CompilerVec_t());
+
+    wxString GetRealCXXPath(const CompilerPtr compiler) const;
 };
 
 #endif // COMPILERSDETECTORMANAGER_H

@@ -29,8 +29,9 @@
 #include "AddSSHAcountDlg.h"
 #include "globals.h"
 #include "sftp_settings.h"
-#include "ssh_account_info.h"
+#include "ssh/ssh_account_info.h"
 #include "windowattrmanager.h"
+
 #include <wx/msgdlg.h>
 
 SSHAccountManagerDlg::SSHAccountManagerDlg(wxWindow* parent)
@@ -45,7 +46,7 @@ SSHAccountManagerDlg::SSHAccountManagerDlg(wxWindow* parent)
         DoAddAccount(*iter);
     }
     SetName("SSHAccountManagerDlg");
-    WindowAttrManager::Load(this);
+    ::clSetDialogBestSizeAndPosition(this);
 }
 
 SSHAccountManagerDlg::~SSHAccountManagerDlg()
@@ -91,7 +92,9 @@ void SSHAccountManagerDlg::OnEditAccount(wxCommandEvent& event)
 {
     wxDataViewItemArray sels;
     m_dvListCtrl->GetSelections(sels);
-    if(sels.GetCount() == 1) { DoEditAccount(sels.Item(0)); }
+    if(sels.GetCount() == 1) {
+        DoEditAccount(sels.Item(0));
+    }
 }
 
 void SSHAccountManagerDlg::DoAddAccount(const SSHAccountInfo& account)
@@ -139,5 +142,12 @@ void SSHAccountManagerDlg::DoEditAccount(const wxDataViewItem& item)
             m_dvListCtrl->Refresh();
         }
     }
+}
+void SSHAccountManagerDlg::OnOK(wxCommandEvent& event)
+{
+    SFTPSettings settings;
+    settings.Load().SetAccounts(GetAccounts());
+    settings.Save();
+    EndModal(wxID_OK);
 }
 #endif // USE_SFTP

@@ -12,6 +12,7 @@
 #include "fileutils.h"
 #include <algorithm>
 #include "file_logger.h"
+#include <wx/app.h>
 
 static EOSWiki* thePlugin = NULL;
 
@@ -42,11 +43,12 @@ EOSWiki::EOSWiki(IManager* manager)
 
     // Extract eoswiki.zip file (the "resources")
     ExtractResources();
+    wxTheApp->Bind(wxEVT_MENU, &EOSWiki::OnNewProject, this, XRCID("eosio_new_project"));
 }
 
 EOSWiki::~EOSWiki() {}
 
-void EOSWiki::CreateToolBar(clToolBar* toolbar)
+void EOSWiki::CreateToolBar(clToolBarGeneric* toolbar)
 {
     // You can add items to the main toolbar here
     wxUnusedVar(toolbar);
@@ -56,11 +58,10 @@ void EOSWiki::CreatePluginMenu(wxMenu* pluginsMenu)
 {
     wxMenu* menu = new wxMenu();
     menu->Append(new wxMenuItem(menu, XRCID("eosio_new_project"), _("New Project...")));
-    pluginsMenu->Append(wxID_ANY, "EOS Wiki", menu);
-    menu->Bind(wxEVT_MENU, &EOSWiki::OnNewProject, this, XRCID("eosio_new_project"));
+    pluginsMenu->Append(wxID_ANY, _("EOS Wiki"), menu);
 }
 
-void EOSWiki::UnPlug() {}
+void EOSWiki::UnPlug() { wxTheApp->Unbind(wxEVT_MENU, &EOSWiki::OnNewProject, this, XRCID("eosio_new_project")); }
 
 void EOSWiki::OnNewProject(wxCommandEvent& event)
 {

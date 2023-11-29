@@ -1,7 +1,7 @@
 {
 	"metadata":	{
 		"m_generatedFilesDir":	".",
-		"m_objCounter":	374,
+		"m_objCounter":	378,
 		"m_includeFiles":	["codelite_exports.h"],
 		"m_bitmapFunction":	"wxC9D6CInitBitmapResources",
 		"m_bitmapsFile":	"wxcrafter_plugin_bitmaps.cpp",
@@ -144,6 +144,10 @@
 							"type":	"string",
 							"m_label":	"Style:",
 							"m_value":	""
+						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
 						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
@@ -290,6 +294,10 @@
 									"type":	"string",
 									"m_label":	"Style:",
 									"m_value":	""
+								}, {
+									"type":	"bool",
+									"m_label":	"Keep as a class member",
+									"m_value":	false
 								}, {
 									"type":	"choice",
 									"m_label":	"Orientation:",
@@ -584,6 +592,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -610,6 +622,10 @@
 									"type":	"string",
 									"m_label":	"Style:",
 									"m_value":	""
+								}, {
+									"type":	"bool",
+									"m_label":	"Keep as a class member",
+									"m_value":	false
 								}, {
 									"type":	"choice",
 									"m_label":	"Orientation:",
@@ -787,6 +803,10 @@
 															"m_label":	"Style:",
 															"m_value":	""
 														}, {
+															"type":	"bool",
+															"m_label":	"Keep as a class member",
+															"m_value":	false
+														}, {
 															"type":	"choice",
 															"m_label":	"Orientation:",
 															"m_selection":	0,
@@ -813,6 +833,10 @@
 																	"type":	"string",
 																	"m_label":	"Style:",
 																	"m_value":	""
+																}, {
+																	"type":	"bool",
+																	"m_label":	"Keep as a class member",
+																	"m_value":	false
 																}, {
 																	"type":	"choice",
 																	"m_label":	"Orientation:",
@@ -898,6 +922,10 @@
 																			"m_value":	"0"
 																		}, {
 																			"type":	"bool",
+																			"m_label":	"Enable Spell Checking",
+																			"m_value":	false
+																		}, {
+																			"type":	"bool",
 																			"m_label":	"Auto Complete Directories:",
 																			"m_value":	false
 																		}, {
@@ -908,7 +936,6 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_UPDATE_UI",
 																			"m_eventClass":	"wxUpdateUIEvent",
-																			"m_eventHandler":	"wxUpdateUIEventHandler",
 																			"m_functionNameAndSignature":	"OnLeftPickerUI(wxUpdateUIEvent& event)",
 																			"m_description":	"Process a wxEVT_UPDATE_UI event",
 																			"m_noBody":	false
@@ -1003,14 +1030,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_UPDATE_UI",
 																			"m_eventClass":	"wxUpdateUIEvent",
-																			"m_eventHandler":	"wxUpdateUIEventHandler",
 																			"m_functionNameAndSignature":	"OnLeftPickerUI(wxUpdateUIEvent& event)",
 																			"m_description":	"Process a wxEVT_UPDATE_UI event",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 																			"m_eventClass":	"wxCommandEvent",
-																			"m_eventHandler":	"wxCommandEventHandler",
 																			"m_functionNameAndSignature":	"OnBrowseLeftFile(wxCommandEvent& event)",
 																			"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 																			"m_noBody":	false
@@ -1037,6 +1062,10 @@
 																	"type":	"string",
 																	"m_label":	"Style:",
 																	"m_value":	""
+																}, {
+																	"type":	"bool",
+																	"m_label":	"Keep as a class member",
+																	"m_value":	false
 																}, {
 																	"type":	"choice",
 																	"m_label":	"Orientation:",
@@ -1164,14 +1193,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_STC_PAINTED",
 																			"m_eventClass":	"wxStyledTextEvent",
-																			"m_eventHandler":	"wxStyledTextEventHandler",
 																			"m_functionNameAndSignature":	"OnLeftStcPainted(wxStyledTextEvent& event)",
 																			"m_description":	"Painting has just been done.\nUseful when you want to update some other widgets based on a change in Scintilla\nbut want to have the paint occur first to appear more responsive",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_MOUSEWHEEL",
 																			"m_eventClass":	"wxMouseEvent",
-																			"m_eventHandler":	"wxMouseEventHandler",
 																			"m_functionNameAndSignature":	"OnMouseWheel(wxMouseEvent& event)",
 																			"m_description":	"Process a wxEVT_MOUSEWHEEL event",
 																			"m_noBody":	false
@@ -1245,14 +1272,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_ERASE_BACKGROUND",
 																			"m_eventClass":	"wxEraseEvent",
-																			"m_eventHandler":	"wxEraseEventHandler",
 																			"m_functionNameAndSignature":	"OnPaneloverviewEraseBackground(wxEraseEvent& event)",
 																			"m_description":	"Process a wxEVT_ERASE_BACKGROUND event.",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_LEFT_DOWN",
 																			"m_eventClass":	"wxMouseEvent",
-																			"m_eventHandler":	"wxMouseEventHandler",
 																			"m_functionNameAndSignature":	"OnPaneloverviewLeftDown(wxMouseEvent& event)",
 																			"m_description":	"Process a wxEVT_LEFT_DOWN event. The handler of this event should normally call event.Skip() to allow the default processing to take place as otherwise the window under mouse wouldn't get the focus.",
 																			"m_noBody":	false
@@ -1423,6 +1448,10 @@
 															"m_label":	"Style:",
 															"m_value":	""
 														}, {
+															"type":	"bool",
+															"m_label":	"Keep as a class member",
+															"m_value":	false
+														}, {
 															"type":	"choice",
 															"m_label":	"Orientation:",
 															"m_selection":	0,
@@ -1449,6 +1478,10 @@
 																	"type":	"string",
 																	"m_label":	"Style:",
 																	"m_value":	""
+																}, {
+																	"type":	"bool",
+																	"m_label":	"Keep as a class member",
+																	"m_value":	false
 																}, {
 																	"type":	"choice",
 																	"m_label":	"Orientation:",
@@ -1534,6 +1567,10 @@
 																			"m_value":	"0"
 																		}, {
 																			"type":	"bool",
+																			"m_label":	"Enable Spell Checking",
+																			"m_value":	false
+																		}, {
+																			"type":	"bool",
 																			"m_label":	"Auto Complete Directories:",
 																			"m_value":	false
 																		}, {
@@ -1544,7 +1581,6 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_UPDATE_UI",
 																			"m_eventClass":	"wxUpdateUIEvent",
-																			"m_eventHandler":	"wxUpdateUIEventHandler",
 																			"m_functionNameAndSignature":	"OnRightPickerUI(wxUpdateUIEvent& event)",
 																			"m_description":	"Process a wxEVT_UPDATE_UI event",
 																			"m_noBody":	false
@@ -1639,14 +1675,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_UPDATE_UI",
 																			"m_eventClass":	"wxUpdateUIEvent",
-																			"m_eventHandler":	"wxUpdateUIEventHandler",
 																			"m_functionNameAndSignature":	"OnRightPickerUI(wxUpdateUIEvent& event)",
 																			"m_description":	"Process a wxEVT_UPDATE_UI event",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 																			"m_eventClass":	"wxCommandEvent",
-																			"m_eventHandler":	"wxCommandEventHandler",
 																			"m_functionNameAndSignature":	"OnBrowseRightFile(wxCommandEvent& event)",
 																			"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 																			"m_noBody":	false
@@ -1673,6 +1707,10 @@
 																	"type":	"string",
 																	"m_label":	"Style:",
 																	"m_value":	""
+																}, {
+																	"type":	"bool",
+																	"m_label":	"Keep as a class member",
+																	"m_value":	false
 																}, {
 																	"type":	"choice",
 																	"m_label":	"Orientation:",
@@ -1800,14 +1838,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_STC_PAINTED",
 																			"m_eventClass":	"wxStyledTextEvent",
-																			"m_eventHandler":	"wxStyledTextEventHandler",
 																			"m_functionNameAndSignature":	"OnRightStcPainted(wxStyledTextEvent& event)",
 																			"m_description":	"Painting has just been done.\nUseful when you want to update some other widgets based on a change in Scintilla\nbut want to have the paint occur first to appear more responsive",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_MOUSEWHEEL",
 																			"m_eventClass":	"wxMouseEvent",
-																			"m_eventHandler":	"wxMouseEventHandler",
 																			"m_functionNameAndSignature":	"OnMouseWheel(wxMouseEvent& event)",
 																			"m_description":	"Process a wxEVT_MOUSEWHEEL event",
 																			"m_noBody":	false
@@ -1881,14 +1917,12 @@
 																	"m_events":	[{
 																			"m_eventName":	"wxEVT_ERASE_BACKGROUND",
 																			"m_eventClass":	"wxEraseEvent",
-																			"m_eventHandler":	"wxEraseEventHandler",
 																			"m_functionNameAndSignature":	"OnPaneloverviewEraseBackground(wxEraseEvent& event)",
 																			"m_description":	"Process a wxEVT_ERASE_BACKGROUND event.",
 																			"m_noBody":	false
 																		}, {
 																			"m_eventName":	"wxEVT_LEFT_DOWN",
 																			"m_eventClass":	"wxMouseEvent",
-																			"m_eventHandler":	"wxMouseEventHandler",
 																			"m_functionNameAndSignature":	"OnPaneloverviewLeftDown(wxMouseEvent& event)",
 																			"m_description":	"Process a wxEVT_LEFT_DOWN event. The handler of this event should normally call event.Skip() to allow the default processing to take place as otherwise the window under mouse wouldn't get the focus.",
 																			"m_noBody":	false
@@ -2041,14 +2075,12 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_ERASE_BACKGROUND",
 											"m_eventClass":	"wxEraseEvent",
-											"m_eventHandler":	"wxEraseEventHandler",
 											"m_functionNameAndSignature":	"OnPaneloverviewEraseBackground(wxEraseEvent& event)",
 											"m_description":	"Process a wxEVT_ERASE_BACKGROUND event.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_LEFT_DOWN",
 											"m_eventClass":	"wxMouseEvent",
-											"m_eventHandler":	"wxMouseEventHandler",
 											"m_functionNameAndSignature":	"OnPaneloverviewLeftDown(wxMouseEvent& event)",
 											"m_description":	"Process a wxEVT_LEFT_DOWN event. The handler of this event should normally call event.Skip() to allow the default processing to take place as otherwise the window under mouse wouldn't get the focus.",
 											"m_noBody":	false
@@ -2188,6 +2220,10 @@
 							"type":	"string",
 							"m_label":	"Style:",
 							"m_value":	""
+						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
 						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
@@ -2346,6 +2382,10 @@
 									"type":	"string",
 									"m_label":	"Max Length:",
 									"m_value":	"0"
+								}, {
+									"type":	"bool",
+									"m_label":	"Enable Spell Checking",
+									"m_value":	false
 								}, {
 									"type":	"bool",
 									"m_label":	"Auto Complete Directories:",
@@ -2609,6 +2649,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -2683,21 +2727,18 @@
 							"m_events":	[{
 									"m_eventName":	"wxEVT_COMMAND_TREE_ITEM_EXPANDING",
 									"m_eventClass":	"wxTreeEvent",
-									"m_eventHandler":	"wxTreeEventHandler",
 									"m_functionNameAndSignature":	"OnItemExpanding(wxTreeEvent& event)",
 									"m_description":	"The item is being expanded. This can be prevented by calling Veto().",
 									"m_noBody":	false
 								}, {
 									"m_eventName":	"wxEVT_COMMAND_TREE_ITEM_ACTIVATED",
 									"m_eventClass":	"wxTreeEvent",
-									"m_eventHandler":	"wxTreeEventHandler",
 									"m_functionNameAndSignature":	"OnItemActivated(wxTreeEvent& event)",
 									"m_description":	"An item has been activated (e.g. double clicked).",
 									"m_noBody":	false
 								}, {
 									"m_eventName":	"wxEVT_COMMAND_TREE_ITEM_MENU",
 									"m_eventClass":	"wxTreeEvent",
-									"m_eventHandler":	"wxTreeEventHandler",
 									"m_functionNameAndSignature":	"OnContextMenu(wxTreeEvent& event)",
 									"m_description":	"The context menu for the selected item has been requested,\neither by a right click or by using the menu key.",
 									"m_noBody":	false
@@ -2711,7 +2752,7 @@
 			"border":	5,
 			"gbSpan":	"1,1",
 			"gbPosition":	"0,0",
-			"m_styles":	["wxRESIZE_BORDER"],
+			"m_styles":	["wxCAPTION", "wxRESIZE_BORDER", "wxCLOSE_BOX"],
 			"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM"],
 			"m_properties":	[{
 					"type":	"string",
@@ -2818,14 +2859,12 @@
 			"m_events":	[{
 					"m_eventName":	"wxEVT_KEY_DOWN",
 					"m_eventClass":	"wxKeyEvent",
-					"m_eventHandler":	"wxKeyEventHandler",
 					"m_functionNameAndSignature":	"OnKeyDown(wxKeyEvent& event)",
 					"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 					"m_noBody":	false
 				}, {
 					"m_eventName":	"wxEVT_KEY_UP",
 					"m_eventClass":	"wxKeyEvent",
-					"m_eventHandler":	"wxKeyEventHandler",
 					"m_functionNameAndSignature":	"OnKeyUp(wxKeyEvent& event)",
 					"m_description":	"Process a wxEVT_KEY_UP event (any key has been released)",
 					"m_noBody":	false
@@ -2850,6 +2889,10 @@
 							"type":	"string",
 							"m_label":	"Style:",
 							"m_value":	""
+						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
 						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
@@ -2944,6 +2987,10 @@
 											"m_label":	"Style:",
 											"m_value":	""
 										}, {
+											"type":	"bool",
+											"m_label":	"Keep as a class member",
+											"m_value":	false
+										}, {
 											"type":	"choice",
 											"m_label":	"Orientation:",
 											"m_selection":	0,
@@ -3018,21 +3065,18 @@
 											"m_events":	[{
 													"m_eventName":	"wxEVT_KEY_UP",
 													"m_eventClass":	"wxKeyEvent",
-													"m_eventHandler":	"wxKeyEventHandler",
 													"m_functionNameAndSignature":	"OnKeyUp(wxKeyEvent& event)",
 													"m_description":	"Process a wxEVT_KEY_UP event (any key has been released)",
 													"m_noBody":	false
 												}, {
 													"m_eventName":	"wxEVT_KEY_DOWN",
 													"m_eventClass":	"wxKeyEvent",
-													"m_eventHandler":	"wxKeyEventHandler",
 													"m_functionNameAndSignature":	"OnKeyDown(wxKeyEvent& event)",
 													"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 													"m_noBody":	false
 												}, {
 													"m_eventName":	"wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED",
 													"m_eventClass":	"wxDataViewEvent",
-													"m_eventHandler":	"wxDataViewEventHandler",
 													"m_functionNameAndSignature":	"OnItemActivated(wxDataViewEvent& event)",
 													"m_description":	"Process a wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED event.\nThis event is triggered by double clicking an item or pressing some special key (usually \"Enter\") when it is focused",
 													"m_noBody":	false
@@ -3234,6 +3278,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -3308,7 +3356,6 @@
 							"m_events":	[{
 									"m_eventName":	"wxEVT_CONTEXT_MENU",
 									"m_eventClass":	"wxContextMenuEvent",
-									"m_eventHandler":	"wxContextMenuEventHandler",
 									"m_functionNameAndSignature":	"OnDefaultPageContextMenu(wxContextMenuEvent& event)",
 									"m_description":	"A right click (or other context menu command depending on platform) has been detected",
 									"m_noBody":	false
@@ -3333,6 +3380,10 @@
 											"type":	"string",
 											"m_label":	"Style:",
 											"m_value":	""
+										}, {
+											"type":	"bool",
+											"m_label":	"Keep as a class member",
+											"m_value":	false
 										}, {
 											"type":	"choice",
 											"m_label":	"Orientation:",
@@ -3589,6 +3640,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -3596,99 +3651,13 @@
 						}],
 					"m_events":	[],
 					"m_children":	[{
-							"m_type":	4428,
-							"proportion":	0,
-							"border":	5,
-							"gbSpan":	"1,1",
-							"gbPosition":	"0,0",
-							"m_styles":	["wxTE_PROCESS_ENTER"],
-							"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
-							"m_properties":	[{
-									"type":	"winid",
-									"m_label":	"ID:",
-									"m_winid":	"wxID_ANY"
-								}, {
-									"type":	"string",
-									"m_label":	"Size:",
-									"m_value":	"-1,-1"
-								}, {
-									"type":	"string",
-									"m_label":	"Minimum Size:",
-									"m_value":	"-1,-1"
-								}, {
-									"type":	"string",
-									"m_label":	"Name:",
-									"m_value":	"m_searchCtrl"
-								}, {
-									"type":	"multi-string",
-									"m_label":	"Tooltip:",
-									"m_value":	"Filter the results.\\nHit ENTER to apply the filter"
-								}, {
-									"type":	"colour",
-									"m_label":	"Bg Colour:",
-									"colour":	"<Default>"
-								}, {
-									"type":	"colour",
-									"m_label":	"Fg Colour:",
-									"colour":	"<Default>"
-								}, {
-									"type":	"font",
-									"m_label":	"Font:",
-									"m_value":	""
-								}, {
-									"type":	"bool",
-									"m_label":	"Hidden",
-									"m_value":	false
-								}, {
-									"type":	"bool",
-									"m_label":	"Disabled",
-									"m_value":	false
-								}, {
-									"type":	"bool",
-									"m_label":	"Focused",
-									"m_value":	true
-								}, {
-									"type":	"string",
-									"m_label":	"Class Name:",
-									"m_value":	""
-								}, {
-									"type":	"string",
-									"m_label":	"Include File:",
-									"m_value":	""
-								}, {
-									"type":	"string",
-									"m_label":	"Style:",
-									"m_value":	""
-								}, {
-									"type":	"string",
-									"m_label":	"Value:",
-									"m_value":	""
-								}, {
-									"type":	"bool",
-									"m_label":	"Show Cancel Button",
-									"m_value":	false
-								}, {
-									"type":	"bool",
-									"m_label":	"Show Search Button",
-									"m_value":	true
-								}],
-							"m_events":	[{
-									"m_eventName":	"wxEVT_COMMAND_TEXT_ENTER",
-									"m_eventClass":	"wxCommandEvent",
-									"m_eventHandler":	"wxCommandEventHandler",
-									"m_functionNameAndSignature":	"OnFilter(wxCommandEvent& event)",
-									"m_description":	"Respond to a wxEVT_COMMAND_TEXT_ENTER event, generated when enter is pressed in a text control\n(which must have wxTE_PROCESS_ENTER style for this event to be generated).",
-									"m_noBody":	false
-								}],
-							"m_children":	[]
-						}, {
 							"m_type":	4469,
 							"proportion":	1,
 							"border":	5,
 							"gbSpan":	"1,1",
 							"gbPosition":	"0,0",
 							"m_styles":	["wxDV_NO_HEADER", "wxDV_ROW_LINES", "wxDV_SINGLE"],
-							"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
+							"m_sizerFlags":	["wxEXPAND"],
 							"m_properties":	[{
 									"type":	"winid",
 									"m_label":	"ID:",
@@ -3736,11 +3705,11 @@
 								}, {
 									"type":	"string",
 									"m_label":	"Class Name:",
-									"m_value":	""
+									"m_value":	"clThemedListCtrl"
 								}, {
 									"type":	"string",
 									"m_label":	"Include File:",
-									"m_value":	""
+									"m_value":	"clThemedListCtrl.h"
 								}, {
 									"type":	"string",
 									"m_label":	"Style:",
@@ -3749,7 +3718,6 @@
 							"m_events":	[{
 									"m_eventName":	"wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED",
 									"m_eventClass":	"wxDataViewEvent",
-									"m_eventHandler":	"wxDataViewEventHandler",
 									"m_functionNameAndSignature":	"OnActivated(wxDataViewEvent& event)",
 									"m_description":	"Process a wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED event.\nThis event is triggered by double clicking an item or pressing some special key (usually \"Enter\") when it is focused",
 									"m_noBody":	false
@@ -3892,7 +3860,6 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnOKUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
@@ -4037,6 +4004,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -4137,6 +4108,10 @@
 											"type":	"string",
 											"m_label":	"Style:",
 											"m_value":	""
+										}, {
+											"type":	"bool",
+											"m_label":	"Keep as a class member",
+											"m_value":	false
 										}, {
 											"type":	"choice",
 											"m_label":	"Orientation:",
@@ -4365,6 +4340,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	1,
@@ -4392,9 +4371,13 @@
 									"m_label":	"Style:",
 									"m_value":	""
 								}, {
+									"type":	"bool",
+									"m_label":	"Keep as a class member",
+									"m_value":	false
+								}, {
 									"type":	"string",
 									"m_label":	"# Columns:",
-									"m_value":	"3"
+									"m_value":	"4"
 								}, {
 									"type":	"string",
 									"m_label":	"# Rows:",
@@ -4402,7 +4385,7 @@
 								}, {
 									"type":	"string",
 									"m_label":	"Growable columns:",
-									"m_value":	""
+									"m_value":	"0,1,2,3"
 								}, {
 									"type":	"string",
 									"m_label":	"Growable rows:",
@@ -4420,11 +4403,11 @@
 							"m_children":	[{
 									"m_type":	4400,
 									"proportion":	1,
-									"border":	5,
+									"border":	2,
 									"gbSpan":	"1,1",
 									"gbPosition":	"0,0",
 									"m_styles":	[],
-									"m_sizerFlags":	["wxRIGHT", "wxEXPAND"],
+									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
 									"m_properties":	[{
 											"type":	"winid",
 											"m_label":	"ID:",
@@ -4432,7 +4415,7 @@
 										}, {
 											"type":	"string",
 											"m_label":	"Size:",
-											"m_value":	"200,-1"
+											"m_value":	"-1,-1"
 										}, {
 											"type":	"string",
 											"m_label":	"Minimum Size:",
@@ -4506,7 +4489,6 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnButtonScope(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
@@ -4515,11 +4497,11 @@
 								}, {
 									"m_type":	4400,
 									"proportion":	1,
-									"border":	5,
+									"border":	2,
 									"gbSpan":	"1,1",
 									"gbPosition":	"0,0",
 									"m_styles":	[],
-									"m_sizerFlags":	["wxEXPAND"],
+									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND"],
 									"m_properties":	[{
 											"type":	"winid",
 											"m_label":	"ID:",
@@ -4527,7 +4509,7 @@
 										}, {
 											"type":	"string",
 											"m_label":	"Size:",
-											"m_value":	"200,-1"
+											"m_value":	"-1,-1"
 										}, {
 											"type":	"string",
 											"m_label":	"Minimum Size:",
@@ -4601,7 +4583,6 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnButtonActions(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
@@ -4610,11 +4591,11 @@
 								}, {
 									"m_type":	4400,
 									"proportion":	0,
-									"border":	5,
+									"border":	2,
 									"gbSpan":	"1,1",
 									"gbPosition":	"0,0",
 									"m_styles":	[],
-									"m_sizerFlags":	["wxLEFT"],
+									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM"],
 									"m_properties":	[{
 											"type":	"winid",
 											"m_label":	"ID:",
@@ -4622,7 +4603,7 @@
 										}, {
 											"type":	"string",
 											"m_label":	"Size:",
-											"m_value":	"200,-1"
+											"m_value":	"-1,-1"
 										}, {
 											"type":	"string",
 											"m_label":	"Minimum Size:",
@@ -4696,11 +4677,85 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnButtonBookmarks(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}],
+									"m_children":	[]
+								}, {
+									"m_type":	4405,
+									"proportion":	1,
+									"border":	5,
+									"gbSpan":	"1,1",
+									"gbPosition":	"0,0",
+									"m_styles":	[],
+									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND", "wxALIGN_CENTER_VERTICAL"],
+									"m_properties":	[{
+											"type":	"winid",
+											"m_label":	"ID:",
+											"m_winid":	"wxID_ANY"
+										}, {
+											"type":	"string",
+											"m_label":	"Size:",
+											"m_value":	"200,-1"
+										}, {
+											"type":	"string",
+											"m_label":	"Minimum Size:",
+											"m_value":	"-1,-1"
+										}, {
+											"type":	"string",
+											"m_label":	"Name:",
+											"m_value":	"m_labelText"
+										}, {
+											"type":	"multi-string",
+											"m_label":	"Tooltip:",
+											"m_value":	""
+										}, {
+											"type":	"colour",
+											"m_label":	"Bg Colour:",
+											"colour":	"<Default>"
+										}, {
+											"type":	"colour",
+											"m_label":	"Fg Colour:",
+											"colour":	"<Default>"
+										}, {
+											"type":	"font",
+											"m_label":	"Font:",
+											"m_value":	""
+										}, {
+											"type":	"bool",
+											"m_label":	"Hidden",
+											"m_value":	false
+										}, {
+											"type":	"bool",
+											"m_label":	"Disabled",
+											"m_value":	false
+										}, {
+											"type":	"bool",
+											"m_label":	"Focused",
+											"m_value":	false
+										}, {
+											"type":	"string",
+											"m_label":	"Class Name:",
+											"m_value":	""
+										}, {
+											"type":	"string",
+											"m_label":	"Include File:",
+											"m_value":	""
+										}, {
+											"type":	"string",
+											"m_label":	"Style:",
+											"m_value":	""
+										}, {
+											"type":	"multi-string",
+											"m_label":	"Label:",
+											"m_value":	""
+										}, {
+											"type":	"string",
+											"m_label":	"Wrap:",
+											"m_value":	"-1"
+										}],
+									"m_events":	[],
 									"m_children":	[]
 								}]
 						}]
@@ -4842,6 +4897,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -4935,6 +4994,10 @@
 											"m_label":	"Style:",
 											"m_value":	""
 										}, {
+											"type":	"bool",
+											"m_label":	"Keep as a class member",
+											"m_value":	false
+										}, {
 											"type":	"choice",
 											"m_label":	"Orientation:",
 											"m_selection":	1,
@@ -5017,7 +5080,6 @@
 											"m_events":	[{
 													"m_eventName":	"wxEVT_COMMAND_LISTBOX_SELECTED",
 													"m_eventClass":	"wxCommandEvent",
-													"m_eventHandler":	"wxCommandEventHandler",
 													"m_functionNameAndSignature":	"OnColumnSelected(wxCommandEvent& event)",
 													"m_description":	"Process a wxEVT_COMMAND_LISTBOX_SELECTED event, when an item on the list is selected or the selection changes.",
 													"m_noBody":	false

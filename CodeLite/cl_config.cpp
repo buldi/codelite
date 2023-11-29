@@ -24,23 +24,40 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "cl_config.h"
-#include <wx/stdpaths.h>
+
+#include "FontUtils.hpp"
+#include "cl_defs.h"
+#include "cl_standard_paths.h"
+#include "file_logger.h"
+#include "fileutils.h"
+#include "wx/filename.h"
+
+#include <algorithm>
 #include <wx/filefn.h>
 #include <wx/log.h>
-#include <algorithm>
-#include "cl_standard_paths.h"
+#include <wx/stdpaths.h>
 
-#define ADD_OBJ_IF_NOT_EXISTS(parent, objName)                \
-    if(!parent.hasNamedObject(objName)) {                     \
+#define ADD_OBJ_IF_NOT_EXISTS(parent, objName)          \
+    if(!parent.hasNamedObject(objName)) {               \
         JSONItem obj = JSONItem::createObject(objName); \
-        parent.append(obj);                                   \
+        parent.append(obj);                             \
     }
 
-#define ADD_ARR_IF_NOT_EXISTS(parent, arrName)               \
-    if(!parent.hasNamedObject(arrName)) {                    \
+#define ADD_ARR_IF_NOT_EXISTS(parent, arrName)         \
+    if(!parent.hasNamedObject(arrName)) {              \
         JSONItem arr = JSONItem::createArray(arrName); \
-        parent.append(arr);                                  \
+        parent.append(arr);                            \
     }
+
+namespace
+{
+void truncate_array(wxArrayString& arr, size_t maxSize)
+{
+    while(arr.GetCount() > maxSize && arr.GetCount() > 0) {
+        arr.RemoveAt(arr.GetCount() - 1);
+    }
+}
+} // namespace
 
 clConfig::clConfig(const wxString& filename)
 {
@@ -48,14 +65,16 @@ clConfig::clConfig(const wxString& filename)
         m_filename = filename;
     } else {
         m_filename = clStandardPaths::Get().GetUserDataDir() + wxFileName::GetPathSeparator() + "config" +
-            wxFileName::GetPathSeparator() + filename;
+                     wxFileName::GetPathSeparator() + filename;
     }
-    m_filename.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
 
     if(m_filename.FileExists()) {
         m_root = new JSON(m_filename);
 
     } else {
+        if(!m_filename.DirExists()) {
+            m_filename.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        }
         m_root = new JSON(cJSON_Object);
     }
 
@@ -151,6 +170,39 @@ bool clConfig::ReadItem(clConfigItem* item, const wxString& differentName)
     return false;
 }
 
+bool clConfig::Write(const wxString& name, std::function<JSONItem()> serialiser_func, const wxFileName& configFile)
+{
+    auto item = serialiser_func();
+    if(configFile.IsOk()) {
+        // write to a separate file
+        configFile.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        return FileUtils::WriteFileContent(configFile, item.format());
+    } else {
+        // add it to the global configuration file
+        DoDeleteProperty(name);
+        item.SetPropertyName(name);
+        m_root->toElement().append(item);
+        return true;
+    }
+}
+
+void clConfig::Read(const wxString& name, std::function<void(const JSONItem& item)> deserialiser_func,
+                    const wxFileName& configFile)
+{
+    if(configFile.IsOk() && configFile.FileExists()) {
+        JSON root(configFile);
+        if(!root.isOk()) {
+            return;
+        }
+        deserialiser_func(root.toElement());
+    } else {
+        auto root = m_root->toElement();
+        if(root.hasNamedObject(name)) {
+            deserialiser_func(root[name]);
+        }
+    }
+}
+
 void clConfig::WriteItem(const clConfigItem* item, const wxString& differentName)
 {
     wxString nameToUse = differentName.IsEmpty() ? item->GetName() : differentName;
@@ -161,7 +213,8 @@ void clConfig::WriteItem(const clConfigItem* item, const wxString& differentName
 
 void clConfig::Reload()
 {
-    if(m_filename.FileExists() == false) return;
+    if(m_filename.FileExists() == false)
+        return;
 
     delete m_root;
     m_root = new JSON(m_filename);
@@ -169,23 +222,28 @@ void clConfig::Reload()
 
 wxArrayString clConfig::MergeArrays(const wxArrayString& arr1, const wxArrayString& arr2) const
 {
-    wxArrayString sArr1, sArr2;
-    sArr1.insert(sArr1.end(), arr1.begin(), arr1.end());
-    sArr2.insert(sArr2.end(), arr2.begin(), arr2.end());
+    // we use set to keep the records sorted
+    std::set<wxString> visited;
 
-    // Sort the arrays
-    std::sort(sArr1.begin(), sArr1.end());
-    std::sort(sArr2.begin(), sArr2.end());
+    for(const wxString& element : arr1) {
+        if(visited.count(element))
+            continue;
+        visited.insert(element);
+    }
 
-    wxArrayString output;
-    std::set_union(sArr1.begin(), sArr1.end(), sArr2.begin(), sArr2.end(), std::back_inserter(output));
-    return output;
+    wxArrayString merged_array;
+    merged_array.reserve(visited.size());
+    for(const wxString& element : visited) {
+        merged_array.Add(element);
+    }
+    return merged_array;
 }
 
-wxStringMap_t clConfig::MergeStringMaps(
-    const wxStringMap_t& map1, const wxStringMap_t& map2) const
+wxStringMap_t clConfig::MergeStringMaps(const wxStringMap_t& map1, const wxStringMap_t& map2) const
 {
     wxStringMap_t output;
+    output.reserve(map1.size() + map2.size());
+
     output.insert(map1.begin(), map1.end());
     output.insert(map2.begin(), map2.end());
     return output;
@@ -193,12 +251,15 @@ wxStringMap_t clConfig::MergeStringMaps(
 
 void clConfig::Save()
 {
-    if(m_root) m_root->save(m_filename);
+    if(m_root) {
+        m_root->save(m_filename);
+    }
 }
 
 void clConfig::Save(const wxFileName& fn)
 {
-    if(m_root) m_root->save(fn);
+    if(m_root)
+        m_root->save(fn);
 }
 
 JSONItem clConfig::GetGeneralSetting()
@@ -223,11 +284,14 @@ void clConfig::Write(const wxString& name, bool value)
 
 bool clConfig::Read(const wxString& name, bool defaultValue)
 {
+#if CL_USE_NATIVEBOOK
+    if(name == "UseCustomBaseColour")
+        return false;
+#endif
     JSONItem general = GetGeneralSetting();
     if(general.namedObject(name).isBool()) {
         return general.namedObject(name).toBool();
     }
-
     return defaultValue;
 }
 
@@ -310,7 +374,11 @@ void clConfig::SetQuickFindSearchItems(const wxArrayString& items)
     if(quickFindBar.hasNamedObject("SearchHistory")) {
         quickFindBar.removeProperty("SearchHistory");
     }
-    quickFindBar.addProperty("SearchHistory", items);
+
+    wxArrayString items_to_save = items;
+    truncate_array(items_to_save, 20);
+
+    quickFindBar.addProperty("SearchHistory", items_to_save);
     Save();
 }
 
@@ -321,7 +389,11 @@ void clConfig::SetQuickFindReplaceItems(const wxArrayString& items)
     if(quickFindBar.hasNamedObject("ReplaceHistory")) {
         quickFindBar.removeProperty("ReplaceHistory");
     }
-    quickFindBar.addProperty("ReplaceHistory", items);
+
+    wxArrayString items_to_save = items;
+    truncate_array(items_to_save, 20);
+
+    quickFindBar.addProperty("ReplaceHistory", items_to_save);
     Save();
 }
 
@@ -500,26 +572,23 @@ wxArrayString clConfig::DoGetRecentItems(const wxString& propName) const
 wxFont clConfig::Read(const wxString& name, const wxFont& defaultValue)
 {
     JSONItem general = GetGeneralSetting();
-    if(!general.hasNamedObject(name)) return defaultValue;
+    if(!general.hasNamedObject(name))
+        return defaultValue;
 
     // Unserialize the font
     wxFont font;
     JSONItem f = general.namedObject(name);
+    if(!f.hasNamedObject("fontDesc"))
+        return defaultValue;
 
-    font.SetPointSize(f.namedObject("pointSize").toInt());
-    font.SetFaceName(f.namedObject("face").toString());
-    font.SetWeight(f.namedObject("bold").toBool() ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
-    font.SetStyle(f.namedObject("italic").toBool() ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL);
+    font.SetNativeFontInfo(FontUtils::GetFontInfo(f.namedObject("fontDesc").toString()));
     return font;
 }
 
 void clConfig::Write(const wxString& name, const wxFont& value)
 {
     JSONItem font = JSONItem::createObject(name);
-    font.addProperty("pointSize", value.GetPointSize());
-    font.addProperty("face", value.GetFaceName());
-    font.addProperty("bold", (value.GetWeight() == wxFONTWEIGHT_BOLD));
-    font.addProperty("italic", (value.GetStyle() == wxFONTSTYLE_ITALIC));
+    font.addProperty("fontDesc", FontUtils::GetFontInfo(value));
 
     JSONItem general = GetGeneralSetting();
     if(general.hasNamedObject(name)) {

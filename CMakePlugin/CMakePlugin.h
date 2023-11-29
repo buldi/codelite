@@ -54,10 +54,12 @@
 #include <wx/scopedptr.h>
 
 // CodeLite
+#include "build_config.h"
+#include "clResult.hpp"
+#include "clTreeCtrlPanel.h"
+#include "cl_command_event.h"
 #include "plugin.h"
 #include "project.h"
-#include "build_config.h"
-#include "cl_command_event.h"
 
 // CMakePlugin
 #include "CMakeConfiguration.h"
@@ -92,6 +94,12 @@ class CMakeHelpTab;
  */
 class CMakePlugin : public IPlugin
 {
+
+    enum class TargetType {
+        EXECUTABLE,
+        STATIC_LIB,
+        SHARED_LIB,
+    };
 
     // Public Constants
 public:
@@ -184,13 +192,6 @@ public:
      */
     wxArrayString GetSupportedGenerators() const;
 
-    /**
-     * @brief Check if Help pane is detached.
-     *
-     * @return
-     */
-    bool IsPaneDetached() const;
-
     // Public Operations
 public:
     /**
@@ -200,7 +201,7 @@ public:
      *
      * @return Codelite tool bar or NULL.
      */
-    void CreateToolBar(clToolBar* toolbar);
+    void CreateToolBar(clToolBarGeneric* toolbar);
 
     /**
      * @brief Creates a menu for plugin.
@@ -240,6 +241,11 @@ public:
      * @brief edit the workspace context menu
      */
     void OnWorkspaceContextMenu(clContextMenuEvent& event);
+
+    /**
+     * @brief edit the folder context menu
+     */
+    void OnFolderContextMenu(clContextMenuEvent& event);
 
     /**
      * @brief Run CMake for the selected project
@@ -285,6 +291,14 @@ protected:
     void DoRunCMake(ProjectPtr p);
 
     // Private Operations
+    void OnCreateCMakeListsExe(wxCommandEvent& event);
+    void OnCreateCMakeListsDll(wxCommandEvent& event);
+    void OnCreateCMakeListsLib(wxCommandEvent& event);
+    bool IsCMakeListsExists() const;
+    wxString WriteCMakeListsAndOpenIt(const std::vector<wxString>& lines) const;
+    clResultString CreateCMakeListsFile(TargetType type) const;
+    void FireCMakeListsFileCreatedEvent(const wxString& cmakelists_txt) const;
+
 private:
     /// CMake configuration.
     wxScopedPtr<CMakeConfiguration> m_configuration;

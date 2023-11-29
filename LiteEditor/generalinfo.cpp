@@ -23,12 +23,19 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 #include "generalinfo.h"
+#include <wx/settings.h>
 
 GeneralInfo::GeneralInfo()
-    : m_frameSize(800, 600)
-    , m_framePos(30, 30)
-    , m_flags(CL_SHOW_WELCOME_PAGE | CL_USE_EOL_LF | CL_SHOW_SPLASH | CL_MAXIMIZE_FRAME)
 {
+    // build the default frame size
+    wxRect display_rect =
+        wxRect(0, 0, wxSystemSettings::GetMetric(wxSYS_SCREEN_X), wxSystemSettings::GetMetric(wxSYS_SCREEN_Y));
+    wxRect frame_rect = display_rect;
+    frame_rect.Deflate(frame_rect.GetWidth() / 10, frame_rect.GetHeight() / 10);
+    frame_rect = frame_rect.CenterIn(display_rect);
+    m_framePos = frame_rect.GetTopLeft();
+    m_frameSize = frame_rect.GetSize();
+    m_defaultRect = frame_rect;
 }
 
 GeneralInfo::~GeneralInfo() {}

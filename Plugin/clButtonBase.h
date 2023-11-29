@@ -1,29 +1,41 @@
 #ifndef CLBUTTONBASE_H
 #define CLBUTTONBASE_H
 
+#include "clColours.h"
 #include "codelite_exports.h"
+#include "drawingutils.h"
+#include "wxCustomControls.hpp"
+
+#include <wx/bitmap.h>
+#include <wx/control.h>
+#include <wx/menu.h>
 #include <wx/panel.h>
 #include <wx/validate.h>
-#include "clColours.h"
-#include "drawingutils.h"
-#include <wx/control.h>
-#include <wx/bitmap.h>
-#include <wx/menu.h>
 
-class WXDLLIMPEXP_SDK clButtonBase : public wxControl
+#if wxUSE_NATIVE_BUTTON
+#include <wx/button.h>
+#define BUTTON_BASE wxButton
+#else
+#define BUTTON_BASE wxControl
+#endif
+
+class WXDLLIMPEXP_SDK clButtonBase : public BUTTON_BASE
 {
+protected:
+    bool m_hasDropDownMenu = false;
+    wxString m_subText;
+#if !wxUSE_NATIVE_BUTTON
 protected:
     size_t m_buttonStyle = 0;
     clColours m_colours;
     wxString m_text;
     eButtonState m_state = eButtonState::kNormal;
 
-    enum eDrawingFlags {
+    enum eDrawingFlags{
         kDrawingFlagEnabled = (1 << 0),
         kDrawingFlagChecked = (1 << 1),
     };
     size_t m_lastPaintFlags = 0;
-    bool m_hasDropDownMenu = false;
     wxBitmap m_bitmap;
 
 protected:
@@ -56,6 +68,7 @@ protected:
     void SetPressed() { m_state = eButtonState::kPressed; }
     void SetNormal() { m_state = eButtonState::kNormal; }
     void SetHover() { m_state = eButtonState::kHover; }
+#endif
 
 public:
     clButtonBase();
@@ -66,21 +79,31 @@ public:
                 const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = 0,
                 const wxValidator& validator = wxDefaultValidator, const wxString& name = "button");
     virtual ~clButtonBase();
+
+#if !wxUSE_NATIVE_BUTTON
     void SetColours(const clColours& colours);
     const clColours& GetColours() const { return m_colours; }
-    void SetText(const wxString& text);
     const wxString& GetText() const { return m_text; }
     void SetDefault();
-    void SetHasDropDownMenu(bool hasDropDownMenu);
-    bool HasDropDownMenu() const { return m_hasDropDownMenu; }
     void SetBitmap(const wxBitmap& bmp);
     const wxBitmap& GetBitmap() const;
-    
+#else
+    void SetColours(const clColours& WXUNUSED(colour)) {}
+    void SetPressed() {}
+    void SetNormal() {}
+    void SetHover() {}
+#endif
+
+    void SetSubText(const wxString& subText);
+    const wxString& GetSubText() const { return m_subText; }
+    void SetText(const wxString& text);
+    void SetHasDropDownMenu(bool hasDropDownMenu);
+    bool HasDropDownMenu() const { return m_hasDropDownMenu; }
     /**
      * @brief display a menu for the user aligned to the button
      * @param menu
      */
-    void ShowMenu(wxMenu& menu);
+    void ShowMenu(wxMenu& menu, wxPoint* point = nullptr);
 };
 
 #endif // CLBUTTONBASE_H

@@ -22,8 +22,9 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "asyncprocess.h"
 #include "processreaderthread.h"
+
+#include "asyncprocess.h"
 
 wxDEFINE_EVENT(wxEVT_ASYNC_PROCESS_OUTPUT, clProcessEvent);
 wxDEFINE_EVENT(wxEVT_ASYNC_PROCESS_STDERR, clProcessEvent);
@@ -38,6 +39,8 @@ ProcessReaderThread::ProcessReaderThread()
     , m_notifiedWindow(NULL)
     , m_process(NULL)
 {
+    m_suspend.store(false);
+    m_is_suspended.store(false);
 }
 
 ProcessReaderThread::~ProcessReaderThread() { m_notifiedWindow = NULL; }
@@ -46,34 +49,59 @@ void* ProcessReaderThread::Entry()
 {
     while(true) {
         // Did we get a request to terminate?
-        if(TestDestroy()) { break; }
+        if(TestDestroy()) {
+            break;
+        }
+
+        if(m_suspend.load() && (m_is_suspended.load() == false)) {
+            // request to suspend thread, but the status is not suspended
+            m_is_suspended.store(true);
+        } else if(m_is_suspended.load() && m_suspend.load() == false) {
+            // request to resume thread but the status is suspended
+            m_is_suspended.store(false);
+        }
+
+        if(m_is_suspended.load()) {
+            wxThread::Sleep(5);
+            continue;
+        }
 
         if(m_process) {
             wxString buff;
             wxString buffErr;
+
+            std::string raw_buff;
+            std::string raw_buff_err;
             if(m_process->IsRedirect()) {
-                if(m_process->Read(buff, buffErr)) {
+                if(m_process->Read(buff, buffErr, raw_buff, raw_buff_err)) {
                     if(!buff.IsEmpty() || !buffErr.IsEmpty()) {
                         // If we got a callback object, use it
-                        if(m_process && m_process->GetCallback()) {
-                            m_process->GetCallback()->CallAfter(&IProcessCallback::OnProcessOutput, buff);
+                        bool isSuspended = m_is_suspended.load();
+                        if(!isSuspended) {
+                            if(m_process && m_process->GetCallback()) {
+                                m_process->GetCallback()->CallAfter(&IProcessCallback::OnProcessOutput, buff);
 
-                        } else {
-                            // We fire an event per data (stderr/stdout)
-                            if(!buff.IsEmpty()) {
-                                // fallback to the event system
-                                // we got some data, send event to parent
-                                clProcessEvent e(wxEVT_ASYNC_PROCESS_OUTPUT);
-                                e.SetOutput(buff);
-                                e.SetProcess(m_process);
-                                if(m_notifiedWindow) { m_notifiedWindow->AddPendingEvent(e); }
-                            }
-                            if(!buffErr.IsEmpty()) {
-                                // we got some data, send event to parent
-                                clProcessEvent e(wxEVT_ASYNC_PROCESS_STDERR);
-                                e.SetOutput(buffErr);
-                                e.SetProcess(m_process);
-                                if(m_notifiedWindow) { m_notifiedWindow->AddPendingEvent(e); }
+                            } else {
+
+                                // We fire an event per data (stderr/stdout)
+                                if(!buff.IsEmpty() && m_notifiedWindow) {
+                                    // fallback to the event system
+                                    // we got some data, send event to parent
+                                    clProcessEvent e(wxEVT_ASYNC_PROCESS_OUTPUT);
+                                    e.SetOutput(buff);
+                                    e.SetOutputRaw(raw_buff);
+                                    e.SetProcess(m_process);
+                                    m_notifiedWindow->QueueEvent(e.Clone());
+                                }
+
+                                if(!buffErr.IsEmpty() && m_notifiedWindow) {
+                                    // we got some data, send event to parent
+                                    clProcessEvent e(wxEVT_ASYNC_PROCESS_STDERR);
+                                    e.SetOutput(buffErr);
+                                    e.SetOutputRaw(raw_buff_err);
+                                    e.SetProcess(m_process);
+                                    m_notifiedWindow->QueueEvent(e.Clone());
+                                }
                             }
                         }
                     }
@@ -91,7 +119,7 @@ void* ProcessReaderThread::Entry()
                     NotifyTerminated();
                     break;
                 } else {
-                    wxThread::Sleep(10);
+                    wxThread::Sleep(5);
                 }
             }
         } else {
@@ -132,6 +160,32 @@ void ProcessReaderThread::NotifyTerminated()
         // fallback to the event system
         clProcessEvent e(wxEVT_ASYNC_PROCESS_TERMINATED);
         e.SetProcess(m_process);
-        if(m_notifiedWindow) { m_notifiedWindow->AddPendingEvent(e); }
+        if(m_notifiedWindow) {
+            m_notifiedWindow->AddPendingEvent(e);
+        }
+    }
+}
+
+void ProcessReaderThread::Suspend()
+{
+    m_suspend.store(true);
+    // wait until we make sure that the reader thread is suspended
+    while(true) {
+        if(m_is_suspended.load()) {
+            break;
+        }
+        wxThread::Sleep(1);
+    }
+}
+
+void ProcessReaderThread::Resume()
+{
+    m_suspend.store(false);
+    // wait until we make sure that the reader thread is resumed
+    while(true) {
+        if(!m_is_suspended.load()) {
+            break;
+        }
+        wxThread::Sleep(1);
     }
 }

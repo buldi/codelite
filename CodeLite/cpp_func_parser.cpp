@@ -623,9 +623,9 @@ void get_functions(const std::string &in, FunctionList &li, const std::map<std::
 int
 yyparse()
 {
-    register int yym, yyn, yystate;
+     int yym, yyn, yystate;
 #if YYDEBUG
-    register char *yys;
+     char *yys;
     extern char *getenv();
 
     if (yys = getenv("YYDEBUG"))
@@ -645,7 +645,7 @@ yyparse()
     *yyssp = yystate = 0;
 
 yyloop:
-    if (yyn = yydefred[yystate]) goto yyreduce;
+    if ((yyn = yydefred[yystate])) goto yyreduce;
     if (yychar < 0)
     {
         if ((yychar = yylex()) < 0) yychar = 0;
@@ -879,6 +879,7 @@ case 72:
 						curr_func.m_isVirtual = yyvsp[-12].find("virtual") != std::string::npos;
 						curr_func.m_isPureVirtual = yyvsp[-2].find("=") != std::string::npos;
 						curr_func.m_isConst = yyvsp[-4].find("const") != std::string::npos;
+						curr_func.m_isFinal = yyvsp[-1].find("final") != std::string::npos;
 						curr_func.m_name = yyvsp[-7];
 						curr_func.m_scope = yyvsp[-8];
 						curr_func.m_retrunValusConst = yyvsp[-11];

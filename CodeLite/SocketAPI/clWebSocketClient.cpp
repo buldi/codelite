@@ -1,3 +1,9 @@
+#include "wx/defs.h"
+#ifdef __WINDOWS__ // __WINDOWS__ defined by wx/defs.h
+// includes windows.h and if wxUSE_WINSOCK2 is true includes winsock2.h
+#include "wx/msw/wrapwin.h"
+#endif
+
 #include "SocketAPI/clSocketBase.h"
 #include "clWebSocketClient.h"
 
@@ -6,6 +12,7 @@
 #define _WEBSOCKETPP_CPP11_THREAD_ 1
 
 #include "file_logger.h"
+
 #include <websocketpp/client.hpp>
 #include <websocketpp/config/asio_no_tls_client.hpp>
 
@@ -64,7 +71,7 @@ using websocketpp::lib::placeholders::_2;
 // This message handler will be invoked once for each incoming message
 static void on_ws_message(clWebSocketClient* c, websocketpp::connection_hdl hdl, message_ptr msg)
 {
-    clDEBUG1() << "<--" << msg->get_payload();
+    LOG_IF_TRACE { clDEBUG1() << "<--" << msg->get_payload(); }
     clCommandEvent event(wxEVT_WEBSOCKET_ONMESSAGE);
     event.SetString(msg->get_payload());
     event.SetEventObject(c);
@@ -73,7 +80,7 @@ static void on_ws_message(clWebSocketClient* c, websocketpp::connection_hdl hdl,
 
 static void on_ws_open_handler(clWebSocketClient* c, websocketpp::connection_hdl hdl)
 {
-    clDEBUG1() << "<-- Connected!";
+    LOG_IF_TRACE { clDEBUG1() << "<-- Connected!"; }
     c->SetConnectionHandle(hdl);
     clCommandEvent event(wxEVT_WEBSOCKET_CONNECTED);
     event.SetEventObject(c);
@@ -82,7 +89,7 @@ static void on_ws_open_handler(clWebSocketClient* c, websocketpp::connection_hdl
 
 static void on_ws_fail_handler(clWebSocketClient* c, websocketpp::connection_hdl hdl)
 {
-    clDEBUG1() << "<-- Error!";
+    LOG_IF_TRACE { clDEBUG1() << "<-- Error!"; }
     clCommandEvent event(wxEVT_WEBSOCKET_ERROR);
     event.SetEventObject(c);
     c->GetOwner()->AddPendingEvent(event);
@@ -102,16 +109,22 @@ clWebSocketClient::~clWebSocketClient()
 
 void clWebSocketClient::StartLoop(const wxString& url)
 {
-    if(m_helperThread) { throw clSocketException("A websocket loop is already running"); }
+    if(m_helperThread) {
+        throw clSocketException("A websocket loop is already running");
+    }
 
     Client_t* c = GetClient<Client_t>();
-    if(!c) { throw clSocketException("Invalid connection!"); }
+    if(!c) {
+        throw clSocketException("Invalid connection!");
+    }
     try {
         std::string uri = url.mb_str(wxConvUTF8).data();
         // Register our message handler
         websocketpp::lib::error_code ec;
         Client_t::connection_ptr con = c->get_connection(uri, ec);
-        if(ec) { throw clSocketException(ec.message()); }
+        if(ec) {
+            throw clSocketException(ec.message());
+        }
 
         // Note that connect here only requests a connection. No network messages are
         // exchanged until the event loop starts running in the next line.
@@ -129,8 +142,12 @@ void clWebSocketClient::StartLoop(const wxString& url)
 void clWebSocketClient::Send(const wxString& data)
 {
     Client_t* c = GetClient<Client_t>();
-    if(!c) { throw clSocketException("Invalid connection!"); }
-    if(m_connection_handle.expired()) { throw clSocketException("Invalid connection handle!"); }
+    if(!c) {
+        throw clSocketException("Invalid connection!");
+    }
+    if(m_connection_handle.expired()) {
+        throw clSocketException("Invalid connection handle!");
+    }
 
     try {
         std::string str = data.mb_str(wxConvUTF8).data();
@@ -145,7 +162,9 @@ void clWebSocketClient::Send(const wxString& data)
 void clWebSocketClient::Close()
 {
     Client_t* c = GetClient<Client_t>();
-    if(!c) { return; }
+    if(!c) {
+        return;
+    }
     c->stop();
     DoCleanup();
 }
@@ -171,12 +190,14 @@ void clWebSocketClient::OnHelperThreadExit()
 void clWebSocketClient::DoInit()
 {
     // Dont initialise again
-    if(m_client) { return; }
+    if(m_client) {
+        return;
+    }
 
     try {
         m_client = new Client_t();
         Client_t* c = GetClient<Client_t>();
-        //c->set_access_channels(websocketpp::log::alevel::all);
+        // c->set_access_channels(websocketpp::log::alevel::all);
         c->clear_access_channels(websocketpp::log::alevel::all);
         c->init_asio();
         c->set_message_handler(bind(&on_ws_message, this, ::_1, ::_2));

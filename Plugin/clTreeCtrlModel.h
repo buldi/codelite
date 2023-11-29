@@ -3,6 +3,7 @@
 
 #include "clRowEntry.h"
 #include "codelite_exports.h"
+
 #include <functional>
 #include <vector>
 #include <wx/colour.h>
@@ -37,6 +38,8 @@ public:
     clRowEntry* GetFirstItemOnScreen() const { return m_firstItemOnScreen; }
 
     void SetSortFunction(const clSortFunc_t& CompareFunc) { m_shouldInsertBeforeFunc = CompareFunc; }
+    clSortFunc_t GetSortFunction() const { return m_shouldInsertBeforeFunc; }
+
     void ExpandAllChildren(const wxTreeItemId& item);
     void CollapseAllChildren(const wxTreeItemId& item);
 
@@ -68,7 +71,9 @@ public:
     clRowEntry* GetRowAfter(clRowEntry* item, bool visibleItem) const;
     clRowEntry* ToPtr(const wxTreeItemId& item) const
     {
-        if(!m_root || !item.IsOk()) { return nullptr; }
+        if(!m_root || !item.IsOk()) {
+            return nullptr;
+        }
         return reinterpret_cast<clRowEntry*>(item.GetID());
     }
 
@@ -126,6 +131,13 @@ public:
     clRowEntry* GetItemFromIndex(int index) const;
 
     /**
+     * @brief return the last visible item
+     * NOTE: this does not check if the item is actually is displayed on the screen
+     * it only checks if the item is a state that allows it to be displayed on screen
+     */
+    clRowEntry* GetLastVisibleItem() const;
+
+    /**
      * @brief get range of items from -> to
      * Or from: to->from (incase 'to' has a lower index)
      */
@@ -135,7 +147,7 @@ public:
 
     clRowEntry* GetNextSibling(clRowEntry* item) const;
     clRowEntry* GetPrevSibling(clRowEntry* item) const;
-    
+
     void EnableEvents(bool enable) { m_shutdown = !enable; }
 };
 

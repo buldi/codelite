@@ -23,11 +23,14 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "DiffConfig.h"
 #include "DiffSideBySidePanel.h"
+
+#include "ColoursAndFontsManager.h"
+#include "DiffConfig.h"
 #include "art_metro.h"
 #include "bookmark_manager.h"
 #include "clDTL.h"
+#include "clToolBar.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
@@ -35,13 +38,16 @@
 #include "globals.h"
 #include "lexer_configuration.h"
 #include "plugin.h"
+
+#if USE_SFTP
+#include "clSFTPManager.hpp"
+#endif
+
+#include <clPluginsFindBar.h>
 #include <wx/filedlg.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
-#include "clToolBar.h"
-#include "ColoursAndFontsManager.h"
-#include <clPluginsFindBar.h>
-#include "clThemeUpdater.h"
+
 #define RED_MARKER 5
 #define GREEN_MARKER 6
 #define PLACE_HOLDER_MARKER 7
@@ -68,7 +74,6 @@ DiffSideBySidePanel::DiffSideBySidePanel(wxWindow* parent)
         lexer->Apply(m_stcLeft);
         lexer->Apply(m_stcRight);
     }
-    clThemeUpdater::Get().RegisterWindow(this);
 
     m_findBar = new clPluginsFindBar(this);
     m_findBar->SetEditor(m_stcLeft);
@@ -85,25 +90,28 @@ DiffSideBySidePanel::DiffSideBySidePanel(wxWindow* parent)
         m_findBar->SetEditor(m_stcRight);
     });
 
-    BitmapLoader* bmps = clGetManager()->GetStdIcons();
+    clBitmapList* images = new clBitmapList;
+
     m_toolbar = new clToolBar(this);
     m_toolbar->SetMiniToolBar(true);
-    m_toolbar->AddTool(wxID_REFRESH, _("Refresh"), bmps->LoadBitmap("debugger_restart"));
-    m_toolbar->AddTool(wxID_SAVE, _("Save"), bmps->LoadBitmap("file_save"));
+    m_toolbar->AddTool(wxID_REFRESH, _("Refresh"), images->Add("debugger_restart"));
+    m_toolbar->AddTool(wxID_SAVE, _("Save"), images->Add("file_save"));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(wxID_FIND, _("Find"), bmps->LoadBitmap("find"));
+    m_toolbar->AddTool(wxID_FIND, _("Find"), images->Add("find"));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_NEXT"), _("Next Diff"), bmps->LoadBitmap("next"));
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_PREV"), _("Previous Diff"), bmps->LoadBitmap("up"));
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_NEXT"), _("Next Diff"), images->Add("next"));
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_PREV"), _("Previous Diff"), images->Add("up"));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_RIGHT"), _("Copy Right"), bmps->LoadBitmap("forward"));
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_LEFT"), _("Copy Left"), bmps->LoadBitmap("back"));
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_ALL"), _("Copy All"), bmps->LoadBitmap("copy"), "", wxITEM_DROPDOWN);
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_RIGHT"), _("Copy Right"), images->Add("forward"));
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_LEFT"), _("Copy Left"), images->Add("back"));
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_COPY_ALL"), _("Copy All"), images->Add("copy"), "", wxITEM_DROPDOWN);
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_VIEW"), _("View Type"), bmps->LoadBitmap("monitor"), "", wxITEM_DROPDOWN);
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_VIEW"), _("View Type"), images->Add("monitor"), "", wxITEM_DROPDOWN);
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_SETTINGS"), _("Preferences"), bmps->LoadBitmap("cog"), "", wxITEM_DROPDOWN);
+    m_toolbar->AddTool(XRCID("ID_DIFF_TOOL_SETTINGS"), _("Preferences"), images->Add("cog"), "", wxITEM_DROPDOWN);
+    m_toolbar->AssignBitmaps(images);
     m_toolbar->Realize();
+
     GetSizer()->Insert(0, m_toolbar, 0, wxEXPAND | wxALL, 5);
     GetSizer()->Add(m_findBar, 0, wxEXPAND);
 
@@ -153,8 +161,12 @@ DiffSideBySidePanel::DiffSideBySidePanel(wxWindow* parent)
 
 DiffSideBySidePanel::~DiffSideBySidePanel()
 {
-    if((m_flags & kDeleteLeftOnExit)) { clRemoveFile(m_textCtrlLeftFile->GetValue()); }
-    if((m_flags & kDeleteRightOnExit)) { clRemoveFile(m_textCtrlRightFile->GetValue()); }
+    if((m_flags & kDeleteLeftOnExit)) {
+        clRemoveFile(m_textCtrlLeftFile->GetValue());
+    }
+    if((m_flags & kDeleteRightOnExit)) {
+        clRemoveFile(m_textCtrlRightFile->GetValue());
+    }
 
     if((m_flags & kSavePaths)) {
         m_config.SetLeftFile(m_textCtrlLeftFile->GetValue());
@@ -444,11 +456,15 @@ void DiffSideBySidePanel::OnLeftStcPainted(wxStyledTextEvent& event)
     wxUnusedVar(event);
     int rightFirstLine = m_stcRight->GetFirstVisibleLine();
     int leftFirsLine = m_stcLeft->GetFirstVisibleLine();
-    if(rightFirstLine != leftFirsLine) { m_stcRight->SetFirstVisibleLine(leftFirsLine); }
+    if(rightFirstLine != leftFirsLine) {
+        m_stcRight->SetFirstVisibleLine(leftFirsLine);
+    }
 
     int rightScrollPos = m_stcRight->GetXOffset();
     int leftScrollPos = m_stcLeft->GetXOffset();
-    if(leftScrollPos != rightScrollPos) { m_stcRight->SetXOffset(leftScrollPos); }
+    if(leftScrollPos != rightScrollPos) {
+        m_stcRight->SetXOffset(leftScrollPos);
+    }
 }
 
 void DiffSideBySidePanel::OnRightStcPainted(wxStyledTextEvent& event)
@@ -456,11 +472,15 @@ void DiffSideBySidePanel::OnRightStcPainted(wxStyledTextEvent& event)
     wxUnusedVar(event);
     int rightFirstLine = m_stcRight->GetFirstVisibleLine();
     int leftFirsLine = m_stcLeft->GetFirstVisibleLine();
-    if(rightFirstLine != leftFirsLine) { m_stcLeft->SetFirstVisibleLine(rightFirstLine); }
+    if(rightFirstLine != leftFirsLine) {
+        m_stcLeft->SetFirstVisibleLine(rightFirstLine);
+    }
 
     int rightScrollPos = m_stcRight->GetXOffset();
     int leftScrollPos = m_stcLeft->GetXOffset();
-    if(leftScrollPos != rightScrollPos) { m_stcLeft->SetXOffset(rightScrollPos); }
+    if(leftScrollPos != rightScrollPos) {
+        m_stcLeft->SetXOffset(rightScrollPos);
+    }
 }
 
 void DiffSideBySidePanel::OnLeftStcUpdateUI(wxStyledTextEvent& event)
@@ -488,15 +508,26 @@ void DiffSideBySidePanel::SetFilesDetails(const DiffSideBySidePanel::FileInfo& l
     m_textCtrlRightFile->ChangeValue(rightFile.filename.GetFullPath());
     m_staticTextRight->SetLabel(rightFile.title);
 
-    m_flags = 0x0;
-    if(leftFile.readOnly) m_flags |= kLeftReadOnly;
-    if(leftFile.deleteOnExit) m_flags |= kDeleteLeftOnExit;
-    if(rightFile.readOnly) m_flags |= kRightReadOnly;
-    if(rightFile.deleteOnExit) m_flags |= kDeleteRightOnExit;
+    m_flags = 0;
+    if(leftFile.readOnly)
+        m_flags |= kLeftReadOnly;
+    if(leftFile.deleteOnExit)
+        m_flags |= kDeleteLeftOnExit;
+    if(rightFile.readOnly)
+        m_flags |= kRightReadOnly;
+    if(rightFile.deleteOnExit)
+        m_flags |= kDeleteRightOnExit;
+
+    m_left = leftFile;
+    m_right = rightFile;
 }
 
 void DiffSideBySidePanel::OnNextDiffSequence(wxCommandEvent& event)
 {
+    // sanity
+    if((m_cur_sequence + 1) >= (int)m_sequences.size())
+        return;
+
     m_cur_sequence++; // advance the sequence
     int firstLine = m_sequences.at(m_cur_sequence).first;
     int lastLine = m_sequences.at(m_cur_sequence).second;
@@ -506,6 +537,10 @@ void DiffSideBySidePanel::OnNextDiffSequence(wxCommandEvent& event)
 
 void DiffSideBySidePanel::OnPrevDiffSequence(wxCommandEvent& event)
 {
+    // sanity
+    if((m_cur_sequence - 1) < 0 || (m_cur_sequence - 1) >= (int)m_sequences.size())
+        return;
+
     m_cur_sequence--;
     int firstLine = m_sequences.at(m_cur_sequence).first;
     int lastLine = m_sequences.at(m_cur_sequence).second;
@@ -518,7 +553,9 @@ void DiffSideBySidePanel::OnRefreshDiff(wxCommandEvent& event)
     if(m_stcLeft->IsModified() || m_stcRight->IsModified()) {
         wxStandardID res = ::PromptForYesNoDialogWithCheckbox(
             _("Refreshing the view will lose all your changes\nDo you want to continue?"), "DiffRefreshViewDlg");
-        if(res != wxID_YES) { return; }
+        if(res != wxID_YES) {
+            return;
+        }
     }
     Diff();
     Refresh();
@@ -564,7 +601,9 @@ void DiffSideBySidePanel::DoDrawSequenceMarkers(int firstLine, int lastLine, wxS
 
     // Make sure that the seq lines are visible
     int visibleLine = firstLine - 5;
-    if(visibleLine < 0) { visibleLine = 0; }
+    if(visibleLine < 0) {
+        visibleLine = 0;
+    }
 
     ctrl->ScrollToLine(visibleLine);
 }
@@ -605,7 +644,8 @@ void DiffSideBySidePanel::OnCopyRightToLeft(wxCommandEvent& event)
 
 void DiffSideBySidePanel::DoCopyCurrentSequence(wxStyledTextCtrl* from, wxStyledTextCtrl* to)
 {
-    if(m_cur_sequence == wxNOT_FOUND) return;
+    if(m_cur_sequence == wxNOT_FOUND)
+        return;
     to->SetReadOnly(false);
     int fromStartPos = wxNOT_FOUND;
     int fromEndPos = wxNOT_FOUND;
@@ -616,10 +656,12 @@ void DiffSideBySidePanel::DoCopyCurrentSequence(wxStyledTextCtrl* from, wxStyled
     int placeHolderMarkerLastLine = wxNOT_FOUND;
     int dummy;
     DoGetPositionsToCopy(from, fromStartPos, fromEndPos, placeHolderMarkerFirstLine, placeHolderMarkerLastLine);
-    if(fromStartPos == wxNOT_FOUND || fromEndPos == wxNOT_FOUND) return;
+    if(fromStartPos == wxNOT_FOUND || fromEndPos == wxNOT_FOUND)
+        return;
 
     DoGetPositionsToCopy(to, toStartPos, toEndPos, dummy, dummy);
-    if(toStartPos == wxNOT_FOUND || toEndPos == wxNOT_FOUND) return;
+    if(toStartPos == wxNOT_FOUND || toEndPos == wxNOT_FOUND)
+        return;
 
     // remove the old markers from the range of lines
     int toLine1 = to->LineFromPosition(toStartPos);
@@ -675,7 +717,8 @@ void DiffSideBySidePanel::DoGetPositionsToCopy(wxStyledTextCtrl* stc, int& start
 
 void DiffSideBySidePanel::DoSave(wxStyledTextCtrl* stc, const wxFileName& fn)
 {
-    if(!stc->IsModified()) return;
+    if(!stc->IsModified())
+        return;
 
     // remove all lines that have the 'placeholder' markers
     wxString newContent = DoGetContentNoPlaceholders(stc);
@@ -698,6 +741,29 @@ void DiffSideBySidePanel::DoSave(wxStyledTextCtrl* stc, const wxFileName& fn)
 
     // Reload any file opened in codelite
     EventNotifier::Get()->PostReloadExternallyModifiedEvent(false);
+
+#if USE_SFTP
+    wxString remote_path;
+    wxString remote_account;
+    if(m_right.is_remote() && fn == m_right.filename) {
+        clSFTPManager::Get().AwaitSaveFile(m_right.filename.GetFullPath(), m_right.remotePath, m_right.remoteAccount);
+        remote_path = m_right.remotePath;
+        remote_account = m_right.remoteAccount;
+    } else if(m_left.is_remote() && fn == m_left.filename) {
+        clSFTPManager::Get().AwaitSaveFile(m_left.filename.GetFullPath(), m_left.remotePath, m_left.remoteAccount);
+        remote_path = m_left.remotePath;
+        remote_account = m_left.remoteAccount;
+    }
+
+    if(!remote_account.empty() && !remote_path.empty()) {
+        // Notify about a remote file being modified externally
+        clFileSystemEvent event_modified{ wxEVT_FILE_MODIFIED_EXTERNALLY };
+        event_modified.SetFileName(remote_path);
+        event_modified.SetIsRemoteFile(true);
+        event_modified.SetSshAccount(remote_account);
+        EventNotifier::Get()->AddPendingEvent(event_modified);
+    }
+#endif
 }
 
 void DiffSideBySidePanel::OnSaveChanges(wxCommandEvent& event)
@@ -838,7 +904,9 @@ wxString DiffSideBySidePanel::DoGetContentNoPlaceholders(wxStyledTextCtrl* stc) 
 {
     wxString newContent;
     for(int i = 0; i < stc->GetLineCount(); ++i) {
-        if(!(stc->MarkerGet(i) & PLACE_HOLDER_MARKER_MASK)) { newContent << stc->GetLine(i); }
+        if(!(stc->MarkerGet(i) & PLACE_HOLDER_MARKER_MASK)) {
+            newContent << stc->GetLine(i);
+        }
     }
     return newContent;
 }
@@ -918,14 +986,18 @@ void DiffSideBySidePanel::OnBrowseLeftFile(wxCommandEvent& event)
 {
     wxFileName path(m_textCtrlLeftFile->GetValue());
     wxString file = ::wxFileSelector(_("Choose a file"), path.GetPath());
-    if(!file.IsEmpty()) { m_textCtrlLeftFile->ChangeValue(file); }
+    if(!file.IsEmpty()) {
+        m_textCtrlLeftFile->ChangeValue(file);
+    }
 }
 
 void DiffSideBySidePanel::OnBrowseRightFile(wxCommandEvent& event)
 {
     wxFileName path(m_textCtrlRightFile->GetValue());
     wxString file = ::wxFileSelector(_("Choose a file"), path.GetPath());
-    if(!file.IsEmpty()) { m_textCtrlRightFile->ChangeValue(file); }
+    if(!file.IsEmpty()) {
+        m_textCtrlRightFile->ChangeValue(file);
+    }
 }
 
 void DiffSideBySidePanel::OnIgnoreWhitespaceClicked(wxCommandEvent& event)
@@ -965,7 +1037,9 @@ void DiffSideBySidePanel::OnShowOverviewBarUI(wxUpdateUIEvent& event) { event.Ch
 
 void DiffSideBySidePanel::OnPaneloverviewEraseBackground(wxEraseEvent& event)
 {
-    if(!m_config.IsOverviewBarShown()) { return; }
+    if(!m_config.IsOverviewBarShown()) {
+        return;
+    }
 
     wxWindow* win;
     if(m_config.IsSplitHorizontal()) {
@@ -978,7 +1052,9 @@ void DiffSideBySidePanel::OnPaneloverviewEraseBackground(wxEraseEvent& event)
     wxWindow* panel = dynamic_cast<wxWindow*>(event.GetEventObject());
 
     int lines = m_stcLeft->GetLineCount();
-    if(!lines || !win || !panel->IsShown()) { return; }
+    if(!lines || !win || !panel->IsShown()) {
+        return;
+    }
 
     int yOffset = 0, x1 = panel->GetClientSize().GetWidth() - 1;
     int ht = win->GetClientSize().GetHeight();
@@ -1005,7 +1081,9 @@ void DiffSideBySidePanel::OnPaneloverviewEraseBackground(wxEraseEvent& event)
     dc.SetPen(bg);
     dc.DrawRectangle(0, yOffset, x1, ht - yOffset);
 
-    if(!m_overviewPanelMarkers.GetCount()) { return; }
+    if(!m_overviewPanelMarkers.GetCount()) {
+        return;
+    }
 
     if(m_stcLeft->LinesOnScreen() < lines) {
         // Make it clearer which markers correspond to any currently-displayed diff-lines
@@ -1051,7 +1129,9 @@ void DiffSideBySidePanel::OnPaneloverviewLeftDown(wxMouseEvent& event)
 {
     event.Skip();
 
-    if(!m_config.IsOverviewBarShown()) { return; }
+    if(!m_config.IsOverviewBarShown()) {
+        return;
+    }
 
     wxWindow* panel = static_cast<wxWindow*>(event.GetEventObject());
     wxWindow* win;
@@ -1075,7 +1155,9 @@ void DiffSideBySidePanel::OnPaneloverviewLeftDown(wxMouseEvent& event)
     }
 
     const int extra = 10; // Allow clicks just above/below the 'bar' to succeed
-    if(!lines || !win || !panel->IsShown() || pos > (ht + extra) || pos < -extra) { return; }
+    if(!lines || !win || !panel->IsShown() || pos > (ht + extra) || pos < -extra) {
+        return;
+    }
 
     // Make the wxSTCs scroll to the line matching the mouse-click
     m_stcLeft->ScrollToLine((lines * pos) / ht);
@@ -1138,7 +1220,9 @@ void DiffSideBySidePanel::OnFind(wxCommandEvent& event)
     wxUnusedVar(event);
     wxWindow* win = wxWindow::FindFocus();
     wxStyledTextCtrl* editor = dynamic_cast<wxStyledTextCtrl*>(win);
-    if(!editor) { editor = m_stcLeft; }
+    if(!editor) {
+        editor = m_stcLeft;
+    }
     m_findBar->SetEditor(editor);
     if(!m_findBar->IsShown()) {
         m_findBar->Show(editor->GetSelectedText(), false);

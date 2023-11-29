@@ -22,14 +22,15 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "debuggerpane.h"
+
+#include "BreakpointsView.hpp"
 #include "DebuggerCallstackView.h"
 #include "DebuggerDisassemblyTab.h"
-#include "breakpointdlg.h"
 #include "codelite_events.h"
 #include "debugger.h"
 #include "debuggerasciiviewer.h"
 #include "debuggermanager.h"
-#include "debuggerpane.h"
 #include "detachedpanesinfo.h"
 #include "dockablepane.h"
 #include "editor_config.h"
@@ -43,26 +44,28 @@
 #include "threadlistpanel.h"
 #include "wx/dcbuffer.h"
 #include "wx/xrc/xmlres.h"
+
 #include <wx/aui/framemanager.h>
 
-const wxString DebuggerPane::LOCALS = _("Locals");
-const wxString DebuggerPane::WATCHES = _("Watches");
-const wxString DebuggerPane::FRAMES = _("Call Stack");
-const wxString DebuggerPane::BREAKPOINTS = _("Breakpoints");
-const wxString DebuggerPane::THREADS = _("Threads");
-const wxString DebuggerPane::MEMORY = _("Memory");
-const wxString DebuggerPane::ASCII_VIEWER = _("Ascii Viewer");
-const wxString DebuggerPane::DEBUGGER_OUTPUT = _("Output");
-const wxString DebuggerPane::DISASSEMBLY = _("Disassemble");
+const wxString DebuggerPane::LOCALS = wxTRANSLATE("Locals");
+const wxString DebuggerPane::WATCHES = wxTRANSLATE("Watches");
+const wxString DebuggerPane::FRAMES = wxTRANSLATE("Call Stack");
+const wxString DebuggerPane::BREAKPOINTS = wxTRANSLATE("Breakpoints");
+const wxString DebuggerPane::THREADS = wxTRANSLATE("Threads");
+const wxString DebuggerPane::MEMORY = wxTRANSLATE("Memory");
+const wxString DebuggerPane::ASCII_VIEWER = wxTRANSLATE("Ascii Viewer");
+const wxString DebuggerPane::DEBUGGER_OUTPUT = wxTRANSLATE("Output");
+const wxString DebuggerPane::DISASSEMBLY = wxTRANSLATE("Disassemble");
 
 #define IS_DETACHED(name) (detachedPanes.Index(name) != wxNOT_FOUND) ? true : false
 
-DebuggerPane::DebuggerPane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr)
-    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(400, 300))
+DebuggerPane::DebuggerPane(wxWindow* parent, const wxString& caption, wxAuiManager* mgr, long style)
+    : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(400, 300), style)
     , m_caption(caption)
     , m_initDone(false)
     , m_mgr(mgr)
 {
+    Hide();
     EventNotifier::Get()->Bind(wxEVT_EDITOR_CONFIG_CHANGED, &DebuggerPane::OnSettingsChanged, this);
     CreateGUIControls();
 }
@@ -91,16 +94,16 @@ void DebuggerPane::CreateGUIControls()
     SetSizer(mainSizer);
 
     long style = (kNotebook_Default | kNotebook_AllowDnD);
-    if(!EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection()) { style |= kNotebook_BottomTabs; }
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        style &= ~kNotebook_LightTabs;
-        style |= kNotebook_DarkTabs;
+    if(!EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection()) {
+        style |= kNotebook_BottomTabs;
     }
-    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) { style |= kNotebook_MouseScrollSwitchTabs; }
+    if(EditorConfigST::Get()->GetOptions()->IsMouseScrollSwitchTabs()) {
+        style |= kNotebook_MouseScrollSwitchTabs;
+    }
     style |= kNotebook_UnderlineActiveTab;
 
-    GeneralImages img;
     m_book = new Notebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
+
     m_book->SetTabDirection(EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection());
     mainSizer->Add(m_book, 1, wxEXPAND | wxALL, 0);
 
@@ -117,120 +120,112 @@ void DebuggerPane::CreateGUIControls()
 
     wxString name;
     name = wxGetTranslation(LOCALS);
-    wxBitmap bmp = wxNullBitmap;
     // Add the 'Locals View'
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp =
+            new DockablePane(clGetManager()->GetMainPanel(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_localsTable = new LocalsTable(cp);
         cp->SetChildNoReparent(m_localsTable);
 
     } else {
         m_localsTable = new LocalsTable(m_book);
-        m_book->AddPage(m_localsTable, name, false, bmp);
+        m_book->AddPage(m_localsTable, name, false, wxNOT_FOUND);
     }
 
     // Add the 'watches View'
     name = wxGetTranslation(WATCHES);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_watchesTable = new WatchesTable(cp);
         cp->SetChildNoReparent(m_watchesTable);
 
     } else {
         m_watchesTable = new WatchesTable(m_book);
-        m_book->AddPage(m_watchesTable, name, false, bmp);
+        m_book->AddPage(m_watchesTable, name, false, wxNOT_FOUND);
     }
 
     // Add the 'ASCII Viewer'
     name = wxGetTranslation(ASCII_VIEWER);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_asciiViewer = new DebuggerAsciiViewer(cp);
         cp->SetChildNoReparent(m_asciiViewer);
 
     } else {
         m_asciiViewer = new DebuggerAsciiViewer(m_book);
-        m_book->AddPage(m_asciiViewer, name, false, bmp);
+        m_book->AddPage(m_asciiViewer, name, false, wxNOT_FOUND);
     }
 
     // Add the 'Call Stack'
     name = wxGetTranslation(FRAMES);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_frameList = new DebuggerCallstackView(cp);
         cp->SetChildNoReparent(m_frameList);
 
     } else {
         m_frameList = new DebuggerCallstackView(m_book);
-        m_book->AddPage(m_frameList, name, false, bmp);
+        m_book->AddPage(m_frameList, name, false, wxNOT_FOUND);
     }
 
     // Add the 'Breakpoints'
     name = wxGetTranslation(BREAKPOINTS);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
-        m_breakpoints = new BreakpointDlg(cp);
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
+        m_breakpoints = new BreakpointsView(cp);
         cp->SetChildNoReparent(m_breakpoints);
 
     } else {
-        m_breakpoints = new BreakpointDlg(m_book);
-        m_book->AddPage(m_breakpoints, name, false, bmp);
+        m_breakpoints = new BreakpointsView(m_book);
+        m_book->AddPage(m_breakpoints, name, false, wxNOT_FOUND);
     }
 
     // Add the 'Threads'
     name = wxGetTranslation(THREADS);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_threads = new ThreadListPanel(cp);
         cp->SetChildNoReparent(m_threads);
 
     } else {
         m_threads = new ThreadListPanel(m_book);
-        m_book->AddPage(m_threads, name, false, bmp);
+        m_book->AddPage(m_threads, name, false, wxNOT_FOUND);
     }
 
     // Add the 'Memory View'
     name = wxGetTranslation(MEMORY);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_memory = new MemoryView(cp);
         cp->SetChildNoReparent(m_memory);
 
     } else {
         m_memory = new MemoryView(m_book);
-        m_book->AddPage(m_memory, name, false, bmp);
+        m_book->AddPage(m_memory, name, false, wxNOT_FOUND);
     }
 
     // Add the "Output" tab
     name = wxGetTranslation(DEBUGGER_OUTPUT);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_outputDebug = new DebugTab(cp, wxID_ANY, wxGetTranslation(DEBUGGER_OUTPUT));
         cp->SetChildNoReparent(m_outputDebug);
 
     } else {
         m_outputDebug = new DebugTab(m_book, wxID_ANY, wxGetTranslation(DEBUGGER_OUTPUT));
-        m_book->AddPage(m_outputDebug, name, false, bmp);
+        m_book->AddPage(m_outputDebug, name, false, wxNOT_FOUND);
     }
 
     // Add the "Output" tab
     name = wxGetTranslation(DISASSEMBLY);
-    bmp = wxNullBitmap;
     if(IS_DETACHED(name)) {
-        DockablePane* cp = new DockablePane(GetParent(), m_book, name, false, bmp, wxSize(200, 200));
+        DockablePane* cp = new DockablePane(GetParent(), PaneId::DEBUG_BAR, name, false, wxSize(200, 200));
         m_disassemble = new DebuggerDisassemblyTab(cp, wxGetTranslation(DISASSEMBLY));
         cp->SetChildNoReparent(m_disassemble);
 
     } else {
         m_disassemble = new DebuggerDisassemblyTab(m_book, wxGetTranslation(DISASSEMBLY));
-        m_book->AddPage(m_disassemble, name, false, bmp);
+        m_book->AddPage(m_disassemble, name, false, wxNOT_FOUND);
     }
     m_book->Bind(wxEVT_BOOK_PAGE_CHANGED, &DebuggerPane::OnPageChanged, this);
     m_initDone = true;
@@ -260,11 +255,6 @@ void DebuggerPane::OnSettingsChanged(wxCommandEvent& event)
     event.Skip();
     m_book->EnableStyle(kNotebook_BottomTabs,
                         EditorConfigST::Get()->GetOptions()->GetOutputTabsDirection() == wxBOTTOM);
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_LightTabs) | kNotebook_DarkTabs);
-    } else {
-        m_book->SetStyle((m_book->GetStyle() & ~kNotebook_DarkTabs) | kNotebook_LightTabs);
-    }
 }
 
 //----------------------------------------------------------------

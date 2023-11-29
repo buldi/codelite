@@ -26,16 +26,15 @@
 #ifndef __WordCompletion__
 #define __WordCompletion__
 
-#include "plugin.h"
-#include "WordCompletionRequestReply.h"
 #include "UI.h"
+#include "WordCompletionRequestReply.h"
 #include "cl_command_event.h"
 #include "macros.h"
-#include "ServiceProvider.h"
+#include "plugin.h"
 
 class WordCompletionDictionary;
 class WordCompletionPlugin;
-class WordCompleter : public ServiceProvider
+class WordCompleter : public wxEvtHandler
 {
     WordCompletionPlugin* m_plugin = nullptr;
 
@@ -53,6 +52,9 @@ class WordCompletionPlugin : public IPlugin
     WordCompleter* m_completer = nullptr;
     friend class WordCompleter;
 
+private:
+    IEditor* GetEditor(const wxString& filepath) const;
+
 public:
     void OnWordComplete(clCodeCompletionEvent& event);
     void OnSettings(wxCommandEvent& event);
@@ -64,7 +66,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void UnPlug();
 };

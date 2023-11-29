@@ -26,6 +26,7 @@
 #ifndef OPTIONS_CONFIG_H
 #define OPTIONS_CONFIG_H
 
+#include "clBitset.hpp"
 #include "clEditorConfig.h"
 #include "codelite_exports.h"
 #include "configuration_object.h"
@@ -38,45 +39,43 @@ class WXDLLIMPEXP_SDK OptionsConfig : public ConfObject
 {
 public:
     enum {
-        Opt_Unused10 = (1 << 0),
-        Opt_Unused11 = (1 << 1),
-        Opt_Unused12 = (1 << 2),
-        Opt_AutoCompleteCurlyBraces = (1 << 3),
-        Opt_AutoCompleteNormalBraces = (1 << 4),
-        Opt_SmartAddFiles = (1 << 5),
-        Opt_IconSet_FreshFarm = (1 << 6),
-        Opt_TabStyleTRAPEZOID = (1 << 7),
-        Opt_IconSet_Classic = (1 << 8),
-        Opt_AutoCompleteDoubleQuotes = (1 << 9),
-        Opt_NavKey_Shift = (1 << 10), // (No longer actively used)
-        Opt_NavKey_Alt = (1 << 11),
-        Opt_NavKey_Control = (1 << 12),
-        Opt_IconSet_Classic_Dark = (1 << 13),
-        Opt_Mark_Debugger_Line = (1 << 14),
-        Opt_TabNoXButton = (1 << 15),
-        Opt_TabColourPersistent = (1 << 16),
-        Opt_TabColourDark = (1 << 17),
-        Opt_Use_CodeLite_Terminal = (1 << 18),
-        Opt_Unused14 = (1 << 19),
-        Opt_Unused15 = (1 << 20),
-        Opt_AllowCaretAfterEndOfLine = (1 << 21),
-        Opt_HideDockingWindowCaption = (1 << 22),
-        Opt_WrapQuotes = (1 << 23),
-        Opt_WrapBrackets = (1 << 24),
-        Opt_WrapCmdWithDoubleQuotes = (1 << 25),
-        Opt_FoldHighlightActiveBlock = (1 << 26),
-        Opt_EnsureCaptionsVisible = (1 << 27),
-        Opt_DisableMouseCtrlZoom = (1 << 28),
-        Opt_UseBlockCaret = (1 << 29),
-        Opt_TabStyleMinimal = (1 << 30),
-    };
-
-    enum {
-        Opt2_MouseScrollSwitchTabs = (1 << 0),
-        Opt2_SortTabsDropdownAlphabetically = (1 << 1),
-        Opt2_PlaceNavBarAtTheTop = (1 << 2),
-        Opt2_DisableCtrlTabForTabSwitching = (1 << 3),
-        Opt2_SortNavBarDropdown = (1 << 4),
+        Opt_Unused10,
+        Opt_Unused11,
+        Opt_Unused12,
+        Opt_AutoCompleteCurlyBraces,
+        Opt_AutoCompleteNormalBraces,
+        Opt_SmartAddFiles,
+        Opt_IconSet_FreshFarm,
+        Opt_TabStyleTRAPEZOID,
+        Opt_IconSet_Classic,
+        Opt_AutoCompleteDoubleQuotes,
+        Opt_NavKey_Shift,
+        Opt_NavKey_Alt,
+        Opt_NavKey_Control,
+        Opt_IconSet_Classic_Dark,
+        Opt_Mark_Debugger_Line,
+        Opt_TabNoXButton,
+        Opt_TabColourPersistent,
+        Opt_TabColourDark,
+        Opt_Use_CodeLite_Terminal,
+        Opt_Unused14,
+        Opt_Unused15,
+        Opt_AllowCaretAfterEndOfLine,
+        Opt_HideDockingWindowCaption,
+        Opt_WrapQuotes,
+        Opt_WrapBrackets,
+        Opt_WrapCmdWithDoubleQuotes,
+        Opt_FoldHighlightActiveBlock,
+        Opt_EnsureCaptionsVisible,
+        Opt_DisableMouseCtrlZoom,
+        Opt_UseBlockCaret,
+        Opt_TabStyleMinimal,
+        Opt_TabNoPath,
+        Opt2_MouseScrollSwitchTabs,
+        Opt2_SortTabsDropdownAlphabetically,
+        Opt2_PlaceNavBarAtTheTop,
+        Opt2_DisableCtrlTabForTabSwitching,
+        Opt2_SortNavBarDropdown,
     };
 
     enum { nbTabHt_Tiny = 1, nbTabHt_Short, nbTabHt_Medium, nbTabHt_Tall };
@@ -92,10 +91,10 @@ protected:
     wxString m_bookmarkFgColours;
     wxString m_bookmarkLabels;
     bool m_highlightCaretLine;
+    bool m_highlightCaretLineWithColour;
     bool m_clearHighlitWordsOnFind;
     bool m_displayLineNumbers;
-    bool m_relativeLineNumbers = false;
-    bool m_highlightCurLineNumber = true;
+    bool m_relativeLineNumbers;
     bool m_showIndentationGuidelines;
     wxColour m_caretLineColour;
     bool m_indentUsesTabs;
@@ -107,9 +106,6 @@ protected:
     bool m_foldCompact;
     bool m_foldAtElse;
     bool m_foldPreprocessor;
-    int m_edgeMode;
-    int m_edgeColumn;
-    wxColour m_edgeColour;
     bool m_highlightMatchedBraces;
     wxColour m_foldBgColour;
     bool m_autoAdjustHScrollBarWidth;
@@ -118,7 +114,7 @@ protected:
     bool m_copyLineEmptySelection;
     wxString m_programConsoleCommand;
     wxString m_eolMode;
-    bool m_hideChangeMarkerMargin;
+    bool m_trackEditorChanges;
     bool m_hideOutpuPaneOnUserClick;
     bool m_hideOutputPaneNotIfBuild;
     bool m_hideOutputPaneNotIfSearch;
@@ -152,37 +148,22 @@ protected:
     wxString m_preferredLocale;
     bool m_useLocale;
     bool m_trimOnlyModifiedLines;
-    size_t m_options;
-    size_t m_options2;
+    clBitset m_options;
     wxColour m_debuggerMarkerLine;
     wxDirection m_workspaceTabsDirection; // Up/Down/Left/Right
     wxDirection m_outputTabsDirection;    // Up/Down
     bool m_indentedComments;
     int m_nbTabHeight; // Should notebook tabs be too tall, too short or...
     wxString m_webSearchPrefix;
+    bool m_smartParen = true;
+    bool m_lineNumberHighlightCurrent = true;
+    bool m_showRightMarginIndicator = false;
+    int m_rightMarginColumn = 120;
 
 public:
     // Helpers
-    void EnableOption(size_t flag, bool b)
-    {
-        if(b) {
-            m_options |= flag;
-        } else {
-            m_options &= ~flag;
-        }
-    }
-
-    bool HasOption(size_t flag) const { return m_options & flag; }
-    void EnableOption2(size_t flag, bool b)
-    {
-        if(b) {
-            m_options2 |= flag;
-        } else {
-            m_options2 &= ~flag;
-        }
-    }
-
-    bool HasOption2(size_t flag) const { return m_options2 & flag; }
+    void EnableOption(size_t flag, bool b);
+    bool HasOption(size_t flag) const;
 
 public:
     OptionsConfig() {}
@@ -203,25 +184,27 @@ public:
     //-------------------------------------
     // Setters/Getters
     //-------------------------------------
+
+    void SetSmartParen(bool smartParen) { this->m_smartParen = smartParen; }
+    bool IsSmartParen() const { return m_smartParen; }
     void SetTabColourMatchesTheme(bool b) { EnableOption(Opt_TabColourPersistent, !b); }
     bool IsTabColourMatchesTheme() const;
     void SetTabColourDark(bool b) { EnableOption(Opt_TabColourDark, b); }
     bool IsTabColourDark() const;
     void SetTabHasXButton(bool b) { EnableOption(Opt_TabNoXButton, !b); }
     bool IsTabHasXButton() const { return !HasOption(Opt_TabNoXButton); }
-    bool IsMouseScrollSwitchTabs() const { return HasOption2(Opt2_MouseScrollSwitchTabs); }
-    void SetMouseScrollSwitchTabs(bool b) { EnableOption2(Opt2_MouseScrollSwitchTabs, b); }
-    bool IsSortTabsDropdownAlphabetically() const { return HasOption2(Opt2_SortTabsDropdownAlphabetically); }
-    void SetSortTabsDropdownAlphabetically(bool b) { EnableOption2(Opt2_SortTabsDropdownAlphabetically, b); }
-    bool IsNavBarTop() const { return HasOption2(Opt2_PlaceNavBarAtTheTop); }
-    void SetNavBarTop(bool b) { EnableOption2(Opt2_PlaceNavBarAtTheTop, b); }
-    bool IsCtrlTabEnabled() const { return !HasOption2(Opt2_DisableCtrlTabForTabSwitching); }
-    void SetCtrlTabEnabled(bool b) { EnableOption2(Opt2_DisableCtrlTabForTabSwitching, !b); }
-    bool IsSortNavBarDropdown() const { return HasOption2(Opt2_SortNavBarDropdown); }
-    void SetSortNavBarDropdown(bool b) { EnableOption2(Opt2_SortNavBarDropdown, b); }
-
-    void SetOptions(size_t options) { this->m_options = options; }
-    size_t GetOptions() const { return m_options; }
+    void SetTabShowPath(bool b) { EnableOption(Opt_TabNoPath, !b); }
+    bool IsTabShowPath() const { return !HasOption(Opt_TabNoPath); }
+    bool IsMouseScrollSwitchTabs() const { return HasOption(Opt2_MouseScrollSwitchTabs); }
+    void SetMouseScrollSwitchTabs(bool b) { EnableOption(Opt2_MouseScrollSwitchTabs, b); }
+    bool IsSortTabsDropdownAlphabetically() const { return HasOption(Opt2_SortTabsDropdownAlphabetically); }
+    void SetSortTabsDropdownAlphabetically(bool b) { EnableOption(Opt2_SortTabsDropdownAlphabetically, b); }
+    bool IsNavBarTop() const { return HasOption(Opt2_PlaceNavBarAtTheTop); }
+    void SetNavBarTop(bool b) { EnableOption(Opt2_PlaceNavBarAtTheTop, b); }
+    bool IsCtrlTabEnabled() const { return !HasOption(Opt2_DisableCtrlTabForTabSwitching); }
+    void SetCtrlTabEnabled(bool b) { EnableOption(Opt2_DisableCtrlTabForTabSwitching, !b); }
+    bool IsSortNavBarDropdown() const { return HasOption(Opt2_SortNavBarDropdown); }
+    void SetSortNavBarDropdown(bool b) { EnableOption(Opt2_SortNavBarDropdown, b); }
     void SetTrimOnlyModifiedLines(bool trimOnlyModifiedLines) { this->m_trimOnlyModifiedLines = trimOnlyModifiedLines; }
     bool GetTrimOnlyModifiedLines() const { return m_trimOnlyModifiedLines; }
     void SetPreferredLocale(const wxString& preferredLocale) { this->m_preferredLocale = preferredLocale; }
@@ -236,7 +219,10 @@ public:
     bool GetCaretUseCamelCase() const { return m_caretUseCamelCase; }
     void SetDontAutoFoldResults(bool dontAutoFoldResults) { this->m_dontAutoFoldResults = dontAutoFoldResults; }
     bool GetDontAutoFoldResults() const { return m_dontAutoFoldResults; }
-    void SetDontOverrideSearchStringWithSelection(bool dontOverrideSearchStringWithSelection) { m_dontOverrideSearchStringWithSelection = dontOverrideSearchStringWithSelection; }
+    void SetDontOverrideSearchStringWithSelection(bool dontOverrideSearchStringWithSelection)
+    {
+        m_dontOverrideSearchStringWithSelection = dontOverrideSearchStringWithSelection;
+    }
     bool GetDontOverrideSearchStringWithSelection() const { return m_dontOverrideSearchStringWithSelection; }
     void SetShowDebugOnRun(bool showDebugOnRun) { this->m_showDebugOnRun = showDebugOnRun; }
     bool GetShowDebugOnRun() const { return m_showDebugOnRun; }
@@ -327,12 +313,9 @@ public:
         this->m_hideOutputPaneNotIfMemCheck = HideOutpuPaneNotIfMemCheck;
     }
     const bool& GetHideOutputPaneNotIfMemCheck() const { return m_hideOutputPaneNotIfMemCheck; }
-    void SetHideChangeMarkerMargin(bool hideChangeMarkerMargin)
-    {
-        this->m_hideChangeMarkerMargin = hideChangeMarkerMargin;
-    }
 
-    bool GetHideChangeMarkerMargin() const { return m_hideChangeMarkerMargin; }
+    void SetTrackChanges(bool b) { this->m_trackEditorChanges = b; }
+    bool IsTrackChanges() const { return m_trackEditorChanges; }
 
     bool GetIndentedComments() const { return m_indentedComments; }
     bool GetDisplayFoldMargin() const { return m_displayFoldMargin; }
@@ -350,9 +333,10 @@ public:
     bool GetClearHighlitWordsOnFind() const { return m_clearHighlitWordsOnFind; }
 
     bool GetHighlightCaretLine() const { return m_highlightCaretLine; }
+    bool IsHighlightCaretLineWithColour() const { return m_highlightCaretLineWithColour; }
+    void SetHighlightCaretLineWithColour(bool b) { m_highlightCaretLineWithColour = b; }
     bool GetDisplayLineNumbers() const { return m_displayLineNumbers; }
     bool GetRelativeLineNumbers() const { return m_relativeLineNumbers; }
-    bool GetHighlightCurrentLineNumber() const { return m_highlightCurLineNumber; }
     bool GetShowIndentationGuidelines() const { return m_showIndentationGuidelines; }
     wxColour GetCaretLineColour() const { return m_caretLineColour; }
 
@@ -374,7 +358,6 @@ public:
     void SetHighlightCaretLine(bool b) { m_highlightCaretLine = b; }
     void SetDisplayLineNumbers(bool b) { m_displayLineNumbers = b; }
     void SetRelativeLineNumbers(bool b) { m_relativeLineNumbers = b; }
-    void SetHighlightCurrentLineNumber(bool b) { m_highlightCurLineNumber = b; }
     void SetShowIndentationGuidelines(bool b) { m_showIndentationGuidelines = b; }
     void SetCaretLineColour(wxColour c) { m_caretLineColour = c; }
 
@@ -401,14 +384,13 @@ public:
     void SetFoldPreprocessor(const bool& foldPreprocessor) { this->m_foldPreprocessor = foldPreprocessor; }
     const bool& GetFoldPreprocessor() const { return m_foldPreprocessor; }
 
-    void SetEdgeColour(const wxColour& edgeColour) { this->m_edgeColour = edgeColour; }
-    void SetEdgeColumn(int edgeColumn) { this->m_edgeColumn = edgeColumn; }
-    void SetEdgeMode(int edgeMode) { this->m_edgeMode = edgeMode; }
-
-    const wxColour& GetEdgeColour() const { return m_edgeColour; }
-    int GetEdgeColumn() const { return m_edgeColumn; }
-    int GetEdgeMode() const { return m_edgeMode; }
-
+    void SetShowRightMarginIndicator(bool showRightMarginIndicator)
+    {
+        this->m_showRightMarginIndicator = showRightMarginIndicator;
+    }
+    void SetRightMarginColumn(int rightMarginColumn) { this->m_rightMarginColumn = rightMarginColumn; }
+    bool IsShowRightMarginIndicator() const { return m_showRightMarginIndicator; }
+    int GetRightMarginColumn() const { return m_rightMarginColumn; }
     void SetHighlightMatchedBraces(const bool& highlightMatchedBraces)
     {
         this->m_highlightMatchedBraces = highlightMatchedBraces;
@@ -441,7 +423,10 @@ public:
     const int& GetCaretBlinkPeriod() const { return m_caretBlinkPeriod; }
     const int& GetCaretWidth() const { return m_caretWidth; }
 
-    void SetCopyLineEmptySelection(const bool copyLineEmptySelection) { m_copyLineEmptySelection = copyLineEmptySelection; }
+    void SetCopyLineEmptySelection(const bool copyLineEmptySelection)
+    {
+        m_copyLineEmptySelection = copyLineEmptySelection;
+    }
     bool GetCopyLineEmptySelection() const { return m_copyLineEmptySelection; }
 
     void SetProgramConsoleCommand(const wxString& programConsoleCommand)
@@ -484,6 +469,11 @@ public:
 
     void UpdateFromEditorConfig(const clEditorConfigSection& section);
 
+    void SetLineNumberHighlightCurrent(bool lineNumberHighlightCurrent)
+    {
+        this->m_lineNumberHighlightCurrent = lineNumberHighlightCurrent;
+    }
+    bool IsLineNumberHighlightCurrent() const { return m_lineNumberHighlightCurrent; }
     /**
      * Return an XML representation of this object
      * \return XML node

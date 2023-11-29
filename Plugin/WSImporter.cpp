@@ -1,10 +1,12 @@
+#include "WSImporter.h"
+
 #include "BorlandCppBuilderImporter.h"
 #include "CodeBlocksImporter.h"
 #include "DevCppImporter.h"
 #include "EnvVarImporterDlg.h"
 #include "VisualCppImporter.h"
-#include "WSImporter.h"
 #include "workspace.h"
+
 #include <wx/tokenzr.h>
 
 WSImporter::WSImporter()
@@ -32,7 +34,7 @@ bool WSImporter::Import(wxString& errMsg)
                         compileName.Contains(wxT("g++")) || compileName.Contains(wxT("mingw"));
 
     for(std::shared_ptr<GenericImporter> importer : importers) {
-        if(importer->OpenWordspace(filename, defaultCompiler)) {
+        if(importer->OpenWorkspace(filename, defaultCompiler)) {
             if(importer->isSupportedWorkspace()) {
                 GenericWorkspacePtr gworskspace = importer->PerformImport();
                 wxString errMsgLocal;
@@ -72,7 +74,8 @@ bool WSImporter::Import(wxString& errMsg)
                     le_settings->RemoveConfiguration(wxT("Debug"));
                     le_settings->SetProjectType(projectType);
 
-                    if(clWorkspace == NULL) clWorkspace = proj->GetWorkspace();
+                    if(clWorkspace == NULL)
+                        clWorkspace = proj->GetWorkspace();
 
                     for(GenericProjectCfgPtr cfg : project->cfgs) {
                         BuildConfigPtr le_conf(new BuildConfig(NULL));
@@ -135,13 +138,17 @@ bool WSImporter::Import(wxString& errMsg)
                         } else
                             le_conf->SetOutputFileName(outputFileName);
 
-                        if(!cfg->cCompilerOptions.IsEmpty()) le_conf->SetCCompileOptions(cfg->cCompilerOptions);
+                        if(!cfg->cCompilerOptions.IsEmpty())
+                            le_conf->SetCCompileOptions(cfg->cCompilerOptions);
 
-                        if(!cfg->cppCompilerOptions.IsEmpty()) le_conf->SetCompileOptions(cfg->cppCompilerOptions);
+                        if(!cfg->cppCompilerOptions.IsEmpty())
+                            le_conf->SetCompileOptions(cfg->cppCompilerOptions);
 
-                        if(!cfg->linkerOptions.IsEmpty()) le_conf->SetLinkOptions(cfg->linkerOptions);
+                        if(!cfg->linkerOptions.IsEmpty())
+                            le_conf->SetLinkOptions(cfg->linkerOptions);
 
-                        if(!cfg->preCompiledHeader.IsEmpty()) le_conf->SetPrecompiledHeader(cfg->preCompiledHeader);
+                        if(!cfg->preCompiledHeader.IsEmpty())
+                            le_conf->SetPrecompiledHeader(cfg->preCompiledHeader);
 
                         wxString outputFileNameCommand, outputFileNameWorkingDirectory;
                         if(!cfg->outputFilename.IsEmpty()) {
@@ -254,7 +261,8 @@ bool WSImporter::Import(wxString& errMsg)
 
                         le_settings->SetBuildConfiguration(le_conf);
 
-                        if(!project->deps.IsEmpty()) proj->SetDependencies(project->deps, cfg->name);
+                        if(!project->deps.IsEmpty())
+                            proj->SetDependencies(project->deps, cfg->name);
                     }
 
                     proj->SetSettings(le_settings);
@@ -277,17 +285,18 @@ bool WSImporter::Import(wxString& errMsg)
                             vDir += wxT(":");
                         }
 
-                        proj->AddFile(file->name, vpath);
+                        wxFileName fileNameInfo(project->path + wxFileName::GetPathSeparator() + file->name);
+                        fileNameInfo.Normalize(wxPATH_NORM_DOTS);
+                        proj->AddFile(fileNameInfo.GetFullPath(), vpath);
                     }
 
                     proj->CommitTranscation();
 
                     for(GenericProjectCfgPtr cfg : project->cfgs) {
                         for(GenericProjectFilePtr excludeFile : cfg->excludeFiles) {
-                            wxString vpath = GetVPath(excludeFile->name, excludeFile->vpath);
-
                             wxFileName excludeFileNameInfo(project->path + wxFileName::GetPathSeparator() +
                                                            excludeFile->name);
+                            excludeFileNameInfo.Normalize(wxPATH_NORM_DOTS);
                             proj->AddExcludeConfigForFile(excludeFileNameInfo.GetFullPath());
                         }
                     }
@@ -297,10 +306,14 @@ bool WSImporter::Import(wxString& errMsg)
                     BuildMatrixPtr clMatrix = clWorkspace->GetBuildMatrix();
 
                     WorkspaceConfigurationPtr wsconf = clMatrix->GetConfigurationByName(wxT("Debug"));
-                    if(wsconf) { wsconf->SetConfigMappingList(cmlDebug); }
+                    if(wsconf) {
+                        wsconf->SetConfigMappingList(cmlDebug);
+                    }
 
                     wsconf = clMatrix->GetConfigurationByName(wxT("Release"));
-                    if(wsconf) { wsconf->SetConfigMappingList(cmlRelease); }
+                    if(wsconf) {
+                        wsconf->SetConfigMappingList(cmlRelease);
+                    }
 
                     clWorkspace->SetBuildMatrix(clMatrix);
                 }
@@ -316,7 +329,8 @@ bool WSImporter::Import(wxString& errMsg)
 bool WSImporter::ContainsEnvVar(std::vector<wxString> elems)
 {
     for(wxString elem : elems) {
-        if(elem.Contains("$(") && elem.Contains(")")) return true;
+        if(elem.Contains("$(") && elem.Contains(")"))
+            return true;
     }
 
     return false;
@@ -329,7 +343,9 @@ std::set<wxString> WSImporter::GetListEnvVarName(std::vector<wxString> elems)
     std::set<wxString> list;
 
     for(wxString elem : elems) {
-        if(!elem.IsEmpty()) { data += elem; }
+        if(!elem.IsEmpty()) {
+            data += elem;
+        }
     }
 
     const int length = data.length();

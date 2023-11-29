@@ -4,9 +4,10 @@
 // Do not modify this file by hand!
 //////////////////////////////////////////////////////////////////////
 
-#ifndef CODELITE_PLUGIN_NEWKEYSHORTCUTBASEDLG_BASE_CLASSES_H
-#define CODELITE_PLUGIN_NEWKEYSHORTCUTBASEDLG_BASE_CLASSES_H
+#ifndef _CODELITE_PLUGIN_NEWKEYSHORTCUTBASEDLG_BASE_CLASSES_H
+#define _CODELITE_PLUGIN_NEWKEYSHORTCUTBASEDLG_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
@@ -26,7 +27,18 @@
 #include <wx/persist/bookctrl.h>
 #include <wx/persist/treebook.h>
 #endif
+
+#ifdef WXC_FROM_DIP
+#undef WXC_FROM_DIP
+#endif
+#if wxVERSION_NUMBER >= 3100
+#define WXC_FROM_DIP(x) wxWindow::FromDIP(x, NULL)
+#else
+#define WXC_FROM_DIP(x) x
+#endif
+
 #include "codelite_exports.h"
+// clang-format on
 
 class WXDLLIMPEXP_SDK NewKeyShortcutBaseDlg : public wxDialog
 {
@@ -34,6 +46,7 @@ public:
     enum {
         ID_SUGGEST = 10001,
     };
+
 protected:
     wxPanel* m_panel1;
     wxStaticText* m_staticTextActionLabel;
@@ -42,6 +55,7 @@ protected:
     wxTextCtrl* m_textCtrl1;
     wxStaticText* m_staticText12;
     wxCheckBox* m_checkBoxCtrl;
+    wxCheckBox* m_checkBoxCmd;
     wxCheckBox* m_checkBoxAlt;
     wxCheckBox* m_checkBoxShift;
     wxButton* m_buttonClear;
@@ -64,13 +78,16 @@ public:
     wxTextCtrl* GetTextCtrl1() { return m_textCtrl1; }
     wxStaticText* GetStaticText12() { return m_staticText12; }
     wxCheckBox* GetCheckBoxCtrl() { return m_checkBoxCtrl; }
+    wxCheckBox* GetCheckBoxCmd() { return m_checkBoxCmd; }
     wxCheckBox* GetCheckBoxAlt() { return m_checkBoxAlt; }
     wxCheckBox* GetCheckBoxShift() { return m_checkBoxShift; }
     wxButton* GetButtonClear() { return m_buttonClear; }
     wxButton* GetButton30() { return m_button30; }
     wxStaticLine* GetStaticLine39() { return m_staticLine39; }
     wxPanel* GetPanel1() { return m_panel1; }
-    NewKeyShortcutBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Set New Key Accelerator"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(-1,-1), long style = wxDEFAULT_DIALOG_STYLE);
+    NewKeyShortcutBaseDlg(wxWindow* parent, wxWindowID id = wxID_ANY,
+                          const wxString& title = _("Set New Key Accelerator"), const wxPoint& pos = wxDefaultPosition,
+                          const wxSize& size = wxSize(-1, -1), long style = wxDEFAULT_DIALOG_STYLE);
     virtual ~NewKeyShortcutBaseDlg();
 };
 

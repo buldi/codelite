@@ -1,7 +1,9 @@
+#include "clMainFrameHelper.h"
+
 #include "../LiteEditor/frame.h" // this is daengrous. Only access inline functions
 #include "clDockingManager.h"
-#include "clMainFrameHelper.h"
 #include "clStatusBar.h"
+
 #include <wx/frame.h>
 
 clMainFrameHelper::clMainFrameHelper(clMainFrame* frame, clDockingManager* dockMgr)
@@ -13,7 +15,7 @@ clMainFrameHelper::clMainFrameHelper(clMainFrame* frame, clDockingManager* dockM
 
 clMainFrameHelper::~clMainFrameHelper() {}
 
-bool clMainFrameHelper::IsToolbarShown() const { return m_mainFrame->GetMainToolBar()->IsShown(); }
+bool clMainFrameHelper::IsToolbarShown() const { return m_mainFrame && m_mainFrame->GetPluginsToolBar()->IsShown(); }
 
 bool clMainFrameHelper::IsCaptionsVisible() const
 {
@@ -28,4 +30,4 @@ bool clMainFrameHelper::IsCaptionsVisible() const
     return false;
 }
 
-bool clMainFrameHelper::IsStatusBarVisible() const { return m_mainFrame->GetStatusBar()->IsShown(); }
+bool clMainFrameHelper::IsStatusBarVisible() const { return m_mainFrame && m_mainFrame->GetStatusBar()->IsShown(); }

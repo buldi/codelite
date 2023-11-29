@@ -22,24 +22,26 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "custombuildrequest.h"
+
 #include "asyncprocess.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
 #include "cl_command_event.h"
 #include "compiler.h"
-#include "custombuildrequest.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
+#include "file_logger.h"
 #include "globals.h"
 #include "imanager.h"
 #include "macros.h"
 #include "plugin.h"
 #include "workspace.h"
+
 #include <wx/app.h>
 #include <wx/ffile.h>
 #include <wx/log.h>
-#include "file_logger.h"
 
 #ifdef __WXMSW__
 #define ECHO_CMD wxT("@echo ")
@@ -87,14 +89,13 @@ void CustomBuildRequest::Process(IManager* manager)
         return;
     }
 
-    SendStartMsg();
-
     BuildConfigPtr bldConf = w->GetProjBuildConf(m_info.GetProject(), m_info.GetConfiguration());
     if(!bldConf) {
         clLogMessage(wxString::Format(wxT("Failed to find build configuration for project '%s' and configuration '%s'"),
                                       m_info.GetProject().c_str(), m_info.GetConfiguration().c_str()));
         return;
     }
+    SendStartMsg(bldConf->GetCompilerType());
 
     // try the special targets first:
     bool isClean(false);
@@ -187,16 +188,18 @@ void CustomBuildRequest::Process(IManager* manager)
 
 #ifdef __WXMSW__
     // Windows CD command requires the paths to be backslashe
-    if(cmd.Find(wxT("cd ")) != wxNOT_FOUND) cmd.Replace(wxT("/"), wxT("\\"));
+    if(cmd.Find(wxT("cd ")) != wxNOT_FOUND)
+        cmd.Replace(wxT("/"), wxT("\\"));
 #endif
 
     // Wrap the build command in the shell, so it will be able
     // to perform 'chain' commands like
     // cd SOMEWHERE && make && ...
 
+    size_t processFlags = IProcessCreateDefault;
     // Dont wrap the command if it was altered previously
     if(!bCommandAltered) {
-        WrapInShell(cmd);
+        processFlags |= IProcessWrapInShell;
     }
 
     // print the build command
@@ -207,9 +210,9 @@ void CustomBuildRequest::Process(IManager* manager)
     // and what configuration
     wxString text;
     if(isClean) {
-        text << wxGetTranslation(CLEAN_PROJECT_PREFIX);
+        text << CLEAN_PROJECT_PREFIX;
     } else {
-        text << wxGetTranslation(BUILD_PROJECT_PREFIX);
+        text << BUILD_PROJECT_PREFIX;
     }
     text << m_info.GetProject() << wxT(" - ") << configName << wxT(" ]----------\n");
 
@@ -219,12 +222,10 @@ void CustomBuildRequest::Process(IManager* manager)
     om["LC_ALL"] = "C";
     EnvSetter environment(env, &om, proj->GetName(), m_info.GetConfiguration());
 
-    m_proc = CreateAsyncProcess(this, cmd);
-    if(!m_proc) {
+    if(!StartProcess(cmd, processFlags)) {
         wxString message;
         message << _("Failed to start build process, command: ") << cmd << _(", process terminated with exit code: 0");
         AppendLine(message);
-        return;
     }
 }
 
@@ -299,7 +300,7 @@ bool CustomBuildRequest::DoUpdateCommand(IManager* manager, wxString& cmd, Proje
     cmd << wxT("\"") << fn << wxT("\"");
 #else
     // *nix
-    cmd << wxT("/bin/sh './") << fn << wxT("'");
+    cmd << wxT("/bin/bash './") << fn << wxT("'");
 #endif
     return true;
 }

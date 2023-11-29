@@ -22,32 +22,24 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "context_base.h"
+
 #include "cl_command_event.h"
 #include "cl_editor.h"
 #include "commentconfigdata.h"
-#include "context_base.h"
 #include "ctags_manager.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
+#include "file_logger.h"
 #include "frame.h"
 #include "macros.h"
 #include "plugin.h"
+
 #include <vector>
 #include <wx/regex.h>
 #include <wx/tokenzr.h>
 #include <wx/xrc/xmlres.h>
-#include "ServiceProviderManager.h"
-
-// static wxColor GetInactiveColor(const wxColor& col)
-//{
-//    wxUnusedVar(col);
-//#ifdef __WXGTK__
-//    return wxColor(wxT("GREY"));
-//#else
-//    return wxColor(wxT("LIGHT GREY"));
-//#endif
-//}
 
 ContextBase::ContextBase(clEditor* container)
     : m_container(container)
@@ -88,33 +80,34 @@ void ContextBase::AutoIndent(const wxChar& ch)
         }
     } else if(ch == '}' && !IsCommentOrString(curpos)) {
         long matchPos = wxNOT_FOUND;
-        if(!rCtrl.MatchBraceBack(wxT('}'), rCtrl.PositionBefore(curpos), matchPos)) return;
+        if(!rCtrl.MatchBraceBack(wxT('}'), rCtrl.PositionBefore(curpos), matchPos))
+            return;
         int secondLine = rCtrl.LineFromPosition(matchPos);
-        if(secondLine == line) return;
+        if(secondLine == line)
+            return;
         rCtrl.SetLineIndentation(line, rCtrl.GetLineIndentation(secondLine));
     }
 }
 
-void ContextBase::DoApplySettings(LexerConf::Ptr_t lexPtr) { lexPtr->Apply(&GetCtrl()); }
+void ContextBase::DoApplySettings(LexerConf::Ptr_t lexPtr) { lexPtr->Apply(&GetCtrl(), true); }
 
-int ContextBase::GetHyperlinkRange(int pos, int& start, int& end)
+bool ContextBase::GetHyperlinkRange(int& start, int& end)
 {
     clEditor& rCtrl = GetCtrl();
-    if(!IsCommentOrString(rCtrl.GetCurrentPos())) {
-        // get tag as hyperlink
-        start = rCtrl.WordStartPos(pos, true);
-        end = rCtrl.WordEndPos(pos, true);
-        if(start < end) return XRCID("find_tag");
+    wxPoint pt = wxGetMousePosition();
+    if(pt == wxDefaultPosition) {
+        return false;
     }
-    return wxID_NONE;
-}
-
-void ContextBase::GoHyperlink(int start, int end, int type, bool alt)
-{
-    wxUnusedVar(start);
-    wxUnusedVar(end);
-    wxUnusedVar(type);
-    wxUnusedVar(alt);
+    wxPoint clientPt = rCtrl.ScreenToClient(pt);
+    int mouse_pos = rCtrl.PositionFromPointClose(clientPt.x, clientPt.y);
+    if(!IsCommentOrString(mouse_pos)) {
+        // get tag as hyperlink
+        start = rCtrl.WordStartPos(mouse_pos, true);
+        end = rCtrl.WordEndPos(mouse_pos, true);
+        if(start < end)
+            return true;
+    }
+    return false;
 }
 
 wxMenu* ContextBase::GetMenu() { return wxXmlResource::Get()->LoadMenu(wxT("editor_right_click_default")); }
@@ -123,7 +116,8 @@ void ContextBase::PrependMenuItem(wxMenu* menu, const wxString& text, wxObjectEv
 {
     wxMenuItem* item;
     wxString menuItemText;
-    if(eventId == -1) eventId = wxNewId();
+    if(eventId == -1)
+        eventId = wxNewId();
 
     item = new wxMenuItem(menu, eventId, text);
     menu->Prepend(item);
@@ -168,7 +162,8 @@ int ContextBase::DoGetCalltipParamterIndex()
 
             switch(ch) {
             case wxT(','):
-                if(depth == 0) index++;
+                if(depth == 0)
+                    index++;
                 break;
             case wxT('('):
                 depth++;
@@ -187,30 +182,28 @@ int ContextBase::DoGetCalltipParamterIndex()
     return index;
 }
 
-void ContextBase::OnUserTypedXChars(const wxString& word)
+void ContextBase::OnUserTypedXChars(int pos)
 {
     // user typed more than X chars
     // trigger code complete event (as if the user typed ctrl-space)
     // if no one handles this event, fire a word completion event
-    if(IsCommentOrString(GetCtrl().GetCurrentPos())) { return; }
+    if(IsCommentOrString(pos)) {
+        return;
+    }
 
-    const TagsOptionsData& options = TagsManagerST::Get()->GetCtagsOptions();
-    if(options.GetFlags() & CC_WORD_ASSIST) {
-        // Try to call code completion
-        clCodeCompletionEvent ccEvt(wxEVT_CC_CODE_COMPLETE);
-        ccEvt.SetEditor(&GetCtrl());
-        ccEvt.SetInsideCommentOrString(IsCommentOrString(GetCtrl().GetCurrentPos()));
-        ccEvt.SetTriggerKind(LSP::CompletionItem::kTriggerKindInvoked);
-        ccEvt.SetPosition(GetCtrl().GetCurrentPos());
-        ccEvt.SetWord(word);
+    // Try to call code completion
+    clCodeCompletionEvent ccEvt(wxEVT_CC_CODE_COMPLETE);
+    ccEvt.SetInsideCommentOrString(IsCommentOrString(pos));
+    ccEvt.SetTriggerKind(LSP::CompletionItem::kTriggerKindInvoked);
+    ccEvt.SetFileName(GetCtrl().GetFileName().GetFullPath());
+    ccEvt.SetWord(GetCtrl().GetWordAtPosition(pos));
 
-        if(!ServiceProviderManager::Get().ProcessEvent(ccEvt)) {
-            // This is ugly, since CodeLite should not be calling
-            // the plugins... we take comfort in the fact that it
-            // merely fires an event and not calling it directly
-            wxCommandEvent wordCompleteEvent(wxEVT_MENU, XRCID("simple_word_completion"));
-            EventNotifier::Get()->TopFrame()->GetEventHandler()->ProcessEvent(wordCompleteEvent);
-        }
+    if(!EventNotifier::Get()->ProcessEvent(ccEvt)) {
+        // This is ugly, since CodeLite should not be calling
+        // the plugins... we take comfort in the fact that it
+        // merely fires an event and not calling it directly
+        wxCommandEvent wordCompleteEvent(wxEVT_MENU, XRCID("simple_word_completion"));
+        EventNotifier::Get()->TopFrame()->GetEventHandler()->ProcessEvent(wordCompleteEvent);
     }
 }
 
@@ -243,7 +236,9 @@ void ContextBase::AutoAddComment()
 
     wxString toInsert;
     if(IsAtLineComment()) {
-        if(text.StartsWith(wxT("//"))) { toInsert = wxT("// "); }
+        if(text.StartsWith(wxT("//"))) {
+            toInsert = wxT("// ");
+        }
     } else if(IsAtBlockComment()) {
         // Check the text typed before this char
         int startPos = rCtrl.PositionBefore(curpos);
@@ -254,7 +249,7 @@ void ContextBase::AutoAddComment()
                 // Let the plugins/codelite check if they can provide a doxy comment
                 // for the current entry
                 clCodeCompletionEvent event(wxEVT_CC_GENERATE_DOXY_BLOCK);
-                event.SetEditor(&rCtrl);
+                event.SetFileName(GetCtrl().GetFileName().GetFullPath());
                 if(EventNotifier::Get()->ProcessEvent(event) && !event.GetTooltip().IsEmpty()) {
                     rCtrl.BeginUndoAction();
 
@@ -314,12 +309,21 @@ void ContextBase::AutoAddComment()
 bool ContextBase::IsStringTriggerCodeComplete(const wxString& str) const
 {
     // default behavior is to check if 'str' exists in the m_completionTriggerStrings container
+    if(!m_completionTriggerStrings.empty()) {
+        return m_completionTriggerStrings.count(str) > 0;
+    }
+
     if(GetCtrl().GetLexer() == wxSTC_LEX_XML) {
         return str == "<" || str == "</";
     } else if(GetCtrl().GetLexer() == wxSTC_LEX_CSS) {
         return str == ":";
+    } else if(GetCtrl().GetLexer() == wxSTC_LEX_PYTHON) {
+        return str == ".";
+    } else if((GetCtrl().GetLexer() == wxSTC_LEX_CPP)) {
+        // This can happen for Java
+        return str == "." || str == "::";
     } else {
-        return (m_completionTriggerStrings.count(str) > 0);
+        return false;
     }
 }
 
@@ -337,9 +341,12 @@ int ContextBase::FindNext(const wxString& what, int& pos, bool wholePage)
         lastLine = ctrl->GetFirstVisibleLine() + ctrl->LinesOnScreen();
         endpos = ctrl->GetLineEndPosition(lastLine);
     }
-    if((pos < startpos) || (pos > endpos)) return wxNOT_FOUND;
+    if((pos < startpos) || (pos > endpos))
+        return wxNOT_FOUND;
     int where = ctrl->FindText(pos, endpos, what);
-    if(where != wxNOT_FOUND) { pos = where + what.length(); }
+    if(where != wxNOT_FOUND) {
+        pos = where + what.length();
+    }
     return where;
 }
 
@@ -357,9 +364,12 @@ int ContextBase::FindPrev(const wxString& what, int& pos, bool wholePage)
         lastLine = ctrl->GetFirstVisibleLine() + ctrl->LinesOnScreen();
         endpos = ctrl->GetLineEndPosition(lastLine);
     }
-    if((pos < startpos) || (pos > endpos)) return wxNOT_FOUND;
+    if((pos < startpos) || (pos > endpos))
+        return wxNOT_FOUND;
     int where = ctrl->FindText(pos, startpos, what);
-    if(where != wxNOT_FOUND) { pos = where; }
+    if(where != wxNOT_FOUND) {
+        pos = where;
+    }
     return where;
 }
 
@@ -368,12 +378,20 @@ void ContextBase::BlockCommentComplete()
     wxStyledTextCtrl* stc = GetCtrl().GetCtrl();
     int curPos = stc->GetCurrentPos();
     int start = stc->WordStartPosition(stc->GetCurrentPos(), true);
-    if(curPos < start) return;
+    if(curPos < start)
+        return;
 
     // Fire an event indicating user typed '@' in a block comment
     clCodeCompletionEvent ccEvent(wxEVT_CC_BLOCK_COMMENT_CODE_COMPLETE);
-    ccEvent.SetEditor(&GetCtrl());
-    ccEvent.SetEventObject(&GetCtrl());
-    ccEvent.SetWord(stc->GetTextRange(start, curPos));
-    EventNotifier::Get()->ProcessEvent(ccEvent);
+    ccEvent.SetFileName(GetCtrl().GetFileName().GetFullPath());
+    EventNotifier::Get()->AddPendingEvent(ccEvent);
+}
+
+int ContextBase::PositionBeforeCurrent() const
+{
+    int curpos = GetCtrl().GetCurrentPos();
+    if(curpos == 0) {
+        return 0;
+    }
+    return GetCtrl().PositionBefore(curpos);
 }

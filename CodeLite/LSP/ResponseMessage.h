@@ -1,10 +1,12 @@
 #ifndef RESPONSEMESSAGE_H
 #define RESPONSEMESSAGE_H
 
+#include "JSON.h"
 #include "LSP/Message.h"
-#include <wx/sharedptr.h>
-#include <macros.h>
 #include "LSP/basic_types.h"
+
+#include <macros.h>
+#include <wx/sharedptr.h>
 
 namespace LSP
 {
@@ -12,38 +14,35 @@ namespace LSP
 class WXDLLIMPEXP_CL ResponseMessage : public LSP::Message
 {
     int m_id = wxNOT_FOUND;
-    wxSharedPtr<JSON> m_json;
-    wxString m_jsonMessage;
-
-protected:
-    /**
-     * @brief read headers from buffer. Return the number of bytes consumed
-     */
-    int ReadHeaders(const wxString& message, wxStringMap_t& headers);
+    std::unique_ptr<JSON> m_json;
 
 public:
-    ResponseMessage(wxString& message);
-    virtual ~ResponseMessage();
-    virtual JSONItem ToJSON(const wxString& name) const;
-    virtual void FromJSON(const JSONItem& json);
+    ResponseMessage(std::unique_ptr<JSON>&& json);
+    ~ResponseMessage() override;
+    JSONItem ToJSON(const wxString& name) const override;
+    void FromJSON(const JSONItem& json) override;
 
-    virtual std::string ToString() const;
+    std::string ToString() const override;
     ResponseMessage& SetId(int id)
     {
         this->m_id = id;
         return *this;
     }
-    const wxString& GetMessageString() const { return m_jsonMessage; }
     int GetId() const { return m_id; }
     bool IsOk() const { return m_json && m_json->isOk(); }
+    std::unique_ptr<JSON> take() { return std::move(m_json); }
+
+    bool IsErrorResponse() const;
     bool Has(const wxString& property) const;
     JSONItem Get(const wxString& property) const;
+
+    JSONItem operator[](const wxString& name) const { return Get(name); }
 
     /**
      * @brief is this a "textDocument/publishDiagnostics" message?
      */
     bool IsPushDiagnostics() const { return Get("method").toString() == "textDocument/publishDiagnostics"; }
-    
+
     /**
      * @brief return list of diagnostics
      */

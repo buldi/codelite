@@ -33,11 +33,12 @@
 #ifndef __ZoomNavigator__
 #define __ZoomNavigator__
 
+#include "cl_command_event.h"
 #include "plugin.h"
 #include "zoomtext.h"
-#include <wx/timer.h>
+
 #include <set>
-#include "cl_command_event.h"
+#include <wx/timer.h>
 
 extern const wxString ZOOM_PANE_TITLE;
 
@@ -46,25 +47,26 @@ class ZoomNavUpdateTimer;
 class ZoomNavigator : public IPlugin
 {
     IManager* mgr;
-    wxPanel* zoompane;
+    wxPanel* m_zoompane;
     wxEvtHandler* m_topWindow;
     ZoomText* m_text;
-    int m_markerFirstLine;
-    int m_markerLastLine;
+    int m_markerFirstLine = wxNOT_FOUND;
+    int m_markerLastLine = wxNOT_FOUND;
     bool m_enabled;
     clConfig* m_config;
     int m_lastLine;
     bool m_startupCompleted;
     wxString m_curfile;
+    wxTimer* m_timer = nullptr;
 
 protected:
     void DoInitialize();
-    bool IsZoomPaneDetached();
     void PatchUpHighlights(const int first, const int last);
     void SetEditorText(IEditor* editor);
     void SetZoomTextScrollPosToMiddle(wxStyledTextCtrl* stc);
     void DoUpdate();
     void DoCleanup();
+    void OnTimer(wxTimerEvent& event);
 
 public:
     ZoomNavigator(IManager* manager);
@@ -73,7 +75,7 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar);
+    virtual void CreateToolBar(clToolBarGeneric* toolbar);
     virtual void CreatePluginMenu(wxMenu* pluginsMenu);
     virtual void HookPopupMenu(wxMenu* menu, MenuType type);
     virtual void UnPlug();
@@ -88,7 +90,6 @@ public:
     void OnWorkspaceClosed(wxCommandEvent& e);
     void OnEnablePlugin(wxCommandEvent& e);
     void OnInitDone(wxCommandEvent& e);
-    void OnToggleTab(clCommandEvent& event);
 };
 
 #endif // ZoomNavigator

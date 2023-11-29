@@ -26,11 +26,12 @@
 #ifndef REMOTEFILEINFO_H
 #define REMOTEFILEINFO_H
 
-#include "ssh_account_info.h"
-#include <wx/filename.h>
+#include "ssh/ssh_account_info.h"
+#include "wxStringHash.h"
+
 #include <map>
 #include <wx/clntdata.h>
-#include "wxStringHash.h"
+#include <wx/filename.h>
 
 class RemoteFileInfo : public wxClientData
 {
@@ -55,7 +56,6 @@ public:
     void SetPremissions(size_t premissions) { this->m_premissions = premissions; }
     size_t GetPremissions() const { return m_premissions; }
 
-    static wxString GetTempFolder();
     void SetLineNumber(int lineNumber) { this->m_lineNumber = lineNumber; }
     int GetLineNumber() const { return m_lineNumber; }
 };

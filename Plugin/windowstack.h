@@ -25,12 +25,18 @@
 #ifndef WINDOWSTACK_H
 #define WINDOWSTACK_H
 
+#include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "wx/panel.h"
 #include "wx/sizer.h"
+
 #include <set>
 #include <vector>
+#include <wx/simplebook.h>
 
+#define wxUSE_WINDOWSTACK_SIMPLEBOOK 0
+
+#if !wxUSE_WINDOWSTACK_SIMPLEBOOK
 class WXDLLIMPEXP_SDK WindowStack : public wxWindow
 {
     std::vector<wxWindow*> m_windows;
@@ -38,13 +44,14 @@ class WXDLLIMPEXP_SDK WindowStack : public wxWindow
 
 protected:
     int FindPage(wxWindow* page) const;
-    void ChangeSelection(size_t index);
-    void DoSelect(wxWindow* win);
+    int ChangeSelection(size_t index);
+    int DoSelect(wxWindow* win);
     void OnSize(wxSizeEvent& e);
     void DoHideNoActiveWindows();
+    void OnColoursChanged(clCommandEvent& event);
 
 public:
-    WindowStack(wxWindow* parent, wxWindowID id = wxID_ANY);
+    WindowStack(wxWindow* parent, wxWindowID id = wxID_ANY, bool useNativeThemeColours = false);
     virtual ~WindowStack();
 
     bool Add(wxWindow* win, bool select);
@@ -57,5 +64,26 @@ public:
     bool IsEmpty() const { return m_windows.empty(); }
     wxWindow* GetSelected() const;
 };
+#else
+class WXDLLIMPEXP_SDK WindowStack : public wxSimplebook
+{
+    int FindPage(wxWindow* win) const;
+    void OnColoursChanged(clCommandEvent& event);
 
+public:
+    WindowStack(wxWindow* parent, wxWindowID id = wxID_ANY, bool useNativeThemeColours = false);
+    virtual ~WindowStack();
+
+    bool Add(wxWindow* win, bool select);
+    void Select(wxWindow* win);
+    void Clear();
+
+    bool Remove(wxWindow* win);
+
+    bool Contains(wxWindow* win);
+    bool IsEmpty() const { return GetPageCount() == 0; }
+    wxWindow* GetSelected() const;
+};
+
+#endif
 #endif // WINDOWSTACK_H

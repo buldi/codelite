@@ -1,41 +1,23 @@
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//
-// copyright            : (C) 2008 by Eran Ifrah
-// file name            : code_parser.rc
-//
-// -------------------------------------------------------------------------
-// A
-//              _____           _      _     _ _
-//             /  __ \         | |    | |   (_) |
-//             | /  \/ ___   __| | ___| |    _| |_ ___
-//             | |    / _ \ / _  |/ _ \ |   | | __/ _ )
-//             | \__/\ (_) | (_| |  __/ |___| | ||  __/
-//              \____/\___/ \__,_|\___\_____/_|\__\___|
-//
-//                                                  F i l e
-//
-//    This program is free software; you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation; either version 2 of the License, or
-//    (at your option) any later version.
-//
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
+#include "wx/version.h"
+aaaaa ICON "codelite-logo.ico"
 
-aaaaa ICON "res/codelite-logo.ico"
+// set this to 1 if you don't want to use manifest resource (manifest resource
+// is needed to enable visual styles on Windows XP - see docs/msw/winxp.txt
+// for more information)
+#define wxUSE_NO_MANIFEST 0
+
+// To get DPI change events, we need to opt in into per monitor DPI support.
+#define wxUSE_DPI_AWARE_MANIFEST 2
+
+// this is not always needed but doesn't hurt (except making the executable
+// very slightly larger): this file contains the standard icons, cursors, ...
 #include "wx/msw/wx.rc"
-#if WIN64
-1 24 "wx/msw/amd64.manifest"
-#else
-1 24 "wx/msw/wx.manifest"
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Version information
 VS_VERSION_INFO    VERSIONINFO
-FILEVERSION      13,0,0,0
-PRODUCTVERSION   13,0,0,0
+FILEVERSION      18,0,0,0
+PRODUCTVERSION   18,0,0,0
 FILEFLAGSMASK    0x3fL // VS_FFI_FILEFLAGSMASK
 FILEFLAGS        0x0L  // final version
 FILEOS           VOS_NT_WINDOWS32
@@ -48,19 +30,15 @@ FILESUBTYPE      VFT2_UNKNOWN { // not used
             VALUE "Comments",         "Licensed under GPL2."
             VALUE "CompanyName",      "Eran Ifrah"
             VALUE "Developer",        "Eran Ifrah"
-            VALUE "FileDescription",  "CodeLite, an Open Source cross platform C,C++,PHP and Node.js IDE"
-            VALUE "FileVersion",      "13.0.2"
+            VALUE "FileDescription",  "CodeLite, an Open Source cross platform C, C++, Rust, Python, PHP and Node.js IDE"
+            VALUE "FileVersion",      "18.0.0"
             VALUE "InternalName",     "CodeLite"
-            VALUE "LegalCopyright",   "Copyright (C) 2007-2019 Eran Ifrah"
+            VALUE "LegalCopyright",   "Copyright (C) 2007-2023 Eran Ifrah"
             VALUE "LegalTrademarks",  "All rights reserved."
             VALUE "OriginalFilename", "codelite.exe"
             VALUE "PrivateBuild",     ""
             VALUE "ProductName",      "CodeLite"
-#if WIN64
-            VALUE "ProductVersion",   "13.0.2 (64BIT)"
-#else
-            VALUE "ProductVersion",   "13.0.2 (32BIT)"
-#endif
+            VALUE "ProductVersion",   "18.0.0 (64-BIT)"
             VALUE "SpecialBuild",     ""
             VALUE "Support",          "https://forums.codelite.org"
             VALUE "Users",            "Unlimited."

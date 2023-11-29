@@ -23,42 +23,35 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "precompiled_header.h"
-#include "ctags_manager.h"
-#include "pptable.h"
-
 #include "entry.h"
-#include <wx/tokenzr.h>
-#include "tokenizer.h"
-#include "language.h"
+
+#include "CompletionHelper.hpp"
+#include "CxxScannerTokens.h"
+#include "CxxTokenizer.h"
 #include "code_completion_api.h"
 #include "comment_parser.h"
-#include <wx/regex.h>
-#include "wxStringHash.h"
+#include "ctags_manager.h"
+#include "language.h"
 #include "macros.h"
+#include "pptable.h"
+#include "precompiled_header.h"
+#include "tokenizer.h"
+#include "wxStringHash.h"
 
-TagEntry::TagEntry(const tagEntry& entry)
-    : m_isClangTag(false)
-    , m_flags(0)
-    , m_isCommentForamtted(false)
-{
-    Create(entry);
-}
+#include <wx/regex.h>
+#include <wx/tokenzr.h>
 
 TagEntry::TagEntry()
     : m_path(wxEmptyString)
     , m_file(wxEmptyString)
     , m_lineNumber(-1)
     , m_pattern(wxEmptyString)
-    , m_kind(wxT("<unknown>"))
+    , m_kind("<unknown>")
     , m_parent(wxEmptyString)
     , m_name(wxEmptyString)
     , m_id(wxNOT_FOUND)
     , m_scope(wxEmptyString)
-    , m_differOnByLineNumber(false)
-    , m_isClangTag(false)
     , m_flags(0)
-    , m_isCommentForamtted(false)
 {
 }
 
@@ -80,11 +73,7 @@ TagEntry& TagEntry::operator=(const TagEntry& rhs)
     m_hti = rhs.m_hti;
 #endif
     m_scope = rhs.m_scope.c_str();
-    m_isClangTag = rhs.m_isClangTag;
-    m_differOnByLineNumber = rhs.m_differOnByLineNumber;
     m_flags = rhs.m_flags;
-    m_formattedComment = rhs.m_formattedComment;
-    m_isCommentForamtted = rhs.m_isCommentForamtted;
 
     // loop over the map and copy item by item
     // we use the c_str() method to force our own copy of the string and to avoid
@@ -104,109 +93,79 @@ bool TagEntry::operator==(const TagEntry& rhs)
     bool res = m_scope == rhs.m_scope && m_file == rhs.m_file && m_kind == rhs.m_kind && m_parent == rhs.m_parent &&
                m_pattern == rhs.m_pattern && m_name == rhs.m_name && m_path == rhs.m_path &&
                m_lineNumber == rhs.m_lineNumber && GetInheritsAsString() == rhs.GetInheritsAsString() &&
-               GetAccess() == rhs.GetAccess() && GetSignature() == rhs.GetSignature() &&
-               GetTyperef() == rhs.GetTyperef();
-
-    bool res2 = m_scope == rhs.m_scope && m_file == rhs.m_file && m_kind == rhs.m_kind && m_parent == rhs.m_parent &&
-                m_pattern == rhs.m_pattern && m_name == rhs.m_name && m_path == rhs.m_path &&
-                GetInheritsAsString() == rhs.GetInheritsAsString() && GetAccess() == rhs.GetAccess() &&
-                GetSignature() == rhs.GetSignature() && GetTyperef() == rhs.GetTyperef();
-
-    if(res2 && !res) {
-        // the entries are differs only in the line numbers
-        m_differOnByLineNumber = true;
-    }
+               GetAccess() == rhs.GetAccess() && GetSignature() == rhs.GetSignature();
     return res;
 }
 
 void TagEntry::Create(const wxString& fileName, const wxString& name, int lineNumber, const wxString& pattern,
                       const wxString& kind, wxStringMap_t& extFields)
 {
-    m_isCommentForamtted = false;
     m_flags = 0;
-    m_isClangTag = false;
+    m_extFields = extFields;
     SetName(name);
     SetLine(lineNumber);
-    SetKind(kind.IsEmpty() ? wxT("<unknown>") : kind);
+    SetKind(kind.IsEmpty() ? "<unknown>" : kind);
     SetPattern(pattern);
-    SetFile(fileName);
+    SetFile(wxFileName(fileName).GetFullPath());
     SetId(-1);
-    m_extFields = extFields;
+
     wxString path;
 
     // Check if we can get full name (including path)
-    path = GetExtField(wxT("class"));
-    if(!path.IsEmpty()) {
-        UpdatePath(path);
-    } else {
-        path = GetExtField(wxT("struct"));
+    static std::vector<wxString> scope_fields = { "class", "struct", "namespace", "interface", "enum", "function" };
+    for(const wxString& scope_field : scope_fields) {
+        path = GetExtField(scope_field);
         if(!path.IsEmpty()) {
             UpdatePath(path);
-        } else {
-            path = GetExtField(wxT("namespace"));
-            if(!path.IsEmpty()) {
+            break;
+        }
+    }
+
+    // still no path?
+    // try union
+    if(path.empty()) {
+        path = GetExtField("union");
+        wxString tmpname = path.AfterLast(':');
+        if(!path.IsEmpty()) {
+            if(!tmpname.StartsWith("__anon")) {
                 UpdatePath(path);
             } else {
-                path = GetExtField(wxT("interface"));
-                if(!path.IsEmpty()) {
-                    UpdatePath(path);
-                } else {
-                    path = GetExtField(wxT("enum"));
-                    if(!path.IsEmpty()) {
-                        UpdatePath(path);
-                    } else {
-                        path = GetExtField(wxT("cenum"));
-                        if(!path.IsEmpty()) {
-                            UpdatePath(path);
-                        } else {
-                            path = GetExtField(wxT("union"));
-                            wxString tmpname = path.AfterLast(wxT(':'));
-                            if(!path.IsEmpty()) {
-                                if(!tmpname.StartsWith(wxT("__anon"))) {
-                                    UpdatePath(path);
-                                } else {
-                                    // anonymouse union, remove the anonymous part from its name
-                                    path = path.BeforeLast(wxT(':'));
-                                    path = path.BeforeLast(wxT(':'));
-                                    UpdatePath(path);
-                                }
-                            }
-                        }
-                    }
-                }
+                // anonymouse union, remove the anonymous part from its name
+                path = path.BeforeLast(':');
+                path = path.BeforeLast(':');
+                UpdatePath(path);
             }
         }
     }
 
+    // update the method properties
+    SetTagProperties(GetExtField("properties"));
     if(!path.IsEmpty()) {
         SetScope(path);
     } else {
-        SetScope(wxT("<global>"));
+        SetScope("<global>");
     }
 
     // If there is no path, path is set to name
-    if(GetPath().IsEmpty()) SetPath(GetName());
+    if(GetPath().IsEmpty()) {
+        SetPath(GetName());
+    }
 
     // Get the parent name
-    StringTokenizer tok(GetPath(), wxT("::"));
+    StringTokenizer tok(GetPath(), "::");
     wxString parent;
 
-    (tok.Count() < 2) ? parent = wxT("<global>") : parent = tok[tok.Count() - 2];
+    (tok.Count() < 2) ? parent = "<global>" : parent = tok[tok.Count() - 2];
     SetParent(parent);
-}
 
-void TagEntry::Create(const tagEntry& entry)
-{
-    m_isCommentForamtted = false;
-    m_isClangTag = false;
-    // Get other information from the string data and store it into map
-    for(int i = 0; i < entry.fields.count; ++i) {
-        wxString key = _U(entry.fields.list[i].key);
-        wxString value = _U(entry.fields.list[i].value);
-        m_extFields[key] = value;
+    // parse auto
+    m_assignment = TypenameFromPattern(this);
+    if(IsAuto(this)) {
+        m_tag_properties_flags |= TAG_PROP_AUTO_VARIABLE;
     }
-    Create(_U(entry.file), _U(entry.name), entry.address.lineNumber, _U(entry.address.pattern), _U(entry.kind),
-           m_extFields);
+    if(IsFunction() && GetName().StartsWith("__anon")) {
+        m_tag_properties_flags |= TAG_PROP_INLINE;
+    }
 }
 
 void TagEntry::Print()
@@ -221,16 +180,17 @@ void TagEntry::Print()
 
     std::cout << " ---- Ext fields: ---- " << std::endl;
     wxStringMap_t::const_iterator iter = m_extFields.begin();
-    for(; iter != m_extFields.end(); iter++)
+    for(; iter != m_extFields.end(); iter++) {
         std::cout << iter->first << ":\t\t" << iter->second << std::endl;
+    }
     std::cout << "======================================" << std::endl;
 }
 
 wxString TagEntry::Key() const
 {
     wxString key;
-    if(GetKind() == wxT("prototype") || GetKind() == wxT("macro")) {
-        key << GetKind() << wxT(": ");
+    if(IsPrototype() || IsMacro()) {
+        key << GetKind() << ": ";
     }
 
     key << GetPath() << GetSignature();
@@ -248,13 +208,18 @@ wxString TagEntry::GetFullDisplayName() const
 {
     wxString name;
 
-    if(GetParent() == wxT("<global>")) {
+    if(GetParent() == "<global>") {
         name << GetDisplayName();
     } else {
-        name << GetParent() << wxT("::") << GetName() << GetSignature();
+        name << GetParent() << "::" << GetName() << GetSignature();
     }
 
     return name;
+}
+
+bool TagEntry::IsClassTemplate() const
+{
+    return m_extFields.count("template") && !m_extFields.find("template")->second.empty();
 }
 
 //----------------------------------------------------------------------------
@@ -272,201 +237,65 @@ wxString TagEntry::GetKind() const
 
 const bool TagEntry::IsContainer() const
 {
-    return GetKind() == wxT("class") || GetKind() == wxT("struct") || GetKind() == wxT("union") ||
-           GetKind() == wxT("namespace") || GetKind() == wxT("project") || GetKind() == "cenum";
+    return IsClass() || IsStruct() || IsUnion() || IsNamespace() || IsEnumClass();
 }
 
 void TagEntry::UpdatePath(wxString& path)
 {
     if(!path.IsEmpty()) {
         wxString name(path);
-        name += wxT("::");
+        name += "::";
         name += GetName();
         SetPath(name);
     }
 }
 
-wxString TagEntry::TypeFromTyperef() const
+const wxString& TagEntry::GetExtField(const wxString& extField) const
 {
-    wxString typeref = GetTyperef();
-    if(typeref.IsEmpty() == false) {
-        wxString name = typeref.BeforeFirst(wxT(':'));
-        return name;
+    static wxString empty_string;
+    if(m_extFields.count(extField) == 0) {
+        return empty_string;
     }
-    return wxEmptyString;
-}
-
-static bool GetMacroArgList(CppScanner& scanner, wxArrayString& argList)
-{
-    int depth(0);
-    int type(0);
-    bool cont(true);
-    bool isOk(false);
-
-    wxString word;
-
-    while(cont) {
-        type = scanner.yylex();
-        if(type == 0) {
-            // eof
-            break;
-        }
-
-        switch(type) {
-        case(int)'(':
-            isOk = true;
-            depth++;
-
-            if(word.empty() == false) word << wxT("(");
-
-            break;
-
-        case(int)')':
-            depth--;
-            if(depth == 0) {
-                cont = false;
-                break;
-            } else {
-                word << wxT(")");
-            }
-            break;
-
-        case(int)',':
-            word.Trim().Trim(false);
-            if(!word.empty()) {
-                argList.Add(word);
-            }
-            word.clear();
-            break;
-
-        default:
-            word << wxString::From8BitData(scanner.YYText()) << wxT(" ");
-            break;
-        }
-    }
-
-    if(word.empty() == false) {
-        argList.Add(word);
-    }
-
-    return (depth == 0) && isOk;
-}
-
-wxString TagEntry::NameFromTyperef(wxString& templateInitList, bool nameIncludeTemplate)
-{
-    wxString typeref = GetTyperef();
-    if(typeref.IsEmpty() == false) {
-        wxString name = typeref.AfterFirst(wxT(':'));
-        return name;
-    }
-
-    // incase our entry is a typedef, and it is not marked as typeref,
-    // try to get the real name from the pattern
-    if(GetKind() == wxT("typedef")) {
-
-        wxString pat(GetPattern());
-        if(!GetPattern().Contains(wxT("typedef"))) {
-            // The pattern does not contain 'typedef' however this *is* a typedef
-            // try to see if this is a macro
-            pat.StartsWith(wxT("/^"), &pat);
-            pat.Trim().Trim(false);
-
-            // we take the first token
-            CppScanner scanner;
-            scanner.SetText(pat.To8BitData());
-            int type = scanner.yylex();
-            if(type == IDENTIFIER) {
-                wxString token = wxString::From8BitData(scanner.YYText());
-
-                PPToken tok = TagsManagerST::Get()->GetDatabase()->GetMacro(token);
-                if(tok.flags & PPToken::IsValid) {
-                    // we found a match!
-                    if(tok.flags & PPToken::IsFunctionLike) {
-                        wxArrayString argList;
-                        if(GetMacroArgList(scanner, argList)) {
-                            tok.expandOnce(argList);
-                        }
-                    }
-                    pat = tok.replacement;
-                    pat << wxT(";");
-
-                    // Remove double spaces
-                    while(pat.Replace(wxT("  "), wxT(" "))) {
-                    }
-                }
-            }
-        }
-
-        wxString name;
-        if(TypedefFromPattern(pat, GetName(), name, templateInitList, nameIncludeTemplate)) return name;
-    }
-
-    return wxEmptyString;
-}
-
-bool TagEntry::TypedefFromPattern(const wxString& tagPattern, const wxString& typedefName, wxString& name,
-                                  wxString& templateInit, bool nameIncludeTemplate)
-{
-    wxString pattern(tagPattern);
-
-    pattern.StartsWith(wxT("/^"), &pattern);
-    const wxCharBuffer cdata = pattern.mb_str(wxConvUTF8);
-
-    clTypedefList li;
-    get_typedefs(cdata.data(), li);
-
-    if(li.size() == 1) {
-        clTypedef td = *li.begin();
-        templateInit = _U(td.m_realType.m_templateDecl.c_str());
-        if(td.m_realType.m_typeScope.empty() == false) {
-            name << _U(td.m_realType.m_typeScope.c_str());
-            if(nameIncludeTemplate) {
-                name << templateInit;
-            }
-            name << wxT("::");
-        }
-
-        name << _U(td.m_realType.m_type.c_str());
-        return true;
-    }
-    return false;
+    return m_extFields.find(extField)->second;
 }
 
 wxString TagEntry::GetPattern() const
 {
     wxString pattern(m_pattern);
     // since ctags's pattern is regex, forward slashes are escaped. ('/' becomes '\/')
-    pattern.Replace(wxT("\\\\"), wxT("\\"));
-    pattern.Replace(wxT("\\/"), wxT("/"));
+    pattern.Replace("\\\\", "\\");
+    pattern.Replace("\\/", "/");
     return pattern;
 }
 
 void TagEntry::FromLine(const wxString& line)
 {
+    // label	C:\src\wxCustomControls\clTreeCtrl\clChoice.cpp	/^        const wxString& label = m_choices[i];$/;"
+    // local line:116	type:constwxString
     wxString pattern, kind;
     wxString strLine = line;
     long lineNumber = wxNOT_FOUND;
     wxStringMap_t extFields;
 
     // get the token name
-    wxString name = strLine.BeforeFirst(wxT('\t'));
-    strLine = strLine.AfterFirst(wxT('\t'));
+    wxString name = strLine.BeforeFirst('\t');
+    strLine = strLine.AfterFirst('\t');
 
     // get the file name
-    wxString fileName = strLine.BeforeFirst(wxT('\t'));
-    strLine = strLine.AfterFirst(wxT('\t'));
+    wxString fileName = strLine.BeforeFirst('\t');
+    strLine = strLine.AfterFirst('\t');
 
     // here we can get two options:
     // pattern followed by ;"
     // or
     // line number followed by ;"
-    int end = strLine.Find(wxT(";\""));
+    int end = strLine.Find(";\"");
     if(end == wxNOT_FOUND) {
         // invalid pattern found
         return;
     }
 
-    if(strLine.StartsWith(wxT("/^"))) {
+    if(strLine.StartsWith("/^")) {
         // regular expression pattern found
         pattern = strLine.Mid(0, end);
         strLine = strLine.Right(strLine.Length() - (end + 2));
@@ -482,49 +311,48 @@ void TagEntry::FromLine(const wxString& line)
     }
 
     // next is the kind of the token
-    if(strLine.StartsWith(wxT("\t"))) {
-        strLine = strLine.AfterFirst(wxT('\t'));
+    if(strLine.StartsWith("\t")) {
+        strLine = strLine.AfterFirst('\t');
     }
 
-    kind = strLine.BeforeFirst(wxT('\t'));
-    strLine = strLine.AfterFirst(wxT('\t'));
+    kind = strLine.BeforeFirst('\t');
+    strLine = strLine.AfterFirst('\t');
 
     if(strLine.IsEmpty() == false) {
-        wxStringTokenizer tkz(strLine, wxT('\t'));
+        wxStringTokenizer tkz(strLine, '\t');
         while(tkz.HasMoreTokens()) {
             wxString token = tkz.NextToken();
-            wxString key = token.BeforeFirst(wxT(':'));
-            wxString val = token.AfterFirst(wxT(':'));
+            wxString key = token.BeforeFirst(':');
+            wxString val = token.AfterFirst(':');
             key = key.Trim();
             key = key.Trim(false);
 
             val = val.Trim();
             val = val.Trim(false);
-            if(key == wxT("line") && !val.IsEmpty()) {
+            if(key == "line" && !val.IsEmpty()) {
                 val.ToLong(&lineNumber);
             } else {
-                if(key == wxT("union") || key == wxT("struct")) {
+                if(key == "union" || key == "struct") {
 
                     // remove the anonymous part of the struct / union
-                    if(!val.StartsWith(wxT("__anon"))) {
+                    if(!val.StartsWith("__anon")) {
                         // an internal anonymous union / struct
                         // remove all parts of the
                         wxArrayString scopeArr;
                         wxString tmp, new_val;
 
-                        scopeArr = wxStringTokenize(val, wxT(":"), wxTOKEN_STRTOK);
+                        scopeArr = wxStringTokenize(val, ":", wxTOKEN_STRTOK);
                         for(size_t i = 0; i < scopeArr.GetCount(); i++) {
-                            if(scopeArr.Item(i).StartsWith(wxT("__anon")) == false) {
-                                tmp << scopeArr.Item(i) << wxT("::");
+                            if(scopeArr.Item(i).StartsWith("__anon") == false) {
+                                tmp << scopeArr.Item(i) << "::";
                             }
                         }
 
-                        tmp.EndsWith(wxT("::"), &new_val);
-                        val = new_val;
+                        tmp.EndsWith("::", &new_val);
+                        val.swap(new_val);
                     }
                 }
-
-                extFields[key] = val;
+                extFields.insert({ key, val });
             }
         }
     }
@@ -533,89 +361,60 @@ void TagEntry::FromLine(const wxString& line)
     name = name.Trim();
     fileName = fileName.Trim();
     pattern = pattern.Trim();
-
-    if(kind == "enumerator" && extFields.count("enum")) {
-        // Remove the last parent
-        wxString& scope = extFields["enum"];
-        size_t where = scope.rfind("::");
-        if(where != wxString::npos) {
-            scope = scope.Mid(0, where);
-        } else {
-            // Global enum, remove this ext field
-            extFields.erase("enum");
-        }
-    }
-
-    //    if(kind == wxT("enumerator")) {
-    //        // enums are specials, they are a scope, when they declared as "enum class ..." (C++11),
-    //        // but not a scope when declared as "enum ...". So, for "enum class ..." declaration
-    //        //(and anonymous enums) we appear enumerators when typed:
-    //        // enumName::
-    //        // Is global scope there aren't appears. For "enum ..." declaration we appear
-    //        // enumerators when typed:
-    //        // enumName::
-    //        // and when it global (or same namespace) scope.
-    //        wxStringMap_t::iterator enumField = extFields.find(wxT("enum"));
-    //        if(enumField != extFields.end()) {
-    //            wxString enumName = enumField->second;
-    //            bool isAnonymous = enumName.AfterLast(wxT(':')).StartsWith(wxT("__anon"));
-    //
-    //            bool isInEnumNamespace = false;
-    //            wxStringMap_t::const_iterator isInEnumNamespaceField = extFields.find(wxT("isInEnumNamespace"));
-    //            if(isInEnumNamespaceField != extFields.end()) {
-    //                wxString isInEnumNamespaceValue = isInEnumNamespaceField->second;
-    //                isInEnumNamespace = isInEnumNamespaceValue.AfterLast(wxT(':')) == wxT("1") ? true : false;
-    //            }
-    //
-    //            if(!isInEnumNamespace) {
-    //                enumField->second = enumField->second.BeforeLast(wxT(':')).BeforeLast(wxT(':'));
-    //                if(!isAnonymous) {
-    //                    extFields[wxT("typeref")] = enumName;
-    //                }
-    //            }
-    //        }
-    //    }
-
-    this->Create(fileName, name, lineNumber, pattern, kind, extFields);
+    Create(fileName, name, lineNumber, pattern, kind, extFields);
 }
 
 bool TagEntry::IsConstructor() const
 {
-    if(GetKind() != wxT("function") && GetKind() != wxT("prototype")) return false;
-
+    if(GetKind() != "function" && GetKind() != "prototype") {
+        return false;
+    }
     return GetName() == GetScope();
 }
 
 bool TagEntry::IsDestructor() const
 {
-    if(GetKind() != wxT("function") && GetKind() != wxT("prototype")) return false;
-
-    return GetName().StartsWith(wxT("~"));
+    if(GetKind() != "function" && GetKind() != "prototype") {
+        return false;
+    }
+    return GetName().StartsWith("~");
 }
 
-wxString TagEntry::GetReturnValue() const
+wxString TagEntry::GetTemplateDefinition() const
 {
-    wxString returnValue = GetExtField(_T("returns"));
-    returnValue.Trim().Trim(false);
-    returnValue.Replace(wxT("virtual"), wxT(""));
-    return returnValue;
+    // template:<class T>
+    wxString definition = GetExtField("template");
+    definition.Trim().Trim(false);
+    return definition;
 }
 
-bool TagEntry::IsFunction() const { return GetKind() == wxT("function"); }
+void TagEntry::SetTypename(const wxString& val) { m_extFields["typeref"] = "typename:" + val; }
 
+wxString TagEntry::GetTypename() const
+{
+    // typeref:typename:void
+    const wxString& returnValue = GetExtField("typeref");
+    return returnValue.AfterFirst(':');
+}
+
+bool TagEntry::IsKeyword() const { return m_tag_kind == eTagKind::TAG_KIND_KEYWORD; }
+bool TagEntry::IsEnum() const { return m_tag_kind == eTagKind::TAG_KIND_ENUM; }
+bool TagEntry::IsEnumerator() const { return m_tag_kind == eTagKind::TAG_KIND_ENUMERATOR; }
+bool TagEntry::IsParameter() const { return m_tag_kind == eTagKind::TAG_KIND_PARAMETER; }
+bool TagEntry::IsVariable() const { return m_tag_kind == eTagKind::TAG_KIND_VARIABLE; }
+bool TagEntry::IsEnumClass() const { return m_tag_kind == eTagKind::TAG_KIND_CENUM; }
+bool TagEntry::IsLocalVariable() const { return m_tag_kind == eTagKind::TAG_KIND_LOCAL; }
+bool TagEntry::IsMember() const { return m_tag_kind == eTagKind::TAG_KIND_MEMBER; }
+bool TagEntry::IsNamespace() const { return m_tag_kind == eTagKind::TAG_KIND_NAMESPACE; }
+bool TagEntry::IsFunction() const { return m_tag_kind == eTagKind::TAG_KIND_FUNCTION; }
+bool TagEntry::IsPrototype() const { return m_tag_kind == eTagKind::TAG_KIND_PROTOTYPE; }
+bool TagEntry::IsClass() const { return m_tag_kind == eTagKind::TAG_KIND_CLASS; }
+bool TagEntry::IsMacro() const { return m_tag_kind == eTagKind::TAG_KIND_MACRO; }
+bool TagEntry::IsStruct() const { return m_tag_kind == eTagKind::TAG_KIND_STRUCT; }
+bool TagEntry::IsUnion() const { return m_tag_kind == eTagKind::TAG_KIND_UNION; }
+bool TagEntry::IsTypedef() const { return m_tag_kind == eTagKind::TAG_KIND_TYPEDEF; }
 bool TagEntry::IsMethod() const { return IsPrototype() || IsFunction(); }
-
-bool TagEntry::IsPrototype() const { return GetKind() == wxT("prototype"); }
-
-bool TagEntry::IsClass() const { return GetKind() == wxT("class"); }
-
-bool TagEntry::IsMacro() const { return GetKind() == wxT("macro"); }
-
-bool TagEntry::IsStruct() const { return GetKind() == wxT("struct"); }
-
-bool TagEntry::IsScopeGlobal() const { return GetScope().IsEmpty() || GetScope() == wxT("<global>"); }
-
-bool TagEntry::IsTypedef() const { return GetKind() == wxT("typedef"); }
+bool TagEntry::IsScopeGlobal() const { return GetScope().IsEmpty() || GetScope() == "<global>"; }
 
 wxString TagEntry::GetInheritsAsString() const { return GetExtField(_T("inherits")); }
 
@@ -631,7 +430,7 @@ wxArrayString TagEntry::GetInheritsAsArrayNoTemplates() const
         wxChar ch = inherits.GetChar(i);
 
         switch(ch) {
-        case wxT('<'):
+        case '<':
             if(depth == 0 && parent.IsEmpty() == false) {
                 parent.Trim().Trim(false);
                 parentsArr.Add(parent);
@@ -640,11 +439,11 @@ wxArrayString TagEntry::GetInheritsAsArrayNoTemplates() const
             depth++;
             break;
 
-        case wxT('>'):
+        case '>':
             depth--;
             break;
 
-        case wxT(','):
+        case ',':
             if(depth == 0 && parent.IsEmpty() == false) {
                 parent.Trim().Trim(false);
                 parentsArr.Add(parent);
@@ -679,17 +478,17 @@ wxArrayString TagEntry::GetInheritsAsArrayWithTemplates() const
         wxChar ch = inherits.GetChar(i);
 
         switch(ch) {
-        case wxT('<'):
+        case '<':
             depth++;
             parent << ch;
             break;
 
-        case wxT('>'):
+        case '>':
             depth--;
             parent << ch;
             break;
 
-        case wxT(','):
+        case ',':
             if(depth == 0 && parent.IsEmpty() == false) {
                 parent.Trim().Trim(false);
                 parentsArr.Add(parent);
@@ -729,15 +528,6 @@ TagEntryPtr TagEntry::ReplaceSimpleMacro()
     return NULL;
 }
 
-int TagEntry::CompareDisplayString(const TagEntryPtr& rhs) const
-{
-    wxString d1, d2;
-
-    d1 << GetReturnValue() << wxT(": ") << GetFullDisplayName() << wxT(":") << GetAccess();
-    d2 << rhs->GetReturnValue() << wxT(": ") << rhs->GetFullDisplayName() << wxT(":") << rhs->GetAccess();
-    return d1.Cmp(d2);
-}
-
 bool TagEntry::IsTemplateFunction() const
 {
     wxString pattern = GetPatternClean();
@@ -749,160 +539,259 @@ wxString TagEntry::GetPatternClean() const
 {
     wxString p = GetPattern();
     p.Trim();
-    if(p.StartsWith(wxT("/^"))) {
-        p.Replace(wxT("/^"), wxT(""));
+    if(p.StartsWith("/^")) {
+        p.Replace("/^", "");
     }
 
-    if(p.EndsWith(wxT("$/"))) {
-        p.Replace(wxT("$/"), wxT(""));
+    if(p.EndsWith("$/")) {
+        p.Replace("$/", "");
     }
     return p;
 }
 
-wxString TagEntry::FormatComment()
+wxString TagEntry::GetLocalType() const { return GetExtField("type"); }
+
+namespace
 {
-    if(m_isCommentForamtted) return m_formattedComment;
-    m_isCommentForamtted = true;
-    m_formattedComment.Clear();
+inline void enable_function_flag_if_exists(const wxStringSet_t& S, const wxString& propname, const size_t flag,
+                                           size_t& flags)
+{
+    if(S.count(propname)) {
+        flags |= flag;
+    } else {
+        flags &= ~flag;
+    }
+}
+} // namespace
 
-    // Send the plugins an event requesting tooltip for this tag
-    if(IsMethod()) {
+void TagEntry::SetTagProperties(const wxString& props)
+{
+    m_tag_properties = props;
+    auto tokens = wxStringTokenize(m_tag_properties, ",", wxTOKEN_STRTOK);
+    wxStringSet_t S;
+    for(auto& token : tokens) {
+        token.Trim().Trim(false);
+        S.insert(token);
+    }
 
-        if(IsConstructor())
-            m_formattedComment << wxT("<b>[Constructor]</b>\n");
+    enable_function_flag_if_exists(S, "const", TAG_PROP_CONST, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "virtual", TAG_PROP_VIRTUAL, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "default", TAG_PROP_DEFAULT, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "delete", TAG_PROP_DELETED, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "static", TAG_PROP_STATIC, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "inline", TAG_PROP_INLINE, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "override", TAG_PROP_OVERRIDE, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "pure", TAG_PROP_PURE, m_tag_properties_flags);
+    enable_function_flag_if_exists(S, "scopedenum", TAG_PROP_SCOPEDENUM, m_tag_properties_flags);
 
-        else if(IsDestructor())
-            m_formattedComment << wxT("<b>[Destructor]</b>\n");
+    // change the kind to "enum class"
+    if(is_scoped_enum()) {
+        m_tag_kind = eTagKind::TAG_KIND_CENUM;
+    }
+}
 
-        TagEntryPtr p(new TagEntry(*this));
-        m_formattedComment << wxT("<code>")
-                           << TagsManagerST::Get()->FormatFunction(p, FunctionFormat_WithVirtual |
-                                                                          FunctionFormat_Arg_Per_Line)
-                           << wxT("</code>\n");
-        m_formattedComment.Replace(GetName(), wxT("<b>") + GetName() + wxT("</b>"));
-    } else if(IsClass()) {
+bool TagEntry::is_func_virtual() const { return m_tag_properties_flags & TAG_PROP_VIRTUAL; }
+bool TagEntry::is_func_default() const { return m_tag_properties_flags & TAG_PROP_DEFAULT; }
+bool TagEntry::is_func_override() const { return m_tag_properties_flags & TAG_PROP_OVERRIDE; }
+bool TagEntry::is_func_deleted() const { return m_tag_properties_flags & TAG_PROP_DELETED; }
+bool TagEntry::is_func_inline() const { return m_tag_properties_flags & TAG_PROP_INLINE; }
+bool TagEntry::is_func_pure() const { return m_tag_properties_flags & TAG_PROP_PURE; }
+bool TagEntry::is_scoped_enum() const { return m_tag_properties_flags & TAG_PROP_SCOPEDENUM; }
+bool TagEntry::is_const() const { return m_tag_properties_flags & TAG_PROP_CONST; }
+bool TagEntry::is_static() const { return m_tag_properties_flags & TAG_PROP_STATIC; }
+bool TagEntry::is_auto() const { return m_tag_properties_flags & TAG_PROP_AUTO_VARIABLE; }
+bool TagEntry::is_lambda() const { return m_tag_properties_flags & TAG_PROP_LAMBDA; }
 
-        m_formattedComment << wxT("<b>Kind:</b> ");
-        m_formattedComment << GetKind() << "\n";
+wxString TagEntry::GetFunctionDeclaration() const
+{
+    if(!IsMethod()) {
+        return wxEmptyString;
+    }
+    wxString decl;
+    if(is_func_inline()) {
+        decl << "inline ";
+    }
+    if(is_func_virtual()) {
+        decl << "virtual ";
+    }
+    decl << GetTypename() << " ";
+    if(!GetScope().empty()) {
+        decl << GetScope() << "::";
+    }
+    decl << GetName() << GetSignature();
+    if(is_const()) {
+        decl << " const";
+    }
+    if(is_func_pure()) {
+        decl << " = 0";
+    }
+    decl << ";";
+    return decl;
+}
 
-        if(GetInheritsAsString().IsEmpty() == false) {
-            m_formattedComment << wxT("<b>Inherits:</b> ");
-            m_formattedComment << GetInheritsAsString() << wxT("\n");
+wxString TagEntry::GetFunctionDefinition() const
+{
+    wxString impl;
+    if(!IsMethod()) {
+        return wxEmptyString;
+    }
+    impl << GetTypename() << " ";
+    if(!GetScope().empty()) {
+        impl << GetScope() << "::";
+    }
+
+    CompletionHelper helper;
+    impl << helper.normalize_function(this, CompletionHelper::STRIP_NO_DEFAULT_VALUES);
+    // release the pointer from the smart-ptr
+    // this ensure that `this` is not deleted
+    return impl;
+}
+
+namespace
+{
+std::unordered_map<wxString, eTagKind> g_kind_table = {
+    { "class", eTagKind::TAG_KIND_CLASS },         { "struct", eTagKind::TAG_KIND_STRUCT },
+    { "namespace", eTagKind::TAG_KIND_NAMESPACE }, { "union", eTagKind::TAG_KIND_UNION },
+    { "enum", eTagKind::TAG_KIND_ENUM },           { "member", eTagKind::TAG_KIND_MEMBER },
+    { "variable", eTagKind::TAG_KIND_VARIABLE },   { "macro", eTagKind::TAG_KIND_MACRO },
+    { "typedef", eTagKind::TAG_KIND_TYPEDEF },     { "local", eTagKind::TAG_KIND_LOCAL },
+    { "parameter", eTagKind::TAG_KIND_PARAMETER }, { "prototype", eTagKind::TAG_KIND_PROTOTYPE },
+    { "cpp_keyword", eTagKind::TAG_KIND_KEYWORD }, { "keyword", eTagKind::TAG_KIND_KEYWORD },
+    { "function", eTagKind::TAG_KIND_FUNCTION },   { "enumerator", eTagKind::TAG_KIND_ENUMERATOR },
+};
+}
+
+void TagEntry::SetKind(const wxString& kind)
+{
+    // set the string kind
+    m_kind = kind;
+    // turn on bits
+    m_tag_kind = eTagKind::TAG_KIND_UNKNOWN;
+    if(g_kind_table.count(m_kind)) {
+        m_tag_kind = g_kind_table[m_kind];
+    }
+}
+
+namespace
+{
+void read_until_find(CxxTokenizer& tokenizer, CxxLexerToken& token, int type_1, int type_2, int* what_was_found,
+                     wxString* consumed)
+{
+    // search until we find the `=`
+    int depth = 0;
+    consumed->clear();
+    *what_was_found = 0;
+    consumed->reserve(256); // 256 bytes should be enough for most cases
+
+    while(tokenizer.NextToken(token)) {
+        if(depth == 0 && token.GetType() == type_1) {
+            *what_was_found = type_1;
+            consumed->Trim().Trim(false);
+            return;
+        } else if(depth == 0 && token.GetType() == type_2) {
+            *what_was_found = type_2;
+            consumed->Trim().Trim(false);
+            return;
         }
 
-    } else if(IsMacro() || IsTypedef() || IsContainer() || GetKind() == wxT("member") || GetKind() == wxT("variable")) {
-
-        m_formattedComment << wxT("<b>Kind:</b> ");
-        m_formattedComment << GetKind() << "\n";
-
-        m_formattedComment << wxT("<b>Match Pattern:</b> ");
-
-        // Prettify the match pattern
-        wxString matchPattern(GetPattern());
-        matchPattern.Trim().Trim(false);
-
-        if(matchPattern.StartsWith(wxT("/^"))) {
-            matchPattern.Replace(wxT("/^"), wxT(""));
+        if(token.is_keyword() || token.is_builtin_type()) {
+            consumed->Append(token.GetWXString() + " ");
+            continue;
+        } else if(token.is_pp_keyword()) {
+            continue;
         }
 
-        if(matchPattern.EndsWith(wxT("$/"))) {
-            matchPattern.Replace(wxT("$/"), wxT(""));
-        }
-
-        matchPattern.Replace(wxT("\t"), wxT(" "));
-        while(matchPattern.Replace(wxT("  "), wxT(" "))) {
-        }
-
-        matchPattern.Trim().Trim(false);
-
-        // BUG#3082954: limit the size of the 'match pattern' to a reasonable size (200 chars)
-        matchPattern = TagsManagerST::Get()->WrapLines(matchPattern);
-        matchPattern.Replace(GetName(), wxT("<b>") + GetName() + wxT("</b>"));
-        m_formattedComment << wxT("<code>") << matchPattern << wxT("</code>\n");
-    }
-
-    // Add comment section
-    wxString tagComment;
-    if(!GetFile().IsEmpty()) {
-
-        CommentParseResult comments;
-        ::ParseComments(GetFile().mb_str(wxConvUTF8).data(), comments);
-
-        // search for comment in the current line, the line above it and 2 above it
-        // use the first match we got
-        for(size_t i = 0; i < 3; i++) {
-            wxString comment = comments.getCommentForLine(GetLine() - i);
-            if(!comment.IsEmpty()) {
-                SetComment(comment);
-                break;
-            }
+        // append it
+        consumed->Append(token.GetWXString());
+        switch(token.GetType()) {
+        case '<':
+        case '{':
+        case '[':
+        case '(':
+            depth++;
+            break;
+        case '>':
+        case '}':
+        case ']':
+        case ')':
+            depth--;
+            break;
+        default:
+            break;
         }
     }
 
-    if(!GetComment().IsEmpty()) {
-        wxString theComment;
-        theComment = GetComment();
+    // eof
+    consumed->Trim().Trim(false);
+}
+} // namespace
 
-        theComment = TagsManagerST::Get()->WrapLines(theComment);
-        theComment.Trim(false);
-        wxString tagComment = wxString::Format(wxT("%s\n"), theComment.c_str());
-        if(m_formattedComment.IsEmpty() == false) {
-            m_formattedComment.Trim().Trim(false);
-            m_formattedComment << wxT("\n<hr>");
-        }
-        m_formattedComment << tagComment;
+#define CHECK_FOUND(What, Expected) \
+    if(What != Expected)            \
+    return wxEmptyString
+
+wxString TagEntry::TypenameFromPattern(const TagEntry* tag)
+{
+    if(!tag->IsLocalVariable() && !tag->IsVariable()) {
+        return wxEmptyString;
+    }
+    CxxTokenizer tokenizer;
+    CxxLexerToken token;
+
+    tokenizer.Reset(tag->GetPatternClean());
+
+    // search until we find the `=`
+    int what_was_found = 0;
+    wxString consumed;
+    read_until_find(tokenizer, token, T_FOR, '=', &what_was_found, &consumed);
+    if(what_was_found == 0) {
+        return wxEmptyString;
     }
 
-    // Update all "doxy" comments and surround them with <green> tags
-    static wxRegEx reDoxyParam("([@\\\\]{1}param)[ \t]+([_a-z][a-z0-9_]*)?", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDoxyBrief("([@\\\\]{1}(brief|details))[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDoxyThrow("([@\\\\]{1}(throw|throws))[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDoxyReturn("([@\\\\]{1}(return|retval|returns))[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDoxyToDo("([@\\\\]{1}todo)[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDoxyRemark("([@\\\\]{1}(remarks|remark))[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reDate("([@\\\\]{1}date)[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
-    static wxRegEx reFN("([@\\\\]{1}fn)[ \t]*", wxRE_DEFAULT | wxRE_ICASE);
+    if(what_was_found == '=') {
+        // read until we reach eof or ';'
+        read_until_find(tokenizer, token, ';', 0, &what_was_found, &consumed);
+        return consumed;
+    } else {
+        // we are in a for loop
+        // search for the ':'
+        read_until_find(tokenizer, token, '(', 0, &what_was_found, &consumed);
+        CHECK_FOUND('(', what_was_found);
 
-    if(reDoxyParam.IsValid() && reDoxyParam.Matches(m_formattedComment)) {
-        reDoxyParam.ReplaceAll(&m_formattedComment, "\n<b>Parameter</b>\n<i>\\2</i>");
+        read_until_find(tokenizer, token, ':', 0, &what_was_found, &consumed);
+        CHECK_FOUND(':', what_was_found);
+
+        // we found the ':', now read until we find the ')'
+        read_until_find(tokenizer, token, ')', 0, &what_was_found, &consumed);
+        CHECK_FOUND(')', what_was_found);
+        // for(... : expression)
+        // we return expression.begin()
+        consumed += ".begin()";
+        return consumed;
     }
+    return wxEmptyString;
+}
 
-    if(reDoxyBrief.IsValid() && reDoxyBrief.Matches(m_formattedComment)) {
-        reDoxyBrief.ReplaceAll(&m_formattedComment, "");
+bool TagEntry::IsAuto(const TagEntry* tag)
+{
+    CxxTokenizer tokenizer;
+    CxxLexerToken token;
+
+    tokenizer.Reset(tag->GetTypename());
+    int found = 0;
+    wxString consumed;
+    read_until_find(tokenizer, token, T_AUTO, 0, &found, &consumed);
+    return found == T_AUTO;
+}
+
+wxString TagEntry::GetMacrodef() const { return GetExtField("macrodef"); }
+
+void TagEntry::SetMacrodef(const wxString& value) { set_extra_field("macrodef", value); }
+
+void TagEntry::set_extra_field(const wxString& name, const wxString& value)
+{
+    if(m_extFields.count(name)) {
+        m_extFields.erase(name);
     }
-
-    if(reDoxyThrow.IsValid() && reDoxyThrow.Matches(m_formattedComment)) {
-        reDoxyThrow.ReplaceAll(&m_formattedComment, "\n<b>Throws</b>\n");
-    }
-
-    if(reDoxyReturn.IsValid() && reDoxyReturn.Matches(m_formattedComment)) {
-        reDoxyReturn.ReplaceAll(&m_formattedComment, "\n<b>Returns</b>\n");
-    }
-
-    if(reDoxyToDo.IsValid() && reDoxyToDo.Matches(m_formattedComment)) {
-        reDoxyToDo.ReplaceAll(&m_formattedComment, "\n<b>TODO</b>\n");
-    }
-
-    if(reDoxyRemark.IsValid() && reDoxyRemark.Matches(m_formattedComment)) {
-        reDoxyRemark.ReplaceAll(&m_formattedComment, "\n  ");
-    }
-
-    if(reDate.IsValid() && reDate.Matches(m_formattedComment)) {
-        reDate.ReplaceAll(&m_formattedComment, "<b>Date</b> ");
-    }
-
-    if(reFN.IsValid() && reFN.Matches(m_formattedComment)) {
-        size_t fnStart, fnLen, fnEnd;
-        if(reFN.GetMatch(&fnStart, &fnLen)) {
-            fnEnd = m_formattedComment.find('\n', fnStart);
-            if(fnEnd != wxString::npos) {
-                // remove the string from fnStart -> fnEnd (including ther terminating \n)
-                m_formattedComment.Remove(fnStart, (fnEnd - fnStart) + 1);
-            }
-        }
-    }
-
-    // if nothing to display skip this
-    m_formattedComment.Trim().Trim(false);
-    return m_formattedComment;
+    m_extFields.insert({ name, value });
 }

@@ -26,15 +26,16 @@
 #ifndef WXCUSTOMSTATUSBAR_H
 #define WXCUSTOMSTATUSBAR_H
 
-#include <wx/statusbr.h>
+#include "clSystemSettings.h"
+#include "cl_command_event.h"
+#include "codelite_exports.h"
+#include "wxPNGAnimation.h"
+
+#include <wx/bitmap.h>
 #include <wx/colour.h>
 #include <wx/sharedptr.h>
-#include <wx/bitmap.h>
-#include "codelite_exports.h"
-#include "cl_command_event.h"
-#include "wxPNGAnimation.h"
+#include <wx/statusbr.h>
 #include <wx/timer.h>
-#include "clSystemSettings.h"
 
 class wxCustomStatusBar;
 class WXDLLIMPEXP_SDK wxCustomStatusBarArt : public wxEvtHandler
@@ -52,10 +53,10 @@ public:
     virtual void DrawText(wxDC& dc, wxCoord x, wxCoord y, const wxString& text);
     virtual void DrawFieldSeparator(wxDC& dc, const wxRect& fieldRect);
 
-    virtual wxColour GetBgColour() const { return clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE); }
-    virtual wxColour GetPenColour() const { return clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW); }
-    virtual wxColour GetTextColour() const { return clSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT); }
-    virtual wxColour GetSeparatorColour() const { return clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW); }
+    virtual wxColour GetBgColour() const;
+    virtual wxColour GetPenColour() const;
+    virtual wxColour GetTextColour() const;
+    virtual wxColour GetSeparatorColour() const;
     void SetName(const wxString& name) { this->m_name = name; }
     const wxString& GetName() const { return m_name; }
 };
@@ -65,10 +66,17 @@ public:
 //================---------------
 class WXDLLIMPEXP_SDK wxCustomStatusBarField : public wxEvtHandler
 {
+public:
+    enum Flags {
+        AUTO_WIDTH = (1 << 0),
+    };
+
 protected:
     wxRect m_rect;
     wxString m_tooltip;
     wxCustomStatusBar* m_parent;
+    size_t m_flags = 0;
+    size_t m_autoWidth = 0;
 
 public:
     typedef wxSharedPtr<wxCustomStatusBarField> Ptr_t;
@@ -79,6 +87,12 @@ public:
     {
     }
     virtual ~wxCustomStatusBarField() {}
+
+    bool IsAutoWidth() const { return m_flags & AUTO_WIDTH; }
+    void SetAutoWidth(bool b) { m_flags |= AUTO_WIDTH; }
+
+    void SetAutoWidth(size_t w) { m_autoWidth = w; }
+    size_t GetAutoWidth() const { return m_autoWidth; }
 
     /**
      * @brief render the field content
@@ -137,12 +151,33 @@ public:
 };
 
 //================---------------
+// Spacer field
+//================---------------
+class WXDLLIMPEXP_SDK wxCustomStatusBarSpacerField : public wxCustomStatusBarField
+{
+    wxString m_text;
+    size_t m_width;
+
+public:
+    wxCustomStatusBarSpacerField(wxCustomStatusBar* parent, size_t width)
+        : wxCustomStatusBarField(parent)
+        , m_width(width)
+    {
+    }
+    virtual ~wxCustomStatusBarSpacerField() {}
+    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+    void SetWidth(size_t width) { this->m_width = width; }
+    size_t GetWidth() const { return m_width; }
+};
+
+//================---------------
 // Bitmap field
 //================---------------
 class WXDLLIMPEXP_SDK wxCustomStatusBarBitmapField : public wxCustomStatusBarField
 {
     size_t m_width;
     wxBitmap m_bitmap;
+    wxString m_label;
 
 public:
     wxCustomStatusBarBitmapField(wxCustomStatusBar* parent, size_t width)
@@ -156,6 +191,8 @@ public:
     size_t GetWidth() const { return m_width; }
     void SetBitmap(const wxBitmap& bitmap) { this->m_bitmap = bitmap; }
     const wxBitmap& GetBitmap() const { return m_bitmap; }
+    void SetLabel(const wxString& label) { this->m_label = label; }
+    const wxString& GetLabel() const { return m_label; }
 };
 
 //================---------------
@@ -173,8 +210,8 @@ public:
     /**
      * @brief construct animation field.
      */
-    wxCustomStatusBarAnimationField(
-        wxCustomStatusBar* parent, const wxBitmap& sprite, wxOrientation spriteOrientation, const wxSize& animSize);
+    wxCustomStatusBarAnimationField(wxCustomStatusBar* parent, const wxBitmap& sprite, wxOrientation spriteOrientation,
+                                    const wxSize& animSize);
 
     virtual ~wxCustomStatusBarAnimationField();
     virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
@@ -203,16 +240,58 @@ public:
 };
 
 //================---------------
+// Custom control
+//================---------------
+class WXDLLIMPEXP_SDK wxCustomStatusBarControlField : public wxCustomStatusBarField
+{
+    wxControl* m_control = nullptr;
+
+public:
+    /**
+     * @brief construct animation field.
+     */
+    wxCustomStatusBarControlField(wxCustomStatusBar* parent, wxControl* control);
+
+    virtual ~wxCustomStatusBarControlField();
+    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+
+    void SetSize(const wxSize& size)
+    {
+        CHECK_PTR_RET(m_control);
+        m_control->SetSizeHints(size);
+        m_control->SetSize(size);
+    }
+
+    size_t GetWidth() const
+    {
+        if(m_control) {
+            return m_control->GetSize().GetWidth();
+        } else {
+            return 0;
+        }
+    }
+
+    /**
+     * @brief set the tooltip for the control
+     */
+    virtual void SetTooltip(const wxString& tooltip)
+    {
+        CHECK_PTR_RET(m_control);
+        m_control->SetToolTip(tooltip);
+    }
+};
+
+//================---------------
 // Custom status bar
 //================---------------
 class WXDLLIMPEXP_SDK wxCustomStatusBar : public wxStatusBar
 {
     wxCustomStatusBarArt::Ptr_t m_art;
     wxCustomStatusBarField::Vect_t m_fields;
-    wxString m_text;
+    std::vector<std::pair<wxString, time_t>> m_text; // stack of messages:ttl to display
     wxString m_lastArtNameUsedForPaint;
     wxCustomStatusBarField::Ptr_t m_mainText;
-    wxTimer* m_timer;
+    wxTimer* m_timer = nullptr;
 
 protected:
     size_t DoGetFieldsWidth();
@@ -224,6 +303,7 @@ protected:
     void OnMouseMotion(wxMouseEvent& event);
     void OnTimer(wxTimerEvent& event);
     wxRect DoGetMainFieldRect();
+    void UpdateMainTextField();
 
 public:
     /**
@@ -237,6 +317,37 @@ public:
     }
     const wxString& GetLastArtNameUsedForPaint() const { return m_lastArtNameUsedForPaint; }
 
+    /// Add field to the status bar, returns its index
+    size_t AddField(wxCustomStatusBarField::Ptr_t field)
+    {
+        size_t idx = m_fields.size();
+        m_fields.push_back(field);
+        return idx;
+    }
+
+    /// Add field to the status bar, returns its index
+    size_t AddSpacer(size_t width)
+    {
+        size_t idx = m_fields.size();
+        m_fields.push_back(wxCustomStatusBarField::Ptr_t(new wxCustomStatusBarSpacerField(this, width)));
+        return idx;
+    }
+
+    /// Insert field at given position
+    size_t InsertField(size_t index, wxCustomStatusBarField::Ptr_t field)
+    {
+        if(index >= m_fields.size()) {
+            return AddField(field);
+        }
+        m_fields.insert(m_fields.begin() + index, field);
+        return index;
+    }
+
+    /// Call this method after done adding fields
+    /// The status bar uses this method to calculate the
+    /// width of dynamic width fields
+    void Finalize();
+
 public:
     wxCustomStatusBar(wxWindow* parent, wxWindowID id = wxID_ANY, long style = 0);
     virtual ~wxCustomStatusBar();
@@ -245,22 +356,21 @@ public:
 
     wxCustomStatusBarArt::Ptr_t GetArt() { return m_art; }
 
-    void AddField(wxCustomStatusBarField::Ptr_t field) { m_fields.push_back(field); }
-
     /**
      * @brief set text in the main status bar text area
      */
     void SetText(const wxString& message, int secondsToLive = wxNOT_FOUND);
-    
+
     /**
      * @brief return the main status bar area text message
      */
-    const wxString& GetText() const { return m_text; }
-    
+    const wxString& GetText() const;
+
     /**
      * @brief clear the main text
      */
     void ClearText();
+
     /**
      * @brief return pointer to the field at given index
      * if index is out of bounds, return NULL

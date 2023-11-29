@@ -89,11 +89,11 @@
 				}, {
 					"type":	"string",
 					"m_label":	"Inherited Class",
-					"m_value":	"QuickFindBar"
+					"m_value":	"clPluginsFindBar"
 				}, {
 					"type":	"string",
 					"m_label":	"File:",
-					"m_value":	"quickfindbar"
+					"m_value":	"clPluginsFindBar"
 				}, {
 					"type":	"string",
 					"m_label":	"Class Decorator",
@@ -120,6 +120,10 @@
 							"type":	"string",
 							"m_label":	"Style:",
 							"m_value":	""
+						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
 						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
@@ -203,6 +207,10 @@
 									"m_label":	"Style:",
 									"m_value":	""
 								}, {
+									"type":	"bool",
+									"m_label":	"Keep as a class member",
+									"m_value":	false
+								}, {
 									"type":	"string",
 									"m_label":	"# Columns:",
 									"m_value":	"4"
@@ -234,7 +242,7 @@
 									"border":	2,
 									"gbSpan":	"1,1",
 									"gbPosition":	"0,0",
-									"m_styles":	["wxTE_RICH", "wxTE_PROCESS_ENTER"],
+									"m_styles":	["wxTE_PROCESS_ENTER"],
 									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND", "wxALIGN_CENTER_VERTICAL"],
 									"m_properties":	[{
 											"type":	"winid",
@@ -283,11 +291,11 @@
 										}, {
 											"type":	"string",
 											"m_label":	"Class Name:",
-											"m_value":	""
+											"m_value":	"clThemedTextCtrl"
 										}, {
 											"type":	"string",
 											"m_label":	"Include File:",
-											"m_value":	""
+											"m_value":	"clThemedTextCtrl.hpp"
 										}, {
 											"type":	"string",
 											"m_label":	"Style:",
@@ -306,6 +314,10 @@
 											"m_value":	"0"
 										}, {
 											"type":	"bool",
+											"m_label":	"Enable Spell Checking",
+											"m_value":	false
+										}, {
+											"type":	"bool",
 											"m_label":	"Auto Complete Directories:",
 											"m_value":	false
 										}, {
@@ -316,21 +328,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_TEXT_ENTER",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnEnter(wxCommandEvent& event)",
 											"m_description":	"Respond to a wxEVT_COMMAND_TEXT_ENTER event, generated when enter is pressed in a text control\n(which must have wxTE_PROCESS_ENTER style for this event to be generated).",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_COMMAND_TEXT_UPDATED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnText(wxCommandEvent& event)",
 											"m_description":	"Respond to a wxEVT_COMMAND_TEXT_UPDATED event, generated when the text changes.\nNotice that this event will be sent when the text controls contents changes\n - whether this is due to user input or comes from the program itself\n(for example, if SetValue() is called); see ChangeValue() for a function which does not send this event.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -425,21 +434,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnFind(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnFindUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnButtonKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -534,21 +540,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnFindPrev(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnFindPrevUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnButtonKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -643,21 +646,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnFindAll(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnFindAllUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnButtonKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -669,7 +669,7 @@
 									"border":	2,
 									"gbSpan":	"1,1",
 									"gbPosition":	"0,0",
-									"m_styles":	["wxTE_RICH", "wxTE_PROCESS_ENTER"],
+									"m_styles":	["wxTE_PROCESS_ENTER"],
 									"m_sizerFlags":	["wxALL", "wxLEFT", "wxRIGHT", "wxTOP", "wxBOTTOM", "wxEXPAND", "wxALIGN_CENTER_VERTICAL"],
 									"m_properties":	[{
 											"type":	"winid",
@@ -741,6 +741,10 @@
 											"m_value":	"0"
 										}, {
 											"type":	"bool",
+											"m_label":	"Enable Spell Checking",
+											"m_value":	false
+										}, {
+											"type":	"bool",
 											"m_label":	"Auto Complete Directories:",
 											"m_value":	false
 										}, {
@@ -751,21 +755,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_TEXT_UPDATED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceTextUpdated(wxCommandEvent& event)",
 											"m_description":	"Respond to a wxEVT_COMMAND_TEXT_UPDATED event, generated when the text changes.\nNotice that this event will be sent when the text controls contents changes\n - whether this is due to user input or comes from the program itself\n(for example, if SetValue() is called); see ChangeValue() for a function which does not send this event.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_COMMAND_TEXT_ENTER",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceTextEnter(wxCommandEvent& event)",
 											"m_description":	"Respond to a wxEVT_COMMAND_TEXT_ENTER event, generated when enter is pressed in a text control\n(which must have wxTE_PROCESS_ENTER style for this event to be generated).",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -860,21 +861,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnReplace(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnButtonKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -969,21 +967,18 @@
 									"m_events":	[{
 											"m_eventName":	"wxEVT_COMMAND_BUTTON_CLICKED",
 											"m_eventClass":	"wxCommandEvent",
-											"m_eventHandler":	"wxCommandEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceAll(wxCommandEvent& event)",
 											"m_description":	"Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked.",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_UPDATE_UI",
 											"m_eventClass":	"wxUpdateUIEvent",
-											"m_eventHandler":	"wxUpdateUIEventHandler",
 											"m_functionNameAndSignature":	"OnReplaceAllUI(wxUpdateUIEvent& event)",
 											"m_description":	"Process a wxEVT_UPDATE_UI event",
 											"m_noBody":	false
 										}, {
 											"m_eventName":	"wxEVT_KEY_DOWN",
 											"m_eventClass":	"wxKeyEvent",
-											"m_eventHandler":	"wxKeyEventHandler",
 											"m_functionNameAndSignature":	"OnButtonKeyDown(wxKeyEvent& event)",
 											"m_description":	"Process a wxEVT_KEY_DOWN event (any key has been pressed)",
 											"m_noBody":	false
@@ -1100,6 +1095,10 @@
 							"m_label":	"Style:",
 							"m_value":	""
 						}, {
+							"type":	"bool",
+							"m_label":	"Keep as a class member",
+							"m_value":	false
+						}, {
 							"type":	"choice",
 							"m_label":	"Orientation:",
 							"m_selection":	0,
@@ -1192,6 +1191,10 @@
 											"type":	"string",
 											"m_label":	"Style:",
 											"m_value":	""
+										}, {
+											"type":	"bool",
+											"m_label":	"Keep as a class member",
+											"m_value":	false
 										}, {
 											"type":	"string",
 											"m_label":	"# Columns:",
@@ -1361,7 +1364,6 @@
 											"m_events":	[{
 													"m_eventName":	"wxEVT_COMMAND_CHECKBOX_CLICKED",
 													"m_eventClass":	"wxCommandEvent",
-													"m_eventHandler":	"wxCommandEventHandler",
 													"m_functionNameAndSignature":	"OnCheckBoxRegex(wxCommandEvent& event)",
 													"m_description":	"Process a wxEVT_COMMAND_CHECKBOX_CLICKED event, when the checkbox is clicked.",
 													"m_noBody":	false
@@ -1518,7 +1520,6 @@
 											"m_events":	[{
 													"m_eventName":	"wxEVT_COMMAND_CHECKBOX_CLICKED",
 													"m_eventClass":	"wxCommandEvent",
-													"m_eventHandler":	"wxCommandEventHandler",
 													"m_functionNameAndSignature":	"OnCheckWild(wxCommandEvent& event)",
 													"m_description":	"Process a wxEVT_COMMAND_CHECKBOX_CLICKED event, when the checkbox is clicked.",
 													"m_noBody":	false

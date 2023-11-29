@@ -1,6 +1,6 @@
 #include "LSP/DidSaveTextDocumentRequest.h"
 
-LSP::DidSaveTextDocumentRequest::DidSaveTextDocumentRequest(const wxFileName& filename, const wxString& fileContent)
+LSP::DidSaveTextDocumentRequest::DidSaveTextDocumentRequest(const wxString& filename, const wxString& fileContent)
 {
     SetMethod("textDocument/didSave");
     m_params.reset(new DidSaveTextDocumentParams());

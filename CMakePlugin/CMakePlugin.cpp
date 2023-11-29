@@ -49,8 +49,11 @@
 /* ************************************************************************ */
 
 // Declaration
-#include "CMakeBuilder.h"
 #include "CMakePlugin.h"
+
+#include "CMakeBuilder.h"
+#include "ICompilerLocator.h"
+#include "StdToWX.h"
 #include "asyncprocess.h"
 #include "processreaderthread.h"
 
@@ -90,6 +93,8 @@
 #include "CMakeSettingsDialog.h"
 #include "CMakeSettingsManager.h"
 
+#include <wx/textdlg.h>
+
 /* ************************************************************************ */
 /* VARIABLES                                                                */
 /* ************************************************************************ */
@@ -102,7 +107,7 @@ const wxString CMakePlugin::CMAKELISTS_FILE = "CMakeLists.txt";
 
 /* ************************************************************************ */
 
-static const wxString HELP_TAB_NAME = _("CMake Help");
+static const wxString HELP_TAB_NAME = _("CMake");
 
 /* ************************************************************************ */
 /* FUNCTIONS                                                                */
@@ -117,7 +122,9 @@ static const wxString HELP_TAB_NAME = _("CMake Help");
  */
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(!g_plugin) { g_plugin = new CMakePlugin(manager); }
+    if(!g_plugin) {
+        g_plugin = new CMakePlugin(manager);
+    }
 
     return g_plugin;
 }
@@ -169,25 +176,16 @@ CMakePlugin::CMakePlugin(IManager* manager)
     // Create cmake application
     m_cmake.reset(new CMake(m_configuration->GetProgramPath()));
 
-    Notebook* book = m_mgr->GetWorkspacePaneNotebook();
-    cmakeImages images;
-    const wxBitmap& bmp = images.Bitmap("cmake_16");
-
-    if(IsPaneDetached()) {
-        DockablePane* cp =
-            new DockablePane(book->GetParent()->GetParent(), book, HELP_TAB_NAME, false, bmp, wxSize(200, 200));
-        m_helpTab = new CMakeHelpTab(cp, this);
-        cp->SetChildNoReparent(m_helpTab);
-    } else {
-        m_helpTab = new CMakeHelpTab(book, this);
-        book->AddPage(m_helpTab, HELP_TAB_NAME, false, bmp);
-        m_mgr->AddWorkspaceTab(HELP_TAB_NAME);
-    }
+    m_helpTab = new CMakeHelpTab(clGetManager()->BookGet(PaneId::SIDE_BAR), this);
+    clGetManager()->BookAddPage(PaneId::SIDE_BAR, m_helpTab, HELP_TAB_NAME,
+                                clLoadSidebarBitmap("cmake-button", clGetManager()->BookGet(PaneId::SIDE_BAR)));
+    m_mgr->AddWorkspaceTab(HELP_TAB_NAME);
 
     // Bind events
     EventNotifier::Get()->Bind(wxEVT_SHOW_WORKSPACE_TAB, &CMakePlugin::OnToggleHelpTab, this);
     EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_PROJECT, &CMakePlugin::OnProjectContextMenu, this);
     EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_WORKSPACE, &CMakePlugin::OnWorkspaceContextMenu, this);
+    EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_FOLDER, &CMakePlugin::OnFolderContextMenu, this);
     EventNotifier::Get()->Bind(wxEVT_PROJ_FILE_ADDED, &CMakePlugin::OnFileAdded, this);
     EventNotifier::Get()->Bind(wxEVT_PROJ_FILE_REMOVED, &CMakePlugin::OnFileRemoved, this);
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &CMakePlugin::OnCMakeOutput, this);
@@ -231,7 +229,8 @@ wxString CMakePlugin::GetSelectedProjectConfig() const
 {
     BuildConfigPtr configPtr = GetSelectedBuildConfig();
 
-    if(configPtr) return configPtr->GetName();
+    if(configPtr)
+        return configPtr->GetName();
 
     return wxEmptyString;
 }
@@ -269,21 +268,7 @@ wxArrayString CMakePlugin::GetSupportedGenerators() const
 
 /* ************************************************************************ */
 
-bool CMakePlugin::IsPaneDetached() const
-{
-    wxASSERT(m_mgr);
-    IConfigTool* configTool = m_mgr->GetConfigTool();
-    wxASSERT(configTool);
-
-    DetachedPanesInfo dpi;
-    configTool->ReadObject("DetachedPanesList", &dpi);
-    const wxArrayString& detachedPanes = dpi.GetPanes();
-    return detachedPanes.Index(HELP_TAB_NAME) != wxNOT_FOUND;
-}
-
-/* ************************************************************************ */
-
-void CMakePlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void CMakePlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 /* ************************************************************************ */
 
@@ -301,15 +286,16 @@ void CMakePlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 
 void CMakePlugin::UnPlug()
 {
-    wxASSERT(m_mgr);
-    Notebook* notebook = m_mgr->GetWorkspacePaneNotebook();
-    wxASSERT(notebook);
-
-    int pos = notebook->GetPageIndex("CMake Help");
-    if(pos != wxNOT_FOUND) {
-        CMakeHelpTab* helpTab = dynamic_cast<CMakeHelpTab*>(notebook->GetPage(pos));
-        if(helpTab) { helpTab->Stop(); }
-        notebook->RemovePage(pos);
+    auto page = clGetManager()->BookGetPage(PaneId::SIDE_BAR, HELP_TAB_NAME);
+    if(page) {
+        CMakeHelpTab* helpTab = dynamic_cast<CMakeHelpTab*>(page);
+        if(helpTab) {
+            helpTab->Stop();
+        }
+        if(!clGetManager()->BookDeletePage(PaneId::SIDE_BAR, page)) {
+            // failed to delete, delete it manually
+            page->Destroy();
+        }
     }
 
     // Unbind events
@@ -320,6 +306,8 @@ void CMakePlugin::UnPlug()
     EventNotifier::Get()->Unbind(wxEVT_CONTEXT_MENU_WORKSPACE, &CMakePlugin::OnWorkspaceContextMenu, this);
     EventNotifier::Get()->Unbind(wxEVT_PROJ_FILE_ADDED, &CMakePlugin::OnFileAdded, this);
     EventNotifier::Get()->Unbind(wxEVT_PROJ_FILE_REMOVED, &CMakePlugin::OnFileRemoved, this);
+    EventNotifier::Get()->Unbind(wxEVT_CONTEXT_MENU_FOLDER, &CMakePlugin::OnFolderContextMenu, this);
+
     Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &CMakePlugin::OnCMakeOutput, this);
     Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &CMakePlugin::OnCMakeTerminated, this);
 }
@@ -363,23 +351,7 @@ void CMakePlugin::OnSettings(wxCommandEvent& event)
     }
 }
 
-void CMakePlugin::OnToggleHelpTab(clCommandEvent& event)
-{
-    if(event.GetString() != HELP_TAB_NAME) {
-        event.Skip();
-        return;
-    }
-
-    if(event.IsSelected()) {
-        // show it
-        cmakeImages images;
-        const wxBitmap& bmp = images.Bitmap("cmake_16");
-        m_mgr->GetWorkspacePaneNotebook()->AddPage(m_helpTab, HELP_TAB_NAME, true, bmp);
-    } else {
-        int where = m_mgr->GetWorkspacePaneNotebook()->GetPageIndex(HELP_TAB_NAME);
-        if(where != wxNOT_FOUND) { m_mgr->GetWorkspacePaneNotebook()->RemovePage(where); }
-    }
-}
+void CMakePlugin::OnToggleHelpTab(clCommandEvent& event) { wxUnusedVar(event); }
 
 void CMakePlugin::OnProjectContextMenu(clContextMenuEvent& event)
 {
@@ -406,8 +378,12 @@ void CMakePlugin::OnProjectContextMenu(clContextMenuEvent& event)
     size_t curpos = 0;
     wxMenuItemList::const_iterator iter = items.begin();
     for(; iter != items.end(); ++iter) {
-        if((*iter)->GetId() == XRCID("build_project")) { buildPos = curpos; }
-        if((*iter)->GetId() == XRCID("project_properties")) { settingsPos = curpos; }
+        if((*iter)->GetId() == XRCID("build_project")) {
+            buildPos = curpos;
+        }
+        if((*iter)->GetId() == XRCID("project_properties")) {
+            settingsPos = curpos;
+        }
         ++curpos;
     }
 
@@ -463,7 +439,9 @@ void CMakePlugin::OnOpenCMakeLists(wxCommandEvent& event)
     }
 
     cmakelists.SetFullName(CMAKELISTS_FILE);
-    if(cmakelists.FileExists()) { m_mgr->OpenFile(cmakelists.GetFullPath()); }
+    if(cmakelists.FileExists()) {
+        m_mgr->OpenFile(cmakelists.GetFullPath());
+    }
 }
 
 void CMakePlugin::OnExportCMakeLists(wxCommandEvent& event)
@@ -475,7 +453,28 @@ void CMakePlugin::OnExportCMakeLists(wxCommandEvent& event)
     CHECK_PTR_RET(proj);
 
     CMakeGenerator generator;
-    if(generator.Generate(proj)) { EventNotifier::Get()->PostReloadExternallyModifiedEvent(); }
+    if(generator.Generate(proj)) {
+        EventNotifier::Get()->PostReloadExternallyModifiedEvent();
+    }
+}
+
+void CMakePlugin::OnFolderContextMenu(clContextMenuEvent& event)
+{
+    event.Skip();
+    // Add context menu with following items:
+    // - Create Executable CMakeLists.txt file
+    // - Create Library (static) CMakeLists.txt file
+    // - Create Library (shared) CMakeLists.txt file
+    wxMenu* menu = event.GetMenu();
+    wxMenu* cmake_menu = new wxMenu;
+    cmake_menu->Append(XRCID("cmake_new_cmake_exe"), "Executable", wxEmptyString);
+    cmake_menu->Append(XRCID("cmake_new_cmake_dll"), "Shared object", wxEmptyString);
+    cmake_menu->Append(XRCID("cmake_new_cmake_lib"), "Static library", wxEmptyString);
+    menu->AppendSeparator();
+    menu->AppendSubMenu(cmake_menu, "Generate CMakeLists.txt for...");
+    cmake_menu->Bind(wxEVT_MENU, &CMakePlugin::OnCreateCMakeListsExe, this, XRCID("cmake_new_cmake_exe"));
+    cmake_menu->Bind(wxEVT_MENU, &CMakePlugin::OnCreateCMakeListsDll, this, XRCID("cmake_new_cmake_dll"));
+    cmake_menu->Bind(wxEVT_MENU, &CMakePlugin::OnCreateCMakeListsLib, this, XRCID("cmake_new_cmake_lib"));
 }
 
 void CMakePlugin::OnWorkspaceContextMenu(clContextMenuEvent& event)
@@ -551,7 +550,9 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
 #endif
 
     CMakeGenerator generator;
-    if(generator.CanGenerate(p)) { generator.Generate(p); }
+    if(generator.CanGenerate(p)) {
+        generator.Generate(p);
+    }
 
     wxString args = buildConf->GetBuildSystemArguments();
 
@@ -576,15 +577,23 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
     ::WrapWithQuotes(projectFolder);
 
     command << cmakeExe << " " << projectFolder << " " << args;
+
 #ifdef __WXMSW__
     if(!hasGeneratorInArgs) {
+        bool is_msys =
+            buildConf->GetCompiler() && buildConf->GetCompiler()->GetCompilerFamily() == COMPILER_FAMILY_MSYS2;
         // On Windows, generate MinGW makefiles
-        command << " -G\"MinGW Makefiles\"";
+        if(is_msys) {
+            command << " -G\"MSYS Makefiles\"";
+        } else {
+            command << " -G\"MinGW Makefiles\"";
+        }
     }
 #endif
 
     // Execute it
-    IProcess* proc = ::CreateAsyncProcess(this, command, IProcessCreateDefault, fnWorkingDirectory.GetPath());
+    IProcess* proc =
+        ::CreateAsyncProcess(this, command, IProcessCreateDefault | IProcessWrapInShell, fnWorkingDirectory.GetPath());
     if(!proc) {
         ::wxMessageBox(_("Failed to execute:\n") + command, "CodeLite", wxICON_ERROR | wxOK | wxCENTER,
                        EventNotifier::Get()->TopFrame());
@@ -596,3 +605,111 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
 }
 
 /* ************************************************************************ */
+
+bool CMakePlugin::IsCMakeListsExists() const
+{
+    wxFileName cmakelists_txt{ ::wxGetCwd(), "CMakeLists.txt" };
+    if(cmakelists_txt.FileExists()) {
+        ::wxMessageBox(_("This folder already contains a CMakeLists.txt file"), "CodeLite",
+                       wxICON_WARNING | wxOK | wxCENTER);
+        return true;
+    }
+    return false;
+}
+
+wxString CMakePlugin::WriteCMakeListsAndOpenIt(const std::vector<wxString>& lines) const
+{
+    wxFileName cmakelists_txt{ ::wxGetCwd(), "CMakeLists.txt" };
+    wxArrayString wx_lines;
+    StdToWX::ToArrayString(lines, &wx_lines);
+    FileUtils::WriteFileContent(cmakelists_txt, wxJoin(wx_lines, '\n'));
+    clGetManager()->OpenFile(cmakelists_txt.GetFullPath());
+    return cmakelists_txt.GetFullPath();
+}
+
+clResultString CMakePlugin::CreateCMakeListsFile(CMakePlugin::TargetType type) const
+{
+    // Check for an already existing CMakeLists.txt in this folder
+    if(IsCMakeListsExists()) {
+        return clResultString::make_error(wxEmptyString);
+    }
+
+    wxString name;
+    wxString target_line;
+    switch(type) {
+    case TargetType::EXECUTABLE:
+        name = ::wxGetTextFromUser(_("Executable name:"), "Executable name");
+        target_line = wxString::Format("add_executable(%s ${CXX_SRCS} ${C_SRCS})", name);
+        break;
+    case TargetType::SHARED_LIB:
+        name = ::wxGetTextFromUser(_("Library name:"), "Library name");
+        target_line = wxString::Format("add_library(%s SHARED ${CXX_SRCS} ${C_SRCS})", name);
+        break;
+    case TargetType::STATIC_LIB:
+        name = ::wxGetTextFromUser(_("Library name:"), "Library name");
+        target_line = wxString::Format("add_library(%s STATIC ${CXX_SRCS} ${C_SRCS})", name);
+        break;
+    }
+
+    if(name.empty()) {
+        return clResultString::make_error(std::move(wxString("User cancelled")));
+    }
+
+    wxString cmakelists_txt = WriteCMakeListsAndOpenIt({
+        "cmake_minimum_required(VERSION 3.16)",
+        wxString::Format("project(%s)", name),
+        wxEmptyString,
+        wxEmptyString,
+        "set(CMAKE_EXPORT_COMPILE_COMMANDS 1)",
+        "set(CMAKE_CXX_STANDARD 17)",
+        "set(CMAKE_CXX_STANDARD_REQUIRED ON)",
+        wxEmptyString,
+        "file(GLOB CXX_SRCS \"*.cpp\")",
+        "file(GLOB C_SRCS \"*.c\")",
+        wxEmptyString,
+        target_line,
+        "if(NOT ${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_SOURCE_DIR})",
+        "    add_custom_command(",
+        wxString::Format("        TARGET %s", name),
+        "        POST_BUILD",
+        "        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/compile_commands.json",
+        "                ${CMAKE_SOURCE_DIR}/compile_commands.json)",
+        "endif()",
+        wxEmptyString,
+    });
+    return cmakelists_txt;
+}
+
+void CMakePlugin::OnCreateCMakeListsExe(wxCommandEvent& event)
+{
+    wxUnusedVar(event);
+    auto res = CreateCMakeListsFile(CMakePlugin::TargetType::EXECUTABLE);
+    CHECK_COND_RET(res);
+    FireCMakeListsFileCreatedEvent(res.success());
+}
+
+void CMakePlugin::OnCreateCMakeListsDll(wxCommandEvent& event)
+{
+    wxUnusedVar(event);
+    auto res = CreateCMakeListsFile(CMakePlugin::TargetType::SHARED_LIB);
+    CHECK_COND_RET(res);
+    FireCMakeListsFileCreatedEvent(res.success());
+}
+
+void CMakePlugin::OnCreateCMakeListsLib(wxCommandEvent& event)
+{
+    wxUnusedVar(event);
+    auto res = CreateCMakeListsFile(CMakePlugin::TargetType::STATIC_LIB);
+    CHECK_COND_RET(res);
+    FireCMakeListsFileCreatedEvent(res.success());
+}
+
+void CMakePlugin::FireCMakeListsFileCreatedEvent(const wxString& cmakelists_txt) const
+{
+    // fire an event
+    clFileSystemEvent fsEvent(wxEVT_FILE_CREATED);
+    fsEvent.SetPath(cmakelists_txt);
+    fsEvent.SetFileName(cmakelists_txt);
+    fsEvent.GetPaths().Add(cmakelists_txt);
+    EventNotifier::Get()->AddPendingEvent(fsEvent);
+}

@@ -22,18 +22,26 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "cl_command_event.h"
 #include "dbgcmd.h"
+
+#include "clFileName.hpp"
+#include "cl_command_event.h"
+#include "codelite_events.h"
 #include "debuggergdb.h"
 #include "debuggermanager.h"
 #include "event_notifier.h"
 #include "gdb_parser_incl.h"
 #include "gdb_result_parser.h"
+#include "gdbmi.hpp"
 #include "gdbmi_parse_thread_info.h"
 #include "precompiled_header.h"
 #include "procutils.h"
+#include "wx/buffer.h"
 #include "wx/tokenzr.h"
+
 #include <algorithm>
+#include <sstream>
+#include <unordered_map>
 #include <wx/regex.h>
 
 static bool IS_WINDOWNS = (wxGetOsVersion() & wxOS_WINDOWS);
@@ -44,33 +52,44 @@ static bool IS_WINDOWNS = (wxGetOsVersion() & wxOS_WINDOWS);
         currentToken = gdb_result_string; \
     }
 
-#define GDB_BREAK(ch) \
-    if(type != (int)ch) { break; }
-
-static void wxGDB_STRIP_QUOATES(wxString& currentToken)
+namespace
+{
+void wxGDB_STRIP_QUOATES(wxString& currentToken)
 {
     size_t where = currentToken.find(wxT("\""));
-    if(where != std::string::npos && where == 0) { currentToken.erase(0, 1); }
+    if(where != std::string::npos && where == 0) {
+        currentToken.erase(0, 1);
+    }
 
     where = currentToken.rfind(wxT("\""));
-    if(where != std::string::npos && where == currentToken.length() - 1) { currentToken.erase(where); }
+    if(where != std::string::npos && where == currentToken.length() - 1) {
+        currentToken.erase(where);
+    }
 
     where = currentToken.find(wxT("\"\\\\"));
-    if(where != std::string::npos && where == 0) { currentToken.erase(0, 3); }
+    if(where != std::string::npos && where == 0) {
+        currentToken.erase(0, 3);
+    }
 
     where = currentToken.rfind(wxT("\"\\\\"));
-    if(where != std::string::npos && where == currentToken.length() - 3) { currentToken.erase(where); }
+    if(where != std::string::npos && where == currentToken.length() - 3) {
+        currentToken.erase(where);
+    }
 }
 
-static void wxRemoveQuotes(wxString& str)
+void wxRemoveQuotes(wxString& str)
 {
-    if(str.IsEmpty()) { return; }
+    if(str.IsEmpty()) {
+        return;
+    }
 
     str.RemoveLast();
-    if(str.IsEmpty() == false) { str.Remove(0, 1); }
+    if(str.IsEmpty() == false) {
+        str.Remove(0, 1);
+    }
 }
 
-static wxString wxGdbFixValue(const wxString& value)
+wxString wxGdbFixValue(const wxString& value)
 {
     int type(0);
     std::string currentToken;
@@ -88,57 +107,37 @@ static wxString wxGdbFixValue(const wxString& value)
     return display_line;
 }
 
-static wxString NextValue(wxString& line, wxString& key)
+template <typename T> wxString get_file_name(const T& node)
 {
-    // extract the key name first
-    if(line.StartsWith(wxT(","))) { line.Remove(0, 1); }
-
-    key = line.BeforeFirst(wxT('='));
-    line = line.AfterFirst(wxT('"'));
-    wxString token;
-    bool cont(true);
-
-    while(!line.IsEmpty() && cont) {
-        wxChar ch = line.GetChar(0);
-        line.Remove(0, 1);
-
-        if(ch == wxT('"')) {
-            cont = false;
-        } else {
-            token << ch;
+    wxString file_name;
+    if(!node["fullname"].value.empty()) {
+        file_name = node["fullname"].value;
+    } else if(!node["pending"].value.empty()) {
+        file_name = node["pending"].value;
+        if(file_name.AfterLast(':').IsNumber()) {
+            file_name = file_name.BeforeLast(':');
         }
     }
-    return token;
+    // in case file is using cygwin path -> change it to Windows style
+    file_name = clFileName::FromCygwin(file_name);
+    return file_name;
 }
 
-static void ParseStackEntry(const wxString& line, StackEntry& entry)
+void ParseStackEntry(gdbmi::Node& frame, StackEntry& entry)
 {
-    wxString tmp(line);
-    wxString key, value;
-
-    value = NextValue(tmp, key);
-    while(value.IsEmpty() == false) {
-        if(key == wxT("level")) {
-            entry.level = value;
-        } else if(key == wxT("addr")) {
-            entry.address = value;
-        } else if(key == wxT("func")) {
-            entry.function = value;
-        } else if(key == wxT("file")) {
-            entry.file = value;
-        } else if(key == wxT("line")) {
-            entry.line = value;
-        } else if(key == wxT("fullname")) {
-            entry.file = value;
-        }
-        value = NextValue(tmp, key);
-    }
+    entry.level = frame["level"].value;
+    entry.address = frame["addr"].value;
+    entry.function = frame["func"].value;
+    entry.file = get_file_name(frame);
+    entry.line = frame["line"].value;
 }
 
 wxString ExtractGdbChild(const std::map<std::string, std::string>& attr, const wxString& name)
 {
     std::map<std::string, std::string>::const_iterator iter = attr.find(name.mb_str(wxConvUTF8).data());
-    if(iter == attr.end()) { return wxT(""); }
+    if(iter == attr.end()) {
+        return wxT("");
+    }
     wxString val = wxString(iter->second.c_str(), wxConvUTF8);
     val.Trim().Trim(false);
 
@@ -150,127 +149,34 @@ wxString ExtractGdbChild(const std::map<std::string, std::string>& attr, const w
 
 // Keep a cache of all file paths converted from
 // Cygwin path into native path
-static std::map<wxString, wxString> g_fileCache;
+std::map<wxString, wxString> g_fileCache;
+} // namespace
 
 bool DbgCmdHandlerGetLine::ProcessOutput(const wxString& line)
 {
-#if defined(__WXGTK__) || defined(__WXMAC__)
-    // Output from "-stack-info-frame"
-    //^done,frame={level="0",addr="0x000000000043b227",func="MyClass::DoFoo",file="./Foo.cpp",fullname="/full/path/to/Foo.cpp",line="30"}
+    //  ^done,line="9",file="C:\\src\\gdbmi_parser\\src\\main.cpp",fullname="C:\\src\\gdbmi_parser\\src\\main.cpp",macro-info="0"
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
+    parser.parse(line, &result);
 
-    wxString tmpLine;
-    line.StartsWith(wxT("^done,frame={"), &tmpLine);
-    tmpLine.RemoveLast();
-    if(tmpLine.IsEmpty()) { return false; }
+    wxString filename;
+    wxString lineNumber;
+    long line_number = 0;
 
-    StackEntry entry;
-    ParseStackEntry(tmpLine, entry);
+    // read the file name, giving fullname priority
+    filename = get_file_name(result);
 
-    long line_number;
-    entry.line.ToLong(&line_number);
-    m_observer->UpdateFileLine(entry.file, line_number);
+    if(!result["line"].value.empty()) {
+        lineNumber = result["line"].value;
+        lineNumber.ToCLong(&line_number);
+    }
 
-    clCommandEvent evtFileLine(wxEVT_DEBUGGER_QUERY_FILELINE);
-    DebuggerEventData* ded = new DebuggerEventData;
-    ded->m_file = entry.file;
-    ded->m_line = line_number;
-    evtFileLine.SetClientObject(ded);
+    clDebugEvent evtFileLine(wxEVT_DEBUG_SET_FILELINE);
+    evtFileLine.SetFileName(filename);
+    evtFileLine.SetLineNumber(line_number);
+    evtFileLine.SetSshAccount(m_gdb->GetSshAccount());
+    evtFileLine.SetIsSSHDebugging(m_gdb->IsSSHDebugging());
     EventNotifier::Get()->AddPendingEvent(evtFileLine);
-
-#else
-    // Output of -file-list-exec-source-file
-    //^done,line="36",file="a.cpp",fullname="C:/testbug1/a.cpp"
-    //^done,line="2",file="main.cpp",fullname="/Users/eran/main.cpp"
-
-    // By default we use the 'fullname' as our file name. however,
-    // if we are under Windows and the fullname contains the string '/cygdrive'
-    // we fallback to use the 'filename' since cygwin gdb report fullname in POSIX / Cygwin paths
-    // which can not be used by codelite
-    wxString strLine, fullName, filename;
-    wxStringTokenizer tkz(line, wxT(","));
-    if(tkz.HasMoreTokens()) {
-        // skip first
-        tkz.NextToken();
-    }
-    // line=
-    if(tkz.HasMoreTokens()) {
-        strLine = tkz.NextToken();
-    } else {
-        return false;
-    }
-    // file=
-    if(tkz.HasMoreTokens()) { filename = tkz.NextToken(); }
-
-    // fullname=
-    if(tkz.HasMoreTokens()) {
-        wxString tmpfull_name = tkz.NextToken();
-        if(tmpfull_name.StartsWith("fullname")) { fullName = tmpfull_name; }
-    } else {
-        return false;
-    }
-
-    // line="36"
-    strLine = strLine.AfterFirst(wxT('"'));
-    strLine = strLine.BeforeLast(wxT('"'));
-    long lineno;
-    strLine.ToLong(&lineno);
-
-    // remove quotes
-    fullName = fullName.AfterFirst(wxT('"'));
-    fullName = fullName.BeforeLast(wxT('"'));
-    fullName.Replace(wxT("\\\\"), wxT("\\"));
-    fullName.Trim().Trim(false);
-
-    if(fullName.StartsWith(wxT("/"))) {
-        // fallback to use file="<..>"
-        filename = filename.AfterFirst(wxT('"'));
-        filename = filename.BeforeLast(wxT('"'));
-        filename.Replace(wxT("\\\\"), wxT("\\"));
-
-        filename.Trim().Trim(false);
-        fullName = filename;
-
-        // FIXME: change cypath => fullName
-        if(fullName.StartsWith(wxT("/"))) {
-
-            if(g_fileCache.find(fullName) != g_fileCache.end()) {
-                fullName = g_fileCache.find(fullName)->second;
-
-            } else {
-
-                // file attribute also contains cygwin path
-                wxString cygwinConvertPath = m_gdb->GetDebuggerInformation().cygwinPathCommand;
-                cygwinConvertPath.Trim().Trim(false);
-                if(!cygwinConvertPath.IsEmpty()) {
-                    // we got a conversion command from the user, use it
-                    cygwinConvertPath.Replace(wxT("$(File)"), wxString::Format(wxT("%s"), fullName.c_str()));
-                    wxArrayString cmdOutput;
-                    ProcUtils::SafeExecuteCommand(cygwinConvertPath, cmdOutput);
-                    if(cmdOutput.IsEmpty() == false) {
-                        cmdOutput.Item(0).Trim().Trim(false);
-                        wxString convertedPath = cmdOutput.Item(0);
-
-                        // Keep the file in the cache ( regardless of the validity of the result)
-                        g_fileCache[fullName] = convertedPath;
-
-                        // if the convertedPath does exists on the disk,
-                        // replace the file name with it
-                        if(wxFileName::FileExists(convertedPath)) { fullName = convertedPath; }
-                    }
-                }
-            }
-        }
-    }
-    m_observer->UpdateFileLine(fullName, lineno);
-
-    clCommandEvent evtFileLine(wxEVT_DEBUGGER_QUERY_FILELINE);
-    DebuggerEventData* ded = new DebuggerEventData;
-    ded->m_file = fullName;
-    ded->m_line = lineno;
-    evtFileLine.SetClientObject(ded);
-    EventNotifier::Get()->AddPendingEvent(evtFileLine);
-
-#endif
     return true;
 }
 
@@ -281,45 +187,32 @@ void DbgCmdHandlerAsyncCmd::UpdateGotControl(DebuggerReasons reason, const wxStr
 
 bool DbgCmdHandlerAsyncCmd::ProcessOutput(const wxString& line)
 {
-    wxString reason;
     //*stopped,reason="end-stepping-range",thread-id="1",frame={addr="0x0040156b",func="main",args=[{name="argc",value="1"},{name="argv",value="0x3e2c50"}],file="a.cpp",line="46"}
     // when reason is "end-stepping-range", it means that one of the following command was
     // completed:
     //-exec-step, -exec-stepi
     //-exec-next, -exec-nexti
 
+    // *stopped,reason="signal-received",signal-name="SIGTRAP",signal-meaning="Trace/breakpoint
+    // trap",frame={addr="0x00007ffb4c333151",func="ntdll!DbgBreakPoint",args=[],from="C:\\Windows\\SYSTEM32\\ntdll.dll",arch="i386:x86-64"},thread-id="5",stopped-threads="all"
+
+    // *stopped,reason="function-finished",frame={addr="0x00007ff6a84b15ed",func="main",args=[{name="argc",value="1"},{name="argv",value="0x28996f51900"}],file="C:\\src\\gdbmi_parser\\src\\main.cpp",fullname="C:\\src\\gdbmi_parser\\src\\main.cpp",line="23",arch="i386:x86-64"},thread-id="1",stopped-threads="all"
+
     // try and get the debugee PID
     m_gdb->GetDebugeePID(line);
 
-    // Get the reason
-    GdbChildrenInfo info;
-    gdbParseListChildren(line.mb_str(wxConvUTF8).data(), info);
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
+    parser.parse(line, &result);
 
-    wxString func;
-    bool foundReason;
-
-    foundReason = false;
-    for(size_t i = 0; i < info.children.size(); i++) {
-        std::map<std::string, std::string> attr = info.children.at(i);
-        std::map<std::string, std::string>::const_iterator iter;
-
-        iter = attr.find("reason");
-        if(!foundReason && iter != attr.end()) {
-            foundReason = true;
-            reason = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(reason);
-        }
-
-        if(foundReason) break;
+    // sanity
+    if(result.line_type != gdbmi::LT_EXEC_ASYNC_OUTPUT || result.line_type_context.empty() /* stopped */) {
+        return false;
     }
 
-    if(reason.IsEmpty()) return false;
-
-    int where = line.Find(wxT("func=\""));
-    if(where != wxNOT_FOUND) {
-        func = line.Mid(where + 6);
-        func = func.BeforeFirst(wxT('"'));
-    }
+    wxString func = result["frame"]["func"].value;
+    wxString reason = result["reason"].value;
+    wxString signal_name = result["signal-name"].value;
 
     // Note:
     // This might look like a stupid if-else, since all taking
@@ -391,8 +284,8 @@ bool DbgCmdHandlerAsyncCmd::ProcessOutput(const wxString& line)
                     m_gdb->SetBreakpoints();
 
                     bool hasBreakOnMain = false;
-                    const std::vector<BreakpointInfo>& bpList = m_gdb->GetBpList();
-                    std::vector<BreakpointInfo>::const_iterator iter = bpList.begin();
+                    const std::vector<clDebuggerBreakpoint>& bpList = m_gdb->GetBpList();
+                    std::vector<clDebuggerBreakpoint>::const_iterator iter = bpList.begin();
                     for(; iter != bpList.end(); ++iter) {
                         wxFileName fn(iter->file);
                         int lineNo = iter->lineno;
@@ -405,6 +298,7 @@ bool DbgCmdHandlerAsyncCmd::ProcessOutput(const wxString& line)
                         }
                     }
 
+                    // Continue running; but only if the user didn't _want_ to break-at-main anyway!
                     // Continue running; but only if the user didn't _want_ to break-at-main anyway!
                     if(!m_gdb->GetShouldBreakAtMain() && !hasBreakOnMain) {
                         m_gdb->Continue();
@@ -430,42 +324,31 @@ bool DbgCmdHandlerAsyncCmd::ProcessOutput(const wxString& line)
             UpdateGotControl(DBG_BP_HIT, func);
         }
 
-    } else if(reason == wxT("signal-received") && !m_gdb->IsGoingDown()) {
-
-        // got signal
-        // which signal?
-        wxString signame;
-        int where = line.Find(wxT("signal-name"));
-        if(where != wxNOT_FOUND) {
-            signame = line.Mid(where);
-            signame = signame.AfterFirst(wxT('"'));
-            signame = signame.BeforeFirst(wxT('"'));
-        }
-
-        if(signame == wxT("SIGSEGV")) {
+    } else if(reason == "signal-received" && !m_gdb->IsGoingDown()) {
+        if(signal_name == "SIGSEGV") {
             UpdateGotControl(DBG_RECV_SIGNAL_SIGSEGV, func);
 
-        } else if(signame == wxT("EXC_BAD_ACCESS")) {
+        } else if(signal_name == "EXC_BAD_ACCESS") {
             UpdateGotControl(DBG_RECV_SIGNAL_EXC_BAD_ACCESS, func);
 
-        } else if(signame == wxT("SIGABRT")) {
+        } else if(signal_name == "SIGABRT") {
             UpdateGotControl(DBG_RECV_SIGNAL_SIGABRT, func);
 
-        } else if(signame == wxT("SIGTRAP")) {
+        } else if(signal_name == "SIGTRAP") {
             UpdateGotControl(DBG_RECV_SIGNAL_SIGTRAP, func);
-        } else if(signame == "SIGPIPE") {
+        } else if(signal_name == "SIGPIPE") {
             UpdateGotControl(DBG_RECV_SIGNAL_SIGPIPE, func);
         } else {
             // default
             UpdateGotControl(DBG_RECV_SIGNAL, func);
         }
-    } else if(reason == wxT("exited-normally") || reason == wxT("exited")) {
+    } else if(reason == "exited-normally" || reason == "exited") {
         m_observer->UpdateAddLine(_("Program exited normally."));
 
         // debugee program exit normally
         UpdateGotControl(DBG_EXITED_NORMALLY, func);
 
-    } else if(reason == wxT("function-finished")) {
+    } else if(reason == "function-finished") {
 
         // debugee program exit normally
         UpdateGotControl(DBG_FUNC_FINISHED, func);
@@ -473,14 +356,8 @@ bool DbgCmdHandlerAsyncCmd::ProcessOutput(const wxString& line)
         // We finished an execution of a function.
         // Return to the caller the gdb-result-var since we might want
         // to create a variable object out of it
-        wxString gdbVar;
-        int where = line.Find(wxT("gdb-result-var"));
-        if(where != wxNOT_FOUND) {
-
-            gdbVar = line.Mid(where + 14);
-            gdbVar = gdbVar.AfterFirst(wxT('"'));
-            gdbVar = gdbVar.BeforeFirst(wxT('"'));
-
+        if(result.exists("gdb-result-var")) {
+            wxString gdbVar = result["gdb-result-var"].value;
             DebuggerEventData evt;
             evt.m_updateReason = DBG_UR_FUNCTIONFINISHED;
             evt.m_expression = gdbVar;
@@ -500,7 +377,7 @@ bool DbgCmdHandlerBp::ProcessOutput(const wxString& line)
     if(line.StartsWith(wxT("^done"))) {
         // remove this breakpoint from the breakpoint list
         for(size_t i = 0; i < m_bplist->size(); i++) {
-            BreakpointInfo b = m_bplist->at(i);
+            clDebuggerBreakpoint b = m_bplist->at(i);
             if(b == m_bp) {
                 m_bplist->erase(m_bplist->begin() + i);
                 break;
@@ -574,7 +451,9 @@ bool DbgCmdHandlerBp::ProcessOutput(const wxString& line)
     } else if(m_bp.memory_address.IsEmpty() == false) {
         msg << _("address ") << m_bp.memory_address;
     } else {
-        if(!m_bp.file.IsEmpty()) { msg << m_bp.file << wxT(':'); }
+        if(!m_bp.file.IsEmpty()) {
+            msg << m_bp.file << wxT(':');
+        }
         if(!m_bp.function_name.IsEmpty()) {
             msg << m_bp.function_name;
         } else if(m_bp.lineno != -1) {
@@ -588,55 +467,40 @@ bool DbgCmdHandlerBp::ProcessOutput(const wxString& line)
 
 bool DbgCmdHandlerLocals::ProcessOutput(const wxString& line)
 {
+    // ^done,variables=[{name="result",value="{line_type = gdbmi::LT_EXEC_ASYNC_OUTPUT, line_type_context = {m_pdata =
+    // 0x241a4e42cb1 \"stopped,reason=\\\"end-stepping-range\\\"\", m_length = 7}, txid = {m_pdata = 0x0, m_length = 0},
+    // tree = std::shared_ptr<gdbmi::Node> (use count -1530317792, weak count 576) = {get() =
+    // 0x241a4e43d50}}"},{name="argc",arg="1",value="1"},{name="argv",arg="1",value="0x241a4c91900"},{name="input_str",value="\"*stopped,reason=\\\"end-stepping-range\\\"\""},{name="input_str_2",value="\"00001547^done,variables=[{name=\\\"vt\\\",value=\\\"{first
+    // = <error reading variable: Cannot access memory at address 0x1>\\\"},{name=\\\"__for_range\\\",value=\\\"<error
+    // reading variable>\\\"},{name=\\\"__for_begin\\\",value=\\\"{ct\"..."},{name="parser",value="{<No data fields>}"}]
     LocalVariables locals;
 
-    GdbChildrenInfo info;
-    gdbParseListChildren(line.mb_str(wxConvUTF8).data(), info);
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
+    parser.parse(line, &result);
 
-    for(size_t i = 0; i < info.children.size(); i++) {
-        std::map<std::string, std::string> attr = info.children.at(i);
-        LocalVariable var;
-        std::map<std::string, std::string>::const_iterator iter;
-
-        iter = attr.find("name");
-        if(iter != attr.end()) {
-            var.name = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(var.name);
-        }
-
-        iter = attr.find("exp");
-        if(iter != attr.end()) {
-            // We got exp? are we on Mac!!??
-            // Anyways, replace exp with name and keep name as gdbId
-            var.gdbId = var.name;
-            var.name = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(var.name);
-        }
-
-        // For primitive types, we also get the value
-        iter = attr.find("value");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString v(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(v);
-                var.value = wxGdbFixValue(v);
-            }
-        }
-
-        var.value.Trim().Trim(false);
-        if(var.value.IsEmpty()) { var.value = wxT("{...}"); }
-
-        iter = attr.find("type");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString t(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(t);
-                var.type = t;
-            }
-        }
-
-        locals.push_back(var);
+    // sanity
+    if(result.line_type != gdbmi::LT_RESULT || result.line_type_context.to_string() != "done") {
+        return false;
     }
+
+    auto variables = result["variables"].children;
+    if(!variables.empty()) {
+        // no children
+        locals.reserve(variables.size());
+        for(size_t i = 0; i < variables.size(); ++i) {
+            // each entry in the list is also represented as a list
+            // with the index as its name
+            LocalVariable var;
+            var.name = (*variables[i])["name"].value;
+            var.value = (*variables[i])["value"].value;
+            if(var.value.empty()) {
+                var.value = "{..}";
+            }
+            locals.push_back(var);
+        }
+    }
+
     m_observer->UpdateLocals(locals);
 
     // The new way of notifying: send a wx's event
@@ -647,62 +511,6 @@ bool DbgCmdHandlerLocals::ProcessOutput(const wxString& line)
     data.m_locals = locals;
     evtLocals.SetClientObject(new DebuggerEventData(data));
     EventNotifier::Get()->AddPendingEvent(evtLocals);
-
-    return true;
-}
-
-bool DbgCmdHandlerFuncArgs::ProcessOutput(const wxString& line)
-{
-    LocalVariables locals;
-
-    GdbChildrenInfo info;
-    gdbParseListChildren(line.mb_str(wxConvUTF8).data(), info);
-
-    for(size_t i = 0; i < info.children.size(); i++) {
-        std::map<std::string, std::string> attr = info.children.at(i);
-        LocalVariable var;
-        std::map<std::string, std::string>::const_iterator iter;
-
-        iter = attr.find("name");
-        if(iter != attr.end()) {
-            var.name = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(var.name);
-        }
-
-        iter = attr.find("exp");
-        if(iter != attr.end()) {
-            // We got exp? are we on Mac!!??
-            // Anyways, replace exp with name and keep name as gdbId
-            var.gdbId = var.name;
-            var.name = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(var.name);
-        }
-
-        // For primitive types, we also get the value
-        iter = attr.find("value");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString v(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(v);
-                var.value = wxGdbFixValue(v);
-            }
-        }
-
-        var.value.Trim().Trim(false);
-        if(var.value.IsEmpty()) { var.value = wxT("{...}"); }
-
-        iter = attr.find("type");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString t(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(t);
-                var.type = t;
-            }
-        }
-
-        locals.push_back(var);
-    }
-    m_observer->UpdateFunctionArguments(locals);
     return true;
 }
 
@@ -725,30 +533,25 @@ bool DbgCmdHandlerEvalExpr::ProcessOutput(const wxString& line)
 
 bool DbgCmdStackList::ProcessOutput(const wxString& line)
 {
-    wxString tmpLine(line);
-    line.StartsWith(wxT("^done,stack=["), &tmpLine);
+    // 00000372^done,stack=[frame={level="0",addr="0x00007ff77a9853b0",func="gdbmi::ParsedResult::operator[]",file="C:/src/gdbmi_parser/src/gdbmi.hpp",fullname="C:\\src\\gdbmi_parser\\src\\gdbmi.hpp",line="132",arch="i386:x86-64"},
+    //                      frame={level="1",addr="0x00007ff77a9816ec",func="main",file="C:\\src\\gdbmi_parser\\src\\main.cpp",fullname="C:\\src\\gdbmi_parser\\src\\main.cpp",line="20",arch="i386:x86-64"}]
 
-    tmpLine = tmpLine.Trim();
-    tmpLine = tmpLine.Trim(false);
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
 
-    tmpLine.RemoveLast();
-    //--------------------------------------------------------
-    // tmpLine contains now string with the following format:
-    // frame={name="Value",...},frame={name="Value",...}
-    wxString remainder(tmpLine);
+    parser.parse(line, &result);
+    if(result["stack"].children.empty()) {
+        return false;
+    }
+
+    const auto& stack = result["stack"];
+
     StackEntryArray stackArray;
-    while(true) {
-        tmpLine = tmpLine.AfterFirst(wxT('{'));
-        if(tmpLine.IsEmpty()) { break; }
-
-        remainder = tmpLine.AfterFirst(wxT('}'));
-        tmpLine = tmpLine.BeforeFirst(wxT('}'));
-
+    stackArray.reserve(stack.children.size());
+    for(size_t i = 0; i < stack.children.size(); ++i) {
         StackEntry entry;
-        ParseStackEntry(tmpLine, entry);
+        ParseStackEntry(stack[i], entry);
         stackArray.push_back(entry);
-
-        tmpLine = remainder;
     }
 
     // Send it as an event
@@ -762,6 +565,7 @@ bool DbgCmdStackList::ProcessOutput(const wxString& line)
 
 bool DbgCmdSelectFrame::ProcessOutput(const wxString& line)
 {
+    wxUnusedVar(line);
     clCommandEvent evt(wxEVT_DEBUGGER_FRAME_SELECTED);
     EventNotifier::Get()->AddPendingEvent(evt);
     return true;
@@ -775,7 +579,9 @@ bool DbgCmdHandlerRemoteDebugging::ProcessOutput(const wxString& line)
     // Apply the breakpoints
     m_observer->UpdateAddLine(_("Applying breakpoints..."));
     DbgGdb* gdb = dynamic_cast<DbgGdb*>(m_debugger);
-    if(gdb) { gdb->SetBreakpoints(); }
+    if(gdb) {
+        gdb->SetBreakpoints();
+    }
     m_observer->UpdateAddLine(_("Applying breakpoints... done"));
     // continue execution
     return m_debugger->Continue();
@@ -790,16 +596,17 @@ bool DbgCmdDisplayOutput::ProcessOutput(const wxString& line)
 
 bool DbgCmdResolveTypeHandler::ProcessOutput(const wxString& line)
 {
-    const wxCharBuffer scannerText = _C(line);
-    setGdbLexerInput(scannerText.data(), true);
-
-    int type;
-    wxString cmd, var_name;
-    wxString type_name, currentToken;
+    wxString var_name;
+    wxString type_name;
     wxString err_msg;
+
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
+    parser.parse(line, &result);
+
     // parse the output
     // ^done,name="var2",numchild="1",value="{...}",type="orxAABOX"
-    if(line.StartsWith("^error")) {
+    if(result.line_type != gdbmi::LT_RESULT && result.line_type_context.to_string() == "error") {
         err_msg = line.AfterFirst('=');
         err_msg.Prepend("GDB ERROR: ");
 
@@ -813,65 +620,13 @@ bool DbgCmdResolveTypeHandler::ProcessOutput(const wxString& line)
         return true;
 
     } else {
-
-        do {
-            // ^done
-            GDB_NEXT_TOKEN();
-            GDB_ABORT('^');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_DONE);
-
-            // ,name="..."
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(',');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_NAME);
-            GDB_NEXT_TOKEN();
-            GDB_ABORT('=');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_STRING);
-            var_name = currentToken;
-
-            // ,numchild="..."
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(',');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_NUMCHILD);
-            GDB_NEXT_TOKEN();
-            GDB_ABORT('=');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_STRING);
-// On Mac this part does not seem to be reported by GDB
-#ifndef __WXMAC__
-            // ,value="..."
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(',');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_VALUE);
-            GDB_NEXT_TOKEN();
-            GDB_ABORT('=');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_STRING);
-#endif
-            // ,type="..."
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(',');
-            GDB_NEXT_TOKEN();
-            GDB_ABORT(GDB_TYPE);
-            GDB_NEXT_TOKEN();
-            GDB_ABORT('=');
-            GDB_NEXT_TOKEN();
-            type_name = currentToken;
-        } while(0);
+        var_name = result["name"].value;
+        type_name = result["type"].value;
     }
-    gdb_result_lex_clean();
-
-    wxGDB_STRIP_QUOATES(type_name);
-    wxGDB_STRIP_QUOATES(var_name);
 
     // delete the variable object
-    cmd.Clear();
-    cmd << wxT("-var-delete ") << var_name;
+    wxString cmd;
+    cmd << "-var-delete " << var_name;
 
     // since the above gdb command yields an output, we use the sync command
     // to get it as well to avoid errors in future calls to the gdb
@@ -930,8 +685,8 @@ bool DbgCmdSetConditionHandler::ProcessOutput(const wxString& line)
         if(m_bp.conditions.IsEmpty()) {
             m_observer->UpdateAddLine(wxString::Format(_("Breakpoint %i condition cleared"), (int)m_bp.debugger_id));
         } else {
-            m_observer->UpdateAddLine(
-                wxString::Format(_("Condition %s set for breakpoint %i"), m_bp.conditions.c_str(), (int)m_bp.debugger_id));
+            m_observer->UpdateAddLine(wxString::Format(_("Condition %s set for breakpoint %i"), m_bp.conditions.c_str(),
+                                                       (int)m_bp.debugger_id));
         }
         return true;
     }
@@ -941,99 +696,68 @@ bool DbgCmdSetConditionHandler::ProcessOutput(const wxString& line)
 // -break-list output handler
 bool DbgCmdBreakList::ProcessOutput(const wxString& line)
 {
-    wxString dbg_output(line);
-    dbg_output.Replace("bkpt=", "");
-    std::vector<BreakpointInfo> li;
-    GdbChildrenInfo info;
-    gdbParseListChildren(dbg_output.mb_str(wxConvUTF8).data(), info);
+    // ^done,BreakpointTable={nr_rows="1",nr_cols="6",hdr=[{width="7",alignment="-1",col_name="number",colhdr="Num"},{width="14",alignment="-1",col_name="type",colhdr="Type"},{width="4",alignment="-1",col_name="disp",colhdr="Disp"},{width="3",alignment="-1",col_name="enabled",colhdr="Enb"},{width="18",alignment="-1",col_name="addr",colhdr="Address"},{width="40",alignment="2",col_name="what",colhdr="What"}],body=[bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x000000000000ac60",func="main(int,
+    // char**)",file="/home/ANT.AMAZON.COM/eifrah/Documents/HelloWorld/HelloWorld/main.cpp",fullname="/home/ANT.AMAZON.COM/eifrah/Documents/HelloWorld/HelloWorld/main.cpp",line="292",thread-groups=["i1"],times="0",original-location="main"}]}
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
+    parser.parse(line, &result);
 
-    // Children is a vector of map of attribues.
-    // Each map represents an information about a breakpoint
-    // the way gdb sees it
-    for(size_t i = 0; i < info.children.size(); i++) {
-        BreakpointInfo breakpoint;
-        std::map<std::string, std::string> attr = info.children.at(i);
-        std::map<std::string, std::string>::const_iterator iter;
+    std::vector<clDebuggerBreakpoint> li;
 
-        iter = attr.find("what");
-        if(iter != attr.end()) {
-            breakpoint.what = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(breakpoint.what);
+    // sanity
+    if(result.line_type != gdbmi::LT_RESULT || result.line_type_context.to_string() != "done") {
+        return false;
+    }
+
+    const auto& body = result["BreakpointTable"]["body"].children;
+    if(body.empty()) {
+        return false;
+    }
+
+    li.reserve(body.size());
+    // convert gdbmi breakpoint info into clDebuggerBreakpoint construct
+    for(size_t i = 0; i < body.size(); i++) {
+        clDebuggerBreakpoint breakpoint;
+        auto& bkpt = *body[i];
+
+        // "consume" the values by swapping them
+        breakpoint.what.swap(bkpt["what"].value);
+        breakpoint.at.swap(bkpt["at"].value);
+        breakpoint.file = get_file_name(bkpt);
+
+        wxString lineNumber = bkpt["line"].value;
+        if(!lineNumber.empty()) {
+            breakpoint.lineno = wxAtoi(lineNumber);
+        }
+        wxString ignore = bkpt["ignore"].value;
+        if(!ignore.empty()) {
+            breakpoint.ignore_number = wxAtoi(ignore);
         }
 
-        //		iter = attr.find("func");
-        //		if ( iter != attr.end() ) {
-        //			breakpoint.function_name = wxString(iter->second.c_str(), wxConvUTF8);
-        //			wxRemoveQuotes( breakpoint.function_name );
-        //		}
-        //
-        //		iter = attr.find("addr");
-        //		if ( iter != attr.end() ) {
-        //			breakpoint.memory_address = wxString(iter->second.c_str(), wxConvUTF8);
-        //			wxRemoveQuotes( breakpoint.memory_address );
-        //		}
-
-        iter = attr.find("file");
-        if(iter != attr.end()) {
-            breakpoint.file = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(breakpoint.file);
-        }
-
-        iter = attr.find("fullname");
-        if(iter != attr.end()) {
-            breakpoint.file = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(breakpoint.file);
-        }
-
-        iter = attr.find("at");
-        if(iter != attr.end()) {
-            breakpoint.at = wxString(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(breakpoint.at);
-        }
-
-        // If we got fullname, use it instead of 'file'
-        iter = attr.find("line");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString lineNumber(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(lineNumber);
-                breakpoint.lineno = wxAtoi(lineNumber);
-            }
-        }
-
-        // get the 'ignore' attribute
-        iter = attr.find("ignore");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString ignore(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(ignore);
-                breakpoint.ignore_number = wxAtoi(ignore);
-            }
-        }
-
-        // breakpoint ID
-        iter = attr.find("number");
-        if(iter != attr.end()) {
-            if(iter->second.empty() == false) {
-                wxString bpId(iter->second.c_str(), wxConvUTF8);
-                wxRemoveQuotes(bpId);
-                bpId.ToCDouble(&breakpoint.debugger_id);
-            }
+        wxString bpId = bkpt["number"].value;
+        if(!bpId.empty()) {
+            breakpoint.debugger_id = wxAtof(bpId);
         }
         li.push_back(breakpoint);
     }
 
     // Filter duplicate file:line breakpoints
-    std::vector<BreakpointInfo> uniqueBreakpoints;
-    std::for_each(li.begin(), li.end(), [&](const BreakpointInfo& bp) {
-        if(bp.debugger_id == (long)bp.debugger_id) {
+    std::vector<clDebuggerBreakpoint> uniqueBreakpoints;
+    uniqueBreakpoints.reserve(li.size());
+
+    std::for_each(li.begin(), li.end(), [&](const clDebuggerBreakpoint& bp) {
+        if(bp.debugger_id == bp.debugger_id) {
             // real breakpoint ID
             uniqueBreakpoints.push_back(bp);
         }
     });
 
-    li.swap(uniqueBreakpoints);
-    m_observer->ReconcileBreakpoints(li);
+    // Update the UI
+    clDebugEvent event_breakpoints(wxEVT_DEBUG_BREAKPOINTS_LIST);
+    event_breakpoints.SetSshAccount(m_gdb->GetSshAccount());
+    event_breakpoints.SetIsSSHDebugging(m_gdb->IsSSHDebugging());
+    event_breakpoints.GetBreakpoints().swap(uniqueBreakpoints);
+    EventNotifier::Get()->AddPendingEvent(event_breakpoints);
     return true;
 }
 
@@ -1056,91 +780,36 @@ bool DbgCmdListThreads::ProcessOutput(const wxString& line)
 bool DbgCmdWatchMemory::ProcessOutput(const wxString& line)
 {
     DebuggerEventData e;
-    int divider(m_columns);
-    int factor((int)(m_count / divider));
 
-    if(m_count % divider != 0) { factor = (int)(m_count / divider) + 1; }
+    // 00000016^done,addr="0x0000004a789ff8f0",nr-bytes="32",total-bytes="32",next-row="0x0000004a789ff900",prev-row="0x0000004a789ff8e0",next-page="0x0000004a789ff910",prev-page="0x0000004a789ff8d0",
+    // memory=[{addr="0x0000004a789ff8f0",data=["0x00","0x00","0x00","0x00","0xd7","0x01","0x00","0x00","0x19","0x2d","0xa4","0x9d","0xd7","0x01","0x00","0x00"],ascii="?????????-??????"},{addr="0x0000004a789ff900",data=["0x04","0x00","0x00","0x00","0x00","0x00","0x00","0x00","0x10","0x2d","0xa4","0x9d","0xd7","0x01","0x00","0x00"],ascii="?????????-??????"}]
+    gdbmi::ParsedResult result;
+    gdbmi::Parser parser;
+    parser.parse(line, &result);
 
-    // {addr="0x003d3e24",data=["0x65","0x72","0x61","0x6e"],ascii="eran"},
-    // {addr="0x003d3e28",data=["0x00","0xab","0xab","0xab"],ascii="xxxx"}
-    wxString dbg_output(line), output;
+    wxString output;
+    wxString current_line;
+    size_t rows_count = result["memory"].children.size();
+    if(rows_count) {
+        for(size_t i = 0; i < rows_count; ++i) {
+            const auto& row = result["memory"][i];
+            current_line << row["addr"].value << " ";
 
-    // search for ,memory=[
-    int where = dbg_output.Find(wxT(",memory="));
-    if(where != wxNOT_FOUND) {
-        dbg_output = dbg_output.Mid((size_t)(where + 9));
-
-        const wxCharBuffer scannerText = _C(dbg_output);
-        setGdbLexerInput(scannerText.data(), true);
-
-        int type;
-        wxString currentToken;
-        wxString currentLine;
-        GDB_NEXT_TOKEN();
-
-        for(int i = 0; i < factor && type != 0; i++) {
-            currentLine.Clear();
-
-            while(type != GDB_ADDR) {
-
-                if(type == 0) { break; }
-
-                GDB_NEXT_TOKEN();
-                continue;
+            // add the data
+            size_t data_size = row["data"].children.size();
+            for(size_t x = 0; x < data_size; ++x) {
+                current_line << row["data"][x].value << " ";
             }
 
-            // Eof?
-            if(type == 0) { break; }
-
-            GDB_NEXT_TOKEN(); //=
-            GDB_NEXT_TOKEN(); // 0x003d3e24
-            wxGDB_STRIP_QUOATES(currentToken);
-            currentLine << currentToken << wxT(": ");
-
-            GDB_NEXT_TOKEN(); //,
-            GDB_NEXT_TOKEN(); // data
-            GDB_NEXT_TOKEN(); //=
-            GDB_NEXT_TOKEN(); //[
-
-            long v(0);
-            wxString hex, asciiDump;
-            for(int yy = 0; yy < divider; yy++) {
-                GDB_NEXT_TOKEN(); //"0x65"
-                wxGDB_STRIP_QUOATES(currentToken);
-                // convert the hex string into real value
-                if(currentToken.ToLong(&v, 16)) {
-
-                    //	char ch = (char)v;
-                    if(wxIsprint((wxChar)v) || (wxChar)v == ' ') {
-                        if(v == 9) { // TAB
-                            v = 32;  // SPACE
-                        }
-
-                        hex << (wxChar)v;
-                    } else {
-                        hex << wxT("?");
-                    }
-                } else {
-                    hex << wxT("?");
-                }
-
-                currentLine << currentToken << wxT(" ");
-                GDB_NEXT_TOKEN(); //, | ]
+            if(row.exists("ascii")) {
+                current_line << row["ascii"].value;
             }
-
-            GDB_NEXT_TOKEN(); //,
-            GDB_NEXT_TOKEN(); // GDB_ASCII
-            GDB_NEXT_TOKEN(); //=
-            GDB_NEXT_TOKEN(); // ascii_value
-            currentLine << wxT(" : ") << hex;
-
-            wxGDB_STRIP_QUOATES(currentToken);
-            output << currentLine << wxT("\n");
-            GDB_NEXT_TOKEN();
+            output << current_line << "\n";
+            current_line.clear();
         }
-
-        gdb_result_lex_clean();
+        output.RemoveLast(); // remove the trailing \n
     }
+
     e.m_updateReason = DBG_UR_WATCHMEMORY;
     e.m_evaluated = output;
     e.m_expression = m_address;
@@ -1195,7 +864,9 @@ bool DbgCmdCreateVarObj::ProcessOutput(const wxString& line)
                 wxString v(iter->second.c_str(), wxConvUTF8);
                 wxRemoveQuotes(v);
                 wxString val = wxGdbFixValue(v);
-                if(val.IsEmpty() == false) { e.m_evaluated = val; }
+                if(val.IsEmpty() == false) {
+                    e.m_evaluated = val;
+                }
             }
         }
 
@@ -1207,9 +878,13 @@ bool DbgCmdCreateVarObj::ProcessOutput(const wxString& line)
                 vo.typeName = t;
             }
 
-            if(vo.typeName.EndsWith(wxT(" *"))) { vo.isPtr = true; }
+            if(vo.typeName.EndsWith(wxT(" *"))) {
+                vo.isPtr = true;
+            }
 
-            if(vo.typeName.EndsWith(wxT(" **"))) { vo.isPtrPtr = true; }
+            if(vo.typeName.EndsWith(wxT(" **"))) {
+                vo.isPtrPtr = true;
+            }
         }
 
         vo.has_more = info.has_more;
@@ -1230,94 +905,98 @@ bool DbgCmdCreateVarObj::ProcessOutput(const wxString& line)
     return true;
 }
 
-static VariableObjChild FromParserOutput(const std::map<std::string, std::string>& attr)
+static VariableObjChild FromParserOutput(const gdbmi::Node& child)
 {
-    VariableObjChild child;
-    std::map<std::string, std::string>::const_iterator iter;
+    VariableObjChild var_child;
 
-    child.type = ExtractGdbChild(attr, wxT("type"));
-    child.gdbId = ExtractGdbChild(attr, wxT("name"));
-    wxString numChilds = ExtractGdbChild(attr, wxT("numchild"));
-    wxString dynamic = ExtractGdbChild(attr, wxT("dynamic"));
+    var_child.varName = child["exp"].value;
+    var_child.type = child["type"].value;
+    var_child.gdbId = child["name"].value;
+    wxString numChilds = child["numchild"].value;
+    wxString dynamic = child["dynamic"].value;
 
-    if(numChilds.IsEmpty() == false) { child.numChilds = wxAtoi(numChilds); }
-
-    if(child.numChilds == 0 && dynamic == "1") { child.numChilds = 1; }
-
-    child.varName = ExtractGdbChild(attr, wxT("exp"));
-    if(child.varName.IsEmpty() || child.type == child.varName ||
-       (child.varName == wxT("public") || child.varName == wxT("private") || child.varName == wxT("protected")) ||
-       (child.type.Contains(wxT("class ")) || child.type.Contains(wxT("struct ")))) {
-
-        child.isAFake = true;
+    if(numChilds.IsEmpty() == false) {
+        var_child.numChilds = wxAtoi(numChilds);
     }
+
+    if(var_child.numChilds == 0 && dynamic == "1") {
+        var_child.numChilds = 1;
+    }
+
+    // child.varName = ExtractGdbChild(attr, wxT("exp"));
+    // if(child.varName.IsEmpty() || child.type == child.varName ||
+    //    (child.varName == wxT("public") || child.varName == wxT("private") || child.varName == wxT("protected"))
+    //    || (child.type.Contains(wxT("class ")) || child.type.Contains(wxT("struct ")))) {
+    //
+    //     child.isAFake = true;
+    // }
 
     // For primitive types, we also get the value
-    iter = attr.find("value");
-    if(iter != attr.end()) {
-        if(iter->second.empty() == false) {
-            wxString v(iter->second.c_str(), wxConvUTF8);
-            wxRemoveQuotes(v);
-            child.value = wxGdbFixValue(v);
-
-            if(child.value.IsEmpty() == false) { child.varName << wxT(" = ") << child.value; }
-        }
+    var_child.value = child["value"].value;
+    if(!var_child.value.empty()) {
+        var_child.varName << " = " << var_child.value;
     }
-    return child;
+    return var_child;
 }
 
 bool DbgCmdListChildren::ProcessOutput(const wxString& line)
 {
     DebuggerEventData e;
-    std::string cbuffer = line.mb_str(wxConvUTF8).data();
+    gdbmi::Parser parser;
+    gdbmi::ParsedResult result;
 
-    GdbChildrenInfo info;
-    gdbParseListChildren(cbuffer, info);
+    parser.parse(line, &result);
+
+    if(result.line_type != gdbmi::LT_RESULT || result.line_type_context.to_string() != "done") {
+        return false;
+    }
+
+    const auto& children = result["children"].children;
+    if(children.empty()) {
+        return true;
+    }
+
+    e.m_varObjChildren.reserve(children.size());
 
     // Convert the parser output to codelite data structure
-    for(size_t i = 0; i < info.children.size(); i++) {
-        e.m_varObjChildren.push_back(FromParserOutput(info.children.at(i)));
+    for(size_t i = 0; i < children.size(); ++i) {
+        e.m_varObjChildren.push_back(FromParserOutput(*children[i]));
     }
 
-    if(info.children.size() > 0) {
-        e.m_updateReason = DBG_UR_LISTCHILDREN;
-        e.m_expression = m_variable;
-        e.m_userReason = m_userReason;
-        m_observer->DebuggerUpdate(e);
+    e.m_updateReason = DBG_UR_LISTCHILDREN;
+    e.m_expression = m_variable;
+    e.m_userReason = m_userReason;
+    m_observer->DebuggerUpdate(e);
 
-        clCommandEvent evtList(wxEVT_DEBUGGER_LIST_CHILDREN);
-        evtList.SetClientObject(new DebuggerEventData(e));
-        EventNotifier::Get()->AddPendingEvent(evtList);
-    }
+    clCommandEvent evtList(wxEVT_DEBUGGER_LIST_CHILDREN);
+    evtList.SetClientObject(new DebuggerEventData(e));
+    EventNotifier::Get()->AddPendingEvent(evtList);
     return true;
 }
 
 bool DbgCmdEvalVarObj::ProcessOutput(const wxString& line)
 {
-    std::string cbuffer = line.mb_str(wxConvUTF8).data();
-    GdbChildrenInfo info;
-    gdbParseListChildren(cbuffer, info);
+    gdbmi::ParsedResult result;
+    gdbmi::Parser parser;
+    parser.parse(line, &result);
 
-    if(info.children.empty() == false) {
-        wxString display_line = ExtractGdbChild(info.children.at(0), wxT("value"));
-        display_line.Trim().Trim(false);
-        if(display_line.IsEmpty() == false) {
-            if(m_userReason == DBG_USERR_WATCHTABLE || display_line != wxT("{...}")) {
-                DebuggerEventData e;
-                e.m_updateReason = DBG_UR_EVALVARIABLEOBJ;
-                e.m_expression = m_variable;
-                e.m_evaluated = display_line;
-                e.m_userReason = m_userReason;
-                m_observer->DebuggerUpdate(e);
+    wxString display_line = result["value"].value;
 
-                clCommandEvent evtList(wxEVT_DEBUGGER_VAROBJ_EVALUATED);
-                evtList.SetClientObject(new DebuggerEventData(e));
-                EventNotifier::Get()->AddPendingEvent(evtList);
-            }
+    if(!display_line.empty()) {
+        if(m_userReason == DBG_USERR_WATCHTABLE || display_line != "{...}") {
+            DebuggerEventData e;
+            e.m_updateReason = DBG_UR_EVALVARIABLEOBJ;
+            e.m_expression = m_variable;
+            e.m_evaluated = display_line;
+            e.m_userReason = m_userReason;
+            m_observer->DebuggerUpdate(e);
+
+            clCommandEvent evtList(wxEVT_DEBUGGER_VAROBJ_EVALUATED);
+            evtList.SetClientObject(new DebuggerEventData(e));
+            EventNotifier::Get()->AddPendingEvent(evtList);
         }
-        return true;
     }
-    return false;
+    return true;
 }
 
 bool DbgFindMainBreakpointIdHandler::ProcessOutput(const wxString& line)
@@ -1542,7 +1221,9 @@ bool DbgCmdHandlerRegisterNames::ProcessOutput(const wxString& line)
             wxGDB_STRIP_QUOATES(reg_name);
 
             // Don't include empty register names
-            if(!reg_name.IsEmpty()) { m_numberToName.insert(std::make_pair(counter, reg_name)); }
+            if(!reg_name.IsEmpty()) {
+                m_numberToName.insert(std::make_pair(counter, reg_name));
+            }
             GDB_NEXT_TOKEN(); // remove the ','
             if(type != ',') {
                 // end of the list
@@ -1600,7 +1281,9 @@ bool DbgCmdHandlerRegisterValues::ProcessOutput(const wxString& line)
 
             // find this register in the map
             std::map<int, wxString>::iterator iter = m_numberToName.find(regId);
-            if(iter != m_numberToName.end()) { reg.reg_name = iter->second; }
+            if(iter != m_numberToName.end()) {
+                reg.reg_name = iter->second;
+            }
 
             GDB_NEXT_TOKEN(); // ,
             GDB_NEXT_TOKEN(); // value
@@ -1610,7 +1293,9 @@ bool DbgCmdHandlerRegisterValues::ProcessOutput(const wxString& line)
             wxGDB_STRIP_QUOATES(reg.reg_value);
 
             // Add the register
-            if(!reg.reg_name.IsEmpty()) { registers.push_back(reg); }
+            if(!reg.reg_name.IsEmpty()) {
+                registers.push_back(reg);
+            }
 
             // Read the next token
             GDB_NEXT_TOKEN(); // }

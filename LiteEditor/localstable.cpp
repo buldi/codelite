@@ -23,21 +23,22 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "localstable.h"
-#include <wx/regex.h>
-#include <wx/wupdlock.h>
 #include "debuggerconfigtool.h"
-#include "globals.h"
 #include "debuggermanager.h"
-#include "manager.h"
-#include "new_quick_watch_dlg.h"
-#include <set>
-#include <wx/xrc/xmlres.h>
-#include "frame.h"
 #include "drawingutils.h"
 #include "event_notifier.h"
+#include "frame.h"
+#include "globals.h"
+#include "localstable.h"
+#include "macros.h"
+#include "manager.h"
+#include "new_quick_watch_dlg.h"
 #include <algorithm>
+#include <set>
+#include <wx/regex.h>
 #include <wx/utils.h>
+#include <wx/wupdlock.h>
+#include <wx/xrc/xmlres.h>
 
 BEGIN_EVENT_TABLE(LocalsTable, DebuggerTreeListCtrlBase)
 EVT_MENU(XRCID("Change_Value"), LocalsTable::OnEditValue)
@@ -53,10 +54,10 @@ LocalsTable::LocalsTable(wxWindow* parent)
     m_listTable->AddHeader(_("Name"));
     m_listTable->AddHeader(_("Value"));
     m_listTable->AddHeader(_("Type"));
-    
+
     // Only sort top level items, don't sort their children
     m_listTable->AddTreeStyle(wxTR_SORT_TOP_LEVEL);
-    
+
     SetSortingFunction();
     m_DBG_USERR = DBG_USERR_LOCALS;
     m_QUERY_NUM_CHILDS = QUERY_LOCALS_CHILDS;
@@ -105,11 +106,13 @@ void LocalsTable::OnCreateVariableObj(const DebuggerEventData& event)
             data->_kind = DbgTreeItemData::VariableObject;
 
             // variable object's type name is extracted from the event.m_variableObject.typeName
-            m_listTable->SetItemText(iter->second, event.m_variableObject.typeName, 2);
+            const wxString& localType = event.m_variableObject.typeName;
+            m_listTable->SetItemText(iter->second, localType, 2);
 
             // refresh this item only
             IDebugger* dbgr = DoGetDebugger();
-            if(dbgr) DoRefreshItem(dbgr, iter->second, false);
+            if(dbgr)
+                DoRefreshItem(dbgr, iter->second, false);
 
             dbgr->UpdateVariableObject(data->_gdbId, m_DBG_USERR);
             dbgr->ListChildren(data->_gdbId, m_LIST_CHILDS);
@@ -123,20 +126,21 @@ void LocalsTable::OnListChildren(const DebuggerEventData& event)
 {
     wxString gdbId = event.m_expression;
     std::map<wxString, wxTreeItemId>::iterator iter = m_listChildItemId.find(gdbId);
-    if(iter == m_listChildItemId.end()) return;
+    if(iter == m_listChildItemId.end())
+        return;
+
+    IDebugger* dbgr = DoGetDebugger();
+    CHECK_PTR_RET(dbgr);
 
     wxTreeItemId item = iter->second;
     m_listChildItemId.erase(iter);
 
     if(event.m_userReason == m_LIST_CHILDS) {
+        m_listTable->Begin();
         if(event.m_varObjChildren.empty() == false) {
             for(size_t i = 0; i < event.m_varObjChildren.size(); i++) {
-
-                IDebugger* dbgr = DoGetDebugger();
-                if(!dbgr) return;
-
-                VariableObjChild ch = event.m_varObjChildren.at(i);
-                if(ch.varName == wxT("public") || ch.varName == wxT("private") || ch.varName == wxT("protected")) {
+                const VariableObjChild& ch = event.m_varObjChildren.at(i);
+                if(ch.varName == "public" || ch.varName == "private" || ch.varName == "protected") {
                     // not really a node...
                     // ask for information about this node children
                     dbgr->ListChildren(ch.gdbId, m_LIST_CHILDS);
@@ -152,7 +156,9 @@ void LocalsTable::OnListChildren(const DebuggerEventData& event)
                     m_listTable->SetItemText(child, ch.type, 2);
 
                     // Add a dummy node
-                    if(child.IsOk() && ch.numChilds > 0) { m_listTable->AppendItem(child, wxT("<dummy>")); }
+                    if(child.IsOk() && ch.numChilds > 0) {
+                        m_listTable->AppendItem(child, wxT("<dummy>"));
+                    }
 
                     // refresh this item only
                     dbgr->EvaluateVariableObject(data->_gdbId, m_DBG_USERR);
@@ -161,6 +167,7 @@ void LocalsTable::OnListChildren(const DebuggerEventData& event)
                 }
             }
         }
+        m_listTable->Commit();
     }
 }
 
@@ -229,7 +236,9 @@ void LocalsTable::OnItemExpanding(wxTreeEvent& event)
             // create a variable object
             wxString expres = m_listTable->GetItemText(event.GetItem());
             DbgTreeItemData* data = (DbgTreeItemData*)m_listTable->GetItemData(event.GetItem());
-            if(data && data->_kind == DbgTreeItemData::FuncRetValue) { expres = data->_retValueGdbValue; }
+            if(data && data->_kind == DbgTreeItemData::FuncRetValue) {
+                expres = data->_retValueGdbValue;
+            }
 
             dbgr->CreateVariableObject(expres,                                       // the expression
                                        data->_kind == DbgTreeItemData::FuncRetValue, // bound to creation frame?
@@ -271,7 +280,8 @@ void LocalsTable::DoUpdateLocals(const LocalVariables& localsUnSorted, size_t ki
 {
     LocalVariables locals = localsUnSorted;
     wxTreeItemId root = m_listTable->GetRootItem();
-    if(!root.IsOk()) return;
+    if(!root.IsOk())
+        return;
 
     IDebugger* dbgr = DoGetDebugger();
     wxArrayString itemsNotRemoved;
@@ -284,7 +294,9 @@ void LocalsTable::DoUpdateLocals(const LocalVariables& localsUnSorted, size_t ki
 
         // try to replace the
         wxString newVarName;
-        if(m_resolveLocals) { newVarName = m_preDefTypes.GetPreDefinedTypeForTypename(locals[i].type, locals[i].name); }
+        if(m_resolveLocals) {
+            newVarName = m_preDefTypes.GetPreDefinedTypeForTypename(locals[i].type, locals[i].name);
+        }
 
         // Evaluate arrays as char*?
         static wxRegEx reConstArr(wxT("(const )?[ ]*(w)?char(_t)? *[\\[0-9\\]]*"));
@@ -296,16 +308,6 @@ void LocalsTable::DoUpdateLocals(const LocalVariables& localsUnSorted, size_t ki
         }
 
         if(newVarName.IsEmpty() == false && !newVarName.Contains(wxT("@"))) {
-            // if(newVarName.Contains(wxT("@"))) {
-            //
-            //	// using GDB special array print,
-            //	// we need to delete this variable object and re-create it
-            //	// otherwise its content wont be updated
-            //	int where = itemsNotRemoved.Index(newVarName);
-            //	if(where != wxNOT_FOUND)
-            //		itemsNotRemoved.RemoveAt(where);
-            //}
-
             wxTreeItemId treeItem = DoFindItemByExpression(newVarName);
             if(treeItem.IsOk()) {
                 // an item with this expression already exists, skip it
@@ -386,12 +388,14 @@ void LocalsTable::OnItemRightClick(wxTreeEvent& event)
 void LocalsTable::OnEditValue(wxCommandEvent& event)
 {
     wxTreeItemId selectedItem = m_listTable->GetSelection();
-    if(selectedItem.IsOk() == false) return;
+    if(selectedItem.IsOk() == false)
+        return;
 
     wxString itemPath = GetItemPath(selectedItem);
     wxString newValue =
         wxGetTextFromUser(wxString::Format(_("Insert new value for '%s':"), itemPath.c_str()), _("Edit expression"));
-    if(newValue.IsEmpty()) return;
+    if(newValue.IsEmpty())
+        return;
 
     IDebugger* debugger = DoGetDebugger();
     if(debugger) {
@@ -425,13 +429,16 @@ void LocalsTable::OnEditValueUI(wxUpdateUIEvent& event)
 void LocalsTable::UpdateFuncReturnValue(const wxString& retValueGdbId)
 {
     wxTreeItemId root = m_listTable->GetRootItem();
-    if(!root.IsOk()) return;
+    if(!root.IsOk())
+        return;
 
     wxArrayString itemsNotRemoved;
     // remove the non-variable objects and return a list
     // of all the variable objects (at the top level)
     wxTreeItemId item = DoFindItemByExpression(wxT("Function Returned"));
-    if(item.IsOk()) { DoDeleteWatch(item); }
+    if(item.IsOk()) {
+        DoDeleteWatch(item);
+    }
     m_listTable->Delete(item);
 
     DbgTreeItemData* data = new DbgTreeItemData();
@@ -458,7 +465,7 @@ void LocalsTable::OnStackSelected(clCommandEvent& event)
     event.Skip();
     Clear();
     IDebugger* dbgr = DebuggerMgr::Get().GetActiveDebugger();
-    if(dbgr && dbgr->IsRunning() && ManagerST::Get()->IsDebuggerViewVisible(DebuggerPane::LOCALS)) {
+    if(dbgr && dbgr->IsRunning() && ManagerST::Get()->IsDebuggerViewVisible(wxGetTranslation(DebuggerPane::LOCALS))) {
         dbgr->QueryLocals();
     }
 }

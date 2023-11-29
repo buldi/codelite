@@ -28,6 +28,7 @@
 
 #include "codelite_exports.h"
 #include "imanager.h"
+
 #include <wx/aui/auibar.h>
 #include <wx/aui/dockart.h>
 #include <wx/aui/framemanager.h>
@@ -40,12 +41,11 @@ class WXDLLIMPEXP_SDK clAuiDockArt : public wxEvtHandler, public wxAuiDefaultDoc
     IManager* m_manager;
     wxColour m_captionColour;
     wxColour m_captionTextColour;
-    bool m_useCustomCaptionColour;
-    bool m_useCustomBgColour = false;
+    wxColour m_penColour;
     wxColour m_bgColour;
 
 public:
-    void OnSettingsChanged(wxCommandEvent& event);
+    void OnSettingsChanged(clCommandEvent& event);
 
 public:
     clAuiDockArt(IManager* manager);
@@ -53,11 +53,9 @@ public:
 
     virtual void DrawBorder(wxDC& dc, wxWindow* window, const wxRect& rect, wxAuiPaneInfo& pane);
     virtual void DrawCaption(wxDC& dc, wxWindow* window, const wxString& text, const wxRect& rect, wxAuiPaneInfo& pane);
-
     virtual void DrawPaneButton(wxDC& dc, wxWindow* window, int button, int button_state, const wxRect& _rect,
                                 wxAuiPaneInfo& pane);
     virtual void DrawBackground(wxDC& dc, wxWindow* window, int orientation, const wxRect& rect);
-
     virtual void DrawSash(wxDC& dc, wxWindow* window, int orientation, const wxRect& rect);
 };
 

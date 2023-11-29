@@ -16,8 +16,9 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
-#include <wx/textctrl.h>
 #include <wx/filepicker.h>
+#include <wx/textctrl.h>
+#include <wx/checkbox.h>
 #include <wx/choice.h>
 #include <wx/arrstr.h>
 #include <wx/button.h>
@@ -42,10 +43,13 @@
 class NewProjectDialogBase : public wxDialog
 {
 protected:
-    wxStaticText* m_staticText12;
-    wxTextCtrl* m_textCtrlName;
     wxStaticText* m_staticText20;
     wxDirPickerCtrl* m_dirPicker;
+    wxStaticText* m_staticText12;
+    wxTextCtrl* m_textCtrlName;
+    wxCheckBox* m_checkBoxSepFolder;
+    wxStaticText* m_staticText36;
+    wxChoice* m_choiceCategory;
     wxStaticText* m_staticText16;
     wxChoice* m_choiceType;
     wxStaticText* m_staticText24;
@@ -59,13 +63,21 @@ protected:
     wxButton* m_button8;
 
 protected:
+    virtual void OnPathSelected(wxFileDirPickerEvent& event) { event.Skip(); }
+    virtual void OnNameTyped(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnCategoryChanged(wxCommandEvent& event) { event.Skip(); }
+    virtual void OnCompilerChanged(wxCommandEvent& event) { event.Skip(); }
     virtual void OnOKUI(wxUpdateUIEvent& event) { event.Skip(); }
+    virtual void OnOK(wxCommandEvent& event) { event.Skip(); }
 
 public:
-    wxStaticText* GetStaticText12() { return m_staticText12; }
-    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
     wxStaticText* GetStaticText20() { return m_staticText20; }
     wxDirPickerCtrl* GetDirPicker() { return m_dirPicker; }
+    wxStaticText* GetStaticText12() { return m_staticText12; }
+    wxTextCtrl* GetTextCtrlName() { return m_textCtrlName; }
+    wxCheckBox* GetCheckBoxSepFolder() { return m_checkBoxSepFolder; }
+    wxStaticText* GetStaticText36() { return m_staticText36; }
+    wxChoice* GetChoiceCategory() { return m_choiceCategory; }
     wxStaticText* GetStaticText16() { return m_staticText16; }
     wxChoice* GetChoiceType() { return m_choiceType; }
     wxStaticText* GetStaticText24() { return m_staticText24; }

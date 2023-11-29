@@ -1,8 +1,10 @@
-#include "DiffSideBySidePanel.h"
 #include "clDiffFrame.h"
+
+#include "DiffSideBySidePanel.h"
 #include "globals.h"
 #include "imanager.h"
 #include "windowattrmanager.h"
+
 #include <wx/icon.h>
 #include <wx/xrc/xmlres.h>
 
@@ -16,19 +18,18 @@ clDiffFrame::clDiffFrame(wxWindow* parent, const DiffSideBySidePanel::FileInfo& 
     m_diffView = new DiffSideBySidePanel(this);
     m_diffView->SetFilesDetails(left, right);
     m_diffView->Diff();
-    if(originSourceControl) { m_diffView->SetOriginSourceControl(); }
+    if(originSourceControl) {
+        m_diffView->SetOriginSourceControl();
+    }
     sz->Add(m_diffView, 1, wxEXPAND, 0);
     WindowAttrManager::Load(this);
 
     wxIconBundle b;
-    {
-        wxIcon icn;
-        icn.CopyFromBitmap(clGetManager()->GetStdIcons()->LoadBitmap("diff"));
-        b.AddIcon(icn);
+    if(clGetManager()->GetStdIcons()->GetIconBundle("diff", &b)) {
+        SetIcons(b);
     }
     CreateMenuBar();
-    SetIcons(b);
-    CallAfter(&clDiffFrame::Maximize, true);
+    ::clSetTLWindowBestSizeAndPosition(this);
 }
 
 clDiffFrame::clDiffFrame(wxWindow* parent)
@@ -49,7 +50,7 @@ clDiffFrame::clDiffFrame(wxWindow* parent)
     }
     CreateMenuBar();
     SetIcons(b);
-    CallAfter(&clDiffFrame::Maximize, true);
+    ::clSetTLWindowBestSizeAndPosition(this);
 }
 
 clDiffFrame::clDiffFrame(wxWindow* parent, const wxFileName& left, const wxFileName& right, bool isTempFile)
@@ -60,7 +61,9 @@ clDiffFrame::clDiffFrame(wxWindow* parent, const wxFileName& left, const wxFileN
     SetSizer(sz);
     m_diffView = new DiffSideBySidePanel(this);
     sz->Add(m_diffView, 1, wxEXPAND, 0);
-    if(isTempFile) { m_diffView->SetSaveFilepaths(false); }
+    if(isTempFile) {
+        m_diffView->SetSaveFilepaths(false);
+    }
 
     m_diffView->DiffNew(left, right);
     WindowAttrManager::Load(this);
@@ -72,7 +75,7 @@ clDiffFrame::clDiffFrame(wxWindow* parent, const wxFileName& left, const wxFileN
     }
     CreateMenuBar();
     SetIcons(b);
-    CallAfter(&clDiffFrame::Maximize, true);
+    ::clSetTLWindowBestSizeAndPosition(this);
 }
 
 clDiffFrame::~clDiffFrame() {}
@@ -93,14 +96,27 @@ void clDiffFrame::CreateMenuBar()
     Bind(wxEVT_MENU, &DiffSideBySidePanel::OnCopyRightToLeft, m_diffView, XRCID("ID_DIFF_TOOL_COPY_LEFT"));
     Bind(wxEVT_UPDATE_UI, &DiffSideBySidePanel::OnCopyRightToLeftUI, m_diffView, XRCID("ID_DIFF_TOOL_COPY_LEFT"));
 
-    Bind(wxEVT_MENU, &DiffSideBySidePanel::OnCopyFileLeftToRight, m_diffView, XRCID("ID_DIFF_TOOL_COPY_ALL_LEFT_TO_RIGHT"));
-    Bind(wxEVT_MENU, &DiffSideBySidePanel::OnCopyFileFromRight, m_diffView, XRCID("ID_DIFF_TOOL_COPY_ALL_RIGHT_TO_LEFT"));
-    
+    Bind(wxEVT_MENU, &DiffSideBySidePanel::OnCopyFileLeftToRight, m_diffView,
+         XRCID("ID_DIFF_TOOL_COPY_ALL_LEFT_TO_RIGHT"));
+    Bind(wxEVT_MENU, &DiffSideBySidePanel::OnCopyFileFromRight, m_diffView,
+         XRCID("ID_DIFF_TOOL_COPY_ALL_RIGHT_TO_LEFT"));
+
     Bind(wxEVT_MENU, &clDiffFrame::OnClose, this, wxID_CLOSE);
+
+    // Not a menu item, but this is a convenient place to bind ESC to Close()
+    Bind(wxEVT_CHAR_HOOK, &clDiffFrame::OnCharHook, this);
 }
 
 void clDiffFrame::OnClose(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     Close();
+}
+
+void clDiffFrame::OnCharHook(wxKeyEvent& event)
+{
+    event.Skip();
+    if(event.GetKeyCode() == WXK_ESCAPE && !m_diffView->HasFindBarFocus()) {
+        Close();
+    }
 }

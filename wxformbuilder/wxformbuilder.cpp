@@ -45,7 +45,9 @@ static wxFormBuilder* thePlugin = NULL;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new wxFormBuilder(manager); }
+    if(thePlugin == 0) {
+        thePlugin = new wxFormBuilder(manager);
+    }
     return thePlugin;
 }
 
@@ -89,7 +91,7 @@ wxFormBuilder::wxFormBuilder(IManager* manager)
 
 wxFormBuilder::~wxFormBuilder() {}
 
-void wxFormBuilder::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void wxFormBuilder::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void wxFormBuilder::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -99,7 +101,7 @@ void wxFormBuilder::CreatePluginMenu(wxMenu* pluginsMenu)
     item = new wxMenuItem(menu, XRCID("wxfb_settings"), _("Settings..."), _("Settings..."), wxITEM_NORMAL);
     menu->Append(item);
 
-    pluginsMenu->Append(wxID_ANY, wxT("wxFormBuilder"), menu);
+    pluginsMenu->Append(wxID_ANY, _("wxFormBuilder"), menu);
 
     m_topWin->Connect(XRCID("wxfb_settings"), wxEVT_COMMAND_MENU_SELECTED,
                       wxCommandEventHandler(wxFormBuilder::OnSettings), NULL, this);
@@ -109,7 +111,7 @@ void wxFormBuilder::HookPopupMenu(wxMenu* menu, MenuType type)
 {
     if(type == MenuTypeFileView_Folder) {
         menu->AppendSeparator();
-        menu->Append(XRCID("WXFB_POPUP"), wxT("wxFormBuilder"), CreatePopupMenu());
+        menu->Append(XRCID("WXFB_POPUP"), _("wxFormBuilder"), CreatePopupMenu());
     }
 }
 
@@ -267,11 +269,17 @@ void wxFormBuilder::DoCreateWxFormBuilderProject(const wxFBItemInfo& data)
         wxFileName cppFile(fbpFile.GetPath(), data.file + wxT(".cpp"));
         wxFileName headerFile(fbpFile.GetPath(), data.file + wxT(".h"));
 
-        if(cppFile.FileExists()) { filesToAdd.Add(cppFile.GetFullPath()); }
+        if(cppFile.FileExists()) {
+            filesToAdd.Add(cppFile.GetFullPath());
+        }
 
-        if(headerFile.FileExists()) { filesToAdd.Add(headerFile.GetFullPath()); }
+        if(headerFile.FileExists()) {
+            filesToAdd.Add(headerFile.GetFullPath());
+        }
 
-        if(filesToAdd.GetCount()) { m_mgr->AddFilesToVirtualFolder(data.virtualFolder, filesToAdd); }
+        if(filesToAdd.GetCount()) {
+            m_mgr->AddFilesToVirtualFolder(data.virtualFolder, filesToAdd);
+        }
 
         DoLaunchWxFB(fbpFile.GetFullPath());
     }
@@ -307,9 +315,7 @@ void wxFormBuilder::DoLaunchWxFB(const wxString& file)
     wxString cmd = confData.GetCommand();
     cmd.Replace(wxT("$(wxfb)"), fbpath);
     cmd.Replace(wxT("$(wxfb_project)"), wxString::Format(wxT("\"%s\""), file.c_str()));
-
-    WrapInShell(cmd);
-    CreateAsyncProcess(this, cmd, IProcessCreateWithHiddenConsole);
+    CreateAsyncProcess(this, cmd, IProcessCreateWithHiddenConsole | IProcessWrapInShell);
 }
 
 wxString wxFormBuilder::GetWxFBPath()
@@ -329,6 +335,9 @@ wxString wxFormBuilder::GetWxFBPath()
         }
     }
 #endif
+    if(fbpath.IsEmpty()) {
+        fbpath = wxT("wxformbuilder");
+    }
     return fbpath;
 }
 
@@ -350,7 +359,9 @@ void wxFormBuilder::OnOpenFile(clCommandEvent& e)
     e.Skip();
     // launch it with the default application
     wxFileName fullpath(e.GetFileName());
-    if(fullpath.GetExt().MakeLower() != wxT("fbp")) { return; }
+    if(fullpath.GetExt().MakeLower() != wxT("fbp")) {
+        return;
+    }
 
 #ifdef __WXGTK__
     e.Skip(false);
@@ -375,7 +386,9 @@ void wxFormBuilder::OnOpenFile(clCommandEvent& e)
 
 void wxFormBuilder::OnWxFBTerminated(clProcessEvent& e)
 {
-    if(e.GetProcess()) { delete e.GetProcess(); }
+    if(e.GetProcess()) {
+        delete e.GetProcess();
+    }
 }
 
 void wxFormBuilder::OnShowFileContextMenu(clContextMenuEvent& event)

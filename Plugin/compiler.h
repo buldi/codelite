@@ -25,13 +25,20 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "GCCMetadata.hpp"
+#include "asyncprocess.h"
+#include "codelite_exports.h"
 #include "configuration_object.h"
 #include "smart_ptr.h"
-#include "codelite_exports.h"
-#include <map>
+
 #include <list>
-#include <wx/arrstr.h>
+#include <map>
+#include <memory>
 #include <vector>
+#include <wx/arrstr.h>
+#include <wx/clntdata.h>
+#include <wx/regex.h>
+#include <wx/string.h>
 
 /**
  * \ingroup LiteEditor
@@ -47,7 +54,7 @@
 class WXDLLIMPEXP_SDK Compiler : public ConfObject
 {
 public:
-    enum { eErrorPattern, eWarningPattern };
+    enum eSeverity { kSevError, kSevWarning, kSevNote };
 
     enum CmpFileKind { CmpFileKindSource, CmpFileKindResource };
 
@@ -68,16 +75,32 @@ public:
         wxString lineNumberIndex;
         wxString fileNameIndex;
         wxString columnIndex;
+        std::shared_ptr<wxRegEx> re;
+    };
+
+    /// If a file matches a regular expression, this structure
+    /// will hold the information about it
+    struct PatternMatch : public wxClientData {
+        wxString file_path;
+        Compiler::eSeverity sev = kSevError;
+        int line_number = wxNOT_FOUND;
+        int column = wxNOT_FOUND;
+    };
+
+    struct LinkLine {
+        wxString lineFromFile;
+        wxString line;
     };
 
     enum eRegexType { kRegexVC = 0, kRegexGNU };
     typedef std::list<CmpInfoPattern> CmpListInfoPattern;
 
 private:
-    void
-    AddPattern(int type, const wxString& pattern, int fileNameIndex, int lineNumberIndex, int colIndex = wxNOT_FOUND);
-    void AddDefaultGnuComplierOptions();
+    void AddPattern(int type, const wxString& pattern, int fileNameIndex, int lineNumberIndex,
+                    int colIndex = wxNOT_FOUND);
+    void AddDefaultGnuCompilerOptions();
     void AddDefaultGnuLinkerOptions();
+    void AddDefaultGnuCompilerLinkerOptions();
 
 protected:
     wxString m_name;
@@ -101,17 +124,35 @@ protected:
     bool m_isDefault;
     wxString m_installationPath;
     wxArrayString m_compilerBuiltinDefinitions;
+    std::map<wxString, LinkLine> m_linkerLines;
 
 private:
     wxString GetGCCVersion() const;
     wxString GetIncludePath(const wxString& pathSuffix) const;
     wxArrayString POSIXGetIncludePaths() const;
+    bool IsMatchesPattern(CmpInfoPattern& pattern, eSeverity severity, const wxString& line,
+                          PatternMatch* match_result) const;
 
 public:
     typedef std::map<wxString, wxString>::const_iterator ConstIterator;
 
     Compiler(wxXmlNode* node, Compiler::eRegexType regexType = Compiler::kRegexGNU);
     virtual ~Compiler();
+
+    /**
+     * @brief attempt to parse line and provide details about the parsed data
+     */
+    bool Matches(const wxString& line, PatternMatch* match_result);
+
+    /**
+     * @brief return { "PATH", "/compiler/bin:$PATH"} pair
+     */
+    void CreatePathEnv(clEnvList_t* env_list);
+
+    /**
+     * @brief check if this compiler is a 64 bit compiler
+     */
+    bool Is64BitCompiler();
 
     /**
      * @brief return the compiler default include paths
@@ -139,6 +180,10 @@ public:
 
     void AddCompilerOption(const wxString& name, const wxString& desc);
     void AddLinkerOption(const wxString& name, const wxString& desc);
+    void AddCompilerLinkerOption(const wxString& name, const wxString& desc);
+
+    wxString GetLinkLine(const wxString& type, bool inputFromFile) const;
+    void SetLinkLine(const wxString& type, const wxString& line, bool inputFromFile);
 
     /**
      * @brief return list of builtin macros for this compiler instance
@@ -182,6 +227,8 @@ public:
     }
 
     const std::map<wxString, Compiler::CmpFileTypeInfo>& GetFileTypes() const { return m_fileTypes; }
+    const std::map<wxString, LinkLine>& GetLinkerLines() const { return m_linkerLines; }
+    void SetLinkerLines(const std::map<wxString, LinkLine>& lines) { m_linkerLines = lines; }
 
     const CmpCmdLineOptions& GetCompilerOptions() const { return m_compilerOptions; }
 
@@ -191,11 +238,11 @@ public:
 
     void SetLinkerOptions(const CmpCmdLineOptions& cmpOptions) { m_linkerOptions = cmpOptions; }
 
-    void SetGenerateDependeciesFile(const bool& generateDependeciesFile)
+    void SetGenerateDependeciesFile(bool generateDependeciesFile)
     {
         this->m_generateDependeciesFile = generateDependeciesFile;
     }
-    const bool& GetGenerateDependeciesFile() const { return m_generateDependeciesFile; }
+    bool GetGenerateDependeciesFile() const { return IsGnuCompatibleCompiler() && m_generateDependeciesFile; }
     void SetReadObjectFilesFromList(bool readObjectFilesFromList)
     {
         this->m_readObjectFilesFromList = readObjectFilesFromList;
@@ -208,6 +255,15 @@ public:
         this->m_objectNameIdenticalToFileName = objectNameIdenticalToFileName;
     }
     bool GetObjectNameIdenticalToFileName() const { return m_objectNameIdenticalToFileName; }
+    /**
+     * @brief return the compiler metadata info
+     */
+    GCCMetadata GetMetadata() const;
+
+    /**
+     * @brief does this compiler support metadata object?
+     */
+    bool HasMetadata() const;
 };
 
 typedef SmartPtr<Compiler> CompilerPtr;

@@ -1,4 +1,5 @@
 #include "GotoAnythingDlg.h"
+
 #include "bitmap_loader.h"
 #include "clAnagram.h"
 #include "clKeyboardManager.h"
@@ -10,6 +11,7 @@
 #include "imanager.h"
 #include "macros.h"
 #include "windowattrmanager.h"
+
 #include <algorithm>
 #include <wx/app.h>
 
@@ -19,7 +21,9 @@ GotoAnythingDlg::GotoAnythingDlg(wxWindow* parent, const std::vector<clGotoEntry
 {
     DoPopulate(m_allEntries);
     CallAfter(&GotoAnythingDlg::UpdateLastSearch);
-    WindowAttrManager::Load(this);
+
+    ::clSetDialogBestSizeAndPosition(this);
+    CenterOnParent();
 }
 
 GotoAnythingDlg::~GotoAnythingDlg()
@@ -36,7 +40,7 @@ void GotoAnythingDlg::OnKeyDown(wxKeyEvent& event)
     } else if(event.GetKeyCode() == WXK_DOWN) {
         event.Skip(false);
         int row = m_dvListCtrl->GetSelectedRow();
-        if((row + 1) < m_dvListCtrl->GetItemCount()) {
+        if((size_t)(row + 1) < m_dvListCtrl->GetItemCount()) {
             row++;
             DoSelectItem(m_dvListCtrl->RowToItem(row));
         }
@@ -59,21 +63,25 @@ void GotoAnythingDlg::OnEnter(wxCommandEvent& event)
 void GotoAnythingDlg::DoPopulate(const std::vector<clGotoEntry>& entries, const std::vector<int>& indexes)
 {
     m_dvListCtrl->DeleteAllItems();
-    static wxBitmap placeHolderBmp = clGetManager()->GetStdIcons()->LoadBitmap("placeholder");
+    m_dvListCtrl->Begin();
     for(size_t i = 0; i < entries.size(); ++i) {
         const clGotoEntry& entry = entries[i];
         wxVector<wxVariant> cols;
-        cols.push_back(::MakeIconText(entry.GetDesc(), entry.GetBitmap().IsOk() ? entry.GetBitmap() : placeHolderBmp));
+        cols.push_back(wxT("\u2022 ") + entry.GetDesc());
         cols.push_back(entry.GetKeyboardShortcut());
         m_dvListCtrl->AppendItem(cols, indexes.empty() ? i : indexes[i]);
     }
-    if(!entries.empty()) { m_dvListCtrl->SelectRow(0); }
+    m_dvListCtrl->Commit();
+    if(!entries.empty()) {
+        m_dvListCtrl->SelectRow(0);
+    }
 }
 
 void GotoAnythingDlg::DoExecuteActionAndClose()
 {
     int row = m_dvListCtrl->GetSelectedRow();
-    if(row == wxNOT_FOUND) return;
+    if(row == wxNOT_FOUND)
+        return;
 
     // Execute the action
     int index = m_dvListCtrl->GetItemData(m_dvListCtrl->RowToItem(row));
@@ -98,7 +106,8 @@ void GotoAnythingDlg::ApplyFilter()
 {
     // Create a list the matches the typed text
     wxString filter = m_textCtrlSearch->GetValue();
-    if(m_currentFilter == filter) return;
+    if(m_currentFilter == filter)
+        return;
 
     // Update the last applied filter
     m_currentFilter = filter;

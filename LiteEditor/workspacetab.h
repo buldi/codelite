@@ -25,10 +25,9 @@
 #ifndef __workspacetab__
 #define __workspacetab__
 
-#include <wx/panel.h>
-#include "theme_handler_helper.h"
-#include "wxcrafter.h"
 #include "cl_command_event.h"
+#include "wxcrafter.h"
+#include <wx/panel.h>
 
 class clWorkspaceView;
 class ProjectSettingsDlg;
@@ -38,19 +37,19 @@ class WorkspaceTab : public WorkspaceTabBase
 
     wxString m_caption;
     bool m_isLinkedToEditor;
-    ThemeHandlerHelper* m_themeHelper;
     ProjectSettingsDlg* m_dlg;
     clWorkspaceView* m_view;
     wxColour m_bgColour;
     wxArrayString m_cxxPinnedProjects;
     clTreeCtrl::BitmapVec_t m_bitmaps;
+    bool m_buildInProgress = false;
+    bool m_runInProgress = false;
 
 protected:
     virtual void OnPinnedCxxProjectSelected(wxDataViewEvent& event);
     virtual void OnPinnedCxxProjectContextMenu(wxDataViewEvent& event);
     void ProjectSettingsDlgClosed();
     void DoGoHome();
-    void DoConfigChanged(const wxString& newConfigName);
     void LoadCxxPinnedProjects();
     void SaveCxxPinnedProjects();
     /**
@@ -58,17 +57,14 @@ protected:
      */
     void SyncPinnedProjectsView(const wxDataViewItem& item);
     void ShowPinnedProjectMenu(const wxString& project);
-    
+
 protected:
     virtual void OnWorkspaceOpenUI(wxUpdateUIEvent& event);
     virtual void OnLinkEditorUI(wxUpdateUIEvent& event);
 
     void OnFolderDropped(clCommandEvent& event);
-    void OnPaint(wxPaintEvent& event);
     void CreateGUIControls();
     void ConnectEvents();
-    void DoWorkspaceConfig();
-    void DoUpdateChoiceWithProjects();
 
     void OnLinkEditor(wxCommandEvent& e);
     void OnCollapseAll(wxCommandEvent& e);
@@ -80,16 +76,20 @@ protected:
     void OnShowFile(wxCommandEvent& e);
     void OnShowFileUI(wxUpdateUIEvent& e);
 
-    void OnWorkspaceLoaded(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnProjectAdded(clCommandEvent& e);
     void OnProjectRemoved(clCommandEvent& e);
     void OnActiveEditorChanged(wxCommandEvent& e);
     void OnEditorClosing(wxCommandEvent& e);
-    void OnWorkspaceConfig(wxCommandEvent& e);
-    void OnConfigurationManager(wxCommandEvent& e);
-    void OnConfigChanged(clCommandEvent& e);
-    void OnActiveProjectChanged(clProjectSettingsEvent& e);
+
+    void OnBuildStarted(clBuildEvent& event);
+    void OnBuildEnded(clBuildEvent& event);
+    void OnProgramStarted(clExecuteEvent& event);
+    void OnProgramStopped(clExecuteEvent& event);
+    void OnBuildActiveProject(wxCommandEvent& event);
+    void OnExecuteNoDebug(wxCommandEvent& event);
+    void OnBuildActiveProjectDropdown(wxCommandEvent& event);
 
 public:
     WorkspaceTab(wxWindow* parent, const wxString& caption);
@@ -107,7 +107,7 @@ public:
      */
     clWorkspaceView* GetView() { return m_view; }
     /**
-     * @brief 
+     * @brief
      * @param project
      */
     void AddPinnedProject(const wxString& project);

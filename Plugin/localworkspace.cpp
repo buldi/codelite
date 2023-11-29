@@ -23,22 +23,23 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "editor_config.h"
-#include <wx/log.h>
-#include "globals.h"
-#include "optionsconfig.h"
-#include <wx/fontmap.h>
-#include <wx/utils.h>
-#include "xmlutils.h"
-#include "workspace.h"
-#include "project.h"
 #include "localworkspace.h"
-#include "macros.h"
 
-#include "wx_xml_compatibility.h"
 #include "codelite_events.h"
+#include "editor_config.h"
 #include "event_notifier.h"
+#include "globals.h"
+#include "macros.h"
+#include "optionsconfig.h"
+#include "project.h"
+#include "workspace.h"
+#include "wx_xml_compatibility.h"
+#include "xmlutils.h"
+
 #include <algorithm>
+#include <wx/fontmap.h>
+#include <wx/log.h>
+#include <wx/utils.h>
 
 //-----------------------------------------------------------------------------
 
@@ -57,26 +58,48 @@ LocalOptionsConfig::LocalOptionsConfig(OptionsConfigPtr opts, wxXmlNode* node)
         bool answer;
         wxString str;
         long l;
-        if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayFoldMargin"), answer)) { opts->SetDisplayFoldMargin(answer); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayFoldMargin"), answer)) {
+            opts->SetDisplayFoldMargin(answer);
+        }
         if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayBookmarkMargin"), answer)) {
             opts->SetDisplayBookmarkMargin(answer);
         }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("HighlightCaretLine"), answer)) { opts->SetHighlightCaretLine(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorTrimEmptyLines"), answer)) { opts->SetTrimLine(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorAppendLf"), answer)) { opts->SetAppendLF(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("ShowLineNumber"), answer)) { opts->SetDisplayLineNumbers(answer); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("HighlightCaretLine"), answer)) {
+            opts->SetHighlightCaretLine(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorTrimEmptyLines"), answer)) {
+            opts->SetTrimLine(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorAppendLf"), answer)) {
+            opts->SetAppendLF(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("ShowLineNumber"), answer)) {
+            opts->SetDisplayLineNumbers(answer);
+        }
         if(XmlUtils::ReadBoolIfExists(node, wxT("IndentationGuides"), answer)) {
             opts->SetShowIndentationGuidelines(answer);
         }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("IndentUsesTabs"), answer)) { opts->SetIndentUsesTabs(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("HideChangeMarkerMargin"), answer)) {
-            opts->SetHideChangeMarkerMargin(answer);
+        if(XmlUtils::ReadBoolIfExists(node, wxT("IndentUsesTabs"), answer)) {
+            opts->SetIndentUsesTabs(answer);
         }
-        if(XmlUtils::ReadLongIfExists(node, wxT("IndentWidth"), l)) { opts->SetIndentWidth(l); }
-        if(XmlUtils::ReadLongIfExists(node, wxT("TabWidth"), l)) { opts->SetTabWidth(l); }
-        if(XmlUtils::ReadLongIfExists(node, wxT("ShowWhitespaces"), l)) { opts->SetShowWhitspaces(l); }
-        if(XmlUtils::ReadStringIfExists(node, wxT("EOLMode"), str)) { opts->SetEolMode(str); }
-        if(XmlUtils::ReadStringIfExists(node, wxT("FileFontEncoding"), str)) { opts->SetFileFontEncoding(str); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("TrackEditorChanges"), answer)) {
+            opts->SetTrackChanges(answer);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("IndentWidth"), l)) {
+            opts->SetIndentWidth(l);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("TabWidth"), l)) {
+            opts->SetTabWidth(l);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("ShowWhitespaces"), l)) {
+            opts->SetShowWhitspaces(l);
+        }
+        if(XmlUtils::ReadStringIfExists(node, wxT("EOLMode"), str)) {
+            opts->SetEolMode(str);
+        }
+        if(XmlUtils::ReadStringIfExists(node, wxT("FileFontEncoding"), str)) {
+            opts->SetFileFontEncoding(str);
+        }
     }
 }
 
@@ -91,26 +114,48 @@ LocalOptionsConfig::LocalOptionsConfig(LocalOptionsConfigPtr opts, wxXmlNode* no
         bool answer;
         wxString str;
         long l;
-        if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayFoldMargin"), answer)) { opts->SetDisplayFoldMargin(answer); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayFoldMargin"), answer)) {
+            opts->SetDisplayFoldMargin(answer);
+        }
         if(XmlUtils::ReadBoolIfExists(node, wxT("DisplayBookmarkMargin"), answer)) {
             opts->SetDisplayBookmarkMargin(answer);
         }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("HighlightCaretLine"), answer)) { opts->SetHighlightCaretLine(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorTrimEmptyLines"), answer)) { opts->SetTrimLine(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorAppendLf"), answer)) { opts->SetAppendLF(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("ShowLineNumber"), answer)) { opts->SetDisplayLineNumbers(answer); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("HighlightCaretLine"), answer)) {
+            opts->SetHighlightCaretLine(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorTrimEmptyLines"), answer)) {
+            opts->SetTrimLine(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("EditorAppendLf"), answer)) {
+            opts->SetAppendLF(answer);
+        }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("ShowLineNumber"), answer)) {
+            opts->SetDisplayLineNumbers(answer);
+        }
         if(XmlUtils::ReadBoolIfExists(node, wxT("IndentationGuides"), answer)) {
             opts->SetShowIndentationGuidelines(answer);
         }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("IndentUsesTabs"), answer)) { opts->SetIndentUsesTabs(answer); }
-        if(XmlUtils::ReadBoolIfExists(node, wxT("HideChangeMarkerMargin"), answer)) {
-            opts->SetHideChangeMarkerMargin(answer);
+        if(XmlUtils::ReadBoolIfExists(node, wxT("IndentUsesTabs"), answer)) {
+            opts->SetIndentUsesTabs(answer);
         }
-        if(XmlUtils::ReadLongIfExists(node, wxT("IndentWidth"), l)) { opts->SetIndentWidth(l); }
-        if(XmlUtils::ReadLongIfExists(node, wxT("TabWidth"), l)) { opts->SetTabWidth(l); }
-        if(XmlUtils::ReadLongIfExists(node, wxT("ShowWhitespaces"), l)) { opts->SetShowWhitespaces(l); }
-        if(XmlUtils::ReadStringIfExists(node, wxT("EOLMode"), str)) { opts->SetEolMode(str); }
-        if(XmlUtils::ReadStringIfExists(node, wxT("FileFontEncoding"), str)) { opts->SetFileFontEncoding(str); }
+        if(XmlUtils::ReadBoolIfExists(node, wxT("TrackEditorChanges"), answer)) {
+            opts->SetTrackChanges(answer);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("IndentWidth"), l)) {
+            opts->SetIndentWidth(l);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("TabWidth"), l)) {
+            opts->SetTabWidth(l);
+        }
+        if(XmlUtils::ReadLongIfExists(node, wxT("ShowWhitespaces"), l)) {
+            opts->SetShowWhitespaces(l);
+        }
+        if(XmlUtils::ReadStringIfExists(node, wxT("EOLMode"), str)) {
+            opts->SetEolMode(str);
+        }
+        if(XmlUtils::ReadStringIfExists(node, wxT("FileFontEncoding"), str)) {
+            opts->SetFileFontEncoding(str);
+        }
     }
 }
 
@@ -127,53 +172,59 @@ wxXmlNode* LocalOptionsConfig::ToXml(wxXmlNode* parent /*=NULL*/, const wxString
     wxXmlNode* n = new wxXmlNode(parent, wxXML_ELEMENT_NODE, nodename);
 
     if(DisplayFoldMarginIsValid()) {
-        n->AddProperty(wxT("DisplayFoldMargin"), BoolToString(m_localdisplayFoldMargin.GetDatum()));
+        n->AddAttribute(wxT("DisplayFoldMargin"), BoolToString(m_localdisplayFoldMargin.GetDatum()));
     }
     if(DisplayBookmarkMarginIsValid()) {
-        n->AddProperty(wxT("DisplayBookmarkMargin"), BoolToString(m_localdisplayBookmarkMargin.GetDatum()));
+        n->AddAttribute(wxT("DisplayBookmarkMargin"), BoolToString(m_localdisplayBookmarkMargin.GetDatum()));
     }
     if(HighlightCaretLineIsValid()) {
-        n->AddProperty(wxT("HighlightCaretLine"), BoolToString(m_localhighlightCaretLine.GetDatum()));
+        n->AddAttribute(wxT("HighlightCaretLine"), BoolToString(m_localhighlightCaretLine.GetDatum()));
     }
-    if(TrimLineIsValid()) { n->AddProperty(wxT("EditorTrimEmptyLines"), BoolToString(m_localTrimLine.GetDatum())); }
-    if(AppendLFIsValid()) { n->AddProperty(wxT("EditorAppendLf"), BoolToString(m_localAppendLF.GetDatum())); }
+    if(TrimLineIsValid()) {
+        n->AddAttribute(wxT("EditorTrimEmptyLines"), BoolToString(m_localTrimLine.GetDatum()));
+    }
+    if(AppendLFIsValid()) {
+        n->AddAttribute(wxT("EditorAppendLf"), BoolToString(m_localAppendLF.GetDatum()));
+    }
     if(DisplayLineNumbersIsValid()) {
-        n->AddProperty(wxT("ShowLineNumber"), BoolToString(m_localdisplayLineNumbers.GetDatum()));
+        n->AddAttribute(wxT("ShowLineNumber"), BoolToString(m_localdisplayLineNumbers.GetDatum()));
     }
     if(ShowIndentationGuidelinesIsValid()) {
-        n->AddProperty(wxT("IndentationGuides"), BoolToString(m_localshowIndentationGuidelines.GetDatum()));
+        n->AddAttribute(wxT("IndentationGuides"), BoolToString(m_localshowIndentationGuidelines.GetDatum()));
     }
     if(IndentUsesTabsIsValid()) {
-        n->AddProperty(wxT("IndentUsesTabs"), BoolToString(m_localindentUsesTabs.GetDatum()));
+        n->AddAttribute(wxT("IndentUsesTabs"), BoolToString(m_localindentUsesTabs.GetDatum()));
     }
-    if(HideChangeMarkerMarginIsValid()) {
-        n->AddProperty(wxT("HideChangeMarkerMargin"), BoolToString(m_localhideChangeMarkerMargin.GetDatum()));
+    if(IsTrackChangesIsValid()) {
+        n->AddAttribute(wxT("TrackEditorChanges"), BoolToString(m_localTrackChanges.GetDatum()));
     }
 
-    if(EolModeIsValid()) { n->AddProperty(wxT("EOLMode"), m_localeolMode.GetDatum()); }
+    if(EolModeIsValid()) {
+        n->AddAttribute(wxT("EOLMode"), m_localeolMode.GetDatum());
+    }
 
     wxString tmp;
     if(IndentWidthIsValid()) {
         tmp << m_localindentWidth.GetDatum();
-        n->AddProperty(wxT("IndentWidth"), tmp);
+        n->AddAttribute(wxT("IndentWidth"), tmp);
     }
 
     tmp.clear();
     if(TabWidthIsValid()) {
         tmp << m_localtabWidth.GetDatum();
-        n->AddProperty(wxT("TabWidth"), tmp);
+        n->AddAttribute(wxT("TabWidth"), tmp);
     }
 
     tmp.clear();
     if(ShowWhitespacesIsValid()) {
         tmp << m_localshowWhitspaces.GetDatum();
-        n->AddProperty(wxT("ShowWhitespaces"), tmp);
+        n->AddAttribute(wxT("ShowWhitespaces"), tmp);
     }
 
     tmp.clear();
     if(FileFontEncodingIsValid()) {
         tmp = wxFontMapper::GetEncodingName(m_localfileFontEncoding.GetDatum());
-        n->AddProperty(wxT("FileFontEncoding"), tmp);
+        n->AddAttribute(wxT("FileFontEncoding"), tmp);
     }
 
     return n;
@@ -191,7 +242,9 @@ void LocalOptionsConfig::SetFileFontEncoding(const wxString& strFileFontEncoding
 void LocalWorkspace::GetOptions(OptionsConfigPtr options, const wxString& projectname)
 {
     // First, a SanityCheck(). This protects against a change of workspace, and calls Create() if needed
-    if(!SanityCheck()) { return; }
+    if(!SanityCheck()) {
+        return;
+    }
 
     // Get any workspace-wide preferences, then any project ones
     wxXmlNode* lwsnode = GetLocalWorkspaceOptionsNode();
@@ -201,7 +254,9 @@ void LocalWorkspace::GetOptions(OptionsConfigPtr options, const wxString& projec
     }
 
     wxXmlNode* lpnode = GetLocalProjectOptionsNode(projectname);
-    if(lpnode) { LocalOptionsConfig pOC(options, lpnode); }
+    if(lpnode) {
+        LocalOptionsConfig pOC(options, lpnode);
+    }
 
     // This space intentionally left blank :p  Maybe, one day there'll be individual-editor options too
 }
@@ -213,7 +268,9 @@ bool LocalWorkspace::SetWorkspaceOptions(LocalOptionsConfigPtr opts)
     //		<LocalWorkspaceOptions something="on" something_else="off"/>
     //	</Workspace>
 
-    if(!SanityCheck()) { return false; }
+    if(!SanityCheck()) {
+        return false;
+    }
 
     wxXmlNode* oldOptions = GetLocalWorkspaceOptionsNode();
     if(oldOptions) {
@@ -231,13 +288,15 @@ bool LocalWorkspace::SetProjectOptions(LocalOptionsConfigPtr opts, const wxStrin
     //		<Options something="on" something_else="off"/>
     //	</Project>
 
-    if(!SanityCheck()) { return false; }
+    if(!SanityCheck()) {
+        return false;
+    }
 
     // If the project node doesn't exist, create it
     wxXmlNode* project = XmlUtils::FindNodeByName(m_doc.GetRoot(), wxT("Project"), projectname);
     if(!project) {
         project = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("Project"));
-        project->AddProperty(wxT("Name"), projectname);
+        project->AddAttribute(wxT("Name"), projectname);
     }
 
     wxXmlNode* oldOptions = XmlUtils::FindFirstByTagName(project, wxT("Options"));
@@ -259,7 +318,8 @@ bool LocalWorkspace::SaveXmlFile()
 bool LocalWorkspace::SanityCheck()
 {
     wxLogNull noLog;
-    if(!clCxxWorkspaceST::Get()->IsOpen()) return false;
+    if(!clCxxWorkspaceST::Get()->IsOpen())
+        return false;
 
     wxFileName workspaceFile(clCxxWorkspaceST::Get()->GetWorkspaceFileName().GetFullPath());
 
@@ -273,7 +333,9 @@ bool LocalWorkspace::SanityCheck()
     localFile = localWspFile.GetFullPath();
     globalFile = workspaceFile.GetFullPath();
 
-    if((localFile == globalFile) && m_doc.IsOk()) { return true; }
+    if((localFile == globalFile) && m_doc.IsOk()) {
+        return true;
+    }
 
     // If we're here, the class isn't correctly set up, so
     return Create();
@@ -308,22 +370,27 @@ wxXmlNode* LocalWorkspace::GetLocalProjectOptionsNode(const wxString& projectnam
 
 void LocalWorkspace::GetParserPaths(wxArrayString& inclduePaths, wxArrayString& excludePaths)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* workspaceInclPaths = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserPaths"));
     if(workspaceInclPaths) {
         wxXmlNode* child = workspaceInclPaths->GetChildren();
         while(child) {
             if(child->GetName() == wxT("Exclude")) {
-                wxString path = child->GetPropVal(wxT("Path"), wxT(""));
+                wxString path = child->GetAttribute(wxT("Path"), wxT(""));
                 path.Trim().Trim(false);
-                if(path.IsEmpty() == false) { excludePaths.Add(path); }
+                if(path.IsEmpty() == false) {
+                    excludePaths.Add(path);
+                }
             }
 
             else if(child->GetName() == wxT("Include")) {
-                wxString path = child->GetPropVal(wxT("Path"), wxT(""));
+                wxString path = child->GetAttribute(wxT("Path"), wxT(""));
                 path.Trim().Trim(false);
-                if(path.IsEmpty() == false) { inclduePaths.Add(path); }
+                if(path.IsEmpty() == false) {
+                    inclduePaths.Add(path);
+                }
             }
 
             child = child->GetNext();
@@ -333,7 +400,8 @@ void LocalWorkspace::GetParserPaths(wxArrayString& inclduePaths, wxArrayString& 
 
 void LocalWorkspace::SetParserPaths(const wxArrayString& inclduePaths, const wxArrayString& excludePaths)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* workspaceInclPaths = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserPaths"));
     if(workspaceInclPaths) {
@@ -343,49 +411,89 @@ void LocalWorkspace::SetParserPaths(const wxArrayString& inclduePaths, const wxA
     workspaceInclPaths = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("WorkspaceParserPaths"));
     for(size_t i = 0; i < inclduePaths.GetCount(); i++) {
         wxXmlNode* child = new wxXmlNode(workspaceInclPaths, wxXML_ELEMENT_NODE, wxT("Include"));
-        child->AddProperty(wxT("Path"), inclduePaths.Item(i));
+        child->AddAttribute(wxT("Path"), inclduePaths.Item(i));
     }
 
     for(size_t i = 0; i < excludePaths.GetCount(); i++) {
         wxXmlNode* child = new wxXmlNode(workspaceInclPaths, wxXML_ELEMENT_NODE, wxT("Exclude"));
-        child->AddProperty(wxT("Path"), excludePaths.Item(i));
+        child->AddAttribute(wxT("Path"), excludePaths.Item(i));
     }
     SaveXmlFile();
 }
 
 size_t LocalWorkspace::GetParserFlags()
 {
-    if(!SanityCheck()) return 0;
+    if(!SanityCheck())
+        return 0;
 
     wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserFlags"));
-    if(node) { return XmlUtils::ReadLong(node, "flags", 0); }
+    if(node) {
+        return XmlUtils::ReadLong(node, "flags", 0);
+    }
     return 0;
 }
 
 void LocalWorkspace::SetParserFlags(size_t flags)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserFlags"));
-    if(!node) { node = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("WorkspaceParserFlags")); }
+    if(!node) {
+        node = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("WorkspaceParserFlags"));
+    }
 
     XmlUtils::UpdateProperty(node, "flags", wxString() << flags);
     SaveXmlFile();
 }
 
+wxString LocalWorkspace::GetSelectedBuildConfiguration()
+{
+    if(!SanityCheck())
+        return wxT("");
+
+    wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("BuildMatrix"));
+    wxString confName;
+    if(node) {
+        confName = node->GetAttribute(wxT("SelectedConfiguration"), wxT(""));
+    }
+    return confName;
+}
+
+void LocalWorkspace::SetSelectedBuildConfiguration(const wxString& confName)
+{
+    if(!SanityCheck())
+        return;
+
+    wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("BuildMatrix"));
+    if(node) {
+        m_doc.GetRoot()->RemoveChild(node);
+        delete node;
+    }
+    node = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("BuildMatrix"));
+    if(!confName.IsEmpty()) {
+        node->AddAttribute(wxT("SelectedConfiguration"), confName);
+    }
+    SaveXmlFile();
+}
+
 wxString LocalWorkspace::GetActiveEnvironmentSet()
 {
-    if(!SanityCheck()) return wxT("");
+    if(!SanityCheck())
+        return wxT("");
 
     wxXmlNode* envNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("Environment"));
     wxString setName;
-    if(envNode) { setName = envNode->GetPropVal(wxT("Name"), wxT("")); }
+    if(envNode) {
+        setName = envNode->GetAttribute(wxT("Name"), wxT(""));
+    }
     return setName;
 }
 
 void LocalWorkspace::SetActiveEnvironmentSet(const wxString& setName)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* envNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("Environment"));
     if(envNode) {
@@ -393,16 +501,18 @@ void LocalWorkspace::SetActiveEnvironmentSet(const wxString& setName)
         delete envNode;
     }
     envNode = new wxXmlNode(m_doc.GetRoot(), wxXML_ELEMENT_NODE, wxT("Environment"));
-    envNode->AddProperty(wxT("Name"), setName);
+    envNode->AddAttribute(wxT("Name"), setName);
     SaveXmlFile();
 }
 
 void LocalWorkspace::GetParserMacros(wxString& macros)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     macros.Clear();
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* optsNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserMacros"));
     if(optsNode) {
@@ -413,7 +523,8 @@ void LocalWorkspace::GetParserMacros(wxString& macros)
 
 void LocalWorkspace::SetParserMacros(const wxString& macros)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* optsNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("WorkspaceParserMacros"));
     if(optsNode) {
@@ -428,7 +539,8 @@ void LocalWorkspace::SetParserMacros(const wxString& macros)
 
 wxString LocalWorkspace::GetCustomData(const wxString& name)
 {
-    if(!SanityCheck()) return wxEmptyString;
+    if(!SanityCheck())
+        return wxEmptyString;
 
     wxXmlNode* customNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), name);
     if(customNode) {
@@ -441,7 +553,8 @@ wxString LocalWorkspace::GetCustomData(const wxString& name)
 
 void LocalWorkspace::SetCustomData(const wxString& name, const wxString& value)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* customNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), name);
     if(customNode) {
@@ -466,7 +579,8 @@ void LocalWorkspace::GetSearchInFilesMask(wxString& findInFileMask, const wxStri
 {
     findInFileMask.Clear();
     findInFileMask = defaultValue;
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* optsNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("FindInFilesMask"));
     if(optsNode) {
@@ -477,7 +591,8 @@ void LocalWorkspace::GetSearchInFilesMask(wxString& findInFileMask, const wxStri
 
 void LocalWorkspace::SetSearchInFilesMask(const wxString& findInFileMask)
 {
-    if(!SanityCheck()) return;
+    if(!SanityCheck())
+        return;
 
     wxXmlNode* optsNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), wxT("FindInFilesMask"));
     if(optsNode) {
@@ -497,7 +612,9 @@ bool LocalWorkspace::SetFolderColours(const FolderColour::Map_t& vdColours)
     //     <VirtualFolder Path=".." Colour=".."/>
     //     ...
     // </VirtualFoldersColours>
-    if(!SanityCheck()) { return false; }
+    if(!SanityCheck()) {
+        return false;
+    }
 
     wxXmlNode* root = m_doc.GetRoot();
     wxXmlNode* oldOptions = XmlUtils::FindFirstByTagName(root, wxT("VirtualFoldersColours"));
@@ -529,10 +646,13 @@ bool LocalWorkspace::GetFolderColours(FolderColour::Map_t& vdColours)
     //     ...
     // </VirtualFoldersColours>
     vdColours.clear();
-    if(!SanityCheck()) { return false; }
+    if(!SanityCheck()) {
+        return false;
+    }
 
     wxXmlNode* coloursNode = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), "VirtualFoldersColours");
-    if(!coloursNode) return true;
+    if(!coloursNode)
+        return true;
 
     wxXmlNode* child = coloursNode->GetChildren();
     while(child) {
@@ -548,15 +668,20 @@ bool LocalWorkspace::GetFolderColours(FolderColour::Map_t& vdColours)
 size_t LocalWorkspace::GetPinnedProjects(wxArrayString& projects)
 {
     projects.clear();
-    if(!SanityCheck()) { return 0; }
+    if(!SanityCheck()) {
+        return 0;
+    }
 
     wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc.GetRoot(), "PinnedProjects");
-    if(!node) return 0;
+    if(!node)
+        return 0;
 
     // Read all projects
     wxXmlNode* child = node->GetChildren();
     while(child) {
-        if(child->GetName() == "Project") { projects.Add(child->GetAttribute("Name")); }
+        if(child->GetName() == "Project") {
+            projects.Add(child->GetAttribute("Name"));
+        }
         child = child->GetNext();
     }
     return projects.size();
@@ -564,7 +689,9 @@ size_t LocalWorkspace::GetPinnedProjects(wxArrayString& projects)
 
 bool LocalWorkspace::SetPinnedProjects(const wxArrayString& projects)
 {
-    if(!SanityCheck()) { return false; }
+    if(!SanityCheck()) {
+        return false;
+    }
 
     wxXmlNode* root = m_doc.GetRoot();
     wxXmlNode* node = XmlUtils::FindFirstByTagName(root, wxT("PinnedProjects"));

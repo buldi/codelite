@@ -32,6 +32,16 @@ NewProjectDialogBase::NewProjectDialogBase(wxWindow* parent, wxWindowID id, cons
 
     boxSizer2->Add(flexGridSizer10, 1, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
+    m_staticText20 =
+        new wxStaticText(this, wxID_ANY, _("Path:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+    flexGridSizer10->Add(m_staticText20, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    m_dirPicker = new wxDirPickerCtrl(this, wxID_ANY, wxEmptyString, _("Select a folder"), wxDefaultPosition,
+                                      wxDLG_UNIT(this, wxSize(-1, -1)), wxDIRP_SMALL | wxDIRP_USE_TEXTCTRL);
+
+    flexGridSizer10->Add(m_dirPicker, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+
     m_staticText12 =
         new wxStaticText(this, wxID_ANY, _("Name:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
 
@@ -45,15 +55,24 @@ NewProjectDialogBase::NewProjectDialogBase(wxWindow* parent, wxWindowID id, cons
 
     flexGridSizer10->Add(m_textCtrlName, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
-    m_staticText20 =
-        new wxStaticText(this, wxID_ANY, _("Path:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    flexGridSizer10->Add(0, 0, 1, wxALL, WXC_FROM_DIP(5));
 
-    flexGridSizer10->Add(m_staticText20, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+    m_checkBoxSepFolder = new wxCheckBox(this, wxID_ANY, _("Create the project in its own folder"), wxDefaultPosition,
+                                         wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+    m_checkBoxSepFolder->SetValue(false);
 
-    m_dirPicker = new wxDirPickerCtrl(this, wxID_ANY, wxEmptyString, _("Select a folder"), wxDefaultPosition,
-                                      wxDLG_UNIT(this, wxSize(-1, -1)), wxDIRP_SMALL | wxDIRP_USE_TEXTCTRL);
+    flexGridSizer10->Add(m_checkBoxSepFolder, 0, wxALL | wxALIGN_LEFT, WXC_FROM_DIP(5));
 
-    flexGridSizer10->Add(m_dirPicker, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
+    m_staticText36 =
+        new wxStaticText(this, wxID_ANY, _("Category:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
+
+    flexGridSizer10->Add(m_staticText36, 0, wxALL | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
+
+    wxArrayString m_choiceCategoryArr;
+    m_choiceCategory =
+        new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), m_choiceCategoryArr, 0);
+
+    flexGridSizer10->Add(m_choiceCategory, 0, wxALL | wxEXPAND, WXC_FROM_DIP(5));
 
     m_staticText16 =
         new wxStaticText(this, wxID_ANY, _("Type:"), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)), 0);
@@ -113,7 +132,9 @@ NewProjectDialogBase::NewProjectDialogBase(wxWindow* parent, wxWindowID id, cons
 
     SetName(wxT("NewProjectDialogBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
@@ -127,10 +148,28 @@ NewProjectDialogBase::NewProjectDialogBase(wxWindow* parent, wxWindowID id, cons
     }
 #endif
     // Connect events
+    m_dirPicker->Connect(wxEVT_COMMAND_DIRPICKER_CHANGED,
+                         wxFileDirPickerEventHandler(NewProjectDialogBase::OnPathSelected), NULL, this);
+    m_textCtrlName->Connect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(NewProjectDialogBase::OnNameTyped), NULL,
+                            this);
+    m_choiceCategory->Connect(wxEVT_COMMAND_CHOICE_SELECTED,
+                              wxCommandEventHandler(NewProjectDialogBase::OnCategoryChanged), NULL, this);
+    m_choiceCompiler->Connect(wxEVT_COMMAND_CHOICE_SELECTED,
+                              wxCommandEventHandler(NewProjectDialogBase::OnCompilerChanged), NULL, this);
     m_button6->Connect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(NewProjectDialogBase::OnOKUI), NULL, this);
+    m_button6->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(NewProjectDialogBase::OnOK), NULL, this);
 }
 
 NewProjectDialogBase::~NewProjectDialogBase()
 {
+    m_dirPicker->Disconnect(wxEVT_COMMAND_DIRPICKER_CHANGED,
+                            wxFileDirPickerEventHandler(NewProjectDialogBase::OnPathSelected), NULL, this);
+    m_textCtrlName->Disconnect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(NewProjectDialogBase::OnNameTyped),
+                               NULL, this);
+    m_choiceCategory->Disconnect(wxEVT_COMMAND_CHOICE_SELECTED,
+                                 wxCommandEventHandler(NewProjectDialogBase::OnCategoryChanged), NULL, this);
+    m_choiceCompiler->Disconnect(wxEVT_COMMAND_CHOICE_SELECTED,
+                                 wxCommandEventHandler(NewProjectDialogBase::OnCompilerChanged), NULL, this);
     m_button6->Disconnect(wxEVT_UPDATE_UI, wxUpdateUIEventHandler(NewProjectDialogBase::OnOKUI), NULL, this);
+    m_button6->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(NewProjectDialogBase::OnOK), NULL, this);
 }

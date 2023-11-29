@@ -24,12 +24,30 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "navigationmanager.h"
 
-NavMgr::NavMgr()
-    : m_cur(0)
-{
-}
+#include "codelite_events.h"
+#include "event_notifier.h"
+#include "ieditor.h"
+#include "imanager.h"
 
-NavMgr::~NavMgr() { Clear(); }
+#include <wx/stc/stc.h>
+
+namespace
+{
+wxString record_to_string(const BrowseRecord& rec)
+{
+    wxString s;
+    s << rec.filename << ":" << rec.lineno;
+    return s;
+}
+} // namespace
+
+NavMgr::NavMgr() { EventNotifier::Get()->Bind(wxEVT_WORKSPACE_CLOSED, &NavMgr::OnWorkspaceClosed, this); }
+
+NavMgr::~NavMgr()
+{
+    EventNotifier::Get()->Unbind(wxEVT_WORKSPACE_CLOSED, &NavMgr::OnWorkspaceClosed, this);
+    Clear();
+}
 
 NavMgr* NavMgr::Get()
 {
@@ -39,46 +57,72 @@ NavMgr* NavMgr::Get()
 
 void NavMgr::Clear()
 {
-    m_cur = 0;
-    m_jumps.clear();
+    m_prevs = {};
+    m_nexts = {};
 }
 
-bool NavMgr::ValidLocation(const BrowseRecord& rec) const
+bool NavMgr::ValidLocation(const BrowseRecord& rec) const { return (!rec.filename.IsEmpty()) && (rec.lineno > 1); }
+
+bool NavMgr::CanNext() const { return !m_nexts.empty(); }
+
+bool NavMgr::CanPrev() const { return !m_prevs.empty(); }
+
+void NavMgr::StoreCurrentLocation(const BrowseRecord& origin, const BrowseRecord& target)
 {
-    // ATTN: lineno == 1 implies a file was just opened, but before the find-and-select has happened
-    // TODO: don't allow records for non-source files (*.diff, *.i, etc)
-    return (!rec.filename.IsEmpty()) && (rec.lineno > 1);
+    clDEBUG() << "Nav manager storing location: Origin:" << record_to_string(origin)
+              << ", Target:" << record_to_string(target) << endl;
+    if(m_prevs.empty() || !m_prevs.top().IsSameAs(origin)) {
+        m_prevs.push(origin);
+    }
+    m_currentLocation = target;
 }
 
-bool NavMgr::CanNext() const { return m_cur + 1 < m_jumps.size(); }
-
-bool NavMgr::CanPrev() const { return m_cur > 0; }
-
-BrowseRecord NavMgr::GetNext() { return CanNext() ? m_jumps[++m_cur] : BrowseRecord(); }
-
-BrowseRecord NavMgr::GetPrev() { return CanPrev() ? m_jumps[--m_cur] : BrowseRecord(); }
-
-void NavMgr::AddJump(const BrowseRecord& from, const BrowseRecord& to)
+bool NavMgr::NavigateBackward(IManager* mgr)
 {
-    if(ValidLocation(from)) {
-        // keep previous location only if it's not at position 0, and it is not equal to from
-        if((m_cur > 0) && (!((m_jumps[m_cur].filename == from.filename) && (m_jumps[m_cur].lineno == from.lineno)))) {
-            m_cur++;
-        }
-        m_jumps.resize(m_cur);
-        m_jumps.push_back(from);
+    if(!CanPrev()) {
+        return false;
     }
-    if(ValidLocation(to)) {
-        // only add if there's an actual jump
-        if((!m_jumps.empty()) &&
-           (!((m_jumps[m_cur].filename == to.filename) && (m_jumps[m_cur].lineno == to.lineno)))) {
-            m_cur++;
-            m_jumps.resize(m_cur);
-            m_jumps.push_back(to);
-        }
+
+    auto new_loc = m_prevs.top();
+    m_prevs.pop();
+    if(m_currentLocation.IsOk()) {
+        m_nexts.push(m_currentLocation);
     }
+    m_currentLocation = new_loc;
+
+    clDEBUG() << "Nav manager BACKWARD:" << record_to_string(new_loc) << endl;
+    auto callback = [=](IEditor* editor) {
+        editor->GetCtrl()->ClearSelections();
+        editor->CenterLine(new_loc.lineno, new_loc.column);
+    };
+    mgr->OpenFileAndAsyncExecute(new_loc.filename, std::move(callback));
+    return true;
 }
 
-bool NavMgr::NavigateBackward(IManager* mgr) { return CanPrev() && mgr->OpenFile(GetPrev()); }
+bool NavMgr::NavigateForward(IManager* mgr)
+{
+    if(!CanNext()) {
+        return false;
+    }
 
-bool NavMgr::NavigateForward(IManager* mgr) { return CanNext() && mgr->OpenFile(GetNext()); }
+    auto new_loc = m_nexts.top();
+    m_nexts.pop();
+    if(m_currentLocation.IsOk()) {
+        m_prevs.push(m_currentLocation);
+    }
+    m_currentLocation = new_loc;
+
+    clDEBUG() << "Nav manager FORWARD:" << record_to_string(new_loc) << endl;
+    auto callback = [=](IEditor* editor) {
+        editor->GetCtrl()->ClearSelections();
+        editor->CenterLine(new_loc.lineno, new_loc.column);
+    };
+    mgr->OpenFileAndAsyncExecute(new_loc.filename, std::move(callback));
+    return true;
+}
+
+void NavMgr::OnWorkspaceClosed(clWorkspaceEvent& e)
+{
+    e.Skip();
+    Clear();
+}

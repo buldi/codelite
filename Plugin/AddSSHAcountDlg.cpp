@@ -25,10 +25,12 @@
 
 #include "AddSSHAcountDlg.h"
 #if USE_SFTP
-#include "cl_ssh.h"
 #include "cl_exception.h"
-#include <wx/msgdlg.h>
+#include "environmentconfig.h"
+#include "ssh/cl_ssh.h"
 #include "windowattrmanager.h"
+
+#include <wx/msgdlg.h>
 
 AddSSHAcountDlg::AddSSHAcountDlg(wxWindow* parent)
     : AddSSHAcountDlgBase(parent)
@@ -82,7 +84,8 @@ void AddSSHAcountDlg::OnTestConnection(wxCommandEvent& event)
 
     try {
         wxString message;
-        ssh->Connect();
+        EnvSetter env;
+        ssh->Open();
         if(!ssh->AuthenticateServer(message)) {
             if(::wxMessageBox(message, "SSH", wxYES_NO | wxCENTER | wxICON_QUESTION, this) == wxYES) {
                 ssh->AcceptServerAuthentication();
@@ -91,7 +94,7 @@ void AddSSHAcountDlg::OnTestConnection(wxCommandEvent& event)
 
         // Try the login methods:
         ssh->Login();
-        ::wxMessageBox("Successfully connected to host!");
+        ::wxMessageBox(_("Successfully connected to host!"));
 
     } catch(clException& e) {
         ::wxMessageBox(e.What(), "SSH", wxICON_WARNING | wxOK, this);

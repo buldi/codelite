@@ -25,16 +25,20 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
+#include "BreakpointInfoArray.hpp"
 #include "archive.h"
+#include "asyncprocess.h"
+#include "clDebuggerBreakpoint.hpp"
+#include "cl_standard_paths.h"
+#include "macros.h"
 #include "serialized_object.h"
-
-#include "wx/string.h"
+#include "vector"
 #include "wx/arrstr.h"
 #include "wx/event.h"
-#include "vector"
-#include "macros.h"
+#include "wx/string.h"
+
 #include <wx/stdpaths.h>
-#include "cl_standard_paths.h"
+#include <wx/string.h>
 
 enum DebuggerCommands {
     DBG_PAUSE = 0,
@@ -45,31 +49,6 @@ enum DebuggerCommands {
     DBG_SHOW_CURSOR,
     DBG_NEXTI,
 };
-
-// Breakpoint types. If you add more, clEditor::FillBPtoMarkerArray will also need altering
-enum BreakpointType {
-    /*Convenient return-codes*/
-    BP_type_invalid = -1,
-    BP_type_none = 0,
-    /*Real breakpoint-types*/
-    BP_FIRST_ITEM,
-    BP_type_break = BP_FIRST_ITEM,
-    BP_type_cmdlistbreak,
-    BP_type_condbreak,
-    BP_type_ignoredbreak,
-    BP_type_tempbreak,
-    BP_LAST_MARKED_ITEM = BP_type_tempbreak,
-    BP_type_watchpt,
-    BP_LAST_ITEM = BP_type_watchpt
-};
-
-// Watchpoint subtypes: write,read and both
-enum WatchpointType { WP_watch, WP_rwatch, WP_awatch };
-
-// The breakpoint origin:
-// Can be from the Editor (user clicked 'F9')
-// or from any other source (direct command to gdb, from the start up command etc)
-enum BreakpointOrigin { BO_Editor, BO_Other };
 
 enum DisplayFormat { DBG_DF_NATURAL = 0, DBG_DF_HEXADECIMAL, DBG_DF_BINARY, DBG_DF_DECIMAL, DBG_DF_OCTAL };
 
@@ -169,248 +148,13 @@ typedef std::vector<LocalVariable> LocalVariables;
 typedef std::vector<DisassembleEntry> DisassembleEntryVec_t;
 typedef std::vector<DbgRegister> DbgRegistersVec_t;
 
-class BreakpointInfo : public SerializedObject
-{
-public:
-    class PredicateByFileAndLine
-    {
-        wxString m_filename;
-        int m_line;
-
-    public:
-        PredicateByFileAndLine(const wxString& file, int line)
-            : m_filename(file)
-            , m_line(line)
-        {
-        }
-        bool operator()(const BreakpointInfo& bp) const { return m_filename == bp.file && m_line == bp.lineno; }
-    };
-    typedef std::vector<BreakpointInfo> Vec_t;
-
-public:
-    // Where the bp is: file/lineno, function name (e.g. main()) or the memory location
-    wxString file;
-    int lineno;
-    wxString watchpt_data;
-    wxString function_name;
-    bool regex; // Is the function_name a regex?
-    wxString memory_address;
-    // How to identify the bp. Because the debugger won't always be running, we need an internal id as well as the
-    // debugger's one
-    double internal_id;
-    double debugger_id;     // -1 signifies not set
-    BreakpointType bp_type; // Is it a plain vanilla breakpoint, or a temporary one, or a watchpoint, or...
-    unsigned int
-        ignore_number; // 0 means 'not ignored'. >0 is the number of times the bp must be hit before it becomes enabled
-    bool is_enabled;
-    bool is_temp;
-    WatchpointType watchpoint_type; // If this is a watchpoint, holds which sort it is
-    wxString commandlist;
-    wxString conditions;
-    wxString at;
-    wxString what;
-    BreakpointOrigin origin;
-
-    BreakpointInfo(const BreakpointInfo& BI)
-        : file(BI.file)
-        , lineno(BI.lineno)
-        , watchpt_data(BI.watchpt_data)
-        , function_name(BI.function_name)
-        , regex(BI.regex)
-        , memory_address(BI.memory_address)
-        , internal_id(BI.internal_id)
-        , debugger_id(BI.debugger_id)
-        , bp_type(BI.bp_type)
-        , ignore_number(BI.ignore_number)
-        , is_enabled(BI.is_enabled)
-        , is_temp(BI.is_temp)
-        , watchpoint_type(BI.watchpoint_type)
-        , commandlist(BI.commandlist)
-        , conditions(BI.conditions)
-        , at(BI.at)
-        , what(BI.what)
-        , origin(BI.origin)
-    {
-        // Normalize the file name
-        if(file.IsEmpty() == false) {
-            wxFileName fn(file);
-            fn.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_LONG);
-            file = fn.GetFullPath();
-        }
+#define READ_CONFIG_PARAM(name, value) \
+    {                                  \
+        decltype(value) dummy;         \
+        if(arch.Read(name, dummy)) {   \
+            value = dummy;             \
+        }                              \
     }
-
-    BreakpointInfo()
-        : lineno(-1)
-        , regex(false)
-        , internal_id(wxNOT_FOUND)
-        , debugger_id(wxNOT_FOUND)
-        , bp_type(BP_type_break)
-        , ignore_number(0)
-        , is_enabled(true)
-        , is_temp(false)
-        , watchpoint_type(WP_watch)
-        , origin(BO_Other)
-    {
-    }
-
-    bool IsConditional() { return !conditions.IsEmpty(); }
-
-    double GetId() const
-    {
-        int best_id = (this->debugger_id == -1 ? this->internal_id : this->debugger_id);
-        return best_id;
-    }
-
-    void Create(wxString filename, int line, int int_id, int ext_id = -1)
-    {
-        wxFileName fn(filename);
-        fn.Normalize(wxPATH_NORM_ALL & ~wxPATH_NORM_LONG);
-
-        bp_type = BP_type_break;
-        lineno = line;
-        file = filename.IsEmpty() ? wxString() : fn.GetFullPath();
-        internal_id = int_id;
-        debugger_id = ext_id;
-    }
-
-    BreakpointInfo& operator=(const BreakpointInfo& BI)
-    {
-        file = BI.file;
-        lineno = BI.lineno;
-        watchpt_data = BI.watchpt_data;
-        function_name = BI.function_name;
-        regex = BI.regex;
-        memory_address = BI.memory_address;
-        internal_id = BI.internal_id;
-        debugger_id = BI.debugger_id;
-        bp_type = BI.bp_type;
-        ignore_number = BI.ignore_number;
-        is_enabled = BI.is_enabled;
-        is_temp = BI.is_temp;
-        watchpoint_type = BI.watchpoint_type;
-        commandlist = BI.commandlist;
-        conditions = BI.conditions;
-        at = BI.at;     // Provided by the debugger, no need to serialize
-        what = BI.what; // Provided by the debugger, no need to serialize
-        origin = BI.origin;
-        return *this;
-    }
-
-    bool operator==(const BreakpointInfo& BI)
-    {
-        return ((origin == BI.origin) && (what == BI.what) && (at == BI.at) && (file == BI.file) &&
-            (lineno == BI.lineno) && (function_name == BI.function_name) && (memory_address == BI.memory_address) &&
-            (bp_type == BI.bp_type) && (watchpt_data == BI.watchpt_data) && (is_enabled == BI.is_enabled) &&
-            (ignore_number == BI.ignore_number) && (conditions == BI.conditions) && (commandlist == BI.commandlist) &&
-            (is_temp == BI.is_temp) && (bp_type == BP_type_watchpt ? (watchpoint_type == BI.watchpoint_type) : true) &&
-            (!function_name.IsEmpty() ? (regex == BI.regex) : true));
-    }
-
-    bool IsNull() const { return internal_id == wxNOT_FOUND && debugger_id == wxNOT_FOUND; }
-
-protected:
-    // SerializedObject interface
-    virtual void Serialize(Archive& arch)
-    {
-        arch.Write(wxT("file"), file);
-        arch.Write(wxT("lineno"), lineno);
-        arch.Write(wxT("function_name"), function_name);
-        arch.Write(wxT("memory_address"), memory_address);
-        arch.Write(wxT("bp_type"), bp_type);
-        arch.Write(wxT("watchpoint_type"), watchpoint_type);
-        arch.Write(wxT("watchpt_data"), watchpt_data);
-        // WriteCDate tends to write white-space even for empty commandlists
-        arch.WriteCData(wxT("commandlist"), commandlist.Trim().Trim(false));
-        arch.Write(wxT("regex"), regex);
-        arch.Write(wxT("is_temp"), is_temp);
-        arch.Write(wxT("is_enabled"), is_enabled);
-        arch.Write(wxT("ignore_number"), (int)ignore_number);
-        arch.Write(wxT("conditions"), conditions);
-        arch.Write(wxT("origin"), (int)origin);
-    }
-
-    virtual void DeSerialize(Archive& arch)
-    {
-        arch.Read(wxT("file"), file);
-        arch.Read(wxT("lineno"), lineno);
-        arch.Read(wxT("function_name"), function_name);
-        arch.Read(wxT("memory_address"), memory_address);
-
-        int tmpint;
-        arch.Read(wxT("bp_type"), tmpint);
-        bp_type = (BreakpointType)tmpint;
-
-        arch.Read(wxT("watchpoint_type"), tmpint);
-        watchpoint_type = (WatchpointType)tmpint;
-        arch.Read(wxT("watchpt_data"), watchpt_data);
-        arch.ReadCData(wxT("commandlist"), commandlist);
-        commandlist.Trim().Trim(false); // ReadCData tends to add white-space to the commands e.g. a terminal \n
-        arch.Read(wxT("regex"), regex);
-        arch.Read(wxT("is_temp"), is_temp);
-        arch.Read(wxT("is_enabled"), is_enabled);
-
-        arch.Read(wxT("ignore_number"), tmpint);
-        ignore_number = (unsigned int)tmpint;
-        arch.Read(wxT("conditions"), conditions);
-
-        arch.Read(wxT("origin"), tmpint);
-        origin = (BreakpointOrigin)tmpint;
-    }
-};
-typedef std::vector<BreakpointInfo> BreakpointInfoVec_t;
-
-/**
- * @class BreakpointInfoArray a wrapper class to allow saving and reading breakpoint array to and
- * from the disk
- * @author eran
- * @date 07/06/09
- * @file debugger.h
- * @brief
- */
-class BreakpointInfoArray : public SerializedObject
-{
-    std::vector<BreakpointInfo> m_breakpoints;
-
-public:
-    BreakpointInfoArray() {}
-
-    virtual ~BreakpointInfoArray() {}
-
-    BreakpointInfoArray& operator=(const std::vector<BreakpointInfo>& breakpoints)
-    {
-        m_breakpoints = breakpoints;
-        return *this;
-    }
-
-    void SetBreakpoints(const std::vector<BreakpointInfo>& breakpoints) { this->m_breakpoints = breakpoints; }
-    const std::vector<BreakpointInfo>& GetBreakpoints() const { return m_breakpoints; }
-
-public:
-    virtual void DeSerialize(Archive& arch)
-    {
-
-        size_t bt_count(0);
-        m_breakpoints.clear();
-        arch.Read(wxT("Count"), bt_count);
-
-        for(size_t i = 0; i < bt_count; i++) {
-            wxString name = wxString::Format(wxT("Breakpoint%u"), (unsigned int)i);
-            BreakpointInfo bkpt;
-            arch.Read(name, (SerializedObject*)&bkpt);
-            m_breakpoints.push_back(bkpt);
-        }
-    }
-
-    virtual void Serialize(Archive& arch)
-    {
-
-        arch.Write(wxT("Count"), (size_t)m_breakpoints.size());
-        for(size_t i = 0; i < m_breakpoints.size(); i++) {
-            wxString name = wxString::Format(wxT("Breakpoint%u"), (unsigned int)i);
-            arch.Write(name, (SerializedObject*)&m_breakpoints.at(i));
-        }
-    }
-};
 
 class DebuggerInformation : public SerializedObject
 {
@@ -432,8 +176,9 @@ public:
     bool catchThrow;
     bool showTooltipsOnlyWithControlKeyIsDown;
     bool debugAsserts;
-    wxString startupCommands;
-    int maxDisplayStringSize;
+    wxString initFileCommands;
+    int maxDisplayStringSize = 200;
+    int maxDisplayElements = 100;
     bool resolveLocals;
     bool autoExpandTipItems;
     bool applyBreakpointsAfterProgramStarted;
@@ -456,10 +201,9 @@ public:
         , useRelativeFilePaths(false)
         , maxCallStackFrames(500)
         , catchThrow(false)
-        , showTooltipsOnlyWithControlKeyIsDown(false)
+        , showTooltipsOnlyWithControlKeyIsDown(true)
         , debugAsserts(false)
-        , startupCommands(wxEmptyString)
-        , maxDisplayStringSize(200)
+        , initFileCommands(wxEmptyString)
         , resolveLocals(true)
         , autoExpandTipItems(true)
         , applyBreakpointsAfterProgramStarted(false)
@@ -475,62 +219,68 @@ public:
 
     void Serialize(Archive& arch)
     {
-        arch.Write(wxT("name"), name);
-        arch.Write(wxT("path"), path);
-        arch.Write(wxT("enableDebugLog"), enableDebugLog);
-        arch.Write(wxT("enablePendingBreakpoints"), enablePendingBreakpoints);
-        arch.Write(wxT("breakAtWinMain"), breakAtWinMain);
-        arch.Write(wxT("showTerminal"), showTerminal);
-        arch.Write(wxT("consoleCommand"), consoleCommand);
-        arch.Write(wxT("useRelativeFilePaths"), useRelativeFilePaths);
-        arch.Write(wxT("maxCallStackFrames"), maxCallStackFrames);
-        arch.Write(wxT("catchThrow"), catchThrow);
-        arch.Write(wxT("showTooltips"), showTooltipsOnlyWithControlKeyIsDown);
-        arch.Write(wxT("debugAsserts"), debugAsserts);
-        arch.WriteCData(wxT("startupCommands"), startupCommands);
-        arch.Write(wxT("maxDisplayStringSize"), maxDisplayStringSize);
-        arch.Write(wxT("resolveLocals"), resolveLocals);
-        arch.Write(wxT("autoExpandTipItems"), autoExpandTipItems);
-        arch.Write(wxT("applyBreakpointsAfterProgramStarted"), applyBreakpointsAfterProgramStarted);
-        arch.Write(wxT("whenBreakpointHitRaiseCodelite"), whenBreakpointHitRaiseCodelite);
-        arch.Write(wxT("cygwinPathCommand"), cygwinPathCommand);
-        arch.Write(wxT("charArrAsPtr"), charArrAsPtr);
-        arch.Write(wxT("enableGDBPrettyPrinting"), enableGDBPrettyPrinting);
-        arch.Write(wxT("defaultHexDisplay"), defaultHexDisplay);
+        arch.Write("name", name);
+        arch.Write("path", path);
+        arch.Write("enableDebugLog", enableDebugLog);
+        arch.Write("enablePendingBreakpoints", enablePendingBreakpoints);
+        arch.Write("breakAtWinMain", breakAtWinMain);
+        arch.Write("showTerminal", showTerminal);
+        arch.Write("consoleCommand", consoleCommand);
+        arch.Write("useRelativeFilePaths", useRelativeFilePaths);
+        arch.Write("maxCallStackFrames", maxCallStackFrames);
+        arch.Write("catchThrow", catchThrow);
+        arch.Write("showTooltipsOnlyWithControlKeyIsDown", showTooltipsOnlyWithControlKeyIsDown);
+        arch.Write("debugAsserts", debugAsserts);
+        arch.WriteCData("startupCommands", initFileCommands);
+        arch.Write("maxDisplayStringSize", maxDisplayStringSize);
+        arch.Write("maxDisplayElements", maxDisplayElements);
+        arch.Write("resolveLocals", resolveLocals);
+        arch.Write("autoExpandTipItems", autoExpandTipItems);
+        arch.Write("applyBreakpointsAfterProgramStarted", applyBreakpointsAfterProgramStarted);
+        arch.Write("whenBreakpointHitRaiseCodelite", whenBreakpointHitRaiseCodelite);
+        arch.Write("charArrAsPtr", charArrAsPtr);
+        arch.Write("enableGDBPrettyPrinting", enableGDBPrettyPrinting);
+        arch.Write("defaultHexDisplay", defaultHexDisplay);
         arch.Write("flags", flags);
+        arch.Write("cygwinPathCommand", cygwinPathCommand);
     }
 
     void DeSerialize(Archive& arch)
     {
-        arch.Read(wxT("name"), name);
-        arch.Read(wxT("path"), path);
-        arch.Read(wxT("enableDebugLog"), enableDebugLog);
-        arch.Read(wxT("enablePendingBreakpoints"), enablePendingBreakpoints);
-        arch.Read(wxT("breakAtWinMain"), breakAtWinMain);
-        arch.Read(wxT("showTerminal"), showTerminal);
-        arch.Read(wxT("consoleCommand"), consoleCommand);
-        arch.Read(wxT("useRelativeFilePaths"), useRelativeFilePaths);
-        arch.Read(wxT("maxCallStackFrames"), maxCallStackFrames);
-        arch.Read(wxT("catchThrow"), catchThrow);
-        arch.Read(wxT("showTooltips"), showTooltipsOnlyWithControlKeyIsDown);
-        arch.Read(wxT("debugAsserts"), debugAsserts);
+        READ_CONFIG_PARAM("name", name);
+        READ_CONFIG_PARAM("path", path);
+        READ_CONFIG_PARAM("enableDebugLog", enableDebugLog);
+        READ_CONFIG_PARAM("enablePendingBreakpoints", enablePendingBreakpoints);
+        READ_CONFIG_PARAM("breakAtWinMain", breakAtWinMain);
+        READ_CONFIG_PARAM("showTerminal", showTerminal);
+        READ_CONFIG_PARAM("consoleCommand", consoleCommand);
+        READ_CONFIG_PARAM("useRelativeFilePaths", useRelativeFilePaths);
+        READ_CONFIG_PARAM("maxCallStackFrames", maxCallStackFrames);
+        READ_CONFIG_PARAM("catchThrow", catchThrow);
+        READ_CONFIG_PARAM("showTooltipsOnlyWithControlKeyIsDown", showTooltipsOnlyWithControlKeyIsDown);
+        READ_CONFIG_PARAM("debugAsserts", debugAsserts);
 
-        arch.ReadCData(wxT("startupCommands"), startupCommands);
+        arch.ReadCData(wxT("startupCommands"), initFileCommands);
 
-        wxFileName codeliteInstallDir = wxFileName(clStandardPaths::Get().GetUserDataDir(), "gdb_printers");
-        startupCommands.Replace("$CodeLiteGdbPrinters", codeliteInstallDir.GetFullPath());
-        startupCommands.Trim();
+        wxFileName fnPrettyPrintersDir = wxFileName(clStandardPaths::Get().GetUserDataDir(), wxEmptyString);
+        fnPrettyPrintersDir.AppendDir("gdb_printers");
+        initFileCommands.Replace("${CODELITE_GDB_PRINTERS_DIR}", fnPrettyPrintersDir.GetPath());
+        initFileCommands.Trim();
 
-        arch.Read(wxT("maxDisplayStringSize"), maxDisplayStringSize);
-        arch.Read(wxT("resolveLocals"), resolveLocals);
-        arch.Read(wxT("autoExpandTipItems"), autoExpandTipItems);
-        arch.Read(wxT("applyBreakpointsAfterProgramStarted"), applyBreakpointsAfterProgramStarted);
-        arch.Read(wxT("whenBreakpointHitRaiseCodelite"), whenBreakpointHitRaiseCodelite);
-        arch.Read(wxT("cygwinPathCommand"), cygwinPathCommand);
-        arch.Read(wxT("charArrAsPtr"), charArrAsPtr);
-        arch.Read(wxT("enableGDBPrettyPrinting"), enableGDBPrettyPrinting);
-        arch.Read(wxT("defaultHexDisplay"), defaultHexDisplay);
-        arch.Read("flags", flags);
+        // use Linux style syntax
+        initFileCommands.Replace("\\", "/");
+
+        READ_CONFIG_PARAM("maxDisplayStringSize", maxDisplayStringSize);
+        READ_CONFIG_PARAM("maxDisplayElements", maxDisplayElements);
+        READ_CONFIG_PARAM("resolveLocals", resolveLocals);
+        READ_CONFIG_PARAM("autoExpandTipItems", autoExpandTipItems);
+        READ_CONFIG_PARAM("applyBreakpointsAfterProgramStarted", applyBreakpointsAfterProgramStarted);
+        READ_CONFIG_PARAM("whenBreakpointHitRaiseCodelite", whenBreakpointHitRaiseCodelite);
+        READ_CONFIG_PARAM("charArrAsPtr", charArrAsPtr);
+        READ_CONFIG_PARAM("enableGDBPrettyPrinting", enableGDBPrettyPrinting);
+        READ_CONFIG_PARAM("defaultHexDisplay", defaultHexDisplay);
+        READ_CONFIG_PARAM("flags", flags);
+        READ_CONFIG_PARAM("cygwinPathCommand", cygwinPathCommand);
     }
 };
 
@@ -578,20 +328,18 @@ public:
 class DebugSessionInfo
 {
 public:
-    wxString debuggerPath;              /// The debugger to use
-    wxString exeName;                   /// Executable to debug
-    int PID;                            /// Process ID to attach
-    wxString cwd;                       /// Working directory
-    std::vector<BreakpointInfo> bpList; /// Breakpoint list
-    wxArrayString cmds;                 /// Startup commands
-    wxString ttyName;                   /// TTY to use
-    wxArrayString searchPaths;          /// Additional search paths to pass to the debugger
-    bool enablePrettyPrinting;          /// Should we enable pretty printing?
-    DebugSessionInfo()
-        : PID(wxNOT_FOUND)
-        , enablePrettyPrinting(false)
-    {
-    }
+    wxString debuggerPath;                    /// The debugger to use
+    wxString exeName;                         /// Executable to debug
+    int PID = wxNOT_FOUND;                    /// Process ID to attach
+    wxString cwd;                             /// Working directory
+    std::vector<clDebuggerBreakpoint> bpList; /// Breakpoint list
+    wxArrayString cmds;               /// Start-up commands (to be run after gdb starts, but before the user interacts)
+    wxString ttyName;                 /// TTY to use
+    wxArrayString searchPaths;        /// Additional search paths to pass to the debugger
+    bool enablePrettyPrinting = true; /// Should we enable pretty printing?
+    bool isSSHDebugging = false;      /// Debugging over SSH
+    wxString sshAccountName;          /// When isSSHDebugging is set true, holds the ssh account name
+    wxString init_file_content;       /// content to place in a .gdbinit like file
 };
 
 class IDebuggerObserver;
@@ -621,7 +369,9 @@ protected:
     wxString m_name;
     bool m_isRemoteDebugging;
     bool m_isRemoteExtended;
+    bool m_isSSHDebugging = false;
     wxString m_debuggeeProjectName;
+    wxString m_sshAccount;
 
 public:
     IDebugger()
@@ -636,6 +386,7 @@ public:
 
     void SetObserver(IDebuggerObserver* observer) { m_observer = observer; }
 
+    const wxString& GetSshAccount() const { return m_sshAccount; }
     IDebuggerObserver* GetObserver() { return m_observer; }
 
     void SetEnvironment(EnvironmentConfig* env) { m_env = env; }
@@ -645,12 +396,12 @@ public:
     DebuggerInformation GetDebuggerInformation() { return m_info; }
 
     void SetIsRemoteDebugging(bool isRemoteDebugging) { this->m_isRemoteDebugging = isRemoteDebugging; }
-
     bool GetIsRemoteDebugging() const { return m_isRemoteDebugging; }
-
     void SetIsRemoteExtended(bool isRemoteExtended) { this->m_isRemoteExtended = isRemoteExtended; }
-
     bool GetIsRemoteExtended() const { return m_isRemoteExtended; }
+    void SetIsSSHDebugging(bool isSSHDebugging) { this->m_isSSHDebugging = isSSHDebugging; }
+    bool IsSSHDebugging() const { return m_isSSHDebugging; }
+    void SetSshAccount(const wxString& sshAccount) { this->m_sshAccount = sshAccount; }
 
     /**
      * \brief Sets the logging level 'on the fly'
@@ -672,13 +423,13 @@ public:
      * \brief start the debugger by running an executable
      * \return true on success, false otherwise
      */
-    virtual bool Start(const DebugSessionInfo& info) = 0;
+    virtual bool Start(const DebugSessionInfo& info, clEnvList_t* env_list) = 0;
 
     /**
      * \brief start the debugger by attaching to a process
      * \return true on success, false otherwise
      */
-    virtual bool Attach(const DebugSessionInfo& info) = 0;
+    virtual bool Attach(const DebugSessionInfo& info, clEnvList_t* env_list) = 0;
 
     /**
      * \brief Run the program under the debugger. This method must be called *after* Start() has been called
@@ -762,7 +513,7 @@ public:
     /**
      * \brief set break point at given file and line, or function
      */
-    virtual bool Break(const BreakpointInfo& bp) = 0;
+    virtual bool Break(const clDebuggerBreakpoint& bp) = 0;
     /**
      * @brief restart the debuggin session. (similar to 'run' command on GDB)
      * @return true on success false otherwise
@@ -787,11 +538,11 @@ public:
     /**
      * \brief Set this breakpoint's condition
      */
-    virtual bool SetCondition(const BreakpointInfo& bp) = 0;
+    virtual bool SetCondition(const clDebuggerBreakpoint& bp) = 0;
     /**
      * \brief Set a command-list for this breakpoint
      */
-    virtual bool SetCommands(const BreakpointInfo& bp) = 0;
+    virtual bool SetCommands(const clDebuggerBreakpoint& bp) = 0;
     /**
      * \brief ask the debugger to query about its file & line. Once the result arrives, the observer's UpdateFileLine()
      * will be invoked

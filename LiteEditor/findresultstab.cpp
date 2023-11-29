@@ -22,12 +22,15 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "findresultstab.h"
+
 #include "ColoursAndFontsManager.h"
 #include "attribute_style.h"
 #include "bitmap_loader.h"
 #include "clStrings.h"
 #include "clToolBarButtonBase.h"
 #include "cl_aui_tool_stickness.h"
+#include "cl_command_event.h"
 #include "cl_config.h"
 #include "cl_editor.h"
 #include "codelite_events.h"
@@ -35,7 +38,6 @@
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
-#include "findresultstab.h"
 #include "frame.h"
 #include "globals.h"
 #include "lexer_configuration.h"
@@ -43,17 +45,13 @@
 #include "optionsconfig.h"
 #include "pluginmanager.h"
 #include "search_thread.h"
-#include "theme_handler.h"
+
 #include <algorithm>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
 
 BEGIN_EVENT_TABLE(FindResultsTab, OutputTabWindow)
-EVT_COMMAND(wxID_ANY, wxEVT_SEARCH_THREAD_SEARCHSTARTED, FindResultsTab::OnSearchStart)
-EVT_COMMAND(wxID_ANY, wxEVT_SEARCH_THREAD_MATCHFOUND, FindResultsTab::OnSearchMatch)
-EVT_COMMAND(wxID_ANY, wxEVT_SEARCH_THREAD_SEARCHEND, FindResultsTab::OnSearchEnded)
-EVT_COMMAND(wxID_ANY, wxEVT_SEARCH_THREAD_SEARCHCANCELED, FindResultsTab::OnSearchCancel)
 EVT_UPDATE_UI(XRCID("hold_pane_open"), FindResultsTab::OnHoldOpenUpdateUI)
 END_EVENT_TABLE()
 
@@ -61,17 +59,16 @@ FindResultsTab::FindResultsTab(wxWindow* parent, wxWindowID id, const wxString& 
     : OutputTabWindow(parent, id, name)
     , m_searchInProgress(false)
 {
+    BindSearchEvents(this);
     m_sci->Connect(wxEVT_STC_STYLENEEDED, wxStyledTextEventHandler(FindResultsTab::OnStyleNeeded), NULL, this);
-
-    BitmapLoader& loader = *(PluginManager::Get()->GetStdIcons());
-
     wxTheApp->Connect(XRCID("find_in_files"), wxEVT_COMMAND_MENU_SELECTED,
                       wxCommandEventHandler(FindResultsTab::OnFindInFiles), NULL, this);
     m_tb->Bind(wxEVT_TOOL_DROPDOWN, &FindResultsTab::OnRecentSearches, this, XRCID("recent_searches"));
     m_tb->Bind(wxEVT_UPDATE_UI, &FindResultsTab::OnRecentSearchesUI, this, XRCID("recent_searches"));
 
-    m_tb->AddTool(XRCID("stop_search"), _("Stop current search"), loader.LoadBitmap("stop"), _("Stop current search"));
-    m_tb->AddTool(XRCID("recent_searches"), _("Show Recent Searches"), loader.LoadBitmap("history"),
+    auto images = m_tb->GetBitmapsCreateIfNeeded();
+    m_tb->AddTool(XRCID("stop_search"), _("Stop current search"), images->Add("stop"), _("Stop current search"));
+    m_tb->AddTool(XRCID("recent_searches"), _("Show Recent Searches"), images->Add("history"),
                   _("Show Recent Searches"), wxITEM_DROPDOWN);
 
     Connect(XRCID("stop_search"), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(FindResultsTab::OnStopSearch),
@@ -89,6 +86,7 @@ FindResultsTab::FindResultsTab(wxWindow* parent, wxWindowID id, const wxString& 
 
 FindResultsTab::~FindResultsTab()
 {
+    UnbindSearchEvents(this);
     EventNotifier::Get()->Connect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(FindResultsTab::OnThemeChanged), NULL,
                                   this);
     wxTheApp->Disconnect(XRCID("find_in_files"), wxEVT_COMMAND_MENU_SELECTED,
@@ -98,10 +96,13 @@ FindResultsTab::~FindResultsTab()
 
 void FindResultsTab::SetStyles(wxStyledTextCtrl* sci) { m_styler->SetStyles(sci); }
 
-void FindResultsTab::AppendText(const wxString& line)
+void FindResultsTab::AppendLine(const wxString& line, bool scroll_to_bottom)
 {
     m_sci->SetIndicatorCurrent(1);
     OutputTabWindow::AppendText(line);
+    if(scroll_to_bottom) {
+        ScrollToBottom();
+    }
 }
 
 void FindResultsTab::Clear()
@@ -115,56 +116,13 @@ void FindResultsTab::Clear()
 
 void FindResultsTab::OnFindInFiles(wxCommandEvent& e)
 {
+    wxUnusedVar(e);
     if(m_searchInProgress) {
-        ::wxMessageBox(_("The search thread is currently busy"), _("CodeLite"), wxICON_INFORMATION | wxOK);
+        ::wxMessageBox(_("Another search is currently running, try again later"), _("CodeLite"),
+                       wxICON_WARNING | wxOK | wxOK_DEFAULT);
         return;
     }
-
-    // Fire the wxEVT_CMD_FIND_IN_FILES_SHOWING showing event
-    clFindInFilesEvent eventFifShowing(wxEVT_FINDINFILES_DLG_SHOWING);
-    EventNotifier::Get()->ProcessEvent(eventFifShowing);
-
-    // Display the Find In Files dialog
-    FindReplaceData frd;
-    frd.SetName("FindInFilesData");
-    clConfig::Get().ReadItem(&frd);
-    
-    // Allocate the 'Find In Files' in an inner block
-    // We do this because the 'FindReplaceData' will be updated upon the destruction of the dialog
-    {
-        bool sendDismissEvent = true;
-        const wxString& mask = eventFifShowing.GetFileMask();
-
-        // plugins provided paths
-        const wxString& paths = eventFifShowing.GetPaths();
-
-        // transient paths take precedence over the normal paths. However, they are not persistent
-        // Usually these paths are given when the a tree view like control has focus and user selected folders in it
-        const wxString& transientPaths = eventFifShowing.GetTransientPaths();
-
-        wxString fifPaths = paths;
-        if(!transientPaths.IsEmpty()) {
-            fifPaths = transientPaths;
-            sendDismissEvent = false;
-        }
-
-        // Prepare the fif dialog
-        FindInFilesDialog dlg(EventNotifier::Get()->TopFrame(), frd);
-        if(!fifPaths.IsEmpty()) { dlg.SetSearchPaths(fifPaths, !transientPaths.IsEmpty()); }
-        if(!mask.IsEmpty()) { dlg.SetFileMask(mask); }
-
-        // Show it
-        if((dlg.ShowDialog() == wxID_OK) && sendDismissEvent) {
-            // Notify about the dialog dismissal
-            clFindInFilesEvent eventDismiss(wxEVT_FINDINFILES_DLG_DISMISSED);
-            eventDismiss.SetFileMask(frd.GetSelectedMask());
-            eventDismiss.SetPaths(frd.GetSearchPaths());
-            EventNotifier::Get()->ProcessEvent(eventDismiss);
-        }
-        
-    }
-    // And we alway store the global find-in-files data (it keeps the 'find-what', 'replace with' fields, etc...)
-    clConfig::Get().WriteItem(&frd);
+    clGetManager()->OpenFindInFileForPaths({});
 }
 
 void FindResultsTab::OnSearchStart(wxCommandEvent& e)
@@ -182,7 +140,8 @@ void FindResultsTab::OnSearchStart(wxCommandEvent& e)
                 << (data->IsMatchCase() ? _("true") : _("false")) << _(" ; Match whole word: ")
                 << (data->IsMatchWholeWord() ? _("true") : _("false")) << _(" ; Regular expression: ")
                 << (data->IsRegularExpression() ? _("true") : _("false")) << wxT(" ======\n");
-        AppendText(message);
+        AppendLine(message);
+        ScrollToBottom();
     }
     wxDELETE(data);
 
@@ -197,43 +156,34 @@ void FindResultsTab::OnSearchStart(wxCommandEvent& e)
 void FindResultsTab::OnSearchMatch(wxCommandEvent& e)
 {
     SearchResultList* res = (SearchResultList*)e.GetClientData();
-    if(!res) return;
+    if(!res) {
+        return;
+    }
 
-    SearchResultList::iterator iter = res->begin();
+    wxWindowUpdateLocker locker{ m_sci };
+    m_indicators.reserve(m_indicators.size() + res->size());
+
+    auto iter = res->begin();
     for(; iter != res->end(); ++iter) {
         if(m_matchInfo.empty() || m_matchInfo.rbegin()->second.GetFileName() != iter->GetFileName()) {
-            if(!m_matchInfo.empty()) { AppendText("\n"); }
-            wxFileName fn(iter->GetFileName());
-            fn.MakeRelativeTo();
-            AppendText(fn.GetFullPath() + wxT("\n"));
+            if(!m_matchInfo.empty()) {
+                AppendLine("\n", false);
+            }
+            AppendLine(iter->GetFileName() + wxT("\n"), false);
         }
 
         int lineno = m_sci->GetLineCount() - 1;
         m_matchInfo.insert(std::make_pair(lineno, *iter));
         wxString text = iter->GetPattern();
-        // int delta = -text.Length();
-        // text.Trim(false);
-        // delta += text.Length();
-        // text.Trim();
 
         wxString linenum = wxString::Format(wxT(" %5u: "), iter->GetLineNumber());
-        SearchData* d = GetSearchData();
-        // Print the scope name
-        if(d->GetDisplayScope()) {
-            TagEntryPtr tag = TagsManagerST::Get()->FunctionFromFileLine(iter->GetFileName(), iter->GetLineNumber());
-            wxString scopeName(wxT("global"));
-            if(tag) { scopeName = tag->GetPath(); }
-
-            linenum << wxT("[ ") << scopeName << wxT(" ] ");
-            iter->SetScope(scopeName);
-        }
-
-        AppendText(linenum + text + wxT("\n"));
+        AppendLine(linenum + text + wxT("\n"), false);
         int indicatorStartPos = m_sci->PositionFromLine(lineno) + iter->GetColumn() + linenum.Length();
         int indicatorLen = iter->GetLen();
-        m_indicators.push_back(indicatorStartPos);
+        m_indicators.emplace_back(indicatorStartPos);
         m_sci->IndicatorFillRange(indicatorStartPos, indicatorLen);
     }
+    ScrollToBottom();
     wxDELETE(res);
 }
 
@@ -241,12 +191,13 @@ void FindResultsTab::OnSearchEnded(wxCommandEvent& e)
 {
     m_searchInProgress = false;
     SearchSummary* summary = (SearchSummary*)e.GetClientData();
-    if(!summary) return;
+    if(!summary)
+        return;
 
     // did the page closed before the search ended?
-    AppendText(summary->GetMessage() + wxT("\n"));
+    AppendLine(summary->GetMessage() + wxT("\n"));
 
-    if(m_tb->FindById(XRCID("scroll_on_output")) && m_tb->FindById(XRCID("scroll_on_output"))->IsChecked()) {
+    if(m_tb->FindById(XRCID("scroll_on_output")) && m_tb->FindById(XRCID("scroll_on_output"))->IsToggled()) {
         m_sci->GotoLine(0);
     }
 
@@ -273,11 +224,13 @@ void FindResultsTab::OnSearchEnded(wxCommandEvent& e)
     clMainFrame::Get()->GetMainBook()->GetAllEditors(editors, MainBook::kGetAll_IncludeDetached);
     for(size_t n = 0; n < editors.size(); ++n) {
         clEditor* editor = dynamic_cast<clEditor*>(*(editors.begin() + n));
-        if(editor) { editor->OnFindInFiles(); }
+        if(editor) {
+            editor->OnFindInFiles();
+        }
     }
 }
 
-void FindResultsTab::OnSearchCancel(wxCommandEvent& e) { AppendText(_("====== Search cancelled by user ======\n")); }
+void FindResultsTab::OnSearchCancel(wxCommandEvent& e) { AppendLine(_("====== Search cancelled by user ======\n")); }
 
 void FindResultsTab::OnClearAll(wxCommandEvent& e)
 {
@@ -310,7 +263,9 @@ void FindResultsTab::OnMouseDClick(wxStyledTextEvent& e)
 
     } else {
         MatchInfo_t::const_iterator m = m_matchInfo.find(clickedLine);
-        if(m != m_matchInfo.end()) { DoOpenSearchResult(m->second, m_sci, m->first); }
+        if(m != m_matchInfo.end()) {
+            DoOpenSearchResult(m->second, m_sci, m->first);
+        }
     }
 }
 
@@ -320,7 +275,9 @@ void FindResultsTab::NextMatch()
 {
     // locate the last match
     int firstLine = m_sci->MarkerNext(0, 255);
-    if(firstLine == wxNOT_FOUND) { firstLine = 0; }
+    if(firstLine == wxNOT_FOUND) {
+        firstLine = 0;
+    }
 
     // We found the last marker
     for(int i = firstLine + 1; i < m_sci->GetLineCount(); i++) {
@@ -344,7 +301,9 @@ void FindResultsTab::PrevMatch()
 {
     // locate the last match
     int firstLine = m_sci->MarkerPrevious(m_sci->GetLineCount() - 1, 255);
-    if(firstLine == wxNOT_FOUND) { firstLine = m_sci->GetLineCount(); }
+    if(firstLine == wxNOT_FOUND) {
+        firstLine = m_sci->GetLineCount();
+    }
 
     // We found the last marker
     for(int i = firstLine - 1; i >= 0; i--) {
@@ -366,10 +325,27 @@ void FindResultsTab::PrevMatch()
 void FindResultsTab::DoOpenSearchResult(const SearchResult& result, wxStyledTextCtrl* sci, int markerLine)
 {
     if(!result.GetFileName().IsEmpty()) {
+        // let plugins handle this first
+        clFindInFilesEvent open_event(wxEVT_FINDINFILES_OPEN_MATCH);
+
+        // prepare a single match entry and fire it
+        clFindInFilesEvent::Match match;
+        clFindInFilesEvent::Location loc;
+        match.file = result.GetFileName();
+        loc.column_start = result.GetColumn();
+        loc.column_end = result.GetColumn() + result.GetLen();
+        loc.line = result.GetLineNumber();
+        match.locations.push_back(loc);
+        open_event.GetMatches().push_back(match);
+
+        if(EventNotifier::Get()->ProcessEvent(open_event)) {
+            return;
+        }
+
         clEditor* editor = clMainFrame::Get()->GetMainBook()->OpenFile(result.GetFileName());
         if(editor && result.GetLen() >= 0) {
             // Update the destination position if there have been subsequent changes in the editor
-            int position = result.GetPosition();
+            int position = editor->PositionFromLine(result.GetLineNumber() - 1) + result.GetColumn();
             std::vector<int> changes;
             editor->GetChanges(changes);
             unsigned int changesTotal = changes.size();
@@ -395,17 +371,15 @@ void FindResultsTab::DoOpenSearchResult(const SearchResult& result, wxStyledText
                 }
             }
             if(!removed) {
-                editor->SetEnsureCaretIsVisible(
-                    position + resultLength, true,
-                    true); // The 3rd parameter sets a small delay, otherwise it fails for long folded files
+                // use the "Async" way of loading the file and then selecting the match
+                // this ensures that the results are visible and centered in screen
                 int lineNumber = editor->LineFromPos(position);
-                if(lineNumber) { lineNumber--; }
-                editor->SetLineVisible(lineNumber);
-                editor->SetSelection(position, position + resultLength);
-
-#ifdef __WXGTK__
-                editor->ScrollToColumn(0);
-#endif
+                auto callback = [=](IEditor* p_editor) {
+                    p_editor->GetCtrl()->ClearSelections();
+                    p_editor->GetCtrl()->SetSelection(position, position + resultLength);
+                    p_editor->CenterLinePreserveSelection(lineNumber);
+                };
+                clGetManager()->OpenFileAndAsyncExecute(editor->GetFileName().GetFullPath(), std::move(callback));
 
                 if(sci) {
                     // remove the previous marker and add the new one
@@ -422,7 +396,13 @@ void FindResultsTab::DoOpenSearchResult(const SearchResult& result, wxStyledText
 void FindResultsTab::OnStopSearch(wxCommandEvent& e)
 {
     // stop the search thread
+    wxUnusedVar(e);
+    // stop the search thread
     SearchThreadST::Get()->StopSearch();
+
+    // and in case the search functionality is done by a plugin, fire an event
+    clFindInFilesEvent stop_event{ wxEVT_FINDINFILES_STOP_SEARCH };
+    EventNotifier::Get()->AddPendingEvent(stop_event);
 }
 
 void FindResultsTab::OnStopSearchUI(wxUpdateUIEvent& e) { e.Enable(m_searchInProgress); }
@@ -430,7 +410,9 @@ void FindResultsTab::OnStopSearchUI(wxUpdateUIEvent& e) { e.Enable(m_searchInPro
 void FindResultsTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
 {
     int sel = clMainFrame::Get()->GetOutputPane()->GetNotebook()->GetSelection();
-    if(clMainFrame::Get()->GetOutputPane()->GetNotebook()->GetPage(sel) != this) { return; }
+    if(clMainFrame::Get()->GetOutputPane()->GetNotebook()->GetPage(sel) != this) {
+        return;
+    }
 
     if(EditorConfigST::Get()->GetOptions()->GetHideOutpuPaneOnUserClick()) {
         e.Enable(true);
@@ -445,7 +427,8 @@ void FindResultsTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
 void FindResultsTab::OnStyleNeeded(wxStyledTextEvent& e)
 {
     wxStyledTextCtrl* ctrl = dynamic_cast<wxStyledTextCtrl*>(e.GetEventObject());
-    if(!ctrl) return;
+    if(!ctrl)
+        return;
     StyleText(ctrl, e);
 }
 
@@ -473,14 +456,16 @@ void FindResultsTab::OnRecentSearches(wxCommandEvent& e)
         ++counter;
     });
 
-    clToolBarButtonBase* button = m_tb->FindById(e.GetId());
+    auto button = m_tb->FindById(e.GetId());
     CHECK_PTR_RET(button);
 
     menu.AppendSeparator();
     int clearHistory = ::wxNewId();
     menu.Append(clearHistory, _("Clear History"));
     int sel = m_tb->GetMenuSelectionFromUser(XRCID("recent_searches"), &menu);
-    if(sel == wxID_NONE) { return; }
+    if(sel == wxID_NONE) {
+        return;
+    }
     if(sel == clearHistory) {
         m_history.Clear();
 
@@ -502,7 +487,9 @@ void FindResultsTab::SaveSearchData()
     entry.indicators = m_indicators;
 
     // search for an entry with the same title
-    if(m_history.Contains(entry.title)) { m_history.Remove(entry.title); }
+    if(m_history.Contains(entry.title)) {
+        m_history.Remove(entry.title);
+    }
     m_history.PushBack(entry.title, entry);
 }
 
@@ -526,10 +513,30 @@ void FindResultsTab::OnRecentSearchesUI(wxUpdateUIEvent& e) { e.Enable(!m_histor
 
 void FindResultsTab::ResetStyler() { m_styler->Reset(); }
 
-void FindResultsTab::OnWorkspaceClosed(wxCommandEvent& event)
+void FindResultsTab::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
     Clear();
+}
+
+void FindResultsTab::UnbindSearchEvents(wxEvtHandler* binder)
+{
+    if(!m_searchEventsConnected)
+        return;
+    m_searchEventsConnected = false;
+    binder->Unbind(wxEVT_SEARCH_THREAD_SEARCHSTARTED, &FindResultsTab::OnSearchStart, this);
+    binder->Unbind(wxEVT_SEARCH_THREAD_MATCHFOUND, &FindResultsTab::OnSearchMatch, this);
+    binder->Unbind(wxEVT_SEARCH_THREAD_SEARCHEND, &FindResultsTab::OnSearchEnded, this);
+    binder->Unbind(wxEVT_SEARCH_THREAD_SEARCHCANCELED, &FindResultsTab::OnSearchCancel, this);
+}
+
+void FindResultsTab::BindSearchEvents(wxEvtHandler* binder)
+{
+    binder->Bind(wxEVT_SEARCH_THREAD_SEARCHSTARTED, &FindResultsTab::OnSearchStart, this);
+    binder->Bind(wxEVT_SEARCH_THREAD_MATCHFOUND, &FindResultsTab::OnSearchMatch, this);
+    binder->Bind(wxEVT_SEARCH_THREAD_SEARCHEND, &FindResultsTab::OnSearchEnded, this);
+    binder->Bind(wxEVT_SEARCH_THREAD_SEARCHCANCELED, &FindResultsTab::OnSearchCancel, this);
+    m_searchEventsConnected = true;
 }
 
 /////////////////////////////////////////////////////////////////////////////////

@@ -55,6 +55,7 @@ clCommandEvent& clCommandEvent::operator=(const clCommandEvent& src)
     m_oldName = src.m_oldName;
     m_lineNumber = src.m_lineNumber;
     m_selected = src.m_selected;
+    m_stringRaw = src.m_stringRaw;
 
     // Copy wxCommandEvent members here
     m_eventType = src.m_eventType;
@@ -62,6 +63,7 @@ clCommandEvent& clCommandEvent::operator=(const clCommandEvent& src)
     m_cmdString = src.m_cmdString;
     m_commandInt = src.m_commandInt;
     m_extraLong = src.m_extraLong;
+    m_sshAccount = src.m_sshAccount;
     return *this;
 }
 
@@ -88,7 +90,6 @@ wxEvent* clCodeCompletionEvent::Clone() const
 
 clCodeCompletionEvent::clCodeCompletionEvent(const clCodeCompletionEvent& event)
     : clCommandEvent(event)
-    , m_editor(NULL)
     , m_insideCommentOrString(false)
 {
     *this = event;
@@ -98,7 +99,6 @@ clCodeCompletionEvent::clCodeCompletionEvent(const clCodeCompletionEvent& event)
 
 clCodeCompletionEvent::clCodeCompletionEvent(wxEventType commandType, int winid)
     : clCommandEvent(commandType, winid)
-    , m_editor(NULL)
     , m_insideCommentOrString(false)
 {
     m_position = wxNOT_FOUND;
@@ -112,7 +112,6 @@ clCodeCompletionEvent& clCodeCompletionEvent::operator=(const clCodeCompletionEv
     // Call parent operator =
     clCommandEvent::operator=(src);
     // Implement our copy c tor
-    m_editor = src.m_editor;
     m_word = src.m_word;
     m_position = src.m_position;
     m_tooltip = src.m_tooltip;
@@ -121,6 +120,8 @@ clCodeCompletionEvent& clCodeCompletionEvent::operator=(const clCodeCompletionEv
     m_definitions = src.m_definitions;
     m_entries = src.m_entries;
     m_triggerKind = src.m_triggerKind;
+    m_classes = src.m_classes;
+    m_variables = src.m_variables;
     return *this;
 }
 
@@ -184,6 +185,10 @@ clBuildEvent& clBuildEvent::operator=(const clBuildEvent& src)
     m_warningCount = src.m_warningCount;
     m_kind = src.m_kind;
     m_isRunning = src.m_isRunning;
+    m_cleanLog = src.m_cleanLog;
+    m_flags = src.m_flags;
+    m_toolchain = src.m_toolchain;
+    m_buildDir = src.m_buildDir;
     return *this;
 }
 
@@ -217,6 +222,10 @@ clDebugEvent& clDebugEvent::operator=(const clDebugEvent& other)
     m_memoryBlockSize = other.m_memoryBlockSize;
     m_memoryAddress = other.m_memoryAddress;
     m_memoryBlockValue = other.m_memoryBlockValue;
+    m_breakpoints = other.m_breakpoints;
+    m_isSSHDebugging = other.m_isSSHDebugging;
+    m_alternateDebuggerPath = other.m_alternateDebuggerPath;
+    m_uiBreakpoint = other.m_uiBreakpoint;
     return *this;
 }
 
@@ -379,6 +388,7 @@ clFindInFilesEvent& clFindInFilesEvent::operator=(const clFindInFilesEvent& src)
     m_fileMask = src.m_fileMask;
     m_options = src.m_options;
     m_transientPaths = src.m_transientPaths;
+    m_matches = src.m_matches;
     return *this;
 }
 
@@ -456,7 +466,7 @@ clEditorConfigEvent& clEditorConfigEvent::operator=(const clEditorConfigEvent& s
 }
 
 // --------------------------------------------------------------
-// Compiler event
+// Goto Event
 // --------------------------------------------------------------
 clGotoEvent::clGotoEvent(wxEventType commandType, int winid)
     : clCommandEvent(commandType, winid)
@@ -469,9 +479,118 @@ clGotoEvent::~clGotoEvent() {}
 
 clGotoEvent& clGotoEvent::operator=(const clGotoEvent& src)
 {
-    if(this == &src) { return *this; }
+    if(this == &src) {
+        return *this;
+    }
     clCommandEvent::operator=(src);
     m_entries = src.m_entries;
     m_entry = src.m_entry;
     return *this;
 }
+
+// --------------------------------------------------------------
+// Source control event
+// --------------------------------------------------------------
+clSourceControlEvent::clSourceControlEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clSourceControlEvent::clSourceControlEvent(const clSourceControlEvent& event) { *this = event; }
+
+clSourceControlEvent::~clSourceControlEvent() {}
+
+wxEvent* clSourceControlEvent::Clone() const { return new clSourceControlEvent(*this); }
+
+clSourceControlEvent& clSourceControlEvent::operator=(const clSourceControlEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+    clCommandEvent::operator=(src);
+    m_sourceControlName = src.m_sourceControlName;
+    return *this;
+}
+
+// --------------------------------------------------------------
+// Recent workspace event
+// --------------------------------------------------------------
+clEditorEvent::clEditorEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clEditorEvent::clEditorEvent(const clEditorEvent& event) { *this = event; }
+
+clEditorEvent::~clEditorEvent()
+{ /* we do not delete the user data */
+}
+
+clEditorEvent& clEditorEvent::operator=(const clEditorEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+
+    clCommandEvent::operator=(src);
+    m_userData = src.m_userData;
+    return *this;
+}
+
+//// --------------------------------------------------------------
+// Recent workspace event
+// --------------------------------------------------------------
+clRecentWorkspaceEvent::clRecentWorkspaceEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clRecentWorkspaceEvent::clRecentWorkspaceEvent(const clRecentWorkspaceEvent& event) { *this = event; }
+
+clRecentWorkspaceEvent::~clRecentWorkspaceEvent() {}
+
+wxEvent* clRecentWorkspaceEvent::Clone() const { return new clRecentWorkspaceEvent(*this); }
+
+clRecentWorkspaceEvent& clRecentWorkspaceEvent::operator=(const clRecentWorkspaceEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+
+    clCommandEvent::operator=(src);
+    m_workspaces = src.m_workspaces;
+    return *this;
+}
+
+///----------------------------------------------------------------------------------
+/// clLanguageServerEvent
+///----------------------------------------------------------------------------------
+
+clLanguageServerEvent::clLanguageServerEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
+{
+}
+
+clLanguageServerEvent::clLanguageServerEvent(const clLanguageServerEvent& event) {}
+
+clLanguageServerEvent::~clLanguageServerEvent() {}
+clLanguageServerEvent& clLanguageServerEvent::operator=(const clLanguageServerEvent& src)
+{
+    if(this == &src) {
+        return *this;
+    }
+    clCommandEvent::operator=(src);
+    m_lspName = src.m_lspName;
+    m_lspCommand = src.m_lspCommand;
+    m_flags = src.m_flags;
+    m_priority = src.m_priority;
+    m_connectionString = src.m_connectionString;
+    m_enviroment = src.m_enviroment;
+    m_initOptions = src.m_initOptions;
+    m_languages = src.m_languages;
+    m_action = src.m_action;
+    m_rootUri = src.m_rootUri;
+    return *this;
+}
+
+wxEvent* clLanguageServerEvent::Clone() const { return new clLanguageServerEvent(*this); }

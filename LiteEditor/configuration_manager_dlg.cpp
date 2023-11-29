@@ -22,13 +22,15 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "windowattrmanager.h"
 #include "configuration_manager_dlg.h"
-#include "manager.h"
-#include "new_configuration_dlg.h"
+
 #include "edit_configuration.h"
 #include "edit_workspace_conf_dlg.h"
 #include "macros.h"
+#include "manager.h"
+#include "new_configuration_dlg.h"
+#include "windowattrmanager.h"
+
 #include <algorithm>
 #include <wx/wupdlock.h>
 
@@ -46,7 +48,7 @@ ConfigurationManagerDlg::ConfigurationManagerDlg(wxWindow* parent)
     CentreOnParent();
     SetName("ConfigurationManagerDlg");
     WindowAttrManager::Load(this);
-    m_dvListCtrl->Bind(wxEVT_DATAVIEW_CHOICE_BUTTON, &ConfigurationManagerDlg::OnShowConfigList, this);
+    m_dvListCtrl->Bind(wxEVT_DATAVIEW_ACTION_BUTTON, &ConfigurationManagerDlg::OnShowConfigList, this);
     m_dvListCtrl->Bind(wxEVT_DATAVIEW_CHOICE, &ConfigurationManagerDlg::OnValueChanged, this);
 }
 
@@ -55,12 +57,16 @@ wxArrayString ConfigurationManagerDlg::GetChoicesForProject(const wxString& proj
 {
     wxArrayString choices;
     ProjectPtr project = ManagerST::Get()->GetProject(projectName);
-    if(!project) { return choices; }
+    if(!project) {
+        return choices;
+    }
 
     // Get the workspace configuration
     wxString projectConfig =
         clCxxWorkspaceST::Get()->GetBuildMatrix()->GetProjectSelectedConf(workspaceConfig, projectName);
-    if(projectConfig.IsEmpty()) { return choices; }
+    if(projectConfig.IsEmpty()) {
+        return choices;
+    }
 
     // Get all configuration of the project
     ProjectSettingsPtr settings = project->GetSettings();
@@ -70,14 +76,16 @@ wxArrayString ConfigurationManagerDlg::GetChoicesForProject(const wxString& proj
         BuildConfigPtr bldConf = settings->GetFirstBuildConfiguration(cookie);
         while(bldConf) {
             choices.Add(bldConf->GetName());
-            if(projectConfig == bldConf->GetName()) { index = counter; }
+            if(projectConfig == bldConf->GetName()) {
+                index = counter;
+            }
             bldConf = settings->GetNextBuildConfiguration(cookie);
             ++counter;
         }
     }
 
-    choices.Add(wxGetTranslation(clCMD_NEW));
-    choices.Add(wxGetTranslation(clCMD_EDIT));
+    choices.Add(clCMD_NEW);
+    choices.Add(clCMD_EDIT);
     return choices;
 }
 
@@ -85,7 +93,9 @@ void ConfigurationManagerDlg::PopulateConfigurations()
 {
     // popuplate the configurations
     BuildMatrixPtr matrix = ManagerST::Get()->GetWorkspaceBuildMatrix();
-    if(!matrix) { return; }
+    if(!matrix) {
+        return;
+    }
 
     wxWindowUpdateLocker locker(this);
     m_dvListCtrl->DeleteAllItems([](wxUIntPtr d) {
@@ -100,8 +110,8 @@ void ConfigurationManagerDlg::PopulateConfigurations()
     }
 
     // append the 'New' & 'Delete' commands
-    m_choiceConfigurations->Append(wxGetTranslation(clCMD_NEW));
-    m_choiceConfigurations->Append(wxGetTranslation(clCMD_EDIT));
+    m_choiceConfigurations->Append(clCMD_NEW);
+    m_choiceConfigurations->Append(clCMD_EDIT);
 
     int sel = m_choiceConfigurations->FindString(m_currentWorkspaceConfiguration.IsEmpty()
                                                      ? matrix->GetSelectedConfigurationName()
@@ -111,7 +121,7 @@ void ConfigurationManagerDlg::PopulateConfigurations()
     } else if(m_choiceConfigurations->GetCount() > 2) {
         m_choiceConfigurations->SetSelection(2);
     } else {
-        m_choiceConfigurations->Append(_("Debug"));
+        m_choiceConfigurations->Append("Debug");
         m_choiceConfigurations->SetSelection(2);
     }
 
@@ -124,7 +134,8 @@ void ConfigurationManagerDlg::PopulateConfigurations()
     for(size_t i = 0; i < projects.GetCount(); ++i) {
         size_t index = wxString::npos;
         wxArrayString choices = GetChoicesForProject(projects[i], m_currentWorkspaceConfiguration, index);
-        clDataViewChoice c(index != wxString::npos ? choices[index] : "");
+        clDataViewTextWithButton c(index != wxString::npos ? choices[index] : "", eCellButtonType::BT_DROPDOWN_ARROW,
+                           wxNOT_FOUND);
         wxVariant v;
         v << c;
         wxVector<wxVariant> cols;
@@ -142,13 +153,12 @@ void ConfigurationManagerDlg::LoadWorkspaceConfiguration(const wxString& confNam
 
 void ConfigurationManagerDlg::OnWorkspaceConfigSelected(wxCommandEvent& event)
 {
-    if(event.GetString() == wxGetTranslation(clCMD_NEW)) {
+    if(event.GetString() == clCMD_NEW) {
         OnButtonNew(event);
-    } else if(event.GetString() == wxGetTranslation(clCMD_EDIT)) {
+    } else if(event.GetString() == clCMD_EDIT) {
         // popup the delete dialog for configurations
-        EditWorkspaceConfDlg* dlg = new EditWorkspaceConfDlg(this);
-        dlg->ShowModal();
-        dlg->Destroy();
+        EditWorkspaceConfDlg dlg(this);
+        dlg.ShowModal();
 
         // once done, restore dialog
         PopulateConfigurations();
@@ -177,8 +187,11 @@ void ConfigurationManagerDlg::OnButtonNew(wxCommandEvent& event)
         wxString value = dlg->GetValue();
         TrimString(value);
         if(value.IsEmpty() == false) {
+            value.Replace(" ", "_"); // using spaces will break the build, replace them with hyphens
             BuildMatrixPtr matrix = ManagerST::Get()->GetWorkspaceBuildMatrix();
-            if(!matrix) { return; }
+            if(!matrix) {
+                return;
+            }
 
             WorkspaceConfigurationPtr conf(new WorkspaceConfiguration(NULL));
             conf->SetName(value);
@@ -207,7 +220,7 @@ WorkspaceConfiguration::ConfigMappingList ConfigurationManagerDlg::GetCurrentSet
         wxDataViewItem item = m_dvListCtrl->RowToItem(i);
         wxString projectName = m_dvListCtrl->GetItemText(item, 0);
         wxString configName = m_dvListCtrl->GetItemText(item, 1);
-        if((configName != wxGetTranslation(clCMD_NEW)) && (configName != wxGetTranslation(clCMD_EDIT))) {
+        if((configName != clCMD_NEW) && (configName != clCMD_EDIT)) {
             ConfigMappingEntry entry(projectName, configName);
             list.push_back(entry);
         }
@@ -226,7 +239,9 @@ void ConfigurationManagerDlg::SaveCurrentSettings()
     m_currentWorkspaceConfiguration = m_currentWorkspaceConfiguration.Trim().Trim(false);
 
     BuildMatrixPtr matrix = ManagerST::Get()->GetWorkspaceBuildMatrix();
-    if(!matrix) { return; }
+    if(!matrix) {
+        return;
+    }
 
     matrix->SetSelectedConfigurationName(m_currentWorkspaceConfiguration);
 
@@ -260,7 +275,7 @@ void ConfigurationManagerDlg::OnValueChanged(wxDataViewEvent& event)
     wxString projectName = m_dvListCtrl->GetItemText(event.GetItem(), 0);
     wxString selection = event.GetString(); // the new selection
 
-    if(selection == wxGetTranslation(clCMD_NEW)) {
+    if(selection == clCMD_NEW) {
         // popup the 'New Configuration' dialog
         NewConfigurationDlg dlg(this, projectName);
         if(dlg.ShowModal() == wxID_OK) {
@@ -269,7 +284,7 @@ void ConfigurationManagerDlg::OnValueChanged(wxDataViewEvent& event)
             PopulateConfigurations();
         }
         event.Veto(); // prevent the change from taking place
-    } else if(selection == wxGetTranslation(clCMD_EDIT)) {
+    } else if(selection == clCMD_EDIT) {
         EditConfigurationDialog dlg(this, projectName);
         if(dlg.ShowModal() == wxID_OK) {
             m_dirty = true;
@@ -287,7 +302,9 @@ void ConfigurationManagerDlg::OnShowConfigList(wxDataViewEvent& event)
     event.Skip();
     wxDataViewItem item = event.GetItem();
     wxArrayString* choices = reinterpret_cast<wxArrayString*>(m_dvListCtrl->GetItemData(item));
-    if(!choices) { return; }
+    if(!choices) {
+        return;
+    }
 
     m_dvListCtrl->ShowStringSelectionMenu(item, *choices, event.GetColumn());
 }

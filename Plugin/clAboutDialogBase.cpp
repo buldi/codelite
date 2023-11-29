@@ -9,7 +9,19 @@
 // Declare the bitmap loading function
 extern void wxCA637InitBitmapResources();
 
-static bool bBitmapLoaded = false;
+namespace
+{
+// return the wxBORDER_SIMPLE that matches the current application theme
+wxBorder get_border_simple_theme_aware_bit()
+{
+#if wxVERSION_NUMBER >= 3300 && defined(__WXMSW__)
+    return wxSystemSettings::GetAppearance().IsDark() ? wxBORDER_SIMPLE : wxBORDER_STATIC;
+#else
+    return wxBORDER_DEFAULT;
+#endif
+} // DoGetBorderSimpleBit
+bool bBitmapLoaded = false;
+} // namespace
 
 clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos,
                                      const wxSize& size, long style)
@@ -37,9 +49,9 @@ clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxSt
     wxBoxSizer* boxSizer16 = new wxBoxSizer(wxVERTICAL);
     m_panelAbout->SetSizer(boxSizer16);
 
-    m_staticTextTitle =
-        new wxStaticText(m_panelAbout, wxID_ANY, _("CodeLite IDE, an open source, C/C++/PHP and JavaScript IDE"),
-                         wxDefaultPosition, wxDLG_UNIT(m_panelAbout, wxSize(-1, -1)), 0);
+    m_staticTextTitle = new wxStaticText(m_panelAbout, wxID_ANY,
+                                         _("CodeLite, a free, open source, C/C++/Rust/Python/PHP and JavaScript IDE"),
+                                         wxDefaultPosition, wxDLG_UNIT(m_panelAbout, wxSize(-1, -1)), 0);
     wxFont m_staticTextTitleFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
     m_staticTextTitleFont.SetStyle(wxFONTSTYLE_ITALIC);
     m_staticTextTitle->SetFont(m_staticTextTitleFont);
@@ -69,7 +81,7 @@ clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxSt
 
     flexGridSizer32->Add(m_staticText34, 0, wxRIGHT | wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
 
-    m_staticTextSubtitle = new wxStaticText(m_panel22, wxID_ANY, _("2007 - 2019, by Eran Ifrah."), wxDefaultPosition,
+    m_staticTextSubtitle = new wxStaticText(m_panel22, wxID_ANY, _("2007 - 2023, by Eran Ifrah"), wxDefaultPosition,
                                             wxDLG_UNIT(m_panel22, wxSize(-1, -1)), 0);
 
     flexGridSizer32->Add(m_staticTextSubtitle, 0, wxLEFT | wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL, WXC_FROM_DIP(5));
@@ -113,7 +125,8 @@ clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxSt
     m_paneLicense->SetSizer(boxSizer18);
 
     m_stcLicense =
-        new wxStyledTextCtrl(m_paneLicense, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_paneLicense, wxSize(-1, -1)), 0);
+        new clThemedSTC(m_paneLicense, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_paneLicense, wxSize(300, 200)),
+                        wxTRANSPARENT_WINDOW | get_border_simple_theme_aware_bit());
     // Configure the fold margin
     m_stcLicense->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
     m_stcLicense->SetMarginMask(4, wxSTC_MASK_FOLDERS);
@@ -158,8 +171,9 @@ clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxSt
     wxBoxSizer* boxSizer20 = new wxBoxSizer(wxVERTICAL);
     m_panelCredits->SetSizer(boxSizer20);
 
-    m_stcCredits = new wxStyledTextCtrl(m_panelCredits, wxID_ANY, wxDefaultPosition,
-                                        wxDLG_UNIT(m_panelCredits, wxSize(-1, -1)), 0);
+    m_stcCredits =
+        new clThemedSTC(m_panelCredits, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panelCredits, wxSize(-1, -1)),
+                        wxTRANSPARENT_WINDOW | get_border_simple_theme_aware_bit());
     // Configure the fold margin
     m_stcCredits->SetMarginType(4, wxSTC_MARGIN_SYMBOL);
     m_stcCredits->SetMarginMask(4, wxSTC_MASK_FOLDERS);
@@ -216,19 +230,19 @@ clAboutDialogBase::clAboutDialogBase(wxWindow* parent, wxWindowID id, const wxSt
 
     SetName(wxT("clAboutDialogBase"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     if(GetParent()) {
         CentreOnParent(wxBOTH);
     } else {
         CentreOnScreen(wxBOTH);
     }
-#if wxVERSION_NUMBER >= 2900
     if(!wxPersistenceManager::Get().Find(this)) {
         wxPersistenceManager::Get().RegisterAndRestore(this);
     } else {
         wxPersistenceManager::Get().Restore(this);
     }
-#endif
 }
 
 clAboutDialogBase::~clAboutDialogBase() {}

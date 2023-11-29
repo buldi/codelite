@@ -25,23 +25,23 @@
 #ifndef MANAGER_H
 #define MANAGER_H
 
+#include "async_executable_cmd.h"
+#include "breakpointsmgr.h"
+#include "clDebuggerTerminal.h"
+#include "clKeyboardManager.h"
+#include "cl_command_event.h"
+#include "ctags_manager.h"
+#include "debuggerobserver.h"
+#include "filehistory.h"
+#include "perspectivemanager.h"
+#include "queuecommand.h"
+#include "shell_command.h"
+#include "singleton.h"
+#include "workspace.h"
+
 #include <list>
 #include <map>
 #include <wx/event.h>
-
-#include "singleton.h"
-#include "debuggerobserver.h"
-#include "workspace.h"
-#include "queuecommand.h"
-#include "shell_command.h"
-#include "async_executable_cmd.h"
-#include "filehistory.h"
-#include "breakpointsmgr.h"
-#include "perspectivemanager.h"
-#include "ctags_manager.h"
-#include "clDebuggerTerminal.h"
-#include "cl_command_event.h"
-#include "clKeyboardManager.h"
 
 class clEditor;
 class IProcess;
@@ -106,7 +106,6 @@ protected:
     int m_frameLineno;
     std::list<QueueCommand> m_buildQueue;
     wxArrayString m_dbgWatchExpressions;
-    wxFileName m_codeliteLauncher;
     DisplayVariableDlg* m_watchDlg;
     bool m_retagInProgress;
     bool m_repositionEditor; // flag used for debugging, should editor be repositioned after user updates like "add
@@ -118,8 +117,8 @@ protected:
 protected:
     Manager(void);
     virtual ~Manager(void);
-    void OnHideGdbTooltip(clCommandEvent &event);
-    
+    void OnHideGdbTooltip(clCommandEvent& event);
+
     //--------------------------- Global State -----------------------------
 public:
     DisplayVariableDlg* GetDebuggerTip();
@@ -144,17 +143,20 @@ public:
     bool GetRepositionEditor() const { return m_repositionEditor; }
     void SetRepositionEditor(bool b) { m_repositionEditor = b; }
 
-    void SetCodeLiteLauncherPath(const wxString& path);
     void OnRestart(clCommandEvent& event);
     void OnCmdRestart(wxCommandEvent& event);
     void GenerateCompileCommands();
-    void OnFindInFilesDismissed(clFindInFilesEvent &event);
-    void OnFindInFilesShowing(clFindInFilesEvent &event);
-    void OnUpdateDebuggerActiveView(clDebugEvent &event);
-    void OnDebuggerSetMemory(clDebugEvent &event);
-    
+    void OnFindInFilesDismissed(clFindInFilesEvent& event);
+    void OnFindInFilesShowing(clFindInFilesEvent& event);
+    void OnUpdateDebuggerActiveView(clDebugEvent& event);
+    void OnDebuggerAtFileLine(clDebugEvent& event);
+    void OnDebuggerSetMemory(clDebugEvent& event);
+    void OnDebuggerStopped(clDebugEvent& event);
+    void OnDebuggerStopping(clDebugEvent& event);
+
 protected:
     void DoRestartCodeLite();
+    void InstallClangTools();
 
     //--------------------------- Workspace Loading -----------------------------
 public:
@@ -227,18 +229,18 @@ protected:
     void DoSetupWorkspace(const wxString& path);
 
     void OnAddWorkspaceToRecentlyUsedList(wxCommandEvent& e);
-    void OnParserThreadSuggestColourTokens(clCommandEvent& event);
+
     /**
      * @brief a project was renamed, reload the workspace
      */
-    void OnProjectRenamed(clCommandEvent &event);
+    void OnProjectRenamed(clCommandEvent& event);
     //--------------------------- Workspace Projects Mgmt -----------------------------
 public:
     /**
      * @brief add 'fileName' to the list of recently used workspaces
      */
     void AddToRecentlyOpenedWorkspaces(const wxString& fileName);
-    
+
     /**
      * @brief create an empty project
      */
@@ -341,13 +343,6 @@ public:
     void RetagWorkspace(TagsManager::RetagType type);
 
     /**
-     * @brief the parser thread has completed to scan for include files to parse
-     * @param event
-     */
-    void OnIncludeFilesScanDone(wxCommandEvent& event);
-    void OnDbContentCacherLoaded(wxCommandEvent& event);
-
-    /**
      * \brief retag a given file
      * \param filename
      */
@@ -407,8 +402,8 @@ public:
      * \param fullpathRemoved [output] set the full path of the file removed
      * \param notify if set to true, this function will also fire the wxEVT_PROJ_FILE_REMOVED event
      */
-    bool
-    RemoveFile(const wxString& fileName, const wxString& vdFullPath, wxString& fullpathRemoved, bool notify = true);
+    bool RemoveFile(const wxString& fileName, const wxString& vdFullPath, wxString& fullpathRemoved,
+                    bool notify = true);
 
     /**
      * remove file from the workspace
@@ -504,8 +499,8 @@ public:
      * settings 'Pause when execution ends'
      * \return project execution command or wxEmptyString if the project does not exist
      */
-    wxString
-    GetProjectExecutionCommand(const wxString& projectName, wxString& wd, bool considerPauseWhenExecuting = true);
+    wxString GetProjectExecutionCommand(const wxString& projectName, wxString& wd,
+                                        bool considerPauseWhenExecuting = true);
 
     bool DoFindDockInfo(const wxString& saved_perspective, const wxString& dock_name, wxString& dock_info);
 
@@ -525,7 +520,7 @@ public:
      * already
      * shown and nothing needed to be done
      */
-    bool ShowOutputPane(wxString focusWin = wxEmptyString, bool commit = true);
+    bool ShowOutputPane(const wxString& focusWin, bool show, bool take_focus);
 
     /**
      * Show the debugger pane
@@ -542,6 +537,11 @@ public:
      * Hide pane
      */
     void HidePane(const wxString& paneName, bool commit = true);
+
+    /**
+     * Show pane
+     */
+    void ShowPane(const wxString& paneName, bool commit = true);
 
     /**
      * Hide/Show all panes. This function saves the current prespective and
@@ -722,14 +722,14 @@ public:
      * or incase it is detached and visible
      */
     bool IsDebuggerViewVisible(const wxString& name);
-    
+
     /**
      * @brief show the new project wizard.
-     * @param workspaceFolder the new project will be placed inside this workspace folder. 
+     * @param workspaceFolder the new project will be placed inside this workspace folder.
      * If left empty (the default) place the new project directly under the workspace
      */
-    void ShowNewProjectWizard(const wxString &workspaceFolder = wxEmptyString);
-    
+    void ShowNewProjectWizard(const wxString& workspaceFolder = wxEmptyString);
+
 protected:
     void DoBuildProject(const QueueCommand& buildInfo);
     void DoCleanProject(const QueueCommand& buildInfo);

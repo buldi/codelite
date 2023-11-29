@@ -33,10 +33,11 @@
 #ifndef __gitCommitListDlg__
 #define __gitCommitListDlg__
 
-#include <map>
+#include "cl_command_event.h"
 #include "gitui.h"
 #include "macros.h"
-#include "cl_command_event.h"
+
+#include <map>
 
 class IProcess;
 class GitPlugin;
@@ -47,13 +48,14 @@ class GitCommitListDlg : public GitCommitListDlgBase
     wxString m_workingDir;
     wxString m_commandOutput;
     IProcess* m_process;
-    wxString m_gitPath;
     wxString m_commitList;
     wxString m_Filter;
     int m_skip;
     std::map<int, wxString> m_history;
 
 protected:
+    virtual void OnCharHook(wxKeyEvent& event);
+    virtual void OnBtnClose(wxCommandEvent& event);
     virtual void OnNextUpdateUI(wxUpdateUIEvent& event);
     virtual void OnExtraArgsTextEnter(wxCommandEvent& event);
     virtual void OnNext(wxCommandEvent& event);
@@ -61,14 +63,17 @@ protected:
     virtual void OnPreviousUI(wxUpdateUIEvent& event);
     virtual void OnSearchCommitList(wxCommandEvent& event);
     void DoLoadCommits(const wxString& filter);
-	void ClearAll(bool includingCommitlist = true);
+    void ClearAll(bool includingCommitlist = true);
     wxString GetFilterString() const;
+    virtual bool Show(bool show = true) { return wxDialog::Show(show); }
+    void DoShow() { wxDialog::Show(); }
 
 public:
     GitCommitListDlg(wxWindow* parent, const wxString& workingDir, GitPlugin* git);
-    ~GitCommitListDlg();
+    virtual ~GitCommitListDlg();
 
     void SetCommitList(const wxString& commits);
+    void Display();
 
 private:
     void OnChangeFile(wxCommandEvent& e);

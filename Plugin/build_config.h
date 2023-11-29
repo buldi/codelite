@@ -25,15 +25,17 @@
 #ifndef BUILD_CONFIGURATION_H
 #define BUILD_CONFIGURATION_H
 
-#include "configuration_object.h"
+#include "asyncprocess.h"
 #include "build_config_common.h"
-#include <wx/arrstr.h>
-#include <wx/string.h>
+#include "builder.h"
+#include "codelite_exports.h"
+#include "compiler.h"
+#include "configuration_object.h"
+
 #include <list>
 #include <map>
-#include "compiler.h"
-#include "codelite_exports.h"
-#include "builder.h"
+#include <wx/arrstr.h>
+#include <wx/string.h>
 
 #ifndef WXDLLIMPEXP_LE_SDK
 #ifdef WXMAKINGDLL_LE_SDK
@@ -45,6 +47,7 @@
 #endif // WXMAKINGDLL_LE_SDK
 #endif
 
+class Project;
 class WXDLLIMPEXP_LE_SDK BuildCommand
 {
     wxString m_command;
@@ -61,14 +64,21 @@ public:
         : m_command(command)
         , m_enabled(enabled)
     {
+        // trim any whitespaces
+        m_command.Trim().Trim(false);
     }
 
     ~BuildCommand() {}
 
     const wxString& GetCommand() const { return m_command; }
+
     bool GetEnabled() const { return m_enabled; }
+
     void SetCommand(const wxString& command) { m_command = command; }
+
     void SetEnabled(bool enabled) { m_enabled = enabled; }
+
+    bool IsOk() const { return !m_command.empty(); }
 };
 
 typedef std::list<BuildCommand> BuildCommandList;
@@ -84,6 +94,7 @@ public:
     enum ePCHPolicy {
         kPCHPolicyReplace = 0,
         kPCHPolicyAppend = 1,
+        kPCHJustInclude = 2,
     };
 
 private:
@@ -140,7 +151,7 @@ private:
     wxString m_ccPCH;
     bool m_clangC11;
     bool m_clangC14;
-	bool m_clangC17;
+    bool m_clangC17;
     wxArrayString m_debuggerSearchPaths;
     bool m_isGUIProgram;
     bool m_isProjectEnabled;
@@ -172,7 +183,7 @@ public:
     bool IsClangC11() const { return m_clangC11; }
     void SetClangC14(bool clangC14) { this->m_clangC14 = clangC14; }
     bool IsClangC14() const { return m_clangC14; }
-	void SetClangC17(bool clangC17) { this->m_clangC17 = clangC17; }
+    void SetClangC17(bool clangC17) { this->m_clangC17 = clangC17; }
     bool IsClangC17() const { return m_clangC17; }
     void SetClangCcPCH(const wxString& ccPCH) { this->m_ccPCH = ccPCH; }
     const wxString& GetClangCcPCH() const { return m_ccPCH; }
@@ -222,6 +233,7 @@ public:
     const wxString& GetName() const { return m_name; }
     bool IsCompilerRequired() const { return m_compilerRequired; }
     bool IsLinkerRequired() const { return m_linkerRequired; }
+    wxString GetOutputDirectory() const;
     wxString GetOutputFileName() const;
     wxString GetIntermediateDirectory() const;
     const wxString& GetCommand() const { return m_command; }
@@ -359,12 +371,21 @@ public:
         this->m_buildSystemArguments = buildSystemArguments;
     }
     const wxString& GetBuildSystemArguments() const { return m_buildSystemArguments; }
-    
+
     /**
      * @brief return the build defined for this build configuration
-     * @return 
+     * @return
      */
     BuilderPtr GetBuilder();
+
+    /**
+     * @brief build environment list for this build configuration
+     * taking into consideration:
+     * - the build configuration env
+     * - workspace env
+     * - global env
+     */
+    clEnvList_t GetEnvironment(Project* project = nullptr) const;
 };
 
 typedef SmartPtr<BuildConfig> BuildConfigPtr;

@@ -37,13 +37,13 @@ public:
         Singleton = (1 << 0),
         NonCopyable = (1 << 1),
         VirtualDtor = (1 << 2),
-        ImplAllVirtualFuncs = (1 << 3),
-        ImplAllPureVirtualFuncs = (1 << 4),
         FileIniline = (1 << 5),
         UseUnderscores = (1 << 6),
         HppHeader = (1 << 7),
         UsePragma = (1 << 8),
         UseLowerCase = (1 << 9),
+        NonMovable = (1 << 10),
+        NonInheritable = (1 << 11),
     };
 
 public:

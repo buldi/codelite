@@ -22,10 +22,26 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "wx/tokenzr.h"
+#ifdef __FreeBSD__
+#include <fcntl.h>
+#include <kvm.h>
+#include <paths.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#endif
+
+#include "asyncprocess.h"
+#include "cl_command_event.h"
+#include "codelite_events.h"
+#include "file_logger.h"
+#include "fileutils.h"
+#include "processreaderthread.h"
 #include "procutils.h"
 #include "winprocess.h"
+#include "wx/tokenzr.h"
 
+#include <memory>
 #include <stdio.h>
 #ifdef __WXMSW__
 #include "wx/msw/private.h"
@@ -40,22 +56,35 @@
 
 #endif
 
-#ifdef __FreeBSD__
-#include <kvm.h>
-#include <fcntl.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <sys/user.h>
-#include <paths.h>
-#endif
+//-------------------------------------------------------------------
+// clShellProcessEvent
+//-------------------------------------------------------------------
+wxDEFINE_EVENT(wxEVT_SHELL_ASYNC_PROCESS_TERMINATED, clShellProcessEvent);
+clShellProcessEvent::clShellProcessEvent(const clShellProcessEvent& event) { *this = event; }
 
-ProcUtils::ProcUtils()
+clShellProcessEvent::clShellProcessEvent(wxEventType commandType, int winid)
+    : clCommandEvent(commandType, winid)
 {
 }
 
-ProcUtils::~ProcUtils()
+clShellProcessEvent::~clShellProcessEvent() {}
+
+clShellProcessEvent& clShellProcessEvent::operator=(const clShellProcessEvent& src)
 {
+    clCommandEvent::operator=(src);
+    m_pid = src.m_pid;
+    m_exitCode = src.m_exitCode;
+    m_output = src.m_output;
+    return *this;
 }
+
+//-------------------------------------------------------------------
+// clShellProcessEvent
+//-------------------------------------------------------------------
+
+ProcUtils::ProcUtils() {}
+
+ProcUtils::~ProcUtils() {}
 
 void ProcUtils::GetProcTree(std::map<unsigned long, bool>& parentsMap, long pid)
 {
@@ -113,6 +142,67 @@ void ProcUtils::GetProcTree(std::map<unsigned long, bool>& parentsMap, long pid)
 #endif
 }
 
+PidVec_t ProcUtils::PS(const wxString& name)
+{
+    PidVec_t V;
+    wxString command;
+    size_t IMGNAME_COL = 0;
+    size_t PID_COL = 0;
+    size_t MIN_COLUMNS_NUMBER = 0;
+
+#ifdef __WXMSW__
+    command << "tasklist";
+    IMGNAME_COL = 0;
+    PID_COL = 1;
+    MIN_COLUMNS_NUMBER = 2;
+#else
+    command << "ps ax";
+    IMGNAME_COL = 4;
+    PID_COL = 0;
+    MIN_COLUMNS_NUMBER = 5;
+#endif
+    command = WrapInShell(command);
+
+    wxString processOutput;
+    IProcess::Ptr_t p(::CreateSyncProcess(command, IProcessCreateDefault | IProcessCreateWithHiddenConsole));
+    if(p) {
+        p->WaitForTerminate(processOutput);
+    }
+
+    // Search for a match
+
+    // tasklist example output:
+    //
+    // Image Name                     PID Session Name        Session#    Mem Usage
+    //========================= ======== ================ =========== ============
+    // wininit.exe                   1000 Services                   0      2,320 K
+    // csrss.exe                     1008 Console                    1      3,860 K
+
+    // ps ax example output:
+    //
+    //   PID    TTY      STAT   TIME COMMAND
+    //    52    ?        S      0:00 dbus-launch --autolaunch 811d5cdefd9d461891b6596cca7a6233 --binary-syntax
+    //  2920    ?        Ss     0:00 ssh-agent
+
+    wxArrayString lines = ::wxStringTokenize(processOutput, "\n", wxTOKEN_STRTOK);
+    for(wxString& line : lines) {
+        line.Trim().Trim(false);
+        wxArrayString parts = ::wxStringTokenize(line, " \t", wxTOKEN_STRTOK);
+        if(parts.size() < MIN_COLUMNS_NUMBER) {
+            continue;
+        }
+        wxString& imageName = parts.Item(IMGNAME_COL);
+        wxString& pid = parts.Item(PID_COL);
+        if(FileUtils::FuzzyMatch(name, imageName)) {
+            long nPid = -1;
+            if(pid.ToCLong(&nPid)) {
+                V.push_back({ imageName, nPid });
+            }
+        }
+    }
+    return V;
+}
+
 wxString ProcUtils::GetProcessNameByPid(long pid)
 {
 #ifdef __WXMSW__
@@ -148,7 +238,8 @@ wxString ProcUtils::GetProcessNameByPid(long pid)
     int nof_procs;
     wxString cmd;
 
-    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL))) return wxEmptyString;
+    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL)))
+        return wxEmptyString;
 
     if(!(ki = kvm_getprocs(kvd, KERN_PROC_PID, pid, &nof_procs))) {
         kvm_close(kvd);
@@ -201,10 +292,7 @@ void ProcUtils::ExecuteCommand(const wxString& command, wxArrayString& output, l
 #endif
 }
 
-void ProcUtils::ExecuteInteractiveCommand(const wxString& command)
-{
-    wxShell(command);
-}
+void ProcUtils::ExecuteInteractiveCommand(const wxString& command) { wxShell(command); }
 
 void ProcUtils::GetProcessList(std::vector<ProcessEntry>& proclist)
 {
@@ -254,7 +342,8 @@ void ProcUtils::GetProcessList(std::vector<ProcessEntry>& proclist)
     struct kinfo_proc* ki;
     int nof_procs, i;
 
-    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL))) return;
+    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL)))
+        return;
 
     if(!(ki = kvm_getprocs(kvd, KERN_PROC_PROC, 0, &nof_procs))) {
         kvm_close(kvd);
@@ -351,7 +440,8 @@ void ProcUtils::GetChildren(long pid, std::vector<long>& proclist)
     struct kinfo_proc* ki;
     int nof_procs, i;
 
-    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL))) return;
+    if(!(kvd = kvm_openfiles(_PATH_DEVNULL, _PATH_DEVNULL, NULL, O_RDONLY, NULL)))
+        return;
 
     if(!(ki = kvm_getprocs(kvd, KERN_PROC_PROC, pid, &nof_procs))) {
         kvm_close(kvd);
@@ -359,7 +449,8 @@ void ProcUtils::GetChildren(long pid, std::vector<long>& proclist)
     }
 
     for(i = 0; i < nof_procs; i++) {
-        if(ki[i].ki_ppid == pid) proclist.push_back(ki[i].ki_pid);
+        if(ki[i].ki_ppid == pid)
+            proclist.push_back(ki[i].ki_pid);
     }
 
     kvm_close(kvd);
@@ -416,19 +507,7 @@ bool ProcUtils::Shell(const wxString& programConsoleCommand)
     wxString where;
     wxArrayString tokens;
     wxArrayString configuredTerminal;
-    /*if (Locate(wxT("gnome-terminal"), where)) {
-        terminal = where;
-    } else if (Locate(wxT("konsole"), where)) {
-        wxString path = wxGetCwd();
-        terminal << where << wxT(" --workdir \"") << path << wxT("\"");
-    } else if (Locate(wxT("terminal"), where)) {
-        terminal = where;
-    } else if (Locate(wxT("lxterminal"), where)) {
-        terminal = where;
-    } else if (Locate(wxT("xterm"), where)) {
-        terminal = where;
-    }
-    cmd = terminal;*/
+
     terminal = wxT("xterm");
     if(!programConsoleCommand.IsEmpty()) {
         tokens = wxStringTokenize(programConsoleCommand, wxT(" "), wxTOKEN_STRTOK);
@@ -485,7 +564,8 @@ void ProcUtils::SafeExecuteCommand(const wxString& command, wxArrayString& outpu
 {
 #ifdef __WXMSW__
     wxString errMsg;
-    WinProcess* proc = WinProcess::Execute(command, errMsg);
+    LOG_IF_TRACE { clDEBUG1() << "executing process:" << command << endl; }
+    std::unique_ptr<WinProcess> proc{ WinProcess::Execute(command, errMsg) };
     if(!proc) {
         return;
     }
@@ -494,44 +574,34 @@ void ProcUtils::SafeExecuteCommand(const wxString& command, wxArrayString& outpu
     wxString tmpbuf;
     wxString buff;
 
+    LOG_IF_TRACE { clDEBUG1() << "reading process output..." << endl; }
     while(proc->IsAlive()) {
         tmpbuf.Clear();
-        proc->Read(tmpbuf);
-        buff << tmpbuf;
-        wxThread::Sleep(100);
+        if(proc->Read(tmpbuf)) {
+            // as long as we read something, dont sleep...
+            buff << tmpbuf;
+        } else {
+            wxThread::Sleep(1);
+        }
     }
     tmpbuf.Clear();
-
-    // Read any unread output
+    LOG_IF_TRACE
+    {
+        clDEBUG1() << "process terminated" << endl;
+        // Read any unread output
+        clDEBUG1() << "reading process output remainder..." << endl;
+    }
     proc->Read(tmpbuf);
     while(!tmpbuf.IsEmpty()) {
         buff << tmpbuf;
         tmpbuf.Clear();
         proc->Read(tmpbuf);
     }
+    proc->Cleanup();
+    LOG_IF_TRACE { clDEBUG1() << "reading process output remainder...done" << endl; }
 
     // Convert buff into wxArrayString
-    buff.Trim().Trim(false);
-    wxString s;
-    int where = buff.Find(wxT("\n"));
-    while(where != wxNOT_FOUND) {
-        // use c_str() to make sure we create a unique copy
-        s = buff.Mid(0, where).c_str();
-        s.Trim().Trim(false);
-        output.Add(s.c_str());
-        buff.Remove(0, where + 1);
-
-        where = buff.Find(wxT("\n"));
-    }
-
-    if(buff.empty() == false) {
-        s = buff.Trim().Trim(false);
-        output.Add(s.c_str());
-    }
-
-    proc->Cleanup();
-    delete proc;
-
+    output = ::wxStringTokenize(buff, "\n", wxTOKEN_STRTOK);
 #else
     ProcUtils::ExecuteCommand(command, output);
 #endif
@@ -551,4 +621,115 @@ wxString ProcUtils::SafeExecuteCommand(const wxString& command)
         strOut.RemoveLast();
     }
     return strOut;
+}
+
+wxString ProcUtils::GrepCommandOutput(const std::vector<wxString>& cmd, const wxString& find_what)
+{
+    IProcess::Ptr_t proc(::CreateAsyncProcess(nullptr, cmd, IProcessCreateDefault | IProcessCreateSync));
+    if(!proc) {
+        return wxEmptyString;
+    }
+
+    wxString output;
+    proc->WaitForTerminate(output);
+    auto lines = ::wxStringTokenize(output, "\n", wxTOKEN_STRTOK);
+    for(wxString& line : lines) {
+        line.Trim();
+        if(line.Contains(find_what)) {
+            return line;
+        }
+    }
+    return wxEmptyString;
+}
+
+namespace
+{
+class ProcessHelper : public wxProcess
+{
+    wxEvtHandler* m_handler = nullptr;
+    wxString m_output_file;
+    wxString m_process_output;
+
+private:
+    void ReadOutput()
+    {
+        FileUtils::Deleter d{ m_output_file };
+        FileUtils::ReadFileContent(m_output_file, m_process_output);
+    }
+
+public:
+    ProcessHelper(wxEvtHandler* sink, const wxString& output_file)
+        : m_handler(sink)
+        , m_output_file(output_file)
+    {
+    }
+    virtual ~ProcessHelper() {}
+
+    // Notify about the process termination
+    void OnTerminate(int pid, int status) override
+    {
+        if(status == 0) {
+            ReadOutput();
+        }
+
+        clShellProcessEvent event_terminated{ wxEVT_SHELL_ASYNC_PROCESS_TERMINATED };
+        event_terminated.SetPid(pid);
+        event_terminated.SetExitCode(status);
+        event_terminated.SetOutput(m_process_output);
+        m_handler->QueueEvent(event_terminated.Clone());
+        delete this;
+    }
+};
+} // namespace
+
+bool ProcUtils::ShellExecAsync(const wxString& command, long* pid, wxEvtHandler* sink)
+{
+    wxString filename = wxFileName::CreateTempFileName("clTempFile");
+    wxString theCommand = wxString::Format("%s > \"%s\" 2>&1", command, filename);
+    WrapInShell(theCommand);
+    long rc = ::wxExecute(theCommand, wxEXEC_ASYNC | wxEXEC_HIDE_CONSOLE, new ProcessHelper(sink, filename), nullptr);
+    if(rc > 0) {
+        *pid = rc;
+    }
+    return rc > 0;
+}
+
+int ProcUtils::ShellExecSync(const wxString& command, wxString* output)
+{
+    wxString filename = wxFileName::CreateTempFileName("clTempFile");
+    wxString theCommand = wxString::Format("%s > \"%s\" 2>&1", command, filename);
+    WrapInShell(theCommand);
+
+    wxArrayString out;
+    wxArrayString err;
+    int exit_code = ::wxExecute(theCommand, out, err, wxEXEC_SYNC | wxEXEC_HIDE_CONSOLE);
+
+    // read the process output and return it
+    FileUtils::Deleter d{ filename };
+    FileUtils::ReadFileContent(filename, *output);
+    return exit_code;
+}
+
+wxString& ProcUtils::WrapInShell(wxString& cmd)
+{
+    wxString command;
+#ifdef __WXMSW__
+    wxString shell = wxGetenv("COMSPEC");
+    if(shell.IsEmpty()) {
+        shell = "CMD.EXE";
+    }
+    command << shell << " /C ";
+    if(cmd.StartsWith("\"") && !cmd.EndsWith("\"")) {
+        command << "\"" << cmd << "\"";
+    } else {
+        command << cmd;
+    }
+#else
+    command << "/bin/sh -c '";
+    // escape any single quoutes
+    cmd.Replace("'", "\\'");
+    command << cmd << "'";
+#endif
+    cmd.swap(command);
+    return cmd;
 }

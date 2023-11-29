@@ -25,74 +25,23 @@ OutlineTabBaseClass::OutlineTabBaseClass(wxWindow* parent, wxWindowID id, const 
     wxBoxSizer* boxSizer1 = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(boxSizer1);
 
-    m_textCtrlSearch = new wxTextCtrl(this, wxID_ANY, wxT(""), wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
-                                      wxTE_RICH2 | wxTE_PROCESS_ENTER);
-#if wxVERSION_NUMBER >= 3000
-    m_textCtrlSearch->SetHint(wxT(""));
-#endif
+    m_dvListCtrl = new clTerminalViewCtrl(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(-1, -1)),
+                                          wxDV_NO_HEADER | wxDV_ROW_LINES | wxDV_SINGLE);
 
-    boxSizer1->Add(m_textCtrlSearch, 0, wxEXPAND, WXC_FROM_DIP(5));
-
-    m_simpleBook =
-        new wxSimplebook(this, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(this, wxSize(150, 300)), wxBORDER_NONE);
-    m_simpleBook->SetName(wxT("m_simpleBook"));
-    m_simpleBook->SetEffect(wxSHOW_EFFECT_NONE);
-
-    boxSizer1->Add(m_simpleBook, 1, wxALL | wxEXPAND, WXC_FROM_DIP(2));
-
-    m_panelCxx = new wxPanel(m_simpleBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_simpleBook, wxSize(-1, -1)),
-                             wxTAB_TRAVERSAL | wxBORDER_NONE);
-    m_simpleBook->AddPage(m_panelCxx, _("Page"), false);
-
-    wxBoxSizer* boxSizer11 = new wxBoxSizer(wxVERTICAL);
-    m_panelCxx->SetSizer(boxSizer11);
-
-    m_panelPhp = new wxPanel(m_simpleBook, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_simpleBook, wxSize(-1, -1)),
-                             wxTAB_TRAVERSAL | wxBORDER_NONE);
-    m_simpleBook->AddPage(m_panelPhp, _("Page"), false);
-
-    wxBoxSizer* boxSizer13 = new wxBoxSizer(wxVERTICAL);
-    m_panelPhp->SetSizer(boxSizer13);
-
-    m_treeCtrlPhp = new PHPOutlineTree(m_panelPhp, wxID_ANY, wxDefaultPosition, wxDLG_UNIT(m_panelPhp, wxSize(-1, -1)),
-                                       wxTR_DEFAULT_STYLE | wxTR_HIDE_ROOT | wxTR_FULL_ROW_HIGHLIGHT);
-
-    boxSizer13->Add(m_treeCtrlPhp, 1, wxEXPAND, WXC_FROM_DIP(5));
-
-    m_panelPlaceHolder = new wxPanel(m_simpleBook, wxID_ANY, wxDefaultPosition,
-                                     wxDLG_UNIT(m_simpleBook, wxSize(-1, -1)), wxTAB_TRAVERSAL | wxBORDER_NONE);
-    m_simpleBook->AddPage(m_panelPlaceHolder, _("Page"), false);
-
-    wxBoxSizer* boxSizer19 = new wxBoxSizer(wxVERTICAL);
-    m_panelPlaceHolder->SetSizer(boxSizer19);
-
-    m_panelEmpty = new wxPanel(m_panelPlaceHolder, wxID_ANY, wxDefaultPosition,
-                               wxDLG_UNIT(m_panelPlaceHolder, wxSize(-1, -1)), wxTAB_TRAVERSAL);
-
-    boxSizer19->Add(m_panelEmpty, 1, wxEXPAND, WXC_FROM_DIP(5));
+    boxSizer1->Add(m_dvListCtrl, 1, wxEXPAND, WXC_FROM_DIP(5));
 
     SetName(wxT("OutlineTabBaseClass"));
     SetSize(wxDLG_UNIT(this, wxSize(-1, -1)));
-    if(GetSizer()) { GetSizer()->Fit(this); }
+    if(GetSizer()) {
+        GetSizer()->Fit(this);
+    }
     // Connect events
-    m_textCtrlSearch->Connect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(OutlineTabBaseClass::OnSearchEnter), NULL,
-                              this);
-    m_textCtrlSearch->Connect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(OutlineTabBaseClass::OnSearchSymbol),
-                              NULL, this);
-    m_treeCtrlPhp->Connect(wxEVT_COMMAND_TREE_SEL_CHANGED, wxTreeEventHandler(OutlineTabBaseClass::OnPhpItemSelected),
-                           NULL, this);
-    m_treeCtrlPhp->Connect(wxEVT_COMMAND_TREE_ITEM_ACTIVATED,
-                           wxTreeEventHandler(OutlineTabBaseClass::OnPhpItemActivated), NULL, this);
+    m_dvListCtrl->Connect(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
+                          wxDataViewEventHandler(OutlineTabBaseClass::OnItemSelected), NULL, this);
 }
 
 OutlineTabBaseClass::~OutlineTabBaseClass()
 {
-    m_textCtrlSearch->Disconnect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(OutlineTabBaseClass::OnSearchEnter),
-                                 NULL, this);
-    m_textCtrlSearch->Disconnect(wxEVT_COMMAND_TEXT_UPDATED, wxCommandEventHandler(OutlineTabBaseClass::OnSearchSymbol),
-                                 NULL, this);
-    m_treeCtrlPhp->Disconnect(wxEVT_COMMAND_TREE_SEL_CHANGED,
-                              wxTreeEventHandler(OutlineTabBaseClass::OnPhpItemSelected), NULL, this);
-    m_treeCtrlPhp->Disconnect(wxEVT_COMMAND_TREE_ITEM_ACTIVATED,
-                              wxTreeEventHandler(OutlineTabBaseClass::OnPhpItemActivated), NULL, this);
+    m_dvListCtrl->Disconnect(wxEVT_COMMAND_DATAVIEW_ITEM_ACTIVATED,
+                             wxDataViewEventHandler(OutlineTabBaseClass::OnItemSelected), NULL, this);
 }

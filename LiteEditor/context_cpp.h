@@ -25,12 +25,14 @@
 #ifndef CONTEXT_CPP_H
 #define CONTEXT_CPP_H
 
+#include "LSP/LSPEvent.h"
 #include "cl_command_event.h"
 #include "context_base.h"
 #include "cpptoken.h"
 #include "ctags_manager.h"
 #include "entry.h"
 #include "macros.h"
+
 #include <map>
 
 class RefactorSource;
@@ -47,6 +49,7 @@ class ContextCpp : public ContextBase
 protected:
     void OnShowCodeNavMenu(clCodeCompletionEvent& e);
     void OnCodeCompleteFiles(clCodeCompletionEvent& event);
+    void OnSymbolDeclaraionFound(LSPEvent& event);
 
 private:
     bool TryOpenFile(const wxFileName& fileName, bool lookInEntireWorkspace = true);
@@ -58,9 +61,10 @@ private:
     bool DoCodeComplete(long pos);
     void DoCreateFile(const wxFileName& fn);
     void DoUpdateCalltipHighlight();
+    size_t DoGetEntriesForHeaderAndImpl(std::vector<TagEntryPtr>& prototypes, std::vector<TagEntryPtr>& functions,
+                                        wxString& otherfile);
 
 public:
-    virtual void ColourContextTokens(const wxString& workspaceTokensStr, const wxString& localsTokensStr);
     /**
      * @brief
      * @return
@@ -80,7 +84,6 @@ public:
     virtual bool CompleteWord();
     virtual bool CodeComplete(long pos = wxNOT_FOUND);
     virtual bool GotoDefinition();
-    virtual TagEntryPtr GetTagAtCaret(bool scoped, bool impl);
     virtual wxString GetCurrentScopeName();
     virtual void AutoIndent(const wxChar&);
     virtual bool IsCommentOrString(long pos);
@@ -92,10 +95,6 @@ public:
     virtual wxString CallTipContent();
     virtual void SetActive();
     virtual void SemicolonShift();
-
-    // ctrl-click style navigation support
-    virtual int GetHyperlinkRange(int pos, int& start, int& end);
-    virtual void GoHyperlink(int start, int end, int type, bool alt);
 
     // override swapfiles features
     virtual void SwapFiles(const wxFileName& fileName);
@@ -119,8 +118,6 @@ public:
     virtual void OnGenerateSettersGetters(wxCommandEvent& event);
     virtual void OnFindImpl(wxCommandEvent& event);
     virtual void OnFindDecl(wxCommandEvent& event);
-    virtual void OnGotoFunctionStart(wxCommandEvent& event);
-    virtual void OnGotoNextFunction(wxCommandEvent& event);
     virtual void OnKeyDown(wxKeyEvent& event);
     virtual void OnUpdateUI(wxUpdateUIEvent& event);
     virtual void OnContextOpenDocument(wxCommandEvent& event);
@@ -129,10 +126,6 @@ public:
     virtual void OnMoveImpl(wxCommandEvent& e);
     virtual void OnAddImpl(wxCommandEvent& e);
     virtual void OnAddMultiImpl(wxCommandEvent& e);
-    virtual void OnOverrideParentVritualFunctions(wxCommandEvent& e);
-    virtual void OnRenameGlobalSymbol(wxCommandEvent& e);
-    virtual void OnFindReferences(wxCommandEvent& e);
-    virtual void OnSyncSignatures(wxCommandEvent& e);
     virtual void OnRetagFile(wxCommandEvent& e);
     virtual void OnUserTypedXChars(const wxString& word);
     virtual void OnCallTipClick(wxStyledTextEvent& e);
@@ -152,6 +145,11 @@ private:
     void DoOpenWorkspaceFile();
     void DoSetProjectPaths();
     bool DoGetSingatureRange(int line, int& start, int& end, clEditor* ctrl);
+    /**
+     * @brief add missing implementaions. If line_number is provided
+     * then only add the function found on this line number
+     */
+    void DoAddFunctionImplementation(int line_number = wxNOT_FOUND);
 
 public:
     void DoMakeDoxyCommentString(DoxygenComment& dc, const wxString& blockPrefix, wxChar keywordPrefix);
@@ -172,7 +170,6 @@ private:
      */
     bool FindSwappedFile(const wxFileName& rhs, wxStringSet_t& others);
     bool FindSwappedFile(const wxFileName& rhs, wxString& lhs);
-
 
     /**
      * @brief format editor

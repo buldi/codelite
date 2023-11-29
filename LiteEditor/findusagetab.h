@@ -26,35 +26,42 @@
 #ifndef FINDUSAGETAB_H
 #define FINDUSAGETAB_H
 
-#include "outputtabwindow.h" // Base class OutputTabWindow
-#include "cpptoken.h"
+#include "LSP/LSPEvent.h"
+#include "LSP/basic_types.h"
+#include "clTerminalViewCtrl.hpp"
+#include "clThemedTreeCtrl.h"
+#include "clWorkspaceEvent.hpp"
 #include "wxStringHash.h"
 
-typedef std::unordered_map<int, CppToken> UsageResultsMap;
+#include <wx/colour.h>
+#include <wx/panel.h>
 
-class FindUsageTab : public OutputTabWindow
+class FindUsageTab : public wxPanel
 {
-    UsageResultsMap m_matches;
+    std::vector<LSP::Location> m_locations;
+    clThemedTreeCtrl* m_ctrl = nullptr;
+    wxColour m_headerColour;
 
-protected:
-    void DoOpenResult(const CppToken& token);
+private:
+    void DoAddFileEntries(const wxString& filename, const std::vector<const LSP::Location*>& matches);
+    void InitialiseView(const std::vector<LSP::Location>& locations);
+    void UpdateStyle();
+    bool DoExpandItem(const wxTreeItemId& item);
 
 public:
-    FindUsageTab(wxWindow* parent, const wxString& name);
+    FindUsageTab(wxWindow* parent);
     virtual ~FindUsageTab();
 
-public:
-    virtual void Clear();
-    virtual void OnClearAllUI(wxUpdateUIEvent& e);
-    virtual void OnClearAll(wxCommandEvent& e);
-    virtual void OnMouseDClick(wxStyledTextEvent& e);
-    virtual void OnHoldOpenUpdateUI(wxUpdateUIEvent& e);
-    virtual void OnStyleNeeded(wxStyledTextEvent& e);
-    virtual void OnThemeChanged(wxCommandEvent& e);
-    void OnWorkspaceClosed(wxCommandEvent& event);
-
-public:
-    void ShowUsage(const CppToken::Vec_t& matches, const wxString& searchWhat);
+protected:
+    void Clear();
+    void OnClearAllUI(wxUpdateUIEvent& e);
+    void OnClearAll(wxCommandEvent& e);
+    void OnThemeChanged(clCommandEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
+    void OnReferences(LSPEvent& event);
+    void OnReferencesInProgress(LSPEvent& event);
+    void OnItemActivated(wxTreeEvent& event);
+    void OnItemExpanding(wxTreeEvent& event);
 };
 
 #endif // FINDUSAGETAB_H

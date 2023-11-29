@@ -7,6 +7,7 @@
 #include "SocketAPI/clWebSocketClient.h"
 #include "asyncprocess.h"
 #include "cl_command_event.h"
+
 #include <functional>
 #include <unordered_map>
 #include <vector>
@@ -20,6 +21,9 @@ class NodeDebugger : public wxEvtHandler
     clWebSocketClient m_socket;
     NodeJSBptManager m_bptManager;
     wxString m_activeFrame;
+
+public:
+    static wxString NODE_CLI_DEBUGGER_NAME;
 
 public:
     typedef wxSharedPtr<NodeDebugger> Ptr_t;
@@ -66,7 +70,7 @@ protected:
     void OnWebSocketError(clCommandEvent& event);
     void OnWebSocketOnMessage(clCommandEvent& event);
     void OnWebSocketDisconnected(clCommandEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnInteract(clDebugEvent& event);
     void OnTooltip(clDebugEvent& event);
     // Helpers

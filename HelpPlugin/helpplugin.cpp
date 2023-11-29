@@ -27,7 +27,7 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
     static PluginInfo info;
     info.SetAuthor(wxT("Eran Ifrah"));
     info.SetName(wxT("HelpPlugin"));
-    info.SetDescription(wxT("Provide help based on selected words"));
+    info.SetDescription(_("Provide help based on selected words"));
     info.SetVersion(wxT("v1.0"));
     return &info;
 }
@@ -42,12 +42,11 @@ HelpPlugin::HelpPlugin(IManager* manager)
     wxTheApp->Bind(wxEVT_MENU, &HelpPlugin::OnHelp, this, XRCID("ID_ZEAL_HELP"));
     Bind(wxEVT_MENU, &HelpPlugin::OnHelpSettings, this, XRCID("ID_ZEAL_SETTINGS"));
     EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_EDITOR, &HelpPlugin::OnEditorContextMenu, this);
-    clKeyboardManager::Get()->AddGlobalAccelerator("ID_ZEAL_HELP", "F1", "Help::Search the docs for selected text");
 }
 
 HelpPlugin::~HelpPlugin() {}
 
-void HelpPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void HelpPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void HelpPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {

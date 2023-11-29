@@ -1,5 +1,7 @@
-#include "drawingutils.h"
 #include "wxCustomStatusBar.h"
+
+#include "drawingutils.h"
+
 #include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
@@ -28,13 +30,35 @@ void wxCustomStatusBarArt::DrawFieldSeparator(wxDC& dc, const wxRect& fieldRect)
     // draw border line
     dc.SetPen(GetPenColour());
     wxPoint bottomPt, topPt;
-    
+
     topPt = fieldRect.GetTopLeft();
     topPt.y += 2;
-    
+
     bottomPt = fieldRect.GetBottomLeft();
     bottomPt.y += 1;
     dc.DrawLine(topPt, bottomPt);
+}
+
+wxColour wxCustomStatusBarArt::GetBgColour() const
+{
+    wxColour c = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+    return c;
+}
+
+wxColour wxCustomStatusBarArt::GetPenColour() const { return GetBgColour(); }
+wxColour wxCustomStatusBarArt::GetTextColour() const { return clSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT); }
+wxColour wxCustomStatusBarArt::GetSeparatorColour() const { return GetBgColour(); }
+
+//========================------------------------------------
+//========================------------------------------------
+
+void wxCustomStatusBarSpacerField::Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art)
+{
+    m_rect = rect;
+    wxSize textSize = dc.GetTextExtent(m_text);
+
+    // draw border line
+    art->DrawFieldSeparator(dc, rect);
 }
 
 //========================------------------------------------
@@ -122,6 +146,32 @@ void wxCustomStatusBarFieldText::SetText(const wxString& text)
 }
 
 //========================------------------------------------
+// wxCustomStatusBarControlField
+//========================------------------------------------
+
+wxCustomStatusBarControlField::wxCustomStatusBarControlField(wxCustomStatusBar* parent, wxControl* control)
+    : wxCustomStatusBarField(parent)
+    , m_control(control)
+{
+}
+
+wxCustomStatusBarControlField::~wxCustomStatusBarControlField() {}
+void wxCustomStatusBarControlField::Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art)
+{
+    CHECK_PTR_RET(m_control);
+    wxUnusedVar(dc);
+    m_rect = rect;
+
+    // Draw the left side border
+    art->DrawFieldSeparator(dc, rect);
+
+    // Position the animation
+    wxRect control_rect = m_control->GetRect();
+    control_rect = control_rect.CenterIn(m_rect);
+    m_control->Move(control_rect.GetTopLeft());
+}
+
+//========================------------------------------------
 //========================------------------------------------
 
 wxCustomStatusBarAnimationField::wxCustomStatusBarAnimationField(wxCustomStatusBar* parent, const wxBitmap& sprite,
@@ -178,14 +228,29 @@ void wxCustomStatusBarBitmapField::Render(wxDC& dc, const wxRect& rect, wxCustom
     // draw border line
     art->DrawFieldSeparator(dc, rect);
 
+    constexpr int X_SPACER = 5;
+
     // Center bitmap
+    int remaining_width = m_width;
+    int xx = rect.GetTopLeft().x;
     if(m_bitmap.IsOk()) {
-        int bmpHeight = m_bitmap.GetScaledHeight();
-        int bmpWidth = m_bitmap.GetScaledWidth();
-        wxCoord bmpY = (rect.GetHeight() - bmpHeight) / 2 + rect.y;
-        wxCoord bmpX = (rect.GetWidth() - bmpWidth) / 2 + rect.x;
+        wxRect rr{ wxPoint(xx, rect.GetTopLeft().y), m_bitmap.GetScaledSize() };
+        rr = rr.CenterIn(rect, wxVERTICAL);
         // Draw the bitmap
-        dc.DrawBitmap(m_bitmap, bmpX, bmpY + 1);
+        dc.DrawBitmap(m_bitmap, rr.GetTopLeft());
+        xx += m_bitmap.GetScaledSize().GetWidth();
+        remaining_width -= m_bitmap.GetScaledSize().GetWidth();
+    }
+
+    if(!m_label.empty()) {
+        xx += X_SPACER;
+        remaining_width -= X_SPACER;
+        wxString fixed_text;
+        DrawingUtils::TruncateText(m_label, remaining_width, dc, fixed_text);
+        wxRect text_rect = dc.GetTextExtent(fixed_text);
+        text_rect = text_rect.CenterIn(rect, wxVERTICAL);
+        text_rect.SetX(xx);
+        dc.DrawText(fixed_text, text_rect.GetTopLeft());
     }
 }
 
@@ -196,8 +261,9 @@ wxCustomStatusBar::wxCustomStatusBar(wxWindow* parent, wxWindowID id, long style
     : wxStatusBar(parent, id, style)
     , m_art(new wxCustomStatusBarArt("Dark"))
     , m_mainText(new wxCustomStatusBarFieldText(this, 0))
-    , m_timer(NULL)
 {
+    m_mainText->SetAutoWidth(true);
+
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     m_mainText->Cast<wxCustomStatusBarFieldText>()->SetTextAlignment(wxALIGN_LEFT);
 
@@ -207,10 +273,17 @@ wxCustomStatusBar::wxCustomStatusBar(wxWindow* parent, wxWindowID id, long style
     Bind(wxEVT_MOTION, &wxCustomStatusBar::OnMouseMotion, this);
     m_timer = new wxTimer(this);
     Bind(wxEVT_TIMER, &wxCustomStatusBar::OnTimer, this, m_timer->GetId());
+
+    m_fields.push_back(m_mainText);
+    // 1 second event interval
+    m_timer->Start(1000);
 }
 
 wxCustomStatusBar::~wxCustomStatusBar()
 {
+    // unbind the timer before we delete it
+    Unbind(wxEVT_TIMER, &wxCustomStatusBar::OnTimer, this, m_timer->GetId());
+
     m_timer->Stop();
     wxDELETE(m_timer);
 
@@ -223,9 +296,12 @@ wxCustomStatusBar::~wxCustomStatusBar()
 void wxCustomStatusBar::OnPaint(wxPaintEvent& event)
 {
     wxAutoBufferedPaintDC abdc(this);
-    PrepareDC(abdc);
-    wxGCDC dc(abdc);
+    wxGCDC gcdc;
+    wxDC& dc = DrawingUtils::GetGCDC(abdc, gcdc);
+
+    PrepareDC(dc);
     wxRect rect = GetClientRect();
+    rect.Inflate(1);
 
     dc.SetFont(DrawingUtils::GetDefaultGuiFont());
 
@@ -233,48 +309,26 @@ void wxCustomStatusBar::OnPaint(wxPaintEvent& event)
     SetLastArtNameUsedForPaint(m_art->GetName());
 
     // Fill the background
-    
     wxColour bgColour = m_art->GetBgColour();
     dc.SetBrush(bgColour);
     dc.SetPen(bgColour);
     dc.DrawRectangle(rect);
 
-    
-    // Calculate the fields length
-    size_t totalLength = rect.GetWidth();
-    size_t fieldsLength = DoGetFieldsWidth();
-
-    // sanity
-    size_t offsetX = 0;
-    if(totalLength <= fieldsLength) {
-        offsetX = 0;
-    } else {
-        offsetX = totalLength - fieldsLength;
-    }
-
-    //===----------------------
-    // Draw the main field
-    //===----------------------
-    // update the rect
-
-    wxRect mainRect(0, rect.y, offsetX, rect.height);
-    dc.SetClippingRegion(mainRect);
-    m_mainText->SetRect(mainRect);
-    m_mainText->Cast<wxCustomStatusBarFieldText>()->Render(dc, mainRect, m_art);
-    m_mainText->Cast<wxCustomStatusBarFieldText>()->SetTooltip(m_text);
-    dc.DestroyClippingRegion();
+    // Update the fields width
+    Finalize();
 
     //===----------------------
     // Draw the fields
     //===----------------------
-
-    for(size_t i = 0; i < m_fields.size(); ++i) {
+    size_t offset_x = 0;
+    for(auto field : m_fields) {
         // Prepare the rect
-        wxRect fieldRect(offsetX, rect.y, m_fields.at(i)->GetWidth(), rect.height);
+        size_t width = field->IsAutoWidth() ? field->GetAutoWidth() : field->GetWidth();
+        wxRect fieldRect(offset_x, rect.y, width, rect.height);
         dc.SetClippingRegion(fieldRect);
-        m_fields.at(i)->Render(dc, fieldRect, m_art);
+        field->Render(dc, fieldRect, m_art);
         dc.DestroyClippingRegion();
-        offsetX += m_fields.at(i)->GetWidth();
+        offset_x += width;
     }
 }
 
@@ -291,15 +345,16 @@ size_t wxCustomStatusBar::DoGetFieldsWidth()
 
 wxCustomStatusBarField::Ptr_t wxCustomStatusBar::GetField(size_t index)
 {
-    if(index >= m_fields.size()) return wxCustomStatusBarField::Ptr_t(NULL);
+    if(index >= m_fields.size())
+        return wxCustomStatusBarField::Ptr_t(NULL);
     return m_fields.at(index);
 }
 
 void wxCustomStatusBar::RemoveField(size_t index)
 {
-    if(index >= m_fields.size()) return;
+    if(index >= m_fields.size())
+        return;
     m_fields.erase(m_fields.begin() + index);
-    if(m_timer->IsRunning()) { m_timer->Stop(); }
     Refresh();
 }
 
@@ -321,43 +376,83 @@ void wxCustomStatusBar::OnLeftDown(wxMouseEvent& event)
 
 void wxCustomStatusBar::ClearText()
 {
-    m_text.Clear();
-    if(m_timer->IsRunning()) { m_timer->Stop(); }
+    m_text.clear();
     Refresh();
 }
 
-void wxCustomStatusBar::SetText(const wxString& message, int secondsToLive)
+void wxCustomStatusBar::UpdateMainTextField()
 {
-    // Stop any timer
-    if(m_timer->IsRunning()) { m_timer->Stop(); }
-
-    m_text = message;
-    SetToolTip(message);
-
     // Make sure we draw only when the "art" objects are in sync with the field
     // and with the bar itself
     wxRect mainRect = DoGetMainFieldRect();
 
     // update the rect
     m_mainText->SetRect(mainRect);
-    m_mainText->Cast<wxCustomStatusBarFieldText>()->SetText(m_text);
-    m_mainText->Cast<wxCustomStatusBarFieldText>()->SetTooltip(m_text);
+    m_mainText->Cast<wxCustomStatusBarFieldText>()->SetText(GetText());
+    m_mainText->Cast<wxCustomStatusBarFieldText>()->SetTooltip(GetText());
+}
 
-    if(secondsToLive != wxNOT_FOUND) { m_timer->Start(secondsToLive * 1000, true); }
+void wxCustomStatusBar::Finalize()
+{
+    decltype(m_fields) dyn_width_fields;
+    size_t fixed_field_width = 0;
+    for(auto field : m_fields) {
+        if(field->IsAutoWidth()) {
+            dyn_width_fields.push_back(field);
+        } else {
+            fixed_field_width += field->GetWidth();
+        }
+    }
+
+    if(dyn_width_fields.empty())
+        return; // nothing to be done here
+
+    size_t dyn_width = (GetClientRect().GetWidth() - fixed_field_width) / dyn_width_fields.size();
+    for(auto field : dyn_width_fields) {
+        field->SetAutoWidth(dyn_width);
+    }
+}
+
+void wxCustomStatusBar::SetText(const wxString& message, int secondsToLive)
+{
+    if(message.empty()) {
+        // passing an empty string suggets that we want to clear the text field completely
+        ClearText();
+        return;
+    }
+
+    if(secondsToLive < 0) {
+        secondsToLive = 1; // default to 1 second message
+    } else if(secondsToLive == 0) {
+        secondsToLive = 5; // this is how forever looks like
+    }
+
+    m_text.push_back({ message, time(nullptr) + secondsToLive });
+
+#ifndef __WXMAC__
+    // for some reason, macos tooltips are shown in the middle of the screen :)
+    SetToolTip(message);
+#endif
+
+    UpdateMainTextField();
 }
 
 void wxCustomStatusBar::OnMouseMotion(wxMouseEvent& event)
 {
     event.Skip();
-    SetToolTip(wxEmptyString);
+    wxString current_tip = GetToolTipText();
+    wxString tip_text;
     wxPoint point = event.GetPosition();
     for(size_t i = 0; i < m_fields.size(); ++i) {
         if(m_fields.at(i)->HitTest(point)) {
-            SetToolTip(m_fields.at(i)->GetTooltip());
-            return;
+            tip_text = m_fields.at(i)->GetTooltip();
+            break;
         }
     }
-    SetToolTip(m_text);
+
+    if(current_tip != tip_text) {
+        SetToolTip(tip_text);
+    }
 }
 
 void wxCustomStatusBar::AnimationClicked(wxCustomStatusBarField* field)
@@ -382,21 +477,54 @@ void wxCustomStatusBar::SetArt(wxCustomStatusBarArt::Ptr_t art)
 
 wxRect wxCustomStatusBar::DoGetMainFieldRect()
 {
-    // Calculate the fields length
     wxRect rect = GetClientRect();
+    size_t offset_x = 0;
+    for(auto field : m_fields) {
+        // Prepare the rect
+        if(field.get() == m_mainText.get()) {
+            // found the main text field
+            break;
+        }
+        size_t width = field->IsAutoWidth() ? field->GetAutoWidth() : field->GetWidth();
+        offset_x += width;
+    }
+
+    // Calculate the fields length
     size_t totalLength = rect.GetWidth();
     size_t fieldsLength = DoGetFieldsWidth();
-
-    size_t offsetX = 0;
-    if(totalLength <= fieldsLength) {
-        offsetX = 0;
-    } else {
-        offsetX = totalLength - fieldsLength;
-    }
-    wxRect mainRect(0, rect.y, offsetX, rect.height);
+    wxRect mainRect(offset_x, rect.y, m_mainText->IsAutoWidth() ? m_mainText->GetAutoWidth() : m_mainText->GetWidth(),
+                    rect.height);
     return mainRect;
 }
 
-void wxCustomStatusBar::OnTimer(wxTimerEvent& event) { SetText(""); }
+void wxCustomStatusBar::OnTimer(wxTimerEvent& event)
+{
+    event.Skip();
+
+    time_t current_timestamp = time(nullptr);
+
+    // filter expired items from the list and display the back() of the queue
+    // find the best text to display
+    decltype(m_text) filtered_queue;
+    for(const auto& entry : m_text) {
+        if(entry.second > current_timestamp) {
+            // we keep this entry
+            filtered_queue.push_back(entry);
+        }
+    }
+    m_text.swap(filtered_queue);
+
+    // this will use the back of the stack as the display item
+    UpdateMainTextField();
+}
 
 bool wxCustomStatusBarField::HitTest(const wxPoint& point) const { return m_rect.Contains(point); }
+
+thread_local wxString EMPTY_STRING;
+const wxString& wxCustomStatusBar::GetText() const
+{
+    if(m_text.empty()) {
+        return EMPTY_STRING;
+    }
+    return m_text.back().first;
+}

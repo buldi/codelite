@@ -1,9 +1,10 @@
 #include "clToolBarStretchableSpace.h"
-#include "drawingutils.h"
-#include "clSystemSettings.h"
 
-clToolBarStretchableSpace::clToolBarStretchableSpace(clToolBar* parent)
-    : clToolBarButtonBase(parent, wxID_SEPARATOR, wxNullBitmap, "", kDisabled | kStretchalbeSpace)
+#include "clSystemSettings.h"
+#include "drawingutils.h"
+
+clToolBarStretchableSpace::clToolBarStretchableSpace(clToolBarGeneric* parent)
+    : clToolBarButtonBase(parent, wxID_SEPARATOR, INVALID_BITMAP_ID, "", kDisabled | kStretchalbeSpace)
 {
 }
 
@@ -17,8 +18,10 @@ wxSize clToolBarStretchableSpace::CalculateSize(wxDC& dc) const
 
 void clToolBarStretchableSpace::Render(wxDC& dc, const wxRect& rect)
 {
-    if(GetWidth() == 0) { return; }
-    wxColour colour = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
+    if(GetWidth() == 0) {
+        return;
+    }
+    wxColour colour = clSystemSettings::GetDefaultPanelColour();
     dc.SetPen(colour);
     dc.SetBrush(colour);
     dc.DrawRectangle(rect);

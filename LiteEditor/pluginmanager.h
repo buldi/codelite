@@ -25,28 +25,28 @@
 #ifndef PLUGINMANAGER_H
 #define PLUGINMANAGER_H
 
-#include "plugin.h"
-#include "map"
-#include "list"
-#include "vector"
-#include "wx/string.h"
-#include "wx/treectrl.h"
+#include "clToolBar.h"
+#include "debugger.h"
 #include "dynamiclibrary.h"
+#include "plugin.h"
 #include "plugindata.h"
 #include "project.h"
-#include <set>
-#include <map>
-#include "plugindata.h"
 
-class clToolBar;
+#include <list>
+#include <map>
+#include <set>
+#include <vector>
+#include <wx/string.h>
+#include <wx/treectrl.h>
+
 class clEditorBar;
 class wxBookCtrlBase;
 class EnvironmentConfig;
-class JobQueue;
 class BuildSettingsConfig;
 class BuildManager;
 class BitmapLoader;
 class clWorkspaceView;
+class clInfoBar;
 
 class PluginManager : public IManager
 {
@@ -57,6 +57,7 @@ class PluginManager : public IManager
     std::set<MenuType> m_menusToBeHooked;
     std::map<wxString, wxString> m_backticks;
     wxAuiManager* m_dockingManager;
+    PluginInfo::PluginMap_t m_installedPlugins;
 
 private:
     PluginManager();
@@ -69,6 +70,11 @@ public:
     virtual void UnLoad();
     virtual void EnableToolbars();
 
+    void SetInstalledPlugins(const PluginInfo::PluginMap_t& installedPlugins)
+    {
+        this->m_installedPlugins = installedPlugins;
+    }
+    const PluginInfo::PluginMap_t& GetInstalledPlugins() const { return m_installedPlugins; }
     /**
      * \brief return a map of all loaded plugins
      */
@@ -78,103 +84,153 @@ public:
     //------------------------------------
     // Implementation of IManager interface
     //------------------------------------
-    void EnableClangCodeCompletion(bool b);
-    IEditor* GetActiveEditor();
-    clToolBar* GetToolBar();
-    IConfigTool* GetConfigTool();
-    TreeItemInfo GetSelectedTreeItemInfo(TreeType type);
-    clTreeCtrl* GetFileExplorerTree();
-    clTreeCtrl* GetWorkspaceTree();
-    Notebook* GetOutputPaneNotebook();
-    Notebook* GetWorkspacePaneNotebook();
+    void EnableClangCodeCompletion(bool b) override;
+    IEditor* GetActiveEditor() override;
+    bool SelectEditor(IEditor* editor) override;
+    clToolBarGeneric* GetToolBar() override;
+    wxMenuBar* GetMenuBar() override;
+    IConfigTool* GetConfigTool() override;
+    TreeItemInfo GetSelectedTreeItemInfo(TreeType type) override;
+    clTreeCtrl* GetFileExplorerTree() override;
+    clTreeCtrl* GetWorkspaceTree() override;
+    Notebook* GetMainNotebook() override;
     IEditor* OpenFile(const wxString& fileName, const wxString& projectName = wxEmptyString, int lineno = wxNOT_FOUND,
-                      OF_extra flags = OF_AddJump);
-    IEditor* OpenFile(const wxString& fileName, const wxBitmap& bmp, const wxString& tooltip = wxEmptyString);
-    IEditor* OpenFile(const BrowseRecord& rec);
-    wxString GetStartupDirectory() const;
-    void AddProject(const wxString& path);
-    bool IsWorkspaceOpen() const;
-    TagsManager* GetTagsManager();
-    clCxxWorkspace* GetWorkspace();
-    bool AddFilesToVirtualFolder(wxTreeItemId& item, wxArrayString& paths);
-    bool AddFilesToVirtualFolder(const wxString& vdFullPath, wxArrayString& paths);
-    bool AddFilesToVirtualFolderIntelligently(const wxString& vdFullPath, wxArrayString& paths);
-    int GetToolbarIconSize();
-    wxAuiManager* GetDockingManager();
-    EnvironmentConfig* GetEnv();
-    JobQueue* GetJobQueue();
-    wxString GetProjectExecutionCommand(const wxString& projectName, wxString& wd);
-    wxApp* GetTheApp();
-    void ReloadWorkspace();
-    IPlugin* GetPlugin(const wxString& pluginName);
-    wxEvtHandler* GetOutputWindow();
-    bool SaveAll();
-    wxString GetInstallDirectory() const;
-    bool CreateVirtualDirectory(const wxString& parentPath, const wxString& vdName);
-    OptionsConfigPtr GetEditorSettings();
-    void FindAndSelect(const wxString& pattern, const wxString& name, int pos = 0);
-    TagEntryPtr GetTagAtCaret(bool scoped, bool impl);
-    bool AllowToolbar();
-    void SetStatusMessage(const wxString& msg, int seconds_to_live = wxID_ANY);
-    void PushQueueCommand(const QueueCommand& cmd);
-    void ProcessCommandQueue();
-    void StopAndClearQueue();
-    bool IsBuildInProgress() const;
-    bool IsBuildEndedSuccessfully() const;
-    wxString GetProjectNameByFile(wxString& fullPathFileName);
-    wxString GetProjectNameByFile(const wxString& fullPathFileName);
-    BuildManager* GetBuildManager();
-    BuildSettingsConfig* GetBuildSettingsConfigManager();
-    bool ClosePage(const wxString& title);
-    bool ClosePage(const wxFileName& filename);
-    wxWindow* FindPage(const wxString& text);
+                      OF_extra flags = OF_AddJump) override;
+    IEditor* OpenFile(const wxString& fileName, const wxString& bmpResourceName,
+                      const wxString& tooltip = wxEmptyString) override;
+    IEditor* OpenFile(const BrowseRecord& rec) override;
+    IEditor* OpenRemoteFile(const wxString& local_path, const wxString& remote_path, const wxString& ssh_account,
+                            const wxString& tooltip = wxEmptyString) override;
+    wxString GetStartupDirectory() const override;
+    void AddProject(const wxString& path) override;
+    bool IsWorkspaceOpen() const override;
+    TagsManager* GetTagsManager() override;
+    clCxxWorkspace* GetWorkspace() override;
+    bool AddFilesToVirtualFolder(wxTreeItemId& item, wxArrayString& paths) override;
+    bool AddFilesToVirtualFolder(const wxString& vdFullPath, wxArrayString& paths) override;
+    bool AddFilesToVirtualFolderIntelligently(const wxString& vdFullPath, wxArrayString& paths) override;
+    int GetToolbarIconSize() override;
+    wxAuiManager* GetDockingManager() override;
+    EnvironmentConfig* GetEnv() override;
+    wxString GetProjectExecutionCommand(const wxString& projectName, wxString& wd) override;
+    wxApp* GetTheApp() override;
+    void ReloadWorkspace() override;
+    IPlugin* GetPlugin(const wxString& pluginName) override;
+    wxEvtHandler* GetOutputWindow() override;
+    bool SaveAll(bool prompt = true) override;
+    wxString GetInstallDirectory() const override;
+    bool CreateVirtualDirectory(const wxString& parentPath, const wxString& vdName) override;
+    OptionsConfigPtr GetEditorSettings() override;
+    void FindAndSelect(const wxString& pattern, const wxString& name, int pos = 0) override;
+    TagEntryPtr GetTagAtCaret(bool scoped, bool impl) override;
+    bool AllowToolbar() override;
+    void SetStatusMessage(const wxString& msg, int seconds_to_live = wxID_ANY) override;
+    void PushQueueCommand(const QueueCommand& cmd) override;
+    void ProcessCommandQueue() override;
+    void StopAndClearQueue() override;
+    bool IsBuildInProgress() const override;
+    bool IsBuildEndedSuccessfully() const override;
+    wxString GetProjectNameByFile(wxString& fullPathFileName) override;
+    wxString GetProjectNameByFile(const wxString& fullPathFileName) override;
+    BuildManager* GetBuildManager() override;
+    BuildSettingsConfig* GetBuildSettingsConfigManager() override;
+    bool ClosePage(const wxString& title) override;
+    bool ClosePage(const wxFileName& filename) override;
+    wxWindow* FindPage(const wxString& text) override;
     bool AddPage(wxWindow* win, const wxString& text, const wxString& tooltip = wxEmptyString,
-                 const wxBitmap& bmp = wxNullBitmap, bool selected = false);
-    bool SelectPage(wxWindow* win);
-    NavMgr* GetNavigationMgr();
-    IEditor* NewEditor();
-    bool CloseEditor(IEditor* editor, bool prompt = true);
-    bool IsShutdownInProgress() const;
-    BitmapLoader* GetStdIcons();
-    wxArrayString GetProjectCompileFlags(const wxString& projectName, bool isCppFile);
-    void AddEditorPage(wxWindow* page, const wxString& name, const wxString& tooltip = wxEmptyString);
-    wxPanel* GetEditorPaneNotebook();
-    wxWindow* GetActivePage();
-    wxWindow* GetPage(size_t page);
-    size_t GetPageCount() const;
-    wxString GetPageTitle(wxWindow* win) const;
-    void SetPageTitle(wxWindow* win, const wxString& title);
-    ProjectPtr GetSelectedProject() const;
-    void RedefineProjFiles(ProjectPtr proj, const wxString& path, std::vector<wxString>& files);
-    IEditor* FindEditor(const wxString& filename) const;
-    size_t GetAllEditors(IEditor::List_t& editors, bool inOrder = false);
-    size_t GetAllTabs(clTab::Vec_t& tabs);
-    size_t GetAllBreakpoints(BreakpointInfo::Vec_t& breakpoints);
-    void DeleteAllBreakpoints();
-    void SetBreakpoints(const BreakpointInfo::Vec_t& breakpoints);
-    void LoadPerspective(const wxString& perspectiveName);
-    void SavePerspective(const wxString& perspectiveName);
-    void ProcessEditEvent(wxCommandEvent& e, IEditor* editor);
-    void AppendOutputTabText(eOutputPaneTab tab, const wxString& text);
-    void ClearOutputTab(eOutputPaneTab tab);
-    void AddWorkspaceToRecentlyUsedList(const wxFileName& filename);
-    void StoreWorkspaceSession(const wxFileName& workspaceFile);
-    void LoadWorkspaceSession(const wxFileName& workspaceFile);
-    void OpenFindInFileForPath(const wxString& path);
-    void OpenFindInFileForPaths(const wxArrayString& paths);
-    void ShowOutputPane(const wxString& selectedWindow = "");
-    void ToggleOutputPane(const wxString& selectedWindow = "");
-    clStatusBar* GetStatusBar();
-    clEditorBar* GetNavigationBar();
-    clWorkspaceView* GetWorkspaceView();
-    bool IsToolBarShown() const;
-    void ShowToolBar(bool show = true);
+                 const wxString& bmpResourceName = wxEmptyString, bool selected = false) override;
+    bool SelectPage(wxWindow* win) override;
+    NavMgr* GetNavigationMgr() override;
+    IEditor* NewEditor() override;
+    bool CloseEditor(IEditor* editor, bool prompt = true) override;
+    bool IsShutdownInProgress() const override;
+    BitmapLoader* GetStdIcons() override;
+    wxArrayString GetProjectCompileFlags(const wxString& projectName, bool isCppFile) override;
+    void AddEditorPage(wxWindow* page, const wxString& name, const wxString& tooltip = wxEmptyString) override;
+    wxPanel* GetEditorPaneNotebook() override;
+    wxWindow* GetActivePage() override;
+    wxWindow* GetPage(size_t page) override;
+    size_t GetPageCount() const override;
+    wxString GetPageTitle(wxWindow* win) const override;
+    void SetPageTitle(wxWindow* win, const wxString& title) override;
+    ProjectPtr GetSelectedProject() const override;
+    void RedefineProjFiles(ProjectPtr proj, const wxString& path, std::vector<wxString>& files) override;
+    IEditor* FindEditor(const wxString& filename) const override;
+    size_t GetAllEditors(IEditor::List_t& editors, bool inOrder = false) override;
+    size_t GetAllTabs(clTab::Vec_t& tabs) override;
+    size_t GetAllBreakpoints(clDebuggerBreakpoint::Vec_t& breakpoints) override;
+    clDebuggerBreakpoint CreateBreakpoint(const wxString& filepath, int line_number) override;
+    void DeleteAllBreakpoints() override;
+    void SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints) override;
+    void LoadPerspective(const wxString& perspectiveName) override;
+    void SavePerspective(const wxString& perspectiveName) override;
+    void ProcessEditEvent(wxCommandEvent& e, IEditor* editor) override;
+    void AppendOutputTabText(eOutputPaneTab tab, const wxString& text, bool toggle_view = true) override;
+    void ClearOutputTab(eOutputPaneTab tab) override;
+    void AddWorkspaceToRecentlyUsedList(const wxFileName& filename) override;
+    void StoreWorkspaceSession(const wxFileName& workspaceFile) override;
+    void LoadWorkspaceSession(const wxFileName& workspaceFile) override;
+    void OpenFindInFileForPath(const wxString& path) override;
+    void OpenFindInFileForPaths(const wxArrayString& paths) override;
+    void ShowOutputPane(const wxString& selectedWindow = "") override;
+    void ShowPane(const wxString& pane_name, bool show) override;
+    void ToggleSidebarPane(const wxString& selectedWindow = "") override;
+    void ToggleSecondarySidebarPane(const wxString& selectedWindow = "") override;
+    void ToggleOutputPane(const wxString& selectedWindow = "") override;
+    clStatusBar* GetStatusBar() override;
+    clEditorBar* GetNavigationBar() override;
+    clWorkspaceView* GetWorkspaceView() override;
+    bool IsToolBarShown() const override;
+    void ShowToolBar(bool show = true) override;
+    void ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId) override;
+    void OpenFileAndAsyncExecute(const wxString& fileName, std::function<void(IEditor*)>&& func) override;
+    /**
+     * @brief return list of all breakpoints
+     */
+    void GetBreakpoints(std::vector<clDebuggerBreakpoint>& bpList) override;
 
     /**
      * @brief display message to the user using the info bar
      */
-    virtual void DisplayMessage(const wxString& message, int flags = wxICON_INFORMATION,
-                                const std::vector<std::pair<wxWindowID, wxString> >& buttons = {});
+    void DisplayMessage(const wxString& message, int flags = wxICON_INFORMATION,
+                        const std::vector<std::pair<wxWindowID, wxString>>& buttons = {}) override;
+
+    clInfoBar* GetInfoBar() override;
+
+    ///--------------------
+    /// Book management
+    ///--------------------
+
+    /// Add a book page
+    void BookAddPage(PaneId pane_id, wxWindow* page, const wxString& label,
+                     const wxBitmap& bmp = wxNullBitmap) override;
+
+    /// Find a book page by its label
+    wxWindow* BookGetPage(PaneId pane_id, const wxString& label) override;
+
+    /// Remove a book page (do not destroy it), return the removed page
+    wxWindow* BookRemovePage(PaneId pane_id, const wxString& label) override;
+
+    /// Remove a book page (do not destroy it), return the removed page
+    wxWindow* BookRemovePage(PaneId pane_id, wxWindow* page) override;
+
+    /// Delete a book page, return true on success, false otherwise
+    bool BookDeletePage(PaneId pane_id, wxWindow* page) override;
+
+    /// Delete a book page, return true on success, false otherwise
+    bool BookDeletePage(PaneId pane_id, const wxString& label) override;
+
+    /// Get the book control
+    wxWindow* BookGet(PaneId pane_id) override;
+
+    /// Return the main panel
+    wxPanel* GetMainPanel() override;
+
+    /// Delete a book page, return true on success, false otherwise
+    void BookSelectPage(PaneId pane_id, const wxString& label) override;
+
+    /// Delete a book page, return true on success, false otherwise
+    void BookSelectPage(PaneId pane_id, wxWindow* win) override;
 
     //------------------------------------
     // End of IManager interface

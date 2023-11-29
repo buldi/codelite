@@ -26,7 +26,6 @@
 #ifndef CODELITE_CTAGS_MANAGER_H
 #define CODELITE_CTAGS_MANAGER_H
 
-#include "clCxxFileCacheSymbols.h"
 #include "cl_calltip.h"
 #include "cl_command_event.h"
 #include "cl_process.h"
@@ -45,6 +44,7 @@
 #include "wx/event.h"
 #include "wx/process.h"
 #include "wxStringHash.h"
+
 #include <set>
 #include <wx/stopwatch.h>
 #include <wx/thread.h>
@@ -67,13 +67,7 @@ class IProcess;
 // BUG#3082954
 #define MAX_TIP_LINE_SIZE 200
 
-#define TagsGlobal 0
-
 #define USE_TAGS_SQLITE3 1
-
-// send this event whenever the a tags file needs to be updated
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TAGS_DB_UPGRADE, wxCommandEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TAGS_DB_UPGRADE_INTER, wxCommandEvent);
 
 struct DoxygenComment {
     wxString name;
@@ -83,19 +77,18 @@ struct DoxygenComment {
 // By default the NormalizeFunctionSig returns only the variables type
 enum NormalizeFuncFlag {
     // variable name
-    Normalize_Func_Name = 0x00000001,
+    Normalize_Func_Name = (1 << 0),
     // variable default value
-    Normalize_Func_Default_value = 0x00000002,
-    // re-place back macros
-    Normalize_Func_Reverse_Macro = 0x00000004,
+    Normalize_Func_Default_value = (1 << 1),
     // Each argument is placed on a separate line
-    Normalize_Func_Arg_Per_Line = 0x00000008
+    Normalize_Func_Arg_Per_Line = (1 << 2),
 };
 
 enum FunctionFormatFlag {
-    FunctionFormat_WithVirtual = 0x00000001,
-    FunctionFormat_Impl = 0x00000002,
-    FunctionFormat_Arg_Per_Line = 0x00000004
+    FunctionFormat_WithVirtual = (1 << 0),
+    FunctionFormat_Impl = (1 << 1),
+    FunctionFormat_Arg_Per_Line = (1 << 2),
+    FunctionFormat_WithOverride = (1 << 3),
 };
 
 /**
@@ -106,11 +99,6 @@ enum FunctionFormatFlag {
  *
  * Before you use TagsManager, usually you would like to start ctags,
  * this is easily done by writing something like this:
- *
- * @code
- * // Create ctags processes
- * TagsManagerST::Get()->StartCtagsProcess(TagsGlobal);
- * @endcode
  *
  * In the destructor of your main frame it is recommended to call Free() to avoid memory leaks:
  *
@@ -143,18 +131,14 @@ public:
     wxCriticalSection m_crawlerLocker;
 
 private:
-    wxFileName m_codeliteIndexerPath;
-    IProcess* m_codeliteIndexerProcess;
-    wxString m_ctagsCmd;
     wxStopWatch m_watch;
     TagsOptionsData m_tagsOptions;
-    bool m_parseComments;
-    bool m_canRestartIndexer;
+    bool m_parseComments = false;
     Language* m_lang;
     std::vector<TagEntryPtr> m_cachedFileFunctionsTags;
     wxString m_cachedFile;
-    bool m_enableCaching;
-    wxEvtHandler* m_evtHandler;
+    bool m_enableCaching = false;
+    wxEvtHandler* m_evtHandler = nullptr;
     wxStringSet_t m_CppIgnoreKeyWords;
     wxArrayString m_projectPaths;
     wxFontEncoding m_encoding;
@@ -163,7 +147,7 @@ private:
 #if USE_TAGS_SQLITE3
     ITagsStoragePtr m_db;
 #endif
-    clCxxFileCacheSymbols::Ptr_t m_symbolsCache;
+    wxString m_indexer_path;
 
 public:
     /**
@@ -176,16 +160,12 @@ public:
      */
     static void GetCXXKeywords(wxArrayString& words);
 
-    /**
-     * @brief get the file-symbols cache
-     */
-    clCxxFileCacheSymbols::Ptr_t GetFileCache() { return m_symbolsCache; }
+    void SetIndexerPath(const wxString& indexer_path) { m_indexer_path = indexer_path; }
+    const wxString& GetIndexerPath() const { return m_indexer_path; }
 
     void SetLanguage(Language* lang);
     Language* GetLanguage();
     void SetEvtHandler(wxEvtHandler* handler) { m_evtHandler = handler; }
-
-    wxString GetCTagsCmd();
 
     /**
      * @brief return the currently cached file
@@ -198,7 +178,7 @@ public:
     void ClearCachedFile(const wxString& fileName);
 
     /**
-     * @brief clear all the cached tags information stored in this class
+     4* @brief clear all the cached tags information stored in this class
      */
     void ClearAllCaches();
 
@@ -241,29 +221,14 @@ public:
      * @param comments if not null, comments will be parsed as well, and will be returned as vector
      * @return tag tree
      */
-    TagTreePtr ParseSourceFile(const wxFileName& fp, std::vector<CommentPtr>* comments = NULL);
     TagTreePtr ParseSourceFile2(const wxFileName& fp, const wxString& tags, std::vector<CommentPtr>* comments = NULL);
 
     /**
-     * @brief Set the full path to ctags executable, else TagsManager will use relative path ctags.
-     * So, if for example, ctags is located at: $/home/eran/bin$, you simply call this function
-     * with SetCtagsPath(_T("/home/eran/bin"));
-     * @param path ctags
-     */
-    void SetCodeLiteIndexerPath(const wxString& path);
-
-    /**
-     * @brief Store tree of tags into db.
-     * @param tree Tags tree to store
-     * @param path Database file name
-     */
-    void Store(TagTreePtr tree, const wxFileName& path = wxFileName());
-
-    /**
      * @brief parse source file (from memory) and return list of tags
-     * If "filename" is passed, each returned TagEntryPtr will have it as its "FileName" attribute
+     * If "filename" is passed, each returned TagEntryPtr will have it as its "File" attribute
      */
-    TagEntryPtrVector_t ParseBuffer(const wxString& content, const wxString& filename = "");
+    TagEntryPtrVector_t ParseBuffer(const wxString& content, const wxString& filename = wxEmptyString,
+                                    const wxString& kinds = "cdefgmnpstuv");
 
     /**
      * load all symbols of fileName from the database and return them
@@ -292,16 +257,6 @@ public:
      * @param fileName File name
      */
     void Delete(const wxFileName& path, const wxString& fileName);
-
-    /**
-     * Start a codelite_indexer process
-     */
-    void StartCodeLiteIndexer();
-
-    /**
-     * Restart ctags process.
-     */
-    void RestartCodeLiteIndexer();
 
     /**
      * Test if filename matches the current ctags file spec.
@@ -353,27 +308,6 @@ public:
                             size_t flags = PartialMatch);
 
     /**
-     * Return autocompletion candidates based on parsing an expression and retrieving its member from the database.
-     * @param expr Expression to evaluate, can be complex one, such as ((MyClass&)cls).GetName().GetData() ... )
-     * @param text Scope where the expression is located
-     * @param candidates [output] list of TagEntries that can be displayed in Autucompletion box
-     * @return true if candidates.size() is greater than 0
-     */
-    bool AutoCompleteCandidates(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& text,
-                                std::vector<TagEntryPtr>& candidates);
-
-    /**
-     * Return a word completion candidates. this function is used when user hit Ctrl+Space.
-     * @param expr Expression to evaluate, can be complex one, such as ((MyClass&)cls).GetName().GetData() ... )
-     * @param text Scope where the expression is located
-     * @param &word the partial word entered by user
-     * @param &candidates [output] list of TagEntries that can be displayed in Autucompletion box
-     * @return true if candidates.size() is greater than 0
-     */
-    bool WordCompletionCandidates(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& text,
-                                  const wxString& word, std::vector<TagEntryPtr>& candidates);
-
-    /**
      * Delete all tags related to these files
      * @param files list of files, in absolute path
      */
@@ -389,18 +323,19 @@ public:
     void DeleteTagsByFilePrefix(const wxString& dbfileName, const wxString& filePrefix);
 
     /**
-     * Retag files in the database. 'Retagging' means:
-     * - delete all entries from the database that belongs to one of these files
-     * - parse the files
-     * - update the database again
-     * @param files list of files, in absolute path, to retag
-     */
-    void RetagFiles(const std::vector<wxFileName>& files, RetagType type, wxEvtHandler* cb = NULL);
-
-    /**
      * Close the workspace database
      */
     void CloseDatabase();
+
+    /**
+     * @brief trigger a complete parsing of the workspace
+     */
+    void ParseWorkspaceFull(const wxString& workspace_dir);
+
+    /**
+     * @brief trigger an incremental workspace parsing
+     */
+    void ParseWorkspaceIncremental();
 
     /**
      * Get a hover tip. This function is a wrapper around the Language::GetHoverTip.
@@ -413,16 +348,6 @@ public:
      */
     void GetHoverTip(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& word,
                      const wxString& text, std::vector<wxString>& tips);
-
-    /**
-     * Return a function call tip object
-     * @param expression expression where the function was found
-     * @param text local scope
-     * @param word function name
-     * @return call tip object
-     */
-    clCallTipPtr GetFunctionTip(const wxFileName& fileName, int lineno, const wxString& expression,
-                                const wxString& text, const wxString& word);
 
     /**
      * Return true if comment parsing is enabled, false otherwise
@@ -451,7 +376,7 @@ public:
     /**
      * return string containing a code section to be inserted into the document. By providing
      * decl which is not null, this function will split the generated code into two - decl & impl
-     * @param scope the current text from begining of the document up to the cursor pos, this
+     * @param scope the current text from beginning of the document up to the cursor pos, this
      *        string will be parsed by CodeLite to determine the current scope
      * @param data user's settings for the generation of the getters/setters
      * @param tags list of members to create setters/getters for them.
@@ -495,18 +420,6 @@ public:
                        bool include_anon = false);
 
     /**
-     * Find implementation/declaration of symbol
-     * @param expr the current expression
-     * @param word the token under the cursor
-     * @param text scope where token was found
-     * @param gotoImpl set to true, if you wish that CodeLite will find the implementation, false to declaration
-     * @param tags the output
-     */
-    void FindImplDecl(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& word,
-                      const wxString& text, std::vector<TagEntryPtr>& tags, bool impl = true,
-                      bool workspaceOnly = false);
-
-    /**
      * @brief return a CppToken poiting to the offset of a local variable
      * @param fileName file name to search in
      * @param pos the position pointing to the *start* of the variable to search
@@ -524,13 +437,6 @@ public:
      * @return scope name or '<global>' if non found
      */
     wxString GetScopeName(const wxString& scope);
-
-    /**
-     * Pass a source file to ctags process, wait for it to process it and return the output.
-     * @param source Source file name
-     * @param tags String containing the ctags output
-     */
-    void SourceToTags(const wxFileName& source, wxString& tags);
 
     /**
      * return list of files from the database(s). The returned list is ordered
@@ -554,6 +460,15 @@ public:
      * @return pointer to the tage which matches the line number & files
      */
     TagEntryPtr FunctionFromFileLine(const wxFileName& fileName, int lineno, bool nextFunction = false);
+
+    /**
+     * @brief Return function that is close to current line number
+     * this is done by parsing `buffer`
+     * @param buffer input source file as string
+     * @param lineno the end buffer line number
+     * @param file_name the returned tag `GetFile()` value
+     */
+    TagEntryPtr FunctionFromBufferLine(const wxString& buffer, int lineno, const wxString& file_name);
 
     /**
      * @brief return the first function of 'fileName'
@@ -702,6 +617,16 @@ public:
     bool IsVirtual(TagEntryPtr tag);
 
     /**
+     * @brief get whether the tag contains virtual, pure virtual or final function
+     * @param tag
+     * @param isVirtual [output] true if the function is virtual
+     * @param isPureVirtual [output] true if the function is pure virtual
+     * @param isFinal [output] true if the function is not overridable
+     * @return true on success, false otherwise
+     */
+    bool GetVirtualProperty(TagEntryPtr tag, bool& isVirtual, bool& isPureVirtual, bool& isFinal);
+
+    /**
      * @brief return true if type & scope do exist in the symbols database
      * @param typeName
      * @param scope
@@ -735,12 +660,6 @@ public:
     void StripComments(const wxString& text, wxString& stippedText);
 
     /**
-     * @brief return space delimited list of all unique string names in the database
-     * @param tagsList
-     */
-    void GetAllTagsNames(wxArrayString& tagsList);
-
-    /**
      * @brief return normalize function signature. This function strips any default values or variable
      * name from the signature. The return value for signature like this: wxT("int value, const std::string &str = "",
      * void *data = NULL"), is "int, const std::string&, void *"
@@ -751,7 +670,7 @@ public:
      * @return stripped functions signature
      */
     wxString NormalizeFunctionSig(const wxString& sig, size_t flags = Normalize_Func_Name,
-                                  std::vector<std::pair<int, int> >* paramLen = NULL);
+                                  std::vector<std::pair<int, int>>* paramLen = NULL);
 
     /**
      * @brief return map of un-implemented methods of given scope
@@ -796,7 +715,8 @@ public:
      * @param tags wxString containing the tags to parse
      * @return tag tree, must be freed by caller
      */
-    TagTreePtr TreeFromTags(const wxString& tags, int& count);
+    static TagTreePtr TreeFromTags(const wxString& tags, int& count);
+    static TagTreePtr TreeFromTags(const wxArrayString& tags, int& count);
 
     /**
      * @brief clear the underlying caching mechanism
@@ -817,13 +737,6 @@ public:
                             int visibility = 0);
 
     /**
-     * @brief insert functionBody into clsname. This function will search for best location
-     * to place the function body
-     */
-    void InsertFunctionImpl(const wxString& clsname, const wxString& functionImpl, const wxString& filename,
-                            wxString& sourceContent, int& insertedLine);
-
-    /**
      * @brief insert forward declaration statement at the top of the file
      * @param classname the class name to add
      * @param fileContent [input] the file content
@@ -840,11 +753,6 @@ protected:
 
     void DoParseModifiedText(const wxString& text, std::vector<TagEntryPtr>& tags);
 
-    /**
-     * Handler ctags process termination
-     */
-    void OnIndexerTerminated(clProcessEvent& event);
-
 private:
     /**
      * Construct a TagsManager object, for internal use
@@ -856,22 +764,27 @@ private:
      */
     virtual ~TagsManager();
 
-public:
     /**
-     *
-     * @param &path
-     * @param &derivationList
-     * @return
+     * @param path
+     * @param parentTag
+     * @param derivationList
+     * @param scannedInherits
      */
-    bool GetDerivationList(const wxString& path, TagEntryPtr parentTag, std::vector<wxString>& derivationList,
-                           std::set<wxString>& scannedInherits);
+    bool GetDerivationList(const wxString& path, TagEntryPtr parentTag,
+                           std::vector<std::pair<wxString, int>>& derivationList, std::unordered_set<wxString>& visited,
+                           int depth);
 
+    bool GetDerivationListInternal(const wxString& path, TagEntryPtr parentTag,
+                                   std::vector<std::pair<wxString, int>>& derivationList,
+                                   std::unordered_set<wxString>& visited, int depth);
+
+public:
     /**
      * @brief return true if the file is binary (by searching for NULL chars)
      * @param filepath file to examine
      * @return return true if the file is binary
      */
-    bool IsBinaryFile(const wxString& filepath);
+    bool IsBinaryFile(const wxString& filepath, const TagsOptionsData& tod);
 
     /**
      * @brief given an input string 'str', wrap the string so each line will
@@ -879,11 +792,6 @@ public:
      */
     wxString WrapLines(const wxString& str);
 
-    //    void GetVariables(const std::string& in,
-    //                      VariableList& li,
-    //                      const std::map<std::string, std::string>& ignoreMap,
-    //                      bool isUsedWithinFunc);
-    //    void GetVariables(const wxFileName& filename, wxArrayString& locals);
     void GetFunctionTipFromTags(const std::vector<TagEntryPtr>& tags, const wxString& word,
                                 std::vector<TagEntryPtr>& tips);
 
@@ -895,6 +803,7 @@ public:
     DoxygenComment DoCreateDoxygenComment(TagEntryPtr tag, wxChar keyPrefix);
 
 protected:
+    void DoTagsFromText(const wxString& text, std::vector<TagEntryPtr>& tags);
     void DoFindByNameAndScope(const wxString& name, const wxString& scope, std::vector<TagEntryPtr>& tags);
     void DoFilterDuplicatesByTagID(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);
     void DoFilterDuplicatesBySignature(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);

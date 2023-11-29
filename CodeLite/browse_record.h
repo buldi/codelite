@@ -32,21 +32,34 @@ class BrowseRecord
 public:
     wxString filename;
     wxString project;
-    int lineno;
-    int position;
-    int firstLineInView;
+    int lineno = wxNOT_FOUND;
+    int column = wxNOT_FOUND;
+    int firstLineInView = wxNOT_FOUND;
+    wxString ssh_account;
 
 public:
-    BrowseRecord()
-        : filename(wxEmptyString)
-        , project(wxEmptyString)
-        , lineno(wxNOT_FOUND)
-        , position(wxNOT_FOUND)
-        , firstLineInView(wxNOT_FOUND)
+    BrowseRecord() {}
+    ~BrowseRecord() {}
+
+    bool IsSameAs(const BrowseRecord& other) const
     {
+        return filename == other.filename && lineno == other.lineno && ssh_account == other.ssh_account;
     }
 
-    ~BrowseRecord() {}
+    /**
+     * @brief having a file name is enough for a jumping record
+     */
+    bool IsOk() const { return !filename.empty(); }
+
+    /**
+     * @brief is this record for a remote file?
+     */
+    bool IsRemote() const { return !ssh_account.empty(); }
+
+    /**
+     * @brief return the ssh account associated with this record
+     */
+    const wxString& GetSshAccount() const { return ssh_account; }
 };
 
 #endif // BROWSE_HISTORY_H

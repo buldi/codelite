@@ -27,17 +27,30 @@
 
 #include "findinfiles_dlg.h"
 #include "findreplacedlg.h"
-#include "search_thread.h"
 #include "macros.h"
+#include "search_thread.h"
+#include "sessionmanager.h"
 
 class FindInFilesDialog : public FindInFilesDialogBase
 {
-    FindReplaceData& m_data;
+    FindInFilesSession m_data;
     wxArrayString m_pluginFileMask;
     bool m_transient = false;
+    wxWindow* m_handler = nullptr;
+    bool m_oldRegexValue;
+    bool m_userChangedRegexManually = false;
+    bool m_presetSearch = false;
 
 protected:
+    virtual void OnRegex(wxCommandEvent& event);
+    virtual void OnATTN(wxCommandEvent& event);
+    virtual void OnBUG(wxCommandEvent& event);
+    virtual void OnFIXME(wxCommandEvent& event);
+    virtual void OnTODO(wxCommandEvent& event);
+    virtual void OnFindEnter(wxCommandEvent& event);
+    virtual void OnReplaceEnter(wxCommandEvent& event);
     wxArrayString GetPathsAsArray() const;
+    void SetPresets();
 
 protected:
     virtual void OnLookInKeyDown(wxKeyEvent& event);
@@ -47,14 +60,14 @@ protected:
     virtual void OnReplace(wxCommandEvent& event);
     void DoSearch();
     void DoSearchReplace();
-    void DoSaveSearchPaths();
     SearchData DoGetSearchData();
     void DoSaveOpenFiles();
     void DoSetFileMask();
     void DoAddProjectFiles(const wxString& projectName, wxArrayString& files);
+    void DoSelectAll();
 
     // Set new search paths
-    void DoSetSearchPaths(const wxString& paths);
+    void DoAppendSearchPath(const wxString& path);
 
     // Event Handlers
     virtual void OnClose(wxCloseEvent& event);
@@ -64,10 +77,10 @@ protected:
 
     void OnUseDiffColourForCommentsUI(wxUpdateUIEvent& event);
     size_t GetSearchFlags();
-    void BuildFindReplaceData();
+    void SaveFindReplaceData();
 
 public:
-    FindInFilesDialog(wxWindow* parent, FindReplaceData& data);
+    FindInFilesDialog(wxWindow* parent, wxWindow* handler = nullptr);
     virtual ~FindInFilesDialog();
     void SetSearchPaths(const wxString& paths, bool transient = false);
     void SetFileMask(const wxString& mask);

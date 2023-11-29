@@ -1,8 +1,8 @@
 #ifndef LANGUAGESERVERPAGE_H
 #define LANGUAGESERVERPAGE_H
 
-#include "UI.h"
 #include "LanguageServerEntry.h"
+#include "UI.h"
 
 class LanguageServerPage : public LanguageServerPageBase
 {
@@ -13,8 +13,11 @@ public:
 
     wxArrayString GetLanguages() const;
     LanguageServerEntry GetData() const;
+    bool ValidateData(wxString* message) const;
 
 protected:
-    virtual void OnSuggestLanguages(wxCommandEvent& event);
+    void OnBrowseWD(wxCommandEvent& event) override;
+    void OnCommandUI(wxUpdateUIEvent& event) override;
+    void OnSuggestLanguages(wxCommandEvent& event) override;
 };
 #endif // LANGUAGESERVERPAGE_H

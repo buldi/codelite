@@ -22,24 +22,26 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "clean_request.h"
+
+#include "ICompilerLocator.h"
+#include "asyncprocess.h"
+#include "build_settings_config.h"
+#include "buildmanager.h"
+#include "cl_command_event.h"
+#include "compiler.h"
+#include "dirsaver.h"
+#include "environmentconfig.h"
+#include "event_notifier.h"
+#include "globals.h"
+#include "imanager.h"
+#include "macros.h"
+#include "plugin.h"
+#include "workspace.h"
+#include "wx/process.h"
+
 #include <wx/app.h>
 #include <wx/log.h>
-#include "build_settings_config.h"
-#include "asyncprocess.h"
-#include "imanager.h"
-#include "event_notifier.h"
-#include "macros.h"
-#include "compiler.h"
-#include "clean_request.h"
-#include "environmentconfig.h"
-#include "globals.h"
-#include "buildmanager.h"
-#include "wx/process.h"
-#include "dirsaver.h"
-#include "workspace.h"
-#include "plugin.h"
-#include "cl_command_event.h"
-#include "ICompilerLocator.h"
 
 CleanRequest::CleanRequest(const QueueCommand& info)
     : ShellCommand(info)
@@ -122,10 +124,10 @@ void CleanRequest::Process(IManager* manager)
         return;
     }
 
-    SendStartMsg();
+    SendStartMsg(bldConf ? bldConf->GetCompilerType() : wxString());
+
     // Expand the variables of the command
     cmd = ExpandAllVariables(cmd, w, m_info.GetProject(), m_info.GetConfiguration(), wxEmptyString);
-    WrapInShell(cmd);
     DirSaver ds;
     DoSetWorkingDirectory(proj, false, false);
 
@@ -144,20 +146,17 @@ void CleanRequest::Process(IManager* manager)
         // also, send another message to the main frame, indicating which project is being built
         // and what configuration
         wxString text;
-        text << wxGetTranslation(CLEAN_PROJECT_PREFIX) << m_info.GetProject() << wxT(" - ") << configName << wxT(" ]");
+        text << CLEAN_PROJECT_PREFIX << m_info.GetProject() << wxT(" - ") << configName << wxT(" ]");
         text << wxT("----------\n");
         AppendLine(text);
     }
 
     // apply environment settings
     EnvSetter env(NULL, &om, proj->GetName(), m_info.GetConfiguration());
-    m_proc = CreateAsyncProcess(this, cmd);
-    if(!m_proc) {
-
+    if(!StartProcess(cmd, IProcessCreateDefault | IProcessWrapInShell)) {
         // remove environment settings applied
         wxString message;
         message << _("Failed to start clean process, command: ") << cmd << _(", process terminated with exit code: 0");
         AppendLine(message);
-        return;
     }
 }

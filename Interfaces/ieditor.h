@@ -26,18 +26,21 @@
 #ifndef IEDITOR_H
 #define IEDITOR_H
 
-#include <wx/filename.h>
+#include "LSP/basic_types.h"
 #include "browse_record.h"
-#include "wx/string.h"
-#include <wx/colour.h>
-#include "entry.h"
-#include <vector>
 #include "cl_calltip.h"
+#include "entry.h"
+#include "optionsconfig.h"
+#include "wx/string.h"
+
 #include <list>
 #include <map>
-#include "optionsconfig.h"
-#include "LSP/basic_types.h"
+#include <string>
+#include <vector>
+#include <wx/colour.h>
+#include <wx/filename.h>
 
+class SFTPClientData;
 class wxStyledTextCtrl;
 
 class NavMgr;
@@ -47,6 +50,26 @@ enum {
     Format_Text_Default = 0x00000000,
     Format_Text_Indent_Prev_Line = 0x00000001,
     Format_Text_Save_Empty_Lines = 0x00000002,
+};
+
+struct CompilerMessage {
+    wxString message;
+    wxClientData* userData = nullptr;
+
+    ~CompilerMessage() { wxDELETE(userData); }
+    CompilerMessage() {}
+    CompilerMessage(CompilerMessage&& other)
+    {
+        message = std::move(other.message);
+        std::swap(userData, other.userData);
+    }
+    // do not allow copy constructor
+    CompilerMessage(const CompilerMessage&) = delete;
+    CompilerMessage(const wxString& msg, wxClientData* data = nullptr)
+        : message(msg)
+        , userData(data)
+    {
+    }
 };
 
 //------------------------------------------------------------------
@@ -94,7 +117,7 @@ public:
     /**
      * @brief return true if the editor is modified
      */
-    virtual bool IsModified() = 0;
+    virtual bool IsEditorModified() const = 0;
 
     /**
      * @brief Get the editor's modification count
@@ -102,12 +125,17 @@ public:
     virtual wxUint64 GetModificationCount() const = 0;
 
     /**
-     * \brief return the current editor content
+     * @brief return the current editor content
      */
     virtual wxString GetEditorText() = 0;
 
     /**
-     * \brief sets the current editor's content with 'text'
+     * @brief get editor text raw, in an efficient way
+     */
+    virtual size_t GetEditorTextRaw(std::string& content) = 0;
+
+    /**
+     * @brief sets the current editor's content with 'text'
      */
     virtual void SetEditorText(const wxString& text) = 0;
 
@@ -131,13 +159,13 @@ public:
     virtual int GetLength() = 0;
 
     /**
-     * \brief place the carte at a given position
-     * \param pos position to place the caret
+     * @brief place the carte at a given position
+     * @param pos position to place the caret
      */
     virtual void SetCaretAt(long pos) = 0;
 
     /**
-     * \brief reload the current file from disk - this function discards all changes made
+     * @brief reload the current file from disk - this function discards all changes made
      * to the  current file
      */
     virtual void OpenFile() = 0;
@@ -158,23 +186,28 @@ public:
     virtual bool SaveAs(const wxString& defaultName = wxEmptyString, const wxString& savePath = wxEmptyString) = 0;
 
     /**
-     * \brief return the current position of the caret
+     * @brief return the current position of the caret
      */
     virtual long GetCurrentPosition() = 0;
 
     /**
-     * \brief return the current file name
+     * @brief return the current file name
      */
     virtual const wxFileName& GetFileName() const = 0;
 
     /**
-     * \brief return the project which owns the current file name. return wxEmptyString
+     * @brief return the project which owns the current file name. return wxEmptyString
      * if this file has not project owner
      */
     virtual const wxString& GetProjectName() const = 0;
 
     /**
-     * \brief return the current word under the caret. May return wxEmptyString
+     * @brief return the position under the mouse pointer
+     */
+    virtual int GetPosAtMousePointer() = 0;
+
+    /**
+     * @brief return the current word under the caret. May return wxEmptyString
      */
     virtual wxString GetWordAtCaret(bool wordCharsOnly = true) = 0;
 
@@ -200,43 +233,43 @@ public:
     virtual int GetEOL() = 0;
 
     /**
-     * \brief return the current line number
+     * @brief return the current line number
      * \return the line number starting from 0
      */
     virtual int GetCurrentLine() = 0;
 
     /**
-     * \brief replace the selection with 'text'. This function does nothing if there is no selected text
-     * \param text text to replace the selection
+     * @brief replace the selection with 'text'. This function does nothing if there is no selected text
+     * @param text text to replace the selection
      */
     virtual void ReplaceSelection(const wxString& text) = 0;
 
     /**
-     * \brief return the selected text start position in bytes.
+     * @brief return the selected text start position in bytes.
      */
     virtual int GetSelectionStart() = 0;
 
     /**
-     * \brief return the selected text end position in bytes.
+     * @brief return the selected text end position in bytes.
      */
     virtual int GetSelectionEnd() = 0;
 
     /**
-     * \brief return the selected text.
+     * @brief return the selected text.
      * \return the selected text, or wxEmptyString if no selection exist in the document
      */
     virtual wxString GetSelection() = 0;
 
     /**
-     * \brief select text at given position and length
-     * \param startPos selection start position
-     * \param len number of characters to select
+     * @brief select text at given position and length
+     * @param startPos selection start position
+     * @param len number of characters to select
      */
     virtual void SelectText(int startPos, int len) = 0;
 
     /**
-     * \brief set user indicator style and colour
-     * \param style can be any of
+     * @brief set user indicator style and colour
+     * @param style can be any of
      *  #define wxSCI_INDIC_PLAIN 0
      *  #define wxSCI_INDIC_SQUIGGLE 1
      *  #define wxSCI_INDIC_TT 2
@@ -245,44 +278,65 @@ public:
      *  #define wxSCI_INDIC_HIDDEN 5
      *  #define wxSCI_INDIC_BOX 6
      *  #define wxSCI_INDIC_ROUNDBOX 7
-     * \param colour indicator colour
+     * @param colour indicator colour
      */
     virtual void SetUserIndicatorStyleAndColour(int style, const wxColour& colour) = 0;
     /**
-     * \brief set indicator at startPos with given length
-     * \param startPos position to set the indicator
-     * \param len indicator's length
+     * @brief set indicator at startPos with given length
+     * @param startPos position to set the indicator
+     * @param len indicator's length
      */
     virtual void SetUserIndicator(int startPos, int len) = 0;
 
     /**
-     * \brief clear all user indicators from the document
+     * @brief clear all user indicators from the document
      */
     virtual void ClearUserIndicators() = 0;
 
     /**
-     * \brief return the first user indicator starting from 'pos'. along with 'GetUserIndicatorEnd' caller can
+     * @brief return true if there is a breakpoint marker on the given line
+     */
+    virtual bool HasBreakpointMarker(int line_number = wxNOT_FOUND) = 0;
+
+    /**
+     * @brief delete all breakpoint markers from the given line
+     * @param line_number if set to wxNOT_FOUND(-1), delete all breakpoints from the editor
+     */
+    virtual void DeleteBreakpointMarkers(int line_number = wxNOT_FOUND) = 0;
+
+    /**
+     * @brief delete all breakpoint markers from the given line
+     */
+    virtual void SetBreakpointMarker(int line_number = wxNOT_FOUND, const wxString& tooltip = wxEmptyString) = 0;
+
+    /**
+     * @brief return all lines that have breakpoint marker
+     */
+    virtual size_t GetBreakpointMarkers(std::vector<int>* lines) = 0;
+
+    /**
+     * @brief return the first user indicator starting from 'pos'. along with 'GetUserIndicatorEnd' caller can
      * iterate through all user indicator in the document
-     * \param pos position to search from
+     * @param pos position to search from
      * \return start position of the indicator
      */
     virtual int GetUserIndicatorStart(int pos) = 0;
     /**
-     * \brief return end of indicator range from pos
-     * \param pos position to search from
+     * @brief return end of indicator range from pos
+     * @param pos position to search from
      * \return end of indicator range
      */
     virtual int GetUserIndicatorEnd(int pos) = 0;
 
     /**
-     * \brief return the style at given position. Depends on the current lexer (Different lexers have different styles)
-     * \param pos the position inside the editor styles.
+     * @brief return the style at given position. Depends on the current lexer (Different lexers have different styles)
+     * @param pos the position inside the editor styles.
      * \return style number.
      */
     virtual int GetStyleAtPos(int pos) = 0;
 
     /**
-     * \brief return the editor's lexer ID as described in wxscintilla.h (wxSCI_LEX_*)
+     * @brief return the editor's lexer ID as described in wxscintilla.h (wxSCI_LEX_*)
      */
     virtual int GetLexerId() = 0;
 
@@ -291,6 +345,13 @@ public:
      * @param tip tip to display
      */
     virtual void ShowCalltip(clCallTipPtr tip) = 0;
+
+    /**
+     * @brief display a tooltip
+     * @param tip tip text
+     * @param pos position for the tip. If wxNOT_FOUND the tip is positioned at the mouse
+     */
+    virtual void ShowTooltip(const wxString& tip, const wxString& title = wxEmptyString, int pos = wxNOT_FOUND) = 0;
 
     /**
      * @brief display a rich tooltip (a tip that supports basic markup, such as <a></a>, <strong></strong> etc)
@@ -320,9 +381,9 @@ public:
 
     /**
      * Prepend the indentation level found at line at 'pos' to each line in the input string
-     * \param text text to enter
-     * \param pos position to insert the text
-     * \param flags set the formatting flags
+     * @param text text to enter
+     * @param pos position to insert the text
+     * @param flags set the formatting flags
      */
     virtual wxString FormatTextKeepIndent(const wxString& text, int pos, size_t flags = 0) = 0;
 
@@ -341,12 +402,21 @@ public:
      * @return return true if a match was found, false otherwise
      */
     virtual bool FindAndSelect(const wxString& pattern, const wxString& what, int from_pos, NavMgr* navmgr) = 0;
-    
+
     /**
-     * @brief select range
+     * @brief select range using CallAfter() method
      */
-    virtual bool SelectRange(const LSP::Range& range) = 0;
-    
+    virtual bool SelectRangeAfter(const LSP::Range& range) = 0;
+    /**
+     * @brief select range, immediately (no CallAfter())
+     */
+    virtual void SelectRange(const LSP::Range& range) = 0;
+
+    /**
+     * @brief select range from a given location
+     */
+    virtual bool SelectLocation(const LSP::Location& location) = 0;
+
     /**
      * @brief Similar to the above but returns void, and is implemented asynchronously
      */
@@ -440,11 +510,12 @@ public:
     /**
      * @brief set a warning marker in the editor with a given text
      */
-    virtual void SetWarningMarker(int lineno, const wxString& annotationText) = 0;
+    virtual void SetWarningMarker(int lineno, CompilerMessage&& msg) = 0;
+
     /**
      * @brief set a warning marker in the editor with a given text
      */
-    virtual void SetErrorMarker(int lineno, const wxString& annotationText) = 0;
+    virtual void SetErrorMarker(int lineno, CompilerMessage&& msg) = 0;
 
     /**
      * @brief set a code completion annotation at the given line. code completion
@@ -490,7 +561,9 @@ public:
     wxClientData* GetClientData(const wxString& key) const
     {
         IEditor::ClientDataMap_t::const_iterator iter = m_data.find(key);
-        if(iter != m_data.end()) { return iter->second; }
+        if(iter != m_data.end()) {
+            return iter->second;
+        }
         return NULL;
     }
 
@@ -508,6 +581,9 @@ public:
         }
     }
 
+    /// Clear modified line state
+    virtual void ClearModifiedLines() = 0;
+
     /**
      * @brief return a string representing all the classes coloured by this editor
      */
@@ -516,6 +592,14 @@ public:
      * @brief return a string representing all the local variables coloured by this editor
      */
     virtual const wxString& GetKeywordLocals() const = 0;
+    /**
+     * @brief return a string representing all the methods coloured by this editor
+     */
+    virtual const wxString& GetKeywordMethods() const = 0;
+    /**
+     * @brief return a string representing all the other tokens
+     */
+    virtual const wxString& GetKeywordOthers() const = 0;
 
     /**
      * @brief get the options associated with this editor
@@ -533,7 +617,57 @@ public:
      * @param bookmarksVector output, contains pairs of: LINE:SNIPPET
      * @return number of bookmarks found
      */
-    virtual size_t GetFindMarkers(std::vector<std::pair<int, wxString> >& bookmarksVector) = 0;
+    virtual size_t GetFindMarkers(std::vector<std::pair<int, wxString>>& bookmarksVector) = 0;
+
+    /**
+     * @brief incase this editor represents a remote file, return its remote path
+     */
+    virtual wxString GetRemotePath() const = 0;
+
+    /**
+     * @brief if this editor represents a remote file
+     * return its remote path, otherwise return the local path
+     * this is equal for writing:
+     *
+     * ```
+     * wxString fullpath = editor->IsRemoteFile() ? editor->GetRemotePath() : editor->GetFileName().GetFullPath();
+     * return fullpath;
+     * ```
+     */
+    virtual wxString GetRemotePathOrLocal() const = 0;
+
+    /**
+     * @brief return true if this file represents a remote file
+     */
+    virtual bool IsRemoteFile() const = 0;
+
+    /**
+     * @brief return a pointer to the remote data
+     * @return remote file info, or null if this file is not a remote a file
+     */
+    virtual SFTPClientData* GetRemoteData() const = 0;
+
+    /**
+     * @brief set semantic tokens for this editor
+     */
+    virtual void SetSemanticTokens(const wxString& classes, const wxString& variables, const wxString& methods,
+                                   const wxString& others) = 0;
+
+    /**
+     * @brief similar to wxStyledTextCtrl::GetColumn(), but treat TAB as a single char
+     * width
+     */
+    virtual int GetColumnInChars(int pos) = 0;
+
+    /**
+     * @brief highlight a given line in the editor
+     */
+    virtual void HighlightLine(int lineno) = 0;
+
+    /**
+     * @brief clear all highlights (added by `HighlightLine` calls)
+     */
+    virtual void UnHighlightAll() = 0;
 };
 
 #endif // IEDITOR_H

@@ -29,65 +29,86 @@
 
 #include "asyncprocess.h"
 #include "codelite_exports.h"
-#include <Windows.h>
-#include <wx/string.h>
+#include "wx/msw/wrapwin.h" // includes windows.h
+
 #include <thread>
 #include <unordered_set>
+#include <wx/string.h>
 
 class ProcessReaderThread;
 class WinWriterThread;
 
+#define BUFFER_SIZE 16 * 1024
+
 class WXDLLIMPEXP_CL WinProcessImpl : public IProcess
 {
-    ProcessReaderThread* m_thr;
-    char m_buffer[65537];
+    char m_buffer[BUFFER_SIZE];
     WinWriterThread* m_writerThread = nullptr;
     std::unordered_set<long> m_initialChildren;
 
 protected:
     void StartReaderThread();
-    bool DoReadFromPipe(HANDLE pipe, wxString& buff);
+    bool DoReadFromPipe(HANDLE pipe, wxString& buff, std::string& raw_buff);
 
 public:
     WinProcessImpl(wxEvtHandler* parent);
-    virtual ~WinProcessImpl();
+    ~WinProcessImpl() override;
 
     // Create process asynchronously and return a process object
-    static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, wxString& errMsg,
-                             size_t flags = IProcessCreateDefault, const wxString& workingDir = wxEmptyString,
-                             IProcessCallback* cb = NULL);
+    static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags = IProcessCreateDefault,
+                             const wxString& workingDir = wxEmptyString, IProcessCallback* cb = NULL);
+
+    // Create process asynchronously and return a process object
+    static IProcess* Execute(wxEvtHandler* parent, const wxArrayString& args, size_t flags = IProcessCreateDefault,
+                             const wxString& workingDir = wxEmptyString, IProcessCallback* cb = NULL);
+
+    // Create process asynchronously and return a process object
+    static IProcess* ExecuteConPTY(wxEvtHandler* parent, const std::vector<wxString>& args,
+                                   size_t flags = IProcessCreateWithHiddenConsole,
+                                   const wxString& workingDir = wxEmptyString);
+
+    // Create process asynchronously and return a process object
+    static IProcess* ExecuteConPTY(wxEvtHandler* parent, const wxString& cmd,
+                                   size_t flags = IProcessCreateWithHiddenConsole,
+                                   const wxString& workingDir = wxEmptyString);
 
     /**
      * @brief read data from stdout and error
      * @param buff check the buffer when true is returned
      * @return return true on success or timeout, flase otherwise, incase of false the reader thread will terminate
      */
-    virtual bool Read(wxString& buff, wxString& buffErr);
+    bool Read(wxString& buff, wxString& buffErr, std::string& raw_buff, std::string& raw_buff_err) override;
 
     // Write to the process stdin
-    virtual bool Write(const wxString& buff);
-    virtual bool Write(const std::string& buff);
-    virtual bool WriteRaw(const wxString& buff);
-    virtual bool WriteRaw(const std::string& buff);
-    virtual bool WriteToConsole(const wxString& buff);
+    bool Write(const wxString& buff) override;
+    bool Write(const std::string& buff) override;
+    bool WriteRaw(const wxString& buff) override;
+    bool WriteRaw(const std::string& buff) override;
+    bool WriteToConsole(const wxString& buff) override;
 
     // Return true if the process is still alive
-    virtual bool IsAlive();
+    bool IsAlive() override;
 
     // Clean the process resources and kill the process if it is
     // still alive
-    virtual void Cleanup();
-    virtual void Terminate();
-    virtual void Detach();
+    void Cleanup() override;
+    void Terminate() override;
+    void Detach() override;
+    void Signal(wxSignal sig) override;
 
 private:
     // Creating process related handles
-    HANDLE hChildStdinRd, hChildStdinWr, hChildStdinWrDup, hChildStdoutRd, hChildStdoutWr, hChildStdoutRdDup,
-        hChildStderrRd, hChildStderrWr, hChildStderrRdDup, hSaveStdin, hSaveStdout, hSaveStderr;
-
+    HANDLE hChildStdinRd = INVALID_HANDLE_VALUE, hChildStdinWr = INVALID_HANDLE_VALUE,
+           hChildStdinWrDup = INVALID_HANDLE_VALUE, hChildStdoutRd = INVALID_HANDLE_VALUE,
+           hChildStdoutWr = INVALID_HANDLE_VALUE, hChildStdoutRdDup = INVALID_HANDLE_VALUE,
+           hChildStderrRd = INVALID_HANDLE_VALUE, hChildStderrWr = INVALID_HANDLE_VALUE,
+           hChildStderrRdDup = INVALID_HANDLE_VALUE, hSaveStdin = INVALID_HANDLE_VALUE,
+           hSaveStdout = INVALID_HANDLE_VALUE, hSaveStderr = INVALID_HANDLE_VALUE;
+    
+    VOID* m_hPseudoConsole = nullptr;
     // Child process id & information
-    DWORD dwProcessId;
-    PROCESS_INFORMATION piProcInfo;
+    DWORD dwProcessId = wxNOT_FOUND;
+    PROCESS_INFORMATION piProcInfo = {};
 };
 
 #endif

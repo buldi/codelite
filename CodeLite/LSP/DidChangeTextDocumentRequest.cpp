@@ -2,7 +2,7 @@
 
 static int counter = 0;
 
-LSP::DidChangeTextDocumentRequest::DidChangeTextDocumentRequest(const wxFileName& filename, const wxString& fileContent)
+LSP::DidChangeTextDocumentRequest::DidChangeTextDocumentRequest(const wxString& filename, const wxString& fileContent)
 {
     SetMethod("textDocument/didChange");
     m_params.reset(new DidChangeTextDocumentParams());

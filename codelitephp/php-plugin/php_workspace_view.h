@@ -47,6 +47,7 @@ class PHPWorkspaceView : public PHPWorkspaceViewBase
     bool m_scanInProgress;
     std::unordered_set<wxString> m_pendingSync;
     wxArrayString m_draggedFiles;
+    bool m_fifFromContextMenu = false;
 
 private:
     enum {
@@ -160,6 +161,8 @@ protected:
     void OnToggleAutoUpload(wxCommandEvent& e);
     void OnStartDebuggerListener(wxCommandEvent& e);
     void OnProjectSyncCompleted(clCommandEvent& event);
+    void OnFolderChanged(clFileSystemEvent& event);
+    void OnActiveProjectChanged(clProjectSettingsEvent& e);
 
     // Php parser events
     void OnPhpParserStarted(clParseEvent& event);

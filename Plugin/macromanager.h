@@ -26,8 +26,9 @@
 #ifndef MACROMANAGER_H
 #define MACROMANAGER_H
 
-#include <wx/string.h>
 #include "codelite_exports.h"
+
+#include <wx/string.h>
 
 class IManager;
 class WXDLLIMPEXP_SDK MacroManager
@@ -40,12 +41,14 @@ private:
     virtual ~MacroManager();
 
     wxString DoExpand(const wxString& expression, IManager* manager, const wxString& project, bool applyEnv,
-        const wxString& confToBuild = wxEmptyString);
+                      const wxString& confToBuild = wxEmptyString);
 
 public:
     /*
      * The following macro will be expanded into their real values:
      * $(ProjectPath)
+     * $(WorkspaceName)
+     * $(WorkspaceConfiguration)
      * $(WorkspacePath)
      * $(ProjectName)
      * $(IntermediateDirectory)
@@ -62,17 +65,29 @@ public:
      * $(Date)
      * $(CodeLitePath)
      * $(CurrentSelection)
+     * $(OutputDirectory)
      * $(ProjectOutputFile)
      * $(Selection)
      */
     wxString Expand(const wxString& expression, IManager* manager, const wxString& project,
-        const wxString& confToBuild = wxEmptyString);
+                    const wxString& confToBuild = wxEmptyString);
+
+    /**
+     * @brief replace all file related macros $(CurrentFile*)
+     * taking into consideration remote/local paths
+     */
+    wxString ExpandFileMacros(const wxString& expression, const wxString& filepath);
+
+    /**
+     * @brief return true if macroname can be resolved as CodeLite internal macro
+     */
+    bool IsCodeLiteMacro(const wxString& macroname) const;
 
     /**
      * @brief same as above, but don't apply environment variables
      */
-    wxString ExpandNoEnv(
-        const wxString& expression, const wxString& project, const wxString& confToBuild = wxEmptyString);
+    wxString ExpandNoEnv(const wxString& expression, const wxString& project,
+                         const wxString& confToBuild = wxEmptyString);
 
     /**
      * @brief search for variableName and replace all its occurance with 'replaceWith'
@@ -82,8 +97,8 @@ public:
      * $(variableName)
      * %variableName%
      */
-    wxString Replace(
-        const wxString& inString, const wxString& variableName, const wxString& replaceWith, bool bIgnoreCase = false);
+    wxString Replace(const wxString& inString, const wxString& variableName, const wxString& replaceWith,
+                     bool bIgnoreCase = false);
 
     /**
      * @brief search for variable in the inString.

@@ -23,31 +23,35 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "quickfindbar.h"
+
 #include "bitmap_loader.h"
 #include "bookmark_manager.h"
-#include "clBitmapOverlayCtrl.h"
+#include "clSystemSettings.h"
+#include "cl_command_event.h"
 #include "cl_config.h"
+#include "cl_editor.h"
 #include "codelite_events.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
+#include "file_logger.h"
 #include "frame.h"
 #include "globals.h"
 #include "imanager.h"
 #include "manager.h"
 #include "plugin.h"
-#include "quickfindbar.h"
 #include "stringsearcher.h"
+
 #include <wx/dcbuffer.h>
 #include <wx/gdicmn.h>
 #include <wx/regex.h>
 #include <wx/statline.h>
 #include <wx/stc/stc.h>
+#include <wx/stopwatch.h>
 #include <wx/textctrl.h>
 #include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
-#include "clSystemSettings.h"
-#include "clThemeUpdater.h"
 
 DEFINE_EVENT_TYPE(QUICKFIND_COMMAND_EVENT)
 
@@ -65,6 +69,8 @@ DEFINE_EVENT_TYPE(QUICKFIND_COMMAND_EVENT)
         }                                               \
     }
 
+namespace
+{
 void PostCommandEvent(wxWindow* destination, wxWindow* FocusedControl)
 {
     // Posts an event that signals for SelectAll() to be done after a delay
@@ -77,8 +83,31 @@ void PostCommandEvent(wxWindow* destination, wxWindow* FocusedControl)
     wxPostEvent(destination, event);
 }
 
+void CenterLine(wxStyledTextCtrl* ctrl, int start_pos, int end_pos)
+{
+    // calculate the column
+    ctrl->ClearSelections();
+    ctrl->SetSelection(start_pos, end_pos);
+
+    int line = ctrl->LineFromPosition(start_pos);
+    clEditor::CenterLinePreserveSelection(ctrl, line);
+}
+
+wxBorder get_border_simple_theme_aware_bit()
+{
+#ifdef __WXMAC__
+    return wxBORDER_SIMPLE;
+#elif defined(__WXGTK__)
+    return wxBORDER_STATIC;
+#else
+    return clSystemSettings::Get().IsDark() ? wxBORDER_SIMPLE : wxBORDER_STATIC;
+#endif
+}
+} // namespace
+
 QuickFindBar::QuickFindBar(wxWindow* parent, wxWindowID id)
-    : QuickFindBarBase(parent, id)
+    : QuickFindBarBase(parent, id, wxDefaultPosition, wxDefaultSize,
+                       wxTAB_TRAVERSAL | get_border_simple_theme_aware_bit())
     , m_sci(NULL)
     , m_lastTextPtr(NULL)
     , m_eventsConnected(false)
@@ -86,79 +115,71 @@ QuickFindBar::QuickFindBar(wxWindow* parent, wxWindowID id)
     , m_disableTextUpdateEvent(false)
     , m_searchFlags(0)
     , m_highlightMatches(false)
-    , m_replaceInSelection(false)
+    , m_inSelection(false)
 {
-    //SetBackgroundStyle(wxBG_STYLE_PAINT);
-    // Add the 'close' button
-    BitmapLoader* bmps = clGetManager()->GetStdIcons();
-    clThemeUpdater::Get().RegisterWindow(this);
-    
-    // Handle Edit events
-    m_findEventsHandler.Reset(new clEditEventsHandler(m_textCtrlFind));
-    m_replaceEventsHandler.Reset(new clEditEventsHandler(m_textCtrlReplace));
-    m_findEventsHandler->NoUnbind();
-    m_replaceEventsHandler->NoUnbind();
     m_toolbar->SetMiniToolBar(true);
-    m_toolbar->AddTool(wxID_CLOSE, _("Close"), bmps->LoadBitmap("file_close"), _("Close"), wxITEM_NORMAL);
-    m_toolbar->AddSeparator();
-    m_matchesFound = new wxStaticText(m_toolbar, wxID_ANY, "", wxDefaultPosition, wxSize(250, -1),
-                                      wxST_NO_AUTORESIZE | wxALIGN_LEFT);
-    m_toolbar->AddControl(m_matchesFound);
+    auto images = m_toolbar->GetBitmapsCreateIfNeeded();
+    m_toolbar->AddTool(XRCID("case-sensitive"), _("Case Sensitive"), images->Add("case-sensitive"), "", wxITEM_CHECK);
+    m_toolbar->AddTool(XRCID("whole-word"), _("Whole word"), images->Add("whole-word"), "", wxITEM_CHECK);
+    m_toolbar->AddTool(XRCID("use-regex"), _("Regex"), images->Add("regular-expression"), "", wxITEM_CHECK);
+    m_toolbar->AddTool(XRCID("highlight-matches"), _("Highlight matches"), images->Add("marker"), "", wxITEM_CHECK);
+    m_toolbar->AddTool(XRCID("replace-in-selection"), _("In Selection"), images->Add("text_selection"), "",
+                       wxITEM_CHECK);
     m_toolbar->AddStretchableSpace();
-    m_toolbar->AddTool(XRCID("case-sensitive"), _("Case Sensitive"), bmps->LoadBitmap("case-sensitive"), "",
-                       wxITEM_CHECK);
-    m_toolbar->AddTool(XRCID("whole-word"), _("Whole word"), bmps->LoadBitmap("whole-word"), "", wxITEM_CHECK);
-    m_toolbar->AddTool(XRCID("use-regex"), _("Regex"), bmps->LoadBitmap("regular-expression"), "", wxITEM_CHECK);
-    m_toolbar->AddTool(XRCID("highlight-matches"), _("Highlight matches"), bmps->LoadBitmap("marker"), "", wxITEM_CHECK);
-    m_toolbar->AddTool(XRCID("replace-in-selection"), _("Replace In Selection"), bmps->LoadBitmap("text_selection"), "",
-                       wxITEM_CHECK);
+    m_toolbar->AddTool(wxID_CLOSE, _("Close"), images->Add("file_close"), _("Close"), wxITEM_NORMAL);
     m_toolbar->Realize();
     m_toolbar->Bind(wxEVT_TOOL, &QuickFindBar::OnHide, this, wxID_CLOSE);
-    m_toolbar->Bind(wxEVT_TOOL,
-                    [&](wxCommandEvent& e) {
-                        if(e.IsChecked()) {
-                            m_searchFlags |= wxSTC_FIND_MATCHCASE;
-                        } else {
-                            m_searchFlags &= ~wxSTC_FIND_MATCHCASE;
-                        }
-                    },
-                    XRCID("case-sensitive"));
-    m_toolbar->Bind(wxEVT_TOOL,
-                    [&](wxCommandEvent& e) {
-                        if(e.IsChecked()) {
-                            m_searchFlags |= wxSTC_FIND_WHOLEWORD;
-                        } else {
-                            m_searchFlags &= ~wxSTC_FIND_WHOLEWORD;
-                        }
-                    },
-                    XRCID("whole-word"));
-    m_toolbar->Bind(wxEVT_TOOL,
-                    [&](wxCommandEvent& e) {
-                        if(e.IsChecked()) {
-                            m_searchFlags |= wxSTC_FIND_REGEXP;
-                        } else {
-                            m_searchFlags &= ~wxSTC_FIND_REGEXP;
-                        }
-                    },
-                    XRCID("use-regex"));
-    m_toolbar->Bind(wxEVT_TOOL,
-                    [&](wxCommandEvent& e) {
-                        m_highlightMatches = e.IsChecked();
-                        DoHighlightMatches(m_highlightMatches);
-                    },
-                    XRCID("highlight-matches"));
-    m_toolbar->Bind(wxEVT_TOOL, [&](wxCommandEvent& e) { m_replaceInSelection = e.IsChecked(); },
-                    XRCID("replace-in-selection"));
-    m_toolbar->Bind(wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_MATCHCASE); },
-                    XRCID("case-sensitive"));
-    m_toolbar->Bind(wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_REGEXP); },
-                    XRCID("use-regex"));
-    m_toolbar->Bind(wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_WHOLEWORD); },
-                    XRCID("whole-word"));
-    m_toolbar->Bind(wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_highlightMatches); },
-                    XRCID("highlight-matches"));
-    m_toolbar->Bind(wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_replaceInSelection); },
-                    XRCID("replace-in-selection"));
+    m_toolbar->Bind(
+        wxEVT_TOOL,
+        [&](wxCommandEvent& e) {
+            if(e.IsChecked()) {
+                m_searchFlags |= wxSTC_FIND_MATCHCASE;
+            } else {
+                m_searchFlags &= ~wxSTC_FIND_MATCHCASE;
+            }
+        },
+        XRCID("case-sensitive"));
+    m_toolbar->Bind(
+        wxEVT_TOOL,
+        [&](wxCommandEvent& e) {
+            if(e.IsChecked()) {
+                m_searchFlags |= wxSTC_FIND_WHOLEWORD;
+            } else {
+                m_searchFlags &= ~wxSTC_FIND_WHOLEWORD;
+            }
+        },
+        XRCID("whole-word"));
+    m_toolbar->Bind(
+        wxEVT_TOOL,
+        [&](wxCommandEvent& e) {
+            if(e.IsChecked()) {
+                m_searchFlags |= wxSTC_FIND_REGEXP;
+            } else {
+                m_searchFlags &= ~wxSTC_FIND_REGEXP;
+            }
+        },
+        XRCID("use-regex"));
+    m_toolbar->Bind(
+        wxEVT_TOOL,
+        [&](wxCommandEvent& e) {
+            m_highlightMatches = e.IsChecked();
+            DoHighlightMatches(m_highlightMatches);
+        },
+        XRCID("highlight-matches"));
+    m_toolbar->Bind(
+        wxEVT_TOOL, [&](wxCommandEvent& e) { m_inSelection = e.IsChecked(); }, XRCID("replace-in-selection"));
+    m_toolbar->Bind(
+        wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_MATCHCASE); },
+        XRCID("case-sensitive"));
+    m_toolbar->Bind(
+        wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_REGEXP); }, XRCID("use-regex"));
+    m_toolbar->Bind(
+        wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_searchFlags & wxSTC_FIND_WHOLEWORD); },
+        XRCID("whole-word"));
+    m_toolbar->Bind(
+        wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_highlightMatches); }, XRCID("highlight-matches"));
+    m_toolbar->Bind(
+        wxEVT_UPDATE_UI, [&](wxUpdateUIEvent& e) { e.Check(m_inSelection); }, XRCID("replace-in-selection"));
 
     wxTheApp->Bind(wxEVT_MENU, &QuickFindBar::OnFindNextCaret, this, XRCID("find_next_at_caret"));
     wxTheApp->Bind(wxEVT_MENU, &QuickFindBar::OnFindPreviousCaret, this, XRCID("find_previous_at_caret"));
@@ -174,21 +195,23 @@ QuickFindBar::QuickFindBar(wxWindow* parent, wxWindowID id)
     m_searchFlags = clConfig::Get().Read("FindBar/SearchFlags", 0);
     m_highlightMatches = clConfig::Get().Read("FindBar/HighlightOccurences", false);
 
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, [this](clCommandEvent& e) {
+        e.Skip();
+        SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+        Refresh();
+    });
+
     // Make sure that the 'Replace' field is selected when we hit TAB while in the 'Find' field
     m_textCtrlReplace->MoveAfterInTabOrder(m_textCtrlFind);
-    //Bind(wxEVT_PAINT, &QuickFindBar::OnPaint, this);
-    Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent& e) { wxUnusedVar(e); });
+    // Bind(wxEVT_PAINT, &QuickFindBar::OnPaint, this);
+    // Bind(wxEVT_ERASE_BACKGROUND, [](wxEraseEvent& e) { wxUnusedVar(e); });
     GetSizer()->Fit(this);
     Layout();
 }
 
 QuickFindBar::~QuickFindBar()
 {
-    // m_findEventsHandler.Reset(nullptr);
-    // m_replaceEventsHandler.Reset(nullptr);
-    //Unbind(wxEVT_PAINT, &QuickFindBar::OnPaint, this);
-    clThemeUpdater::Get().RegisterWindow(this);
-    
     // Remember the buttons clicked
     clConfig::Get().Write("FindBar/SearchFlags", (int)DoGetSearchFlags());
     clConfig::Get().Write("FindBar/HighlightOccurences", m_highlightMatches);
@@ -196,33 +219,15 @@ QuickFindBar::~QuickFindBar()
     wxTheApp->Unbind(wxEVT_MENU, &QuickFindBar::OnFindNextCaret, this, XRCID("find_next_at_caret"));
     wxTheApp->Unbind(wxEVT_MENU, &QuickFindBar::OnFindPreviousCaret, this, XRCID("find_previous_at_caret"));
     EventNotifier::Get()->Unbind(wxEVT_FINDBAR_RELEASE_EDITOR, &QuickFindBar::OnReleaseEditor, this);
-
-    EventNotifier::Get()->Unbind(wxEVT_ALL_EDITORS_CLOSED, [&](wxCommandEvent& event) {
-        event.Skip();
-        this->SetEditor(NULL);
-    });
-
-    EventNotifier::Get()->Unbind(wxEVT_ACTIVE_EDITOR_CHANGED, [&](wxCommandEvent& event) {
-        event.Skip();
-        // See if we got a new editor
-        IEditor* editor = clGetManager()->GetActiveEditor();
-        if(editor) {
-            this->SetEditor(editor->GetCtrl());
-            return;
-        }
-        SetEditor(NULL);
-    });
 }
 
 bool QuickFindBar::Show(bool show)
 {
-    if(!m_sci && show) { return false; }
+    if(!m_sci && show) {
+        return false;
+    }
     return DoShow(show, wxEmptyString);
 }
-
-#define SHOW_STATUS_MESSAGES(searchFlags) (true)
-
-bool QuickFindBar::DoSearch(size_t searchFlags) { return Search(m_sci, m_textCtrlFind->GetValue(), searchFlags, this); }
 
 void QuickFindBar::OnHide(wxCommandEvent& e)
 {
@@ -240,41 +245,24 @@ void QuickFindBar::OnHide(wxCommandEvent& e)
         clConfig::Get().SetQuickFindSearchItems(m_searchHistory.GetItems()); \
     }
 
-void QuickFindBar::OnNext(wxCommandEvent& e)
-{
-    wxUnusedVar(e);
-    UPDATE_FIND_HISTORY();
-    size_t flags = kSearchForward;
-    m_onNextPrev = true;
-    DoSearch(flags);
-    m_onNextPrev = false;
-}
-
-void QuickFindBar::OnPrev(wxCommandEvent& e)
-{
-    wxUnusedVar(e);
-    UPDATE_FIND_HISTORY();
-    size_t flags = 0;
-    m_onNextPrev = true;
-    DoSearch(flags);
-    m_onNextPrev = false;
-}
-
 void QuickFindBar::OnText(wxCommandEvent& e)
 {
     e.Skip();
-    if(!m_replaceInSelection && !m_disableTextUpdateEvent) { CallAfter(&QuickFindBar::DoSearchCB, kSearchForward); }
+    if(!m_inSelection && !m_disableTextUpdateEvent) {
+        // searching down
+        DoFindWithWrap(FIND_INCREMENT | FIND_GOTOLINE);
+    }
 }
 
 void QuickFindBar::OnKeyDown(wxKeyEvent& e)
 {
     switch(e.GetKeyCode()) {
     case WXK_DOWN: {
-        DoArrowDown(m_searchHistory, m_textCtrlFind);
+        // DoArrowDown(m_searchHistory, m_textCtrlFind);
         break;
     }
     case WXK_UP: {
-        DoArrowUp(m_searchHistory, m_textCtrlFind);
+        // DoArrowUp(m_searchHistory, m_textCtrlFind);
         break;
     }
     case WXK_ESCAPE: {
@@ -293,11 +281,11 @@ void QuickFindBar::OnReplaceKeyDown(wxKeyEvent& e)
 {
     switch(e.GetKeyCode()) {
     case WXK_DOWN: {
-        DoArrowDown(m_replaceHistory, m_textCtrlReplace);
+        // DoArrowDown(m_replaceHistory, m_textCtrlReplace);
         break;
     }
     case WXK_UP: {
-        DoArrowUp(m_replaceHistory, m_textCtrlReplace);
+        // DoArrowUp(m_replaceHistory, m_textCtrlReplace);
         break;
     }
     case WXK_ESCAPE: {
@@ -329,11 +317,10 @@ void QuickFindBar::OnEnter(wxCommandEvent& e)
     }
 
     bool shift = wxGetKeyState(WXK_SHIFT);
-    if(shift) {
-        OnPrev(e);
-    } else {
-        OnNext(e);
-    }
+    size_t find_flags = shift ? FIND_PREV : FIND_DEFAULT;
+    find_flags |= FIND_GOTOLINE;
+    DoFindWithWrap(find_flags);
+
     // Without this call, the caret is placed at the start of the searched
     // text, this at least places the caret at the end
     CallAfter(&QuickFindBar::DoSetCaretAtEndOfText);
@@ -341,95 +328,59 @@ void QuickFindBar::OnEnter(wxCommandEvent& e)
 
 void QuickFindBar::OnReplace(wxCommandEvent& event)
 {
-    DoReplace();
-    // Trigger another search
-    DoSearch(kSearchForward);
+    CHECK_PTR_RET(m_sci);
+
+    TargetRange target;
+    int start_pos = 0;
+    if(m_sci->HasSelection()) {
+        // we are starting with a selected text
+        // check this range to see if it matches the 'find-what'
+        // string
+        TargetRange result = DoFind(FIND_DEFAULT, { m_sci->GetSelectionStart(), m_sci->GetSelectionEnd() });
+        if(result.IsOk()) {
+            // the selected text is a match, replace it
+            int len = DoReplace(result);
+            if(len != wxNOT_FOUND) {
+                CenterLine(m_sci, result.start_pos, result.start_pos + len);
+                m_sci->SetFocus();
+                start_pos = result.start_pos + len;
+            } else {
+                // should not happen...
+                return;
+            }
+        } else {
+            start_pos = m_sci->GetSelectionStart();
+        }
+    } else {
+        start_pos = m_sci->GetCurrentPos();
+    }
+
+    // perform a search
+    DoFindWithMessage(FIND_DEFAULT | FIND_GOTOLINE, { start_pos, static_cast<int>(m_sci->GetLastPosition()) });
 }
 
-void QuickFindBar::DoReplace()
+int QuickFindBar::DoReplace(const TargetRange& range)
 {
-    if(!m_sci) return;
-
-    wxString findwhat = m_textCtrlFind->GetValue();
-    if(findwhat.IsEmpty()) return;
-
-    UPDATE_FIND_HISTORY();
-
-    wxString findWhatSciVersion = findwhat;
-    DoFixRegexParen(findWhatSciVersion);
-
-    // No selection?
-    if(m_sci->GetSelections() == 0) {
-        DoSearch(kSearchForward);
-        return;
+    // we replace the selection
+    TargetRange target_range;
+    if(range.IsOk()) {
+        target_range = range;
+    } else if(!m_sci->HasSelection()) {
+        target_range = { m_sci->GetSelectionStart(), m_sci->GetSelectionEnd() };
     }
 
-    // No selection?
-    if(m_sci->GetSelections() != 1) {
-        DoSearch(kSearchForward);
-        return;
+    if(!target_range.IsOk()) {
+        return wxNOT_FOUND;
     }
 
-    // did we got a match?
-    if(m_sci->GetSelections() != 1) return;
+    m_sci->SetTargetStart(target_range.start_pos);
+    m_sci->SetTargetEnd(target_range.end_pos);
 
-    int selStart, selEnd;
-    m_sci->GetSelection(&selStart, &selEnd);
-    if(selStart == selEnd) {
-        // not a real selection
-        DoSearch(kSearchForward);
-        return;
-    }
-
-    // Ensure that the selection matches our search pattern
-    size_t searchFlags = DoGetSearchFlags();
-    if(m_sci->FindText(selStart, selEnd, searchFlags & wxSTC_FIND_REGEXP ? findWhatSciVersion : findwhat,
-                       searchFlags) == wxNOT_FOUND) {
-        // we got a selection, but it does not match our search
-        return;
-    }
-
-    wxString selectedText = m_sci->GetTextRange(selStart, selEnd);
-
-#ifndef __WXMAC__
-    int re_flags = wxRE_ADVANCED;
-#else
-    int re_flags = wxRE_DEFAULT;
-#endif
-
-    wxString replaceWith = m_textCtrlReplace->GetValue();
-    if(!replaceWith.IsEmpty()) {
-        m_replaceHistory.Add(replaceWith);
-        clConfig::Get().SetQuickFindReplaceItems(m_replaceHistory.GetItems());
-    }
-
-    size_t replacementLen = replaceWith.length();
-    if(searchFlags & wxSTC_FIND_REGEXP) {
-
-        // Regular expresson search
-        if(!(searchFlags & wxSTC_FIND_MATCHCASE)) { re_flags |= wxRE_ICASE; }
-
-        wxRegEx re(findwhat, re_flags);
-        if(re.IsValid() && re.Matches(selectedText)) {
-            re.Replace(&selectedText, replaceWith);
-
-            // Keep the replacement length
-            replacementLen = selectedText.length();
-
-            // update the view
-            m_sci->Replace(selStart, selEnd, selectedText);
-        } else {
-            return;
-        }
-
+    if(m_searchFlags & wxSTC_FIND_REGEXP) {
+        return m_sci->ReplaceTargetRE(m_textCtrlReplace->GetValue());
     } else {
-        // Normal search and replace
-        m_sci->Replace(selStart, selEnd, replaceWith);
+        return m_sci->ReplaceTarget(m_textCtrlReplace->GetValue());
     }
-
-    // Clear the selection
-    m_sci->ClearSelections();
-    m_sci->SetCurrentPos(selStart + replacementLen);
 }
 
 void QuickFindBar::OnReplaceEnter(wxCommandEvent& e)
@@ -454,7 +405,8 @@ bool QuickFindBar::Show(const wxString& findWhat, bool showReplace)
 {
     // Same as Show() but set the 'findWhat' field with findWhat
     // and show/hide the 'Replace' section depending on the bool
-    if(!m_sci) return false;
+    if(!m_sci)
+        return false;
     return DoShow(true, findWhat, showReplace);
 }
 
@@ -470,7 +422,7 @@ bool QuickFindBar::DoShow(bool s, const wxString& findWhat, bool showReplace)
         m_sci->IndicatorClearRange(0, m_sci->GetLength());
 
         if(EditorConfigST::Get()->GetOptions()->GetClearHighlitWordsOnFind()) {
-            m_sci->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
+            m_sci->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
             m_sci->IndicatorClearRange(0, m_sci->GetLength());
         }
     }
@@ -478,21 +430,24 @@ bool QuickFindBar::DoShow(bool s, const wxString& findWhat, bool showReplace)
     if(s) {
         // Show or Hide the 'Replace' section as requested
         wxSizer* flexgridsizer = m_textCtrlFind->GetContainingSizer();
-        if (flexgridsizer) {
-            if (showReplace) {
+        if(flexgridsizer) {
+            if(!GetSizer()->IsShown(flexgridsizer)) {
+                GetSizer()->Show(flexgridsizer);
+            }
+            if(showReplace) {
                 flexgridsizer->ShowItems(true);
             } else {
-                for (size_t n=4; n < 7; ++n) {
+                for(size_t n = 4; n < 7; ++n) {
                     flexgridsizer->Hide(n);
                 }
             }
         }
     }
-    if(res) { 
-        GetParent()->GetSizer()->Layout(); 
+    if(res) {
+        GetParent()->GetSizer()->Layout();
     }
 
-    m_replaceInSelection = !findWhat.IsEmpty() && findWhat.Contains("\n");
+    m_inSelection = !findWhat.IsEmpty() && findWhat.Contains("\n");
     if(!m_sci) {
         // nothing to do
 
@@ -523,7 +478,9 @@ bool QuickFindBar::DoShow(bool s, const wxString& findWhat, bool showReplace)
     } else {
         if(m_sci->GetSelections() > 1) {}
         wxString findWhat = DoGetSelectedText().BeforeFirst(wxT('\n'));
-        if(!findWhat.IsEmpty()) { m_textCtrlFind->ChangeValue(findWhat); }
+        if(!findWhat.IsEmpty()) {
+            m_textCtrlFind->ChangeValue(findWhat);
+        }
 
         m_textCtrlFind->SelectAll();
         m_textCtrlFind->SetFocus();
@@ -549,13 +506,15 @@ void QuickFindBar::OnFindNextCaret(wxCommandEvent& e)
         long end = m_sci->WordEndPosition(pos, true);
 
         selection = m_sci->GetTextRange(start, end);
-        if(selection.IsEmpty() == false) m_sci->SetCurrentPos(start);
+        if(selection.IsEmpty() == false)
+            m_sci->SetCurrentPos(start);
     }
 
-    if(selection.IsEmpty()) return;
+    if(selection.IsEmpty())
+        return;
 
     m_textCtrlFind->ChangeValue(selection);
-    DoSearch(kSearchForward);
+    DoFind(FIND_DEFAULT | FIND_GOTOLINE);
 }
 
 void QuickFindBar::OnFindPreviousCaret(wxCommandEvent& e)
@@ -570,66 +529,30 @@ void QuickFindBar::OnFindPreviousCaret(wxCommandEvent& e)
         long end = m_sci->WordEndPosition(pos, true);
 
         selection = m_sci->GetTextRange(start, end);
-        if(selection.IsEmpty() == false) m_sci->SetCurrentPos(start);
+        if(selection.IsEmpty() == false)
+            m_sci->SetCurrentPos(start);
     }
 
-    if(selection.IsEmpty()) return;
+    if(selection.IsEmpty())
+        return;
 
     m_textCtrlFind->ChangeValue(selection);
-    DoSearch(0);
+    DoFind(FIND_PREV | FIND_GOTOLINE);
 }
 
-void QuickFindBar::DoSelectAll(bool addMarkers)
+void QuickFindBar::DoSelectAll()
 {
-    if(!m_sci || m_sci->GetLength() == 0 || m_textCtrlFind->GetValue().IsEmpty()) return;
     clGetManager()->SetStatusMessage(wxEmptyString);
-
-    if(addMarkers) {
-        m_sci->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
-        m_sci->IndicatorClearRange(0, m_sci->GetLength());
-    }
-
-    wxString find = m_textCtrlFind->GetValue();
-    int flags = DoGetSearchFlags();
-
-    // Since scintilla uses a non POSIX way of handling the regex paren
-    // fix them
-    if(flags & wxSTC_FIND_REGEXP) { DoFixRegexParen(find); }
-
-    // Ensure that we have at least one match before we continue
-    if(m_sci->FindText(0, m_sci->GetLastPosition(), find, flags) == wxNOT_FOUND) {
-        clGetManager()->SetStatusMessage(_("No match found"), 1);
+    if(!m_sci) {
         return;
     }
 
-    // We got at least one match
-    m_sci->SetCurrentPos(0);
-    m_sci->SetSelectionEnd(0);
-    m_sci->SetSelectionStart(0);
+    wxBusyCursor bc;
+    TargetRange target = GetBestTargetRange();
 
-    m_sci->ClearSelections();
-    m_sci->SearchAnchor();
-
-    std::vector<std::pair<int, int> > matches; // pair of matches selStart+selEnd
-    int pos = m_sci->SearchNext(flags, find);
-    while(pos != wxNOT_FOUND) {
-        std::pair<int, int> match;
-        m_sci->GetSelection(&match.first, &match.second);
-        if(match.first == match.second) {
-            clGetManager()->SetStatusMessage(_("No match found"), 1);
-            return;
-        }
-
-        m_sci->SetCurrentPos(match.second);
-        m_sci->SetSelectionStart(match.second);
-        m_sci->SetSelectionEnd(match.second);
-        m_sci->SearchAnchor();
-        pos = m_sci->SearchNext(flags, find);
-        matches.push_back(match);
-    }
-
+    auto matches = DoFindAll(target);
     if(matches.empty()) {
-        clGetManager()->SetStatusMessage(_("No match found"), 1);
+        clGetManager()->SetStatusMessage(_("No matches found"));
         return;
     }
 
@@ -637,71 +560,78 @@ void QuickFindBar::DoSelectAll(bool addMarkers)
     m_sci->ClearSelections();
     for(size_t i = 0; i < matches.size(); ++i) {
         if(i == 0) {
-            m_sci->SetSelection(matches.at(i).first, matches.at(i).second);
+            m_sci->SetSelection(matches[i].start_pos, matches[i].end_pos);
             m_sci->SetMainSelection(0);
-            DoEnsureLineIsVisible(m_sci, m_sci->LineFromPosition(matches.at(0).first));
+            CenterLine(m_sci, matches[i].start_pos, matches[i].end_pos);
         } else {
-            m_sci->AddSelection(matches.at(i).first, matches.at(i).second);
+            m_sci->AddSelection(matches[i].start_pos, matches[i].end_pos);
         }
     }
     Show(false);
-    wxString message;
-    message << _("Found and selected ") << matches.size() << _(" matches");
-    clGetManager()->SetStatusMessage(message, 2);
+    clGetManager()->SetStatusMessage(wxString::Format(_("Selected %lu matches"), matches.size()));
     m_sci->SetMainSelection(0);
+}
+
+TargetRange::Vec_t QuickFindBar::DoFindAll(const TargetRange& target)
+{
+    if(!m_sci) {
+        return {};
+    }
+
+    TargetRange range{ 0, static_cast<int>(m_sci->GetLastPosition()) };
+    if(target.IsOk()) {
+        range = target;
+    }
+    // perform a search
+
+    TargetRange::Vec_t matches;
+    matches.reserve(1000); // enough room for 1000 martches
+
+    auto target_result = DoFind(FIND_DEFAULT, target);
+    while(target_result.IsOk()) {
+
+        matches.push_back(target_result);
+        range.start_pos = target_result.end_pos;
+        if(range.start_pos >= range.end_pos) {
+            break;
+        }
+        target_result = DoFind(FIND_DEFAULT, range);
+    }
+    return matches;
 }
 
 void QuickFindBar::DoHighlightMatches(bool checked)
 {
     clEditor* editor = dynamic_cast<clEditor*>(m_sci);
-    if(checked && editor && !m_textCtrlFind->GetValue().IsEmpty()) {
-        int flags = DoGetSearchFlags();
-        wxString findwhat = m_textCtrlFind->GetValue();
-        if(!m_sci || m_sci->GetLength() == 0 || findwhat.IsEmpty()) return;
+    if(!editor) {
+        clMainFrame::Get()->SelectBestEnvSet();
+        return;
+    }
 
-        // Do we have at least one match?
-        if(m_sci->FindText(0, m_sci->GetLastPosition(), findwhat, flags) == wxNOT_FOUND) return;
+    if(checked && !m_textCtrlFind->GetValue().IsEmpty()) {
+        auto matches = DoFindAll(GetBestTargetRange());
+        if(matches.empty()) {
+            return;
+        }
+
+        // clear selections and old markers
         m_sci->ClearSelections();
-        m_sci->SetCurrentPos(0);
-        m_sci->SetSelectionEnd(0);
-        m_sci->SetSelectionStart(0);
-
         editor->SetFindBookmarksActive(true);
         editor->DelAllMarkers(smt_find_bookmark);
-
-        m_sci->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
+        m_sci->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
         m_sci->IndicatorClearRange(0, m_sci->GetLength());
 
-        int found = 0;
-        while(true) {
-            m_sci->SearchAnchor();
-            if(m_sci->SearchNext(flags, findwhat) != wxNOT_FOUND) {
-                int selStart, selEnd;
-                m_sci->GetSelection(&selStart, &selEnd);
-                m_sci->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
-                m_sci->IndicatorFillRange(selStart, selEnd - selStart);
-                m_sci->MarkerAdd(m_sci->LineFromPosition(selStart), smt_find_bookmark);
-
-                // Clear the selection so the next 'SearchNext' will search forward
-                m_sci->SetCurrentPos(selEnd);
-                m_sci->SetSelectionEnd(selEnd);
-                m_sci->SetSelectionStart(selEnd);
-
-                found++;
-            } else {
-                break;
-            }
+        for(const auto& match : matches) {
+            m_sci->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
+            m_sci->IndicatorFillRange(match.start_pos, match.end_pos - match.start_pos);
+            m_sci->MarkerAdd(m_sci->LineFromPosition(match.start_pos), smt_find_bookmark);
         }
 
-        wxString matches;
-        if(found) {
-            matches << found << " " << (found > 1 ? _("results") : _("result"));
-        } else {
-            matches << _("No matches found");
-        }
-        m_matchesFound->SetLabel(matches);
+        wxString message;
+        message << _("Found ") << matches.size() << wxPLURAL(" result", " results", matches.size());
+        clGetManager()->GetStatusBar()->SetMessage(message);
 
-    } else if(editor) {
+    } else {
         editor->SetFindBookmarksActive(false);
         editor->DelAllMarkers(smt_find_bookmark);
 
@@ -709,12 +639,11 @@ void QuickFindBar::DoHighlightMatches(bool checked)
         clGetManager()->GetAllEditors(editors);
         std::for_each(editors.begin(), editors.end(), [&](IEditor* pEditor) {
             pEditor->GetCtrl()->MarkerDeleteAll(smt_find_bookmark);
-            pEditor->GetCtrl()->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
+            pEditor->GetCtrl()->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
             pEditor->GetCtrl()->IndicatorClearRange(0, pEditor->GetCtrl()->GetLength());
         });
-        m_matchesFound->SetLabel("");
+        clGetManager()->GetStatusBar()->SetMessage(wxEmptyString);
     }
-
     clMainFrame::Get()->SelectBestEnvSet(); // Updates the statusbar display
 }
 
@@ -773,13 +702,17 @@ bool QuickFindBar::ShowForPlugins()
 
 wxString QuickFindBar::DoGetSelectedText()
 {
-    if(!m_sci) { return wxEmptyString; }
+    if(!m_sci) {
+        return wxEmptyString;
+    }
 
     if(m_sci->GetSelections() > 1) {
         for(int i = 0; i < m_sci->GetSelections(); ++i) {
             int selStart = m_sci->GetSelectionNStart(i);
             int selEnd = m_sci->GetSelectionNEnd(i);
-            if(selEnd > selStart) { return m_sci->GetTextRange(selStart, selEnd); }
+            if(selEnd > selStart) {
+                return m_sci->GetTextRange(selStart, selEnd);
+            }
         }
         return wxEmptyString;
 
@@ -788,43 +721,8 @@ wxString QuickFindBar::DoGetSelectedText()
     }
 }
 
-void QuickFindBar::OnButtonNext(wxCommandEvent& e) { OnNext(e); }
-void QuickFindBar::OnButtonPrev(wxCommandEvent& e) { OnPrev(e); }
-
 size_t QuickFindBar::DoGetSearchFlags() const { return m_searchFlags; }
-
-void QuickFindBar::OnFindAll(wxCommandEvent& e) { DoSelectAll(true); }
-void QuickFindBar::OnButtonReplace(wxCommandEvent& e) { OnReplace(e); }
-void QuickFindBar::OnFindMouseWheel(wxMouseEvent& e)
-{
-    // Do nothing and disable the mouse wheel
-    // by not calling 'skip'
-    wxUnusedVar(e);
-}
-
-void QuickFindBar::DoEnsureLineIsVisible(wxStyledTextCtrl* sci, int line)
-{
-    if(line == wxNOT_FOUND) { line = sci->LineFromPosition(sci->GetSelectionStart()); }
-    int linesOnScreen = sci->LinesOnScreen();
-    if(!((line > sci->GetFirstVisibleLine()) && (line < (sci->GetFirstVisibleLine() + linesOnScreen)))) {
-        // To place our line in the middle, the first visible line should be
-        // the: line - (linesOnScreen / 2)
-        int firstVisibleLine = line - (linesOnScreen / 2);
-        if(firstVisibleLine < 0) { firstVisibleLine = 0; }
-        sci->SetFirstVisibleLine(firstVisibleLine);
-    }
-    sci->EnsureVisible(line);
-    sci->ScrollToColumn(0);
-    int xScrollPosBefore = sci->GetScrollPos(wxHORIZONTAL);
-    sci->EnsureCaretVisible();
-    int xScrollPosAfter = sci->GetScrollPos(wxHORIZONTAL);
-    if(xScrollPosBefore != xScrollPosAfter) {
-        // EnsureCaretVisible scrolled the page
-        // scroll it a bit more
-        int scrollToPos = sci->GetSelectionStart();
-        if(scrollToPos != wxNOT_FOUND) { sci->ScrollToColumn(sci->GetColumn(scrollToPos)); }
-    }
-}
+void QuickFindBar::OnFindAll(wxCommandEvent& e) { DoSelectAll(); }
 
 void QuickFindBar::DoFixRegexParen(wxString& findwhat)
 {
@@ -847,207 +745,193 @@ void QuickFindBar::DoSetCaretAtEndOfText() { m_textCtrlFind->SetInsertionPointEn
 void QuickFindBar::OnReplaceAll(wxCommandEvent& e)
 {
     wxUnusedVar(e);
-    DoReplaceAll(m_replaceInSelection);
+    DoReplaceAll(m_inSelection);
 }
 
 void QuickFindBar::DoReplaceAll(bool selectionOnly)
 {
-    if(!selectionOnly) {
-        m_sci->BeginUndoAction();
-        m_sci->SetSelection(0, 0);
-        m_sci->SetCurrentPos(0); // Start the search from the start
-        size_t replaced(0);
-        while(DoSearch(DoGetSearchFlags() | kDisableDisplayErrorMessages | kBreakWhenWrapSearch | kSearchForward)) {
-            DoReplace();
-            ++replaced;
-        }
-        
-        wxString message;
-        if (replaced) {
-            message << _("Found and replaced ") << replaced << _(" matches");
-        } else {
-            message << _("No matches found");
-        }
-        clGetManager()->SetStatusMessage(message, 5);
-        
-        m_sci->EndUndoAction();
-        m_sci->ClearSelections();
+    CHECK_PTR_RET(m_sci);
+
+    wxBusyCursor bc;
+    wxStopWatch sw;
+
+    TargetRange target;
+    if(selectionOnly) {
+        target = { m_sci->GetSelectionStart(), m_sci->GetSelectionEnd() };
     } else {
-        if(!m_sci || m_sci->GetLength() == 0 || m_textCtrlFind->GetValue().IsEmpty()) return;
-        UPDATE_FIND_HISTORY();
-        clGetManager()->SetStatusMessage(wxEmptyString);
+        target = { 0, static_cast<int>(m_sci->GetLastPosition()) };
+    }
 
-        wxString findwhat = m_textCtrlFind->GetValue();
-        int searchFlags = DoGetSearchFlags();
+    // keep the current line, we will restore it after the replacment is done
+    int starting_line = m_sci->GetCurrentLine();
 
-        // Since scintilla uses a non POSIX way of handling the regex paren
-        // fix them
-        if(searchFlags & wxSTC_FIND_REGEXP) { DoFixRegexParen(findwhat); }
+    int replacements_done = 0;
+    sw.Start();
 
-        int from, to;
-        if(selectionOnly && m_sci->GetSelectedText().IsEmpty()) return;
-        if(selectionOnly) {
-            m_sci->GetSelection(&from, &to);
-        } else {
-            from = 0;
-            to = m_sci->GetLastPosition();
-        }
+    // Problem: wxStyledTextCtrl reports matches in **bytes**
+    // wxString offsets are in chars. This means that if a double byte
+    // char is found in the text (i.e. no Latin ASCII chars), the replacement
+    // offset is wrong by 1 position.
+    // To workaround this, we only apply replacement optimizations for non UTF8
+    // strings
 
-        // Ensure that we have at least one match before we continue
-        if(m_sci->FindText(from, to, findwhat, searchFlags) == wxNOT_FOUND) {
-            clGetManager()->SetStatusMessage(_("No match found"), 2);
-            return;
-        }
+    bool isUTF8 = false;
 
-        int curpos = m_sci->GetCurrentPos();
+    wxString input_buffer = m_sci->GetText();
+    unsigned int utfLen = ::clUTF8Length(input_buffer.ToStdWstring().c_str(), input_buffer.length());
+    isUTF8 = (utfLen != input_buffer.length());
 
-        // We got at least one match
-        m_sci->SetCurrentPos(0);
-        m_sci->SetSelectionEnd(0);
-        m_sci->SetSelectionStart(0);
+    if(!(m_searchFlags & wxSTC_FIND_REGEXP) && !IsReplacementRegex() && !isUTF8) {
+        // simple search, we can optimize it by applying the replacement on
+        // a buffer instead of the editor
+        replacements_done = DoReplaceInBuffer(target);
 
-        m_sci->ClearSelections();
-        m_sci->SearchAnchor();
-#ifndef __WXMAC__
-        int re_flags = wxRE_ADVANCED;
-#else
-        int re_flags = wxRE_DEFAULT;
-#endif
-
-        wxString replaceWith = m_textCtrlReplace->GetValue();
-        if(!replaceWith.IsEmpty()) {
-            m_replaceHistory.Add(replaceWith);
-            clConfig::Get().SetQuickFindReplaceItems(m_replaceHistory.GetItems());
-        }
-
+    } else {
+        // perform a search
         m_sci->BeginUndoAction();
-        int pos = m_sci->SearchNext(searchFlags, findwhat);
-        size_t matchesCount = 0;
-        while(pos != wxNOT_FOUND) {
-            int selStart, selEnd, newpos;
-            size_t replacementLen = replaceWith.length();
-            m_sci->GetSelection(&selStart, &selEnd);
-            if(!selectionOnly || ((pos >= from) && (pos < to))) {
-                wxString selectedText = m_sci->GetSelectedText();
-                if(searchFlags & wxSTC_FIND_REGEXP) {
+        while(true) {
+            auto target_result = DoFind(FIND_DEFAULT, target);
+            if(!target_result.IsOk()) {
+                break;
+            }
+            int match_len = DoReplace(target_result);
+            if(match_len == wxNOT_FOUND) {
+                break;
+            }
+            replacements_done++;
+            target.start_pos += match_len;
+            if(target.start_pos >= target_result.end_pos) {
+                break;
+            }
+        }
+        m_sci->EndUndoAction();
+    }
+    double ms = sw.Time();
+    clDEBUG() << "Replace all took:" << (double)(ms / 1000.0) << "seconds" << endl;
+    if(replacements_done) {
+        int pos = m_sci->PositionFromLine(starting_line);
+        CenterLine(m_sci, pos, pos);
+    }
 
-                    // Regular expresson search
-                    if(!(searchFlags & wxSTC_FIND_MATCHCASE)) { re_flags |= wxRE_ICASE; }
+    clGetManager()->SetStatusMessage(wxString::Format(_("Made %d replacements"), replacements_done));
+    Show(false);
+    m_sci->SetFocus();
+}
 
-                    wxRegEx re(findwhat, re_flags);
-                    if(re.IsValid() && re.Matches(selectedText)) {
-                        re.Replace(&selectedText, replaceWith);
+TargetRange QuickFindBar::DoFind(size_t find_flags, const TargetRange& target)
+{
+    // define the target range
+    size_t search_options = DoGetSearchFlags();
+    int target_start = wxNOT_FOUND, target_end = wxNOT_FOUND;
 
-                        // Keep the replacement length
-                        replacementLen = selectedText.length();
-
-                        // update the view
-                        m_sci->Replace(selStart, selEnd, selectedText);
-                    } else {
-                        return;
-                    }
-
-                } else {
-                    // Normal search and replace
-                    m_sci->Replace(selStart, selEnd, replaceWith);
-                }
-                newpos = selStart + replacementLen;
-
-                // Extend the range (or shrink it) depending on the replacement
-                if(selectionOnly) {
-                    int matchFoundLen = selEnd - selStart;
-                    to += (replacementLen - matchFoundLen);
-                }
-            } else {
-                // the match is not in the selection range
-                newpos = pos + replacementLen;
-                if(newpos <= pos) {
-                    newpos = pos + 1; // make sure we dont hang
-                }
-
-                // Move to the next match
-                m_sci->SetCurrentPos(newpos);
-                m_sci->SetSelectionStart(newpos);
-                m_sci->SetSelectionEnd(newpos);
-                m_sci->SearchAnchor();
-                pos = m_sci->SearchNext(searchFlags, findwhat);
-                continue;
+    // if the caller provided a target, use it
+    if(target.IsOk()) {
+        target_start = target.start_pos;
+        target_end = target.end_pos;
+        if(find_flags & FIND_PREV) {
+            // searching backward, switch the range positions
+            wxSwap(target_start, target_end);
+        }
+    } else {
+        if(m_inSelection) {
+            // set the target to fit the selection
+            target_start = m_sci->GetSelectionStart();
+            target_end = m_sci->GetSelectionEnd();
+            // if we are searching backward, switch the end and start positions
+            if(find_flags & FIND_PREV) {
+                wxSwap(target_start, target_end);
             }
 
-            // Move to the next match
-            m_sci->SetCurrentPos(newpos);
-            m_sci->SetSelectionStart(newpos);
-            m_sci->SetSelectionEnd(newpos);
-            m_sci->SearchAnchor();
-            pos = m_sci->SearchNext(searchFlags, findwhat);
-            ++matchesCount;
+        } else {
+            // non selection search
+            int sel_start = m_sci->GetSelectionStart();
+            int sel_end = m_sci->GetSelectionEnd();
+            if(find_flags & FIND_INCREMENT) {
+                // incremental search only goes one way: down
+
+                // if we have a text selected in the editor, use the selection start position
+                // as our search point, otherwise, use the current position
+                if(sel_start != wxNOT_FOUND && sel_end != wxNOT_FOUND) {
+                    target_start = sel_start;
+                } else {
+                    target_start = m_sci->GetCurrentPos();
+                }
+                target_end = m_sci->GetLastPosition();
+            } else {
+                // Normal search
+
+                // if we have a text selected in the editor, use the selection position as our search anchor
+                // (depending on the search direction)
+                if(sel_start != wxNOT_FOUND && sel_end != wxNOT_FOUND) {
+                    target_start = find_flags & FIND_PREV ? sel_start : sel_end;
+                } else {
+                    // start the search from the current position
+                    target_start = m_sci->GetCurrentPos();
+                }
+                // set the range to search:
+                // by default, its the end of the document
+                // unless searching backward and in this case
+                // we set it to the start of the document (0)
+                target_end = m_sci->GetLastPosition();
+                if(find_flags & FIND_PREV) {
+                    target_end = 0;
+                }
+            }
         }
-        m_sci->EndUndoAction();
+    }
+    // do we have a target?
+    if(target_end == target_start) {
+        TargetRange res = { wxNOT_FOUND, wxNOT_FOUND };
+        res.why = TargetRange::EMPTY_RANGE;
+        return res;
+    }
 
-        if(!matchesCount) {
-            clGetManager()->SetStatusMessage(_("No match found"), 2);
-            return;
+    m_sci->SetTargetStart(target_start);
+    m_sci->SetTargetEnd(target_end);
+
+    size_t stc_search_options = 0;
+
+    if(search_options & wxSTC_FIND_REGEXP)
+        stc_search_options |= wxSTC_FIND_REGEXP | wxSTC_FIND_POSIX;
+    if(search_options & wxSTC_FIND_MATCHCASE)
+        stc_search_options |= wxSTC_FIND_MATCHCASE;
+    if(search_options & wxSTC_FIND_WHOLEWORD)
+        stc_search_options |= wxSTC_FIND_WHOLEWORD;
+
+    m_sci->SetSearchFlags(stc_search_options);
+    int where = m_sci->SearchInTarget(m_textCtrlFind->GetValue());
+    if(where != wxNOT_FOUND) {
+        // the target contains the matched string
+        target_start = m_sci->GetTargetStart();
+        target_end = m_sci->GetTargetEnd();
+        if(find_flags & FIND_GOTOLINE) {
+            CenterLine(m_sci, target_start, target_end);
         }
-
-        // add selections
-        m_sci->ClearSelections();
-        m_sci->SetSelectionStart(curpos);
-        m_sci->SetSelectionEnd(curpos);
-        m_sci->SetCurrentPos(curpos);
-        DoEnsureLineIsVisible(m_sci, m_sci->LineFromPosition(curpos));
-
-        wxString message;
-        message << _("Found and replaced ") << matchesCount << _(" matches");
-        clGetManager()->SetStatusMessage(message, 5);
-
-        // If needed, restore the selection
-        if(selectionOnly) {
-            m_sci->SetCurrentPos(from);
-            m_sci->SetSelectionStart(from);
-            m_sci->SetSelectionEnd(to);
-        }
+        return { target_start, target_end };
+    } else {
+        TargetRange res = { wxNOT_FOUND, wxNOT_FOUND };
+        res.why = find_flags & FIND_PREV ? TargetRange::REACHED_SOF : TargetRange::REACHED_EOF;
+        return res;
     }
 }
 
 void QuickFindBar::OnFind(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    if(!EditorConfigST::Get()->GetOptions()->GetDontOverrideSearchStringWithSelection()) {
-        // Highlighted text takes precedence over the current search string
-        //    if(!IsShown()) {
-        wxString selectedText = DoGetSelectedText();
-        if(selectedText.IsEmpty() == false) {
-            m_textCtrlFind->ChangeValue(selectedText);
-            m_textCtrlFind->SelectAll();
-        }
-        //    }
-    }
-    DoSearch(kSearchForward);
+    DoFindWithWrap(FIND_DEFAULT | FIND_GOTOLINE);
 }
 
 void QuickFindBar::OnFindPrev(wxCommandEvent& event)
 {
-    if(!EditorConfigST::Get()->GetOptions()->GetDontOverrideSearchStringWithSelection()) {
-        wxString selectedText = DoGetSelectedText();
-        if(selectedText.IsEmpty() == false) {
-            m_textCtrlFind->ChangeValue(selectedText);
-            m_textCtrlFind->SelectAll();
-        }
-    }
-    DoSearch(0);
+    wxUnusedVar(event);
+    DoFindWithWrap(FIND_PREV | FIND_GOTOLINE);
 }
-
-void QuickFindBar::OnReplaceTextEnter(wxCommandEvent& event) {}
-void QuickFindBar::OnReplaceTextUpdated(wxCommandEvent& event) {}
 
 void QuickFindBar::OnFindAllUI(wxUpdateUIEvent& event) { event.Enable(!m_textCtrlFind->IsEmpty()); }
 void QuickFindBar::OnFindPrevUI(wxUpdateUIEvent& event) { event.Enable(!m_textCtrlFind->IsEmpty()); }
 void QuickFindBar::OnFindUI(wxUpdateUIEvent& event) { event.Enable(!m_textCtrlFind->IsEmpty()); }
 void QuickFindBar::OnReplaceAllUI(wxUpdateUIEvent& event) { event.Enable(!m_textCtrlFind->IsEmpty()); }
-void QuickFindBar::OnReplaceUI(wxUpdateUIEvent& event)
-{
-    event.Enable(!m_textCtrlFind->IsEmpty() && !m_replaceInSelection);
-}
+void QuickFindBar::OnReplaceUI(wxUpdateUIEvent& event) { event.Enable(!m_textCtrlFind->IsEmpty() && !m_inSelection); }
 
 void QuickFindBar::DoArrowDown(clTerminalHistory& history, wxTextCtrl* ctrl)
 {
@@ -1091,109 +975,100 @@ void QuickFindBar::OnButtonKeyDown(wxKeyEvent& event)
     }
 }
 
-bool QuickFindBar::Search(wxStyledTextCtrl* ctrl, const wxString& find_what, size_t search_flags, QuickFindBar* This)
-{
-    wxString findwhat = find_what;
-    if(findwhat.IsEmpty() && This) { findwhat = This->m_textCtrlFind->GetValue(); }
-    if(!ctrl || ctrl->GetLength() == 0 || findwhat.IsEmpty()) return false;
-    clGetManager()->SetStatusMessage(wxEmptyString);
-    if(This) { This->m_matchesFound->SetLabel(""); }
-    if(This && (This->m_textCtrlFind->GetValue() != findwhat)) { This->m_textCtrlFind->ChangeValue(findwhat); }
-
-    // Clear all search markers if desired
-    if(EditorConfigST::Get()->GetOptions()->GetClearHighlitWordsOnFind()) {
-        ctrl->SetIndicatorCurrent(MARKER_FIND_BAR_WORD_HIGHLIGHT);
-        ctrl->IndicatorClearRange(0, ctrl->GetLength());
-    }
-
-    wxString find = findwhat;
-    bool fwd = search_flags & kSearchForward;
-    int flags = 0;
-    if(This) { flags = This->DoGetSearchFlags(); }
-
-    // Since scintilla uses a non POSIX way of handling the paren
-    // fix them
-    if((flags & wxSTC_FIND_REGEXP) && This) { This->DoFixRegexParen(find); }
-
-    int curpos = ctrl->GetCurrentPos();
-    int start = wxNOT_FOUND;
-    int end = wxNOT_FOUND;
-    ctrl->GetSelection(&start, &end);
-    if((end != wxNOT_FOUND) && fwd) {
-        if(ctrl->FindText(start, end, find, flags) != wxNOT_FOUND) {
-            // Incase we searching forward and the current selection matches the search string
-            // Clear the selection and set the caret position to the end of the selection
-            ctrl->SetCurrentPos(end);
-            ctrl->SetSelectionEnd(end);
-            ctrl->SetSelectionStart(end);
-        }
-    }
-
-    int pos = wxNOT_FOUND;
-    if(fwd) {
-        ctrl->SearchAnchor();
-        pos = ctrl->SearchNext(flags, find);
-        if(pos == wxNOT_FOUND) {
-            clGetManager()->SetStatusMessage(_("Wrapped past end of file"), 1);
-            if(search_flags & kBreakWhenWrapSearch) {
-                // Stop searching
-                return false;
-            }
-            ctrl->SetCurrentPos(0);
-            ctrl->SetSelectionEnd(0);
-            ctrl->SetSelectionStart(0);
-            ctrl->SearchAnchor();
-            pos = ctrl->SearchNext(flags, find);
-        }
-    } else {
-        ctrl->SearchAnchor();
-        pos = ctrl->SearchPrev(flags, find);
-        if(pos == wxNOT_FOUND) {
-            clGetManager()->SetStatusMessage(_("Wrapped past end of file"), 1);
-            if(search_flags & kBreakWhenWrapSearch) {
-                // Stop searching
-                return false;
-            }
-            int lastPos = ctrl->GetLastPosition();
-            ctrl->SetCurrentPos(lastPos);
-            ctrl->SetSelectionEnd(lastPos);
-            ctrl->SetSelectionStart(lastPos);
-            ctrl->SearchAnchor();
-            pos = ctrl->SearchPrev(flags, find);
-        }
-    }
-
-    if(pos == wxNOT_FOUND) {
-        // Restore the caret position
-        ctrl->SetCurrentPos(curpos);
-        ctrl->ClearSelections();
-        if(This) {
-            This->DoHighlightMatches(false);
-            This->m_matchesFound->SetLabel(_("No matches found"));
-        }
-        return false;
-    }
-
-    DoEnsureLineIsVisible(ctrl);
-
-    if(This && This->m_highlightMatches && !This->m_onNextPrev && (pos != wxNOT_FOUND)) {
-        // Fix issue when regex is enabled hanging the editor if too few chars
-        if((This->m_searchFlags & wxSTC_FIND_REGEXP) && findwhat.Length() < 3) {
-            return false;
-        } else if(This) {
-            This->DoHighlightMatches(true);
-        }
-    }
-
-    int selStart, selEnd;
-    ctrl->GetSelection(&selStart, &selEnd);
-    return (selEnd > selStart);
-}
-
 void QuickFindBar::OnPaint(wxPaintEvent& e)
 {
     wxAutoBufferedPaintDC dc(this);
-    dc.SetBrush(clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
-    dc.SetPen(clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE));
+    dc.SetBrush(clSystemSettings::GetDefaultPanelColour());
+    dc.SetPen(clSystemSettings::GetDefaultPanelColour());
     dc.DrawRectangle(GetClientRect());
 }
+
+void QuickFindBar::ShowToolBarOnly()
+{
+    wxPanel::Show();
+    wxSizer* sz = m_textCtrlFind->GetContainingSizer();
+    if(sz && sz != GetSizer()) {
+        GetSizer()->Hide(sz);
+    }
+    GetParent()->GetSizer()->Layout();
+}
+
+void QuickFindBar::FindPrevious() { DoFindWithWrap(FIND_PREV | FIND_GOTOLINE); }
+
+void QuickFindBar::FindNext() { DoFindWithWrap(FIND_DEFAULT | FIND_GOTOLINE); }
+
+size_t QuickFindBar::DoReplaceInBuffer(const TargetRange& range)
+{
+    if(!range.IsOk()) {
+        return 0;
+    }
+
+    wxString in_buffer = m_sci->GetTextRange(range.start_pos, range.end_pos);
+    auto matches = DoFindAll(range);
+
+    // adjust the replacement position to match the range
+    int offset = -range.start_pos;
+    wxString replace_with = m_textCtrlReplace->GetValue();
+    size_t replace_with_len = replace_with.length();
+    for(const auto& range : matches) {
+        size_t match_len = range.end_pos - range.start_pos;
+        in_buffer.replace(range.start_pos + offset, match_len, replace_with);
+        offset += (replace_with_len - match_len);
+    }
+    m_sci->Replace(range.start_pos, range.end_pos, in_buffer);
+    return matches.size();
+}
+
+bool QuickFindBar::IsReplacementRegex() const
+{
+    wxString replace_with = m_textCtrlReplace->GetValue();
+    for(size_t i = 0; i < 10; ++i) {
+        wxString re_group;
+        re_group << "\\" << i;
+        if(replace_with.Contains(re_group)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+TargetRange QuickFindBar::DoFindWithMessage(size_t find_flags, const TargetRange& target)
+{
+    clGetManager()->GetStatusBar()->SetMessage(wxEmptyString);
+    auto res = DoFind(find_flags, target);
+    if(!res.IsOk()) {
+        if(find_flags & FIND_PREV) {
+            clGetManager()->GetStatusBar()->SetMessage(_("Reached the start of the document"));
+        } else {
+            clGetManager()->GetStatusBar()->SetMessage(_("Reached the end of the document"));
+        }
+    }
+    return res;
+}
+
+TargetRange QuickFindBar::DoFindWithWrap(size_t find_flags, const TargetRange& target)
+{
+    auto res = DoFindWithMessage(find_flags, target);
+    if(!res.IsOk()) {
+        // reached end or start of the document
+        // start from the beginning (the range will switch if FIND_PREV is set)
+        clGetManager()->SetStatusMessage(_("Wrapped past end of file"), 2);
+        res = DoFindWithMessage(find_flags, { 0, static_cast<int>(m_sci->GetLastPosition()) });
+    }
+    return res;
+}
+
+TargetRange QuickFindBar::GetBestTargetRange() const
+{
+    if(!m_sci) {
+        return {};
+    }
+
+    if(m_inSelection) {
+        return { m_sci->GetSelectionStart(), m_sci->GetSelectionEnd() };
+    } else {
+        return { 0, static_cast<int>(m_sci->GetLastPosition()) };
+    }
+}
+void QuickFindBar::OnReplaceTextEnter(wxCommandEvent& event) {}
+void QuickFindBar::OnReplaceTextUpdated(wxCommandEvent& event) {}

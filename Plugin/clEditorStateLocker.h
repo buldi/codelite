@@ -27,9 +27,11 @@
 #define CLEDITORSTATELOCKER_H
 
 #include "codelite_exports.h"
-#include <wx/stc/stc.h>
-#include <wx/arrstr.h>
+#include "ieditor.h"
+
 #include <vector>
+#include <wx/arrstr.h>
+#include <wx/stc/stc.h>
 
 class WXDLLIMPEXP_SDK clEditorStateLocker
 {
@@ -46,27 +48,27 @@ private:
 
     // Bookrmarks
     wxArrayString m_bookmarks;
-    
+
     // Breakpoints
     wxArrayString m_breakpoints;
-    
+
     // Folds
     clEditorStateLocker::VecInt_t m_folds;
-    
+
     // Caret position
     int m_position;
-    
+
 private:
     void SerializeBookmarks();
     void SerializeFolds();
     void SerializeBreakpoints();
-    
+
     void ApplyBookmarks();
     void ApplyFolds();
     void ApplyBreakpoints();
 
 public:
-    clEditorStateLocker(wxStyledTextCtrl* ctrl);
+    clEditorStateLocker(wxStyledTextCtrl* ctrl = nullptr);
     virtual ~clEditorStateLocker();
 
     /**
@@ -89,16 +91,24 @@ public:
      * Store any collapsed folds to a vector, so they can be serialised
      */
     static void SerializeFolds(wxStyledTextCtrl* ctrl, clEditorStateLocker::VecInt_t& folds);
-    
+
     /**
      * @brief serialize Breakpoints markers into an array
      */
-    static void SerializeBreakpoints(wxStyledTextCtrl* ctrl, wxArrayString &breapoints);
-    
+    static void SerializeBreakpoints(wxStyledTextCtrl* ctrl, wxArrayString& breapoints);
+
     /**
      * @brief apply breapoints markers
      */
-    static void ApplyBreakpoints(wxStyledTextCtrl* ctrl, const wxArrayString &breapoints);
+    static void ApplyBreakpoints(wxStyledTextCtrl* ctrl, const wxArrayString& breapoints);
 };
 
+class WXDLLIMPEXP_SDK clEditorActiveLocker
+{
+    IEditor* editor = nullptr;
+
+public:
+    clEditorActiveLocker();
+    ~clEditorActiveLocker();
+};
 #endif // CLEDITORSTATELOCKER_H

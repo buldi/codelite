@@ -1,12 +1,11 @@
-#include "ColoursAndFontsManager.h"
 #include "PHPDebugPane.h"
+#include "ColoursAndFontsManager.h"
 #include "XDebugManager.h"
 #include "lexer_configuration.h"
 #include "php_event.h"
 #include "php_utils.h"
 #include "php_workspace.h"
 #include "xdebugevent.h"
-#include <cl_aui_notebook_art.h>
 #include <editor_config.h>
 #include <event_notifier.h>
 #include <globals.h>
@@ -24,16 +23,13 @@ PHPDebugPane::PHPDebugPane(wxWindow* parent)
     EventNotifier::Get()->Bind(wxEVT_XDEBUG_SESSION_ENDED, &PHPDebugPane::OnXDebugSessionEnded, this);
     EventNotifier::Get()->Bind(wxEVT_EDITOR_CONFIG_CHANGED, &PHPDebugPane::OnSettingsChanged, this);
     m_console = new TerminalEmulatorUI(m_auiBook);
-
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        m_auiBook->SetStyle((kNotebook_Default & ~kNotebook_LightTabs) | kNotebook_DarkTabs);
-    } else {
-        m_auiBook->SetStyle(kNotebook_Default);
-    }
+    m_auiBook->SetStyle(kNotebook_Default);
 
     m_auiBook->AddPage(m_console, _("Console"), true);
     LexerConf::Ptr_t phpLexer = ColoursAndFontsManager::Get().GetLexer("php");
-    if(phpLexer) { phpLexer->Apply(m_console->GetTerminalOutputWindow()); }
+    if(phpLexer) {
+        phpLexer->Apply(m_console->GetTerminalOutputWindow());
+    }
     m_tbBreakpoints->AddTool(wxID_DELETE, _("Delete"), clGetManager()->GetStdIcons()->LoadBitmap("minus"),
                              _("Delete the selected breakpoints"));
     m_tbBreakpoints->AddTool(wxID_CLEAR, _("Delete all breakpoints"),
@@ -138,7 +134,9 @@ void PHPDebugPane::OnDeleteBreakpointUI(wxUpdateUIEvent& event)
 
 XDebugBreakpoint PHPDebugPane::GetBreakpoint(const wxDataViewItem& item) const
 {
-    if(!item.IsOk()) { return XDebugBreakpoint(); }
+    if(!item.IsOk()) {
+        return XDebugBreakpoint();
+    }
 
     wxString id = m_dvListCtrlBreakpoints->GetItemText(item, 0);
     wxString filename = m_dvListCtrlBreakpoints->GetItemText(item, 1);
@@ -157,12 +155,6 @@ XDebugBreakpoint PHPDebugPane::GetBreakpoint(const wxDataViewItem& item) const
 void PHPDebugPane::OnRefreshBreakpointsView(XDebugEvent& e)
 {
     e.Skip();
-    // LexerConf::Ptr_t lex = EditorConfigST::Get()->GetLexer("php");
-    // if(lex) {
-    //     m_dvListCtrlBreakpoints->SetFont(lex->GetFontForSyle(wxSTC_HPHP_DEFAULT));
-    //     m_dvListCtrlStackTrace->SetFont(lex->GetFontForSyle(wxSTC_HPHP_DEFAULT));
-    // }
-
     // Load the breakpoints table
     m_dvListCtrlBreakpoints->DeleteAllItems();
     const XDebugBreakpoint::List_t& bps = XDebugManager::Get().GetBreakpointsMgr().GetBreakpoints();
@@ -216,16 +208,10 @@ void PHPDebugPane::OnXDebugSessionStarting(XDebugEvent& event)
     event.Skip();
     m_console->SetTerminal(PHPWorkspace::Get()->GetTerminalEmulator());
     LexerConf::Ptr_t phpLexer = ColoursAndFontsManager::Get().GetLexer("php");
-    if(phpLexer) { phpLexer->Apply(m_console->GetTerminalOutputWindow()); }
+    if(phpLexer) {
+        phpLexer->Apply(m_console->GetTerminalOutputWindow());
+    }
 }
 void PHPDebugPane::OnCallStackMenu(wxDataViewEvent& event) {}
 
-void PHPDebugPane::OnSettingsChanged(wxCommandEvent& event)
-{
-    event.Skip();
-    if(EditorConfigST::Get()->GetOptions()->IsTabColourDark()) {
-        m_auiBook->SetStyle((m_auiBook->GetStyle() & ~kNotebook_LightTabs) | kNotebook_DarkTabs);
-    } else {
-        m_auiBook->SetStyle((m_auiBook->GetStyle() & ~kNotebook_DarkTabs) | kNotebook_LightTabs);
-    }
-}
+void PHPDebugPane::OnSettingsChanged(wxCommandEvent& event) { event.Skip(); }

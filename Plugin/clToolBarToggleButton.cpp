@@ -1,11 +1,10 @@
 #include "clToolBarToggleButton.h"
 
-clToolBarToggleButton::clToolBarToggleButton(
-    clToolBar* parent, wxWindowID id, const wxBitmap& bmp, const wxString& label)
-    : clToolBarButton(parent, id, bmp, label)
+clToolBarToggleButton::clToolBarToggleButton(clToolBarGeneric* parent, wxWindowID id, size_t bitmapId,
+                                             const wxString& label)
+    : clToolBarButton(parent, id, bitmapId, label)
 {
     m_flags = kToggleButton;
 }
 
 clToolBarToggleButton::~clToolBarToggleButton() {}
-

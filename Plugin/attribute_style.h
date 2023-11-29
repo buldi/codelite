@@ -25,21 +25,15 @@
 #ifndef ATTRIBUTE_STYLE_H
 #define ATTRIBUTE_STYLE_H
 
-#include "wx/string.h"
-#include <list>
-#include <map>
-#include <wx/colour.h>
 #include "JSON.h"
 #include "codelite_exports.h"
+#include "wx/string.h"
 
-// Set default font size per-OS
-#if defined(__WXGTK__)
-#define FONT_SIZE 12
-#elif defined(__WXMSW__)
-#define FONT_SIZE 12
-#else
-#define FONT_SIZE 14
-#endif
+#include <list>
+#include <map>
+#include <vector>
+#include <wx/colour.h>
+#include <wx/stc/stc.h>
 
 // Special attributes IDs
 #define FOLD_MARGIN_ATTR_ID -1
@@ -51,14 +45,13 @@
 
 class WXDLLIMPEXP_SDK StyleProperty
 {
-    int m_id;
+    int m_id = 0;
+    wxString m_name;
+    wxString m_fontDesc;
     wxString m_fgColour;
     wxString m_bgColour;
-    long m_fontSize;
-    wxString m_name;
-    wxString m_faceName;
-    size_t m_flags;
-    int m_alpha;
+    int m_fontSize = wxNOT_FOUND;
+    size_t m_flags = 0;
 
 public:
     enum eStyleFlags {
@@ -67,27 +60,11 @@ public:
         kBold = (1 << 1),
         kUnderline = (1 << 2),
         kEolFilled = (1 << 3),
+        kIsSubStyle = (1 << 4),
     };
 
 public:
-    typedef std::map<long, StyleProperty> Map_t;
-    struct FindByName {
-        wxString m_name;
-        FindByName(const wxString& name)
-            : m_name(name)
-        {
-        }
-        bool operator()(const std::pair<long, StyleProperty>& other) const { return m_name == other.second.GetName(); }
-    };
-
-    struct FindByID {
-        int m_id;
-        FindByID(int id)
-            : m_id(id)
-        {
-        }
-        bool operator()(const std::pair<long, StyleProperty>& other) const { return m_id == other.first; }
-    };
+    typedef std::vector<StyleProperty> Vec_t;
 
 protected:
     inline void EnableFlag(eStyleFlags flag, bool b)
@@ -102,21 +79,15 @@ protected:
     inline bool HasFlag(eStyleFlags flag) const { return m_flags & flag; }
 
 public:
-    StyleProperty(int id,
-                  const wxString& fgColour,
-                  const wxString& bgColour,
-                  const int fontSize,
-                  const wxString& name,
-                  const wxString& face,
-                  bool bold,
-                  bool italic,
-                  bool underline,
-                  bool eolFilled,
-                  int alpha);
+    StyleProperty(int id, const wxString& name, const wxString& fgColour, const wxString& bgColour, const int fontSize,
+                  bool bold, bool italic, bool underline, bool eolFilled);
+    StyleProperty(int id, const wxString& name, const wxString& fontDesc, const wxString& fgColour,
+                  const wxString& bgColour, bool eolFilled);
     StyleProperty();
-    StyleProperty(const StyleProperty& rhs) { *this = rhs; };
-    StyleProperty& operator=(const StyleProperty& rhs);
     ~StyleProperty() {}
+
+    bool IsSubstyle() const { return m_flags & kIsSubStyle; }
+    void SetSubstyle() { m_flags |= kIsSubStyle; }
 
     //----------------------------
     // Serialization
@@ -125,7 +96,7 @@ public:
     /**
      * @brief unserialize an object from JSON
      */
-    void FromJSON(JSONItem json);
+    void FromJSON(const JSONItem& json);
 
     /**
      * @brief serialize this style property into a JSON object
@@ -137,28 +108,19 @@ public:
 
     bool IsNull() const { return m_id == STYLE_PROPERTY_NULL_ID; }
 
-    void SetAlpha(int alpha) { this->m_alpha = alpha; }
-    int GetAlpha() const { return m_alpha; }
-
     const wxString& GetFgColour() const { return m_fgColour; }
     const wxString& GetBgColour() const { return m_bgColour; }
 
     void SetEolFilled(bool eolFilled) { EnableFlag(kEolFilled, eolFilled); }
     bool GetEolFilled() const { return HasFlag(kEolFilled); }
-    long GetFontSize() const
-    {
-        if(m_fontSize <= 0) return FONT_SIZE;
-        return m_fontSize;
-    }
-
-    const wxString& GetFaceName() const { return m_faceName; }
+    wxString GetFontInfoDesc() const;
+    bool HasFontInfoDesc() const { return !m_fontDesc.empty(); }
+    void SetFontInfoDesc(const wxString& desc);
     bool IsBold() const { return HasFlag(kBold); }
     const wxString& GetName() const { return m_name; }
     int GetId() const { return m_id; }
     void SetBgColour(const wxString& colour) { m_bgColour = colour; }
     void SetFgColour(const wxString& colour) { m_fgColour = colour; }
-    void SetFontSize(long size) { m_fontSize = size; }
-    void SetFaceName(const wxString& face) { m_faceName = face; }
     void SetBold(bool bold) { EnableFlag(kBold, bold); }
     void SetId(int id) { m_id = id; }
     void SetItalic(bool italic) { EnableFlag(kItalic, italic); }
@@ -166,5 +128,7 @@ public:
     void SetUnderlined(bool underlined) { EnableFlag(kUnderline, underlined); }
     bool GetUnderlined() const { return HasFlag(kUnderline); }
     void SetName(const wxString& name) { this->m_name = name; }
+    void FromAttributes(wxFont* font) const;
+    void SetFontSize(int size) { m_fontSize = size; }
 };
 #endif

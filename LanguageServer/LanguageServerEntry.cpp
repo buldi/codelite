@@ -1,5 +1,9 @@
 #include "LanguageServerEntry.h"
-#include "LanguageServerProtocol.h"
+
+#include "JSON.h"
+#include "LSP/LanguageServerProtocol.h"
+#include "StringUtils.h"
+#include "globals.h"
 
 LanguageServerEntry::LanguageServerEntry()
     : m_connectionString("stdio")
@@ -17,13 +21,18 @@ void LanguageServerEntry::FromJSON(const JSONItem& json)
     m_languages = json.namedObject("languages").toArrayString();
     m_enabled = json.namedObject("enabled").toBool(m_enabled);
     m_connectionString = json.namedObject("connectionString").toString("stdio");
-    m_priority = json.namedObject("priority").toInt(m_priority);
     m_disaplayDiagnostics = json.namedObject("displayDiagnostics").toBool(m_disaplayDiagnostics); // defaults to true
-    m_unimplementedMethods.clear();
-    wxArrayString methods = json.namedObject("unimplementedMethods").toArrayString();
-    for(const wxString& methodName : methods) {
-        m_unimplementedMethods.insert(methodName);
+    m_initOptions = json["initOptions"].toString();
+
+    // we no longer are using exepath + args, instead a single "command" is used
+    wxString commandDefault = m_exepath;
+    if(!commandDefault.IsEmpty()) {
+        ::WrapWithQuotes(commandDefault);
+        if(!m_args.empty()) {
+            commandDefault << " " << m_args;
+        }
     }
+    m_command = json.namedObject("command").toString(commandDefault);
 }
 
 JSONItem LanguageServerEntry::ToJSON() const
@@ -36,15 +45,9 @@ JSONItem LanguageServerEntry::ToJSON() const
     json.addProperty("enabled", m_enabled);
     json.addProperty("workingDirectory", m_workingDirectory);
     json.addProperty("connectionString", m_connectionString);
-    json.addProperty("priority", m_priority);
     json.addProperty("displayDiagnostics", m_disaplayDiagnostics);
-    wxArrayString methods;
-    methods.Alloc(m_unimplementedMethods.size());
-    for(const wxString& methodName : m_unimplementedMethods) {
-        methods.Add(methodName);
-    }
-
-    json.addProperty("unimplementedMethods", methods);
+    json.addProperty("command", m_command);
+    json.addProperty("initOptions", m_initOptions);
     return json;
 }
 
@@ -59,19 +62,44 @@ eNetworkType LanguageServerEntry::GetNetType() const
     }
 }
 
-bool LanguageServerEntry::IsValid() const
-{
-    bool is_valid = true;
-    if(m_name.IsEmpty()) { return false; }
+bool LanguageServerEntry::IsNull() const { return m_name.empty(); }
 
-    wxFileName exePath(m_exepath);
-    if(exePath.IsAbsolute() && !exePath.FileExists()) { return false; }
-    wxFileName wd(m_workingDirectory, "");
-    if(wd.IsAbsolute() && !wd.DirExists()) { return false; }
-    return true;
+bool LanguageServerEntry::IsAutoRestart() const
+{
+    wxString command = GetCommand();
+    command.Trim().Trim(false);
+    return !command.IsEmpty();
 }
 
-void LanguageServerEntry::AddUnImplementedMethod(const wxString& methodName)
+wxString LanguageServerEntry::GetCommand(bool pretty) const
 {
-    m_unimplementedMethods.insert(methodName);
+    auto cmd_arr = StringUtils::BuildCommandArrayFromString(m_command);
+    return StringUtils::BuildCommandStringFromArray(cmd_arr,
+                                                    pretty ? StringUtils::WITH_COMMENT_PREFIX : StringUtils::ONE_LINER);
 }
+
+void LanguageServerEntry::SetCommand(const wxString& command)
+{
+    auto cmd_arr = StringUtils::BuildCommandArrayFromString(command);
+    m_command = StringUtils::BuildCommandStringFromArray(cmd_arr);
+}
+
+namespace
+{
+wxString format_json_str(const wxString& str, bool pretty)
+{
+    if(str.empty()) {
+        return wxEmptyString;
+    }
+
+    JSON root{ str };
+    if(!root.isOk()) {
+        return wxEmptyString;
+    }
+    return root.toElement().format(pretty);
+}
+} // namespace
+
+void LanguageServerEntry::SetInitOptions(const wxString& options) { m_initOptions = format_json_str(options, false); }
+
+wxString LanguageServerEntry::GetInitOptions() const { return format_json_str(m_initOptions, true); }

@@ -23,7 +23,9 @@ static PHPRefactoring* thePlugin = NULL;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == NULL) { thePlugin = new PHPRefactoring(manager); }
+    if(thePlugin == NULL) {
+        thePlugin = new PHPRefactoring(manager);
+    }
     return thePlugin;
 }
 
@@ -51,7 +53,7 @@ PHPRefactoring::PHPRefactoring(IManager* manager)
 
 PHPRefactoring::~PHPRefactoring() {}
 
-void PHPRefactoring::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void PHPRefactoring::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void PHPRefactoring::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -127,15 +129,19 @@ void PHPRefactoring::OnMenuCommand(wxCommandEvent& e)
 void PHPRefactoring::OnExtractMethod(wxCommandEvent& e)
 {
     IEditor* editor = m_manager->GetActiveEditor();
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     int startLine = editor->LineFromPos(editor->GetSelectionStart()) + 1;
     int endLine = editor->LineFromPos(editor->GetSelectionEnd()) + 1;
-    wxString method = wxGetTextFromUser("Name the new methode");
-    if(method.IsEmpty()) { return; }
+    wxString method = wxGetTextFromUser(_("Name the new method"));
+    if(method.IsEmpty()) {
+        return;
+    }
 
     if(method.Contains(" ")) {
-        ::wxMessageBox(_("Methode name may not contain spaces"), "PHPRefactoring", wxICON_ERROR | wxOK | wxCENTER);
+        ::wxMessageBox(_("Method name may not contain spaces"), "PHPRefactoring", wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
 
@@ -153,22 +159,32 @@ void PHPRefactoring::OnRenameClassProperty(wxCommandEvent& e) { RenameVariable("
 void PHPRefactoring::RenameVariable(const wxString& action)
 {
     IEditor* editor = m_manager->GetActiveEditor();
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     wxString line;
     line << (editor->GetCurrentLine() + 1);
     wxString oldName = editor->GetWordAtCaret();
-    if(oldName.StartsWith("$")) { oldName = oldName.Mid(1); }
-    if(oldName.IsEmpty()) { return; }
+    if(oldName.StartsWith("$")) {
+        oldName = oldName.Mid(1);
+    }
+    if(oldName.IsEmpty()) {
+        return;
+    }
 
-    wxString newName = wxGetTextFromUser("New name for " + oldName);
+    wxString newName = wxGetTextFromUser(_("New name for ") + oldName);
     newName.Trim().Trim(false);
 
     // If it starts with $ sign, remove it
-    if(newName.StartsWith("$")) { newName = newName.Mid(1); }
+    if(newName.StartsWith("$")) {
+        newName = newName.Mid(1);
+    }
 
     // Sanity
-    if(newName.IsEmpty()) { return; }
+    if(newName.IsEmpty()) {
+        return;
+    }
 
     wxString parameters = line + " " + oldName + " " + newName;
     RefactorFile(action, parameters, editor);
@@ -177,13 +193,19 @@ void PHPRefactoring::RenameVariable(const wxString& action)
 void PHPRefactoring::OnConvertLocalToInstanceVariable(wxCommandEvent& e)
 {
     IEditor* editor = m_manager->GetActiveEditor();
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     wxString line;
     line << (editor->GetCurrentLine() + 1);
     wxString oldName = editor->GetWordAtCaret();
-    if(oldName.StartsWith("$")) { oldName = oldName.Mid(1); }
-    if(oldName.IsEmpty()) { return; }
+    if(oldName.StartsWith("$")) {
+        oldName = oldName.Mid(1);
+    }
+    if(oldName.IsEmpty()) {
+        return;
+    }
 
     wxString parameters = line + " " + oldName;
     RefactorFile("convert-local-to-instance-variable", parameters, editor);
@@ -194,7 +216,9 @@ void PHPRefactoring::OnRenameClassAndNamespaces(wxCommandEvent& e)
     wxString msg;
     msg << _("This will sync namespaces and classes with folder and filenames, for all files in the selected folder, "
              "to comply with psr-0\nContinue?");
-    if(wxYES != ::wxMessageBox(msg, "PHP Refactoring", wxYES_NO | wxCANCEL | wxCENTER)) { return; }
+    if(wxYES != ::wxMessageBox(msg, _("PHP Refactoring"), wxYES_NO | wxCANCEL | wxCENTER)) {
+        return;
+    }
 
     RunCommand("fix-class-names " + m_selectedFolder, m_selectedFolder);
     // Reload the patched files
@@ -204,7 +228,9 @@ void PHPRefactoring::OnRenameClassAndNamespaces(wxCommandEvent& e)
 void PHPRefactoring::OnOptimizeUseStatements(wxCommandEvent& e)
 {
     IEditor* editor = m_manager->GetActiveEditor();
-    if(!editor) { return; }
+    if(!editor) {
+        return;
+    }
 
     RefactorFile("optimize-use", "", editor);
 }
@@ -216,7 +242,7 @@ void PHPRefactoring::RefactorFile(const wxString& action, const wxString& extraP
     tmpfile << filePath << "-refactoring-browser.php";
     wxString oldContent = editor->GetEditorText();
     if(!FileUtils::WriteFileContent(tmpfile, oldContent)) {
-        ::wxMessageBox(_("Can not refactor file:\nFailed to write temporary file"), "PHP Refactoring",
+        ::wxMessageBox(_("Can not refactor file:\nFailed to write temporary file"), _("PHP Refactoring"),
                        wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
@@ -237,7 +263,7 @@ void PHPRefactoring::RefactorFile(const wxString& action, const wxString& extraP
     RunCommand(parameters);
 
     if(!FileUtils::ReadFileContent(tmpfile, output)) {
-        ::wxMessageBox(_("Can not refactor file:\nfailed to read temporary file content"), "PHP Refactoring",
+        ::wxMessageBox(_("Can not refactor file:\nfailed to read temporary file content"), _("PHP Refactoring"),
                        wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
@@ -264,7 +290,7 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
 
     wxFileName php(m_settingsPhp.GetPhpExe());
     if(!php.Exists()) {
-        ::wxMessageBox(_("Can not refactor file: Missing PHP executable path"), "PHP Refactoring",
+        ::wxMessageBox(_("Can not refactor file: Missing PHP executable path"), _("PHP Refactoring"),
                        wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
@@ -273,7 +299,7 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
 
     wxFileName refactor(m_settings.GetPhprefactoringPhar());
     if(!refactor.Exists()) {
-        ::wxMessageBox(_("Can not refactor file: Missing PHP Refactoring Browser path"), "PHP Refactoring",
+        ::wxMessageBox(_("Can not refactor file: Missing PHP Refactoring Browser path"), _("PHP Refactoring"),
                        wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
@@ -282,9 +308,8 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
 
     command = phpPath + " " + refactorPath + " " + parameters;
     clDEBUG() << "PHPRefactoring running:" << command << clEndl;
-    ::WrapInShell(command);
-    IProcess::Ptr_t process(
-        ::CreateSyncProcess(command, IProcessCreateDefault | IProcessCreateWithHiddenConsole, workingDir));
+    IProcess::Ptr_t process(::CreateSyncProcess(
+        command, IProcessCreateDefault | IProcessCreateWithHiddenConsole | IProcessWrapInShell, workingDir));
     // CHECK_PTR_RET_FALSE(process);
 
     wxString patch, tmpfile;
@@ -314,14 +339,14 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
             errorMessage = errorMessage.Mid(0, 500);
             errorMessage << "...";
         }
-        ::wxMessageBox(errorMessage, "PHP Refactoring", wxICON_ERROR | wxOK | wxCENTER);
+        ::wxMessageBox(errorMessage, _("PHP Refactoring"), wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
 
     wxFileName fnTmpFile(wxFileName::CreateTempFileName("diff-XXXXXX"));
     tmpfile = fnTmpFile.GetFullPath();
     if(!FileUtils::WriteFileContent(tmpfile, patch)) {
-        ::wxMessageBox(_("Can not refactor file:\nFailed to write temporary file"), "PHP Refactoring",
+        ::wxMessageBox(_("Can not refactor file:\nFailed to write temporary file"), _("PHP Refactoring"),
                        wxICON_ERROR | wxOK | wxCENTER);
         return;
     }
@@ -346,7 +371,7 @@ void PHPRefactoring::OnContextMenu(clContextMenuEvent& event)
     event.Skip();
     wxMenu* menu = new wxMenu();
     menu->Append(wxID_RENAME_CLASS_AND_NAMESPACES, _("Rename Class and Namespaces"));
-    wxMenuItem* item = new wxMenuItem(event.GetMenu(), wxID_ANY, wxT("PHP Refactoring"));
+    wxMenuItem* item = new wxMenuItem(event.GetMenu(), wxID_ANY, _("PHP Refactoring"));
     item->SetSubMenu(menu);
     item->SetBitmap(clGetManager()->GetStdIcons()->LoadBitmap("php-workspace"));
     event.GetMenu()->AppendSeparator();

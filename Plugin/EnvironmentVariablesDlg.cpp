@@ -1,18 +1,21 @@
 #include "EnvironmentVariablesDlg.h"
+
+#include "ColoursAndFontsManager.h"
+#include "cl_command_event.h"
+#include "codelite_events.h"
+#include "environmentconfig.h"
+#include "event_notifier.h"
+#include "evnvarlist.h"
+#include "globals.h"
+#include "lexer_configuration.h"
+#include "window_locker.h"
+
 #include <wx/arrstr.h>
-#include <wx/tokenzr.h>
 #include <wx/ffile.h>
 #include <wx/msgdlg.h>
 #include <wx/regex.h>
-#include "ColoursAndFontsManager.h"
-#include "lexer_configuration.h"
-#include "window_locker.h"
-#include "evnvarlist.h"
-#include "environmentconfig.h"
-#include "cl_command_event.h"
-#include "event_notifier.h"
-#include "codelite_events.h"
 #include <wx/textdlg.h>
+#include <wx/tokenzr.h>
 
 // EnvironmentVariablesDlg* EnvironmentVariablesDlg::m_dlg = nullptr;
 
@@ -59,6 +62,7 @@ EnvironmentVariablesDlg::EnvironmentVariablesDlg(wxWindow* parent)
             ctrl->EmptyUndoBuffer();
         }
     }
+    ::clSetSmallDialogBestSizeAndPosition(this);
 }
 
 EnvironmentVariablesDlg::~EnvironmentVariablesDlg() {}
@@ -111,10 +115,11 @@ void EnvironmentVariablesDlg::OnDeleteSet(wxCommandEvent& event)
     wxUnusedVar(event);
 
     int selection = m_book->GetSelection();
-    if(selection == wxNOT_FOUND) return;
+    if(selection == wxNOT_FOUND)
+        return;
 
     wxString name = m_book->GetPageText((size_t)selection);
-    if(wxMessageBox(wxString::Format(wxT("Delete environment variables set\n'%s' ?"), name.c_str()), wxT("Confirm"),
+    if(wxMessageBox(wxString::Format(_("Delete environment variables set\n'%s' ?"), name.c_str()), _("Confirm"),
                     wxYES_NO | wxICON_QUESTION, this) != wxYES)
         return;
     m_book->DeletePage((size_t)selection);
@@ -129,7 +134,8 @@ void EnvironmentVariablesDlg::OnDeleteSetUI(wxUpdateUIEvent& event)
 void EnvironmentVariablesDlg::OnExport(wxCommandEvent& event)
 {
     int selection = m_book->GetSelection();
-    if(selection == wxNOT_FOUND) return;
+    if(selection == wxNOT_FOUND)
+        return;
 
 #ifdef __WXMSW__
     bool isWindows = true;
@@ -147,7 +153,8 @@ void EnvironmentVariablesDlg::OnExport(wxCommandEvent& event)
         }
     }
 
-    if(text.IsEmpty()) return;
+    if(text.IsEmpty())
+        return;
 
     wxArrayString lines = wxStringTokenize(text, wxT("\r\n"), wxTOKEN_STRTOK);
     wxString envfile;
@@ -168,7 +175,8 @@ void EnvironmentVariablesDlg::OnExport(wxCommandEvent& event)
     for(size_t i = 0; i < lines.GetCount(); i++) {
 
         wxString sLine = lines.Item(i).Trim().Trim(false);
-        if(sLine.IsEmpty()) continue;
+        if(sLine.IsEmpty())
+            continue;
 
         static wxRegEx reVarPattern(wxT("\\$\\(( *)([a-zA-Z0-9_]+)( *)\\)"));
         if(isWindows) {
@@ -211,7 +219,8 @@ void EnvironmentVariablesDlg::DoAddNewSet()
     wxTextEntryDialog dlg(this, _("Name:"), wxT("Create a new set"), "My New Set");
     if(dlg.ShowModal() == wxID_OK) {
         wxString name = dlg.GetValue();
-        if(name.IsEmpty()) return;
+        if(name.IsEmpty())
+            return;
         DoAddPage(name, wxT(""), false);
     }
 }

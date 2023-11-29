@@ -1,3 +1,5 @@
+#include "webtools.h"
+
 #include "NodeDebuggerPane.h"
 #include "NodeJSEvents.h"
 #include "NodeJSWorkspaceView.h"
@@ -8,6 +10,7 @@
 #include "WebToolsConfig.h"
 #include "WebToolsSettings.h"
 #include "bitmap_loader.h"
+#include "clNodeJS.h"
 #include "clWorkspaceManager.h"
 #include "clWorkspaceView.h"
 #include "codelite_events.h"
@@ -18,19 +21,20 @@
 #include "fileutils.h"
 #include "globals.h"
 #include "tags_options_data.h"
-#include "webtools.h"
+
 #include <wx/dirdlg.h>
 #include <wx/menu.h>
 #include <wx/stc/stc.h>
 #include <wx/xrc/xmlres.h>
-#include "clNodeJS.h"
 
 static WebTools* thePlugin = NULL;
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new WebTools(manager); }
+    if(thePlugin == 0) {
+        thePlugin = new WebTools(manager);
+    }
     return thePlugin;
 }
 
@@ -48,7 +52,6 @@ CL_PLUGIN_API int GetPluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION;
 
 WebTools::WebTools(IManager* manager)
     : IPlugin(manager)
-    , m_lastColourUpdate(0)
     , m_clangOldFlag(false)
 {
     m_longName = _("Support for JavaScript, CSS/SCSS, HTML, XML and other web development tools");
@@ -58,7 +61,9 @@ WebTools::WebTools(IManager* manager)
     WebToolsConfig& conf = WebToolsConfig::Get().Load();
     wxFileName fnNodeJS(conf.GetNodejs());
     wxArrayString hints;
-    if(fnNodeJS.FileExists()) { hints.Add(fnNodeJS.GetPath()); }
+    if(fnNodeJS.FileExists()) {
+        hints.Add(fnNodeJS.GetPath());
+    }
     clNodeJS::Get().Initialise(hints);
 
     // Update the configuration with the findings
@@ -68,11 +73,6 @@ WebTools::WebTools(IManager* manager)
     // Register our new workspace type
     NodeJSWorkspace::Get(); // Instantiate the singleton by faking a call
     clWorkspaceManager::Get().RegisterWorkspace(new NodeJSWorkspace(true));
-
-    // Create the syntax highligher worker thread
-    m_jsColourThread = new JavaScriptSyntaxColourThread(this);
-    m_jsColourThread->Create();
-    m_jsColourThread->Run();
 
     EventNotifier::Get()->Bind(wxEVT_FILE_LOADED, &WebTools::OnFileLoaded, this);
     EventNotifier::Get()->Bind(wxEVT_FILE_SAVED, &WebTools::OnFileSaved, this);
@@ -96,10 +96,8 @@ WebTools::WebTools(IManager* manager)
     Bind(wxEVT_MENU, &WebTools::OnSettings, this, XRCID("webtools_settings"));
     Bind(wxEVT_NODE_COMMAND_TERMINATED, &WebTools::OnNodeCommandCompleted, this);
 
-    m_jsCodeComplete.Reset(new JSCodeCompletion("", this));
     m_xmlCodeComplete.Reset(new XMLCodeCompletion(this));
     m_cssCodeComplete.Reset(new CSSCodeCompletion(this));
-    m_jsctags.Reset(new clJSCTags());
 
     // Connect the timer
     m_timer = new wxTimer(this);
@@ -111,7 +109,7 @@ WebTools::WebTools(IManager* manager)
 
 WebTools::~WebTools() { NodeJSWorkspace::Free(); }
 
-void WebTools::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void WebTools::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void WebTools::CreatePluginMenu(wxMenu* pluginsMenu)
 {
@@ -152,40 +150,15 @@ void WebTools::UnPlug()
     Unbind(wxEVT_TIMER, &WebTools::OnTimer, this, m_timer->GetId());
     m_timer->Stop();
     wxDELETE(m_timer);
-
-    m_jsColourThread->Stop();
-    wxDELETE(m_jsColourThread);
-    m_jsCodeComplete.Reset(NULL);
 }
 
-void WebTools::DoRefreshColours(const wxString& filename)
-{
-    if(FileExtManager::GetType(filename) == FileExtManager::TypeJS) { m_jsColourThread->QueueFile(filename); }
-}
-
-void WebTools::ColourJavaScript(const JavaScriptSyntaxColourThread::Reply& reply)
-{
-    IEditor* editor = m_mgr->FindEditor(reply.filename);
-    if(editor) {
-        wxStyledTextCtrl* ctrl = editor->GetCtrl();
-        ctrl->SetKeyWords(1, reply.properties);
-        ctrl->SetKeyWords(3, reply.functions);
-        m_lastColourUpdate = time(NULL);
-    }
-}
+void WebTools::DoRefreshColours(const wxString& filename) { wxUnusedVar(filename); }
 
 void WebTools::OnThemeChanged(wxCommandEvent& event)
 {
     event.Skip();
     IEditor::List_t editors;
     m_mgr->GetAllEditors(editors);
-    IEditor::List_t::iterator iter = editors.begin();
-    for(; iter != editors.end(); ++iter) {
-        // Refresh the files' colouring
-        if(IsJavaScriptFile((*iter)->GetFileName())) {
-            m_jsColourThread->QueueFile((*iter)->GetFileName().GetFullPath());
-        }
-    }
 }
 
 bool WebTools::IsJavaScriptFile(const wxFileName& filename)
@@ -198,7 +171,7 @@ bool WebTools::IsJavaScriptFile(const wxString& filename)
     return FileExtManager::GetType(filename) == FileExtManager::TypeJS;
 }
 
-void WebTools::OnWorkspaceClosed(wxCommandEvent& event) { event.Skip(); }
+void WebTools::OnWorkspaceClosed(clWorkspaceEvent& event) { event.Skip(); }
 
 void WebTools::OnEditorChanged(wxCommandEvent& event)
 {
@@ -211,45 +184,27 @@ void WebTools::OnSettings(wxCommandEvent& event)
     WebToolsSettings settings(m_mgr->GetTheApp()->GetTopWindow());
     if(settings.ShowModal() == wxID_OK) {
         NodeJSWorkspace::Get()->AllocateDebugger();
-        if(m_jsCodeComplete) {
-            m_jsCodeComplete->Reload();
-            m_jsCodeComplete->ClearFatalError();
-        }
         if(m_xmlCodeComplete) {
             m_xmlCodeComplete->Reload();
-            m_jsCodeComplete->ClearFatalError();
         }
     }
 }
 
-void WebTools::OnTimer(wxTimerEvent& event)
-{
-    event.Skip();
-
-    time_t curtime = time(NULL);
-    if((curtime - m_lastColourUpdate) < 5) return;
-    IEditor* editor = m_mgr->GetActiveEditor();
-
-    // Sanity
-    CHECK_PTR_RET(editor);
-    CHECK_PTR_RET(editor->IsModified());
-    if(!IsJavaScriptFile(editor->GetFileName())) return;
-
-    // This file is a modified JS file
-    m_lastColourUpdate = time(NULL);
-    m_jsColourThread->QueueBuffer(editor->GetFileName().GetFullPath(), editor->GetTextRange(0, editor->GetLength()));
-}
+void WebTools::OnTimer(wxTimerEvent& event) { event.Skip(); }
 
 bool WebTools::IsJavaScriptFile(IEditor* editor)
 {
     CHECK_PTR_RET_FALSE(editor);
-    if(FileExtManager::IsJavascriptFile(editor->GetFileName())) return true;
+    if(FileExtManager::IsJavascriptFile(editor->GetFileName()))
+        return true;
 
     // We should also support Code Completion when inside a PHP/HTML file, but within a script area
     if(FileExtManager::IsPHPFile(editor->GetFileName())) {
         wxStyledTextCtrl* ctrl = editor->GetCtrl();
         int styleAtCurPos = ctrl->GetStyleAt(ctrl->GetCurrentPos());
-        if(styleAtCurPos >= wxSTC_HJ_START && styleAtCurPos <= wxSTC_HJA_REGEX) { return true; }
+        if(styleAtCurPos >= wxSTC_HJ_START && styleAtCurPos <= wxSTC_HJA_REGEX) {
+            return true;
+        }
     }
     return false;
 }
@@ -321,7 +276,8 @@ void WebTools::OnCommentSelection(wxCommandEvent& e)
 bool WebTools::IsHTMLFile(IEditor* editor)
 {
     CHECK_PTR_RET_FALSE(editor);
-    if(FileExtManager::GetType(editor->GetFileName().GetFullName()) == FileExtManager::TypeHtml) return true;
+    if(FileExtManager::GetType(editor->GetFileName().GetFullName()) == FileExtManager::TypeHtml)
+        return true;
 
     // We should also support Code Completion when inside a mixed PHP and HTML file
     if(FileExtManager::IsPHPFile(editor->GetFileName())) {
@@ -338,10 +294,12 @@ void WebTools::OnNodeJSDebuggerStopped(clDebugEvent& event)
 {
     event.Skip();
 
-    clDEBUG1() << "Saving NodeJS debugger perspective";
+    LOG_IF_TRACE { clDEBUG1() << "Saving NodeJS debugger perspective"; }
 
     wxString layoutFileName = "nodejs.layout";
-    if(event.GetEventType() == wxEVT_NODEJS_DEBUGGER_STOPPED) { layoutFileName = "nodejs_cli.layout"; }
+    if(event.GetEventType() == wxEVT_NODEJS_DEBUGGER_STOPPED) {
+        layoutFileName = "nodejs_cli.layout";
+    }
     wxFileName fnNodeJSLayout(clStandardPaths::Get().GetUserDataDir(), layoutFileName);
     fnNodeJSLayout.AppendDir("config");
     FileUtils::WriteFileContent(fnNodeJSLayout, m_mgr->GetDockingManager()->SavePerspective());
@@ -355,26 +313,20 @@ void WebTools::OnNodeJSDebuggerStopped(clDebugEvent& event)
 void WebTools::EnsureAuiPaneIsVisible(const wxString& paneName, bool update)
 {
     wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(paneName);
-    if(pi.IsOk() && !pi.IsShown()) { pi.Show(); }
-    if(update) { m_mgr->GetDockingManager()->Update(); }
+    if(pi.IsOk() && !pi.IsShown()) {
+        pi.Show();
+    }
+    if(update) {
+        m_mgr->GetDockingManager()->Update();
+    }
 }
 
-void WebTools::OnWorkspaceLoaded(wxCommandEvent& event)
+void WebTools::OnWorkspaceLoaded(clWorkspaceEvent& event)
 {
     event.Skip();
     wxFileName workspaceFile = event.GetString();
-    if(FileExtManager::GetType(workspaceFile.GetFullPath()) == FileExtManager::TypeWorkspaceNodeJS) {
-        // we need to do this in 2 steps: this is the because the service provider will auto register us on destuctions
-        // by NAME this means, that 'reset' will first call 'new' followed by 'delete' so we will end up to be removed
-        // from the list of service providers
-        m_jsCodeComplete.Reset(nullptr);
-        m_jsCodeComplete.Reset(new JSCodeCompletion(workspaceFile.GetPath(), this));
-    } else {
-        // For non NodeJS workspaces, create the .tern files under
-        // the .codelite folder
-        workspaceFile.AppendDir(".codelite");
-        m_jsCodeComplete.Reset(nullptr);
-        m_jsCodeComplete.Reset(new JSCodeCompletion(workspaceFile.GetPath(), this));
+    if(!workspaceFile.IsOk()) {
+        return;
     }
 }
 
@@ -395,21 +347,15 @@ void WebTools::OnFileSaved(clCommandEvent& event)
     DoRefreshColours(event.GetFileName());
     IEditor* editor = m_mgr->GetActiveEditor();
     if(editor && IsJavaScriptFile(editor) && !InsideJSComment(editor)) {
-        if(m_jsCodeComplete) { m_jsCodeComplete->ResetTern(false); }
         // Remove all compiler markers
         editor->DelAllCompilerMarkers();
-        if(WebToolsConfig::Get().IsLintOnSave()) { clNodeJS::Get().LintFile(event.GetFileName()); }
+        if(WebToolsConfig::Get().IsLintOnSave()) {
+            clNodeJS::Get().LintFile(event.GetFileName());
+        }
     }
 }
 
-void WebTools::OnEditorContextMenu(clContextMenuEvent& event)
-{
-    event.Skip();
-    IEditor* editor = m_mgr->GetActiveEditor();
-    if(editor && m_jsCodeComplete && IsJavaScriptFile(editor) && !InsideJSComment(editor)) {
-        m_jsCodeComplete->AddContextMenu(event.GetMenu(), editor);
-    }
-}
+void WebTools::OnEditorContextMenu(clContextMenuEvent& event) { event.Skip(); }
 
 void WebTools::OnIsDebugger(clDebugEvent& event)
 {
@@ -442,17 +388,10 @@ void WebTools::OnNodeJSCliDebuggerStarted(clDebugEvent& event)
     wxString layout;
     wxFileName fnNodeJSLayout(clStandardPaths::Get().GetUserDataDir(), "nodejs_cli.layout");
     fnNodeJSLayout.AppendDir("config");
-    if(FileUtils::ReadFileContent(fnNodeJSLayout, layout)) { m_mgr->GetDockingManager()->LoadPerspective(layout); }
+    if(FileUtils::ReadFileContent(fnNodeJSLayout, layout)) {
+        m_mgr->GetDockingManager()->LoadPerspective(layout);
+    }
     EnsureAuiPaneIsVisible("nodejs_cli_debugger", true);
 }
 
-void WebTools::OnNodeCommandCompleted(clProcessEvent& event)
-{
-    event.Skip();
-    if(event.GetString() == "npm-install-tern") {
-        // tern installation completed, enable the code completion again
-        clGetManager()->SetStatusMessage("tern installed", 5);
-        WebToolsConfig::Get().EnableJavaScriptFlag(WebToolsConfig::kJSEnableCC, true);
-        if(m_jsCodeComplete) { m_jsCodeComplete->ResetTern(true); }
-    }
-}
+void WebTools::OnNodeCommandCompleted(clProcessEvent& event) { event.Skip(); }

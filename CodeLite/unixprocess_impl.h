@@ -28,25 +28,29 @@
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
 #include "asyncprocess.h"
-#include "processreaderthread.h"
 #include "codelite_exports.h"
+#include "processreaderthread.h"
 
 class wxTerminal;
+
 class WXDLLIMPEXP_CL UnixProcessImpl : public IProcess
 {
     int m_readHandle;
     int m_stderrHandle = wxNOT_FOUND;
     int m_writeHandle;
-    ProcessReaderThread* m_thr = nullptr;
     wxString m_tty;
     friend class wxTerminal;
+
 private:
     void StartReaderThread();
-    bool ReadFromFd(int fd, fd_set& rset, wxString& output);
+    bool ReadFromFd(int fd, fd_set& rset, wxString& output, std::string& raw_output);
 
 public:
     UnixProcessImpl(wxEvtHandler* parent);
     virtual ~UnixProcessImpl();
+
+    static IProcess* Execute(wxEvtHandler* parent, const wxArrayString& args, size_t flags,
+                             const wxString& workingDirectory = wxEmptyString, IProcessCallback* cb = NULL);
 
     static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
                              const wxString& workingDirectory = wxEmptyString, IProcessCallback* cb = NULL);
@@ -62,16 +66,17 @@ public:
     const wxString& GetTty() const { return m_tty; }
 
 public:
-    virtual void Cleanup();
-    virtual bool IsAlive();
-    virtual bool Read(wxString& buff, wxString& buffErr);
-    virtual bool Write(const wxString& buff);
-    virtual bool Write(const std::string& buff);
-    virtual bool WriteRaw(const wxString& buff);
-    virtual bool WriteRaw(const std::string& buff);
-    virtual void Terminate();
-    virtual bool WriteToConsole(const wxString& buff);
-    virtual void Detach();
+    void Cleanup() override;
+    bool IsAlive() override;
+    bool Read(wxString& buff, wxString& buffErr, std::string& raw_buff, std::string& raw_buffErr) override;
+    bool Write(const wxString& buff) override;
+    bool Write(const std::string& buff) override;
+    bool WriteRaw(const wxString& buff) override;
+    bool WriteRaw(const std::string& buff) override;
+    void Terminate() override;
+    bool WriteToConsole(const wxString& buff) override;
+    void Detach() override;
+    void Signal(wxSignal sig) override;
 };
-#endif //#if defined(__WXMAC )||defined(__WXGTK__)
+#endif // #if defined(__WXMAC )||defined(__WXGTK__)
 #endif // __unixprocessimpl__

@@ -26,38 +26,16 @@
 #ifndef CppLexerAPI_H__
 #define CppLexerAPI_H__
 
-#include <wx/filename.h>
-#include <string.h>
-#include <wx/string.h>
-#include <wx/variant.h>
-#include <map>
-#include <list>
-#include <vector>
-#include <codelite_exports.h>
 #include "wxStringHash.h"
 
-#if 0
-#define DEBUGMSG wxPrintf
-#define CL_DEBUG wxPrintf
-#define CL_DEBUG1 wxPrintf
-#else
-
-#define DEBUGMSG(...) \
-    do {              \
-    } while(false)
-
-#if 0
-#define CL_DEBUG(...) \
-    do {              \
-    } while(false)
-
-#define CL_DEBUG1(...) \
-    do {               \
-    } while(false)
-
-#endif
-
-#endif
+#include <codelite_exports.h>
+#include <list>
+#include <map>
+#include <string.h>
+#include <vector>
+#include <wx/filename.h>
+#include <wx/string.h>
+#include <wx/variant.h>
 
 enum eLexerOptions {
     /// Options
@@ -72,8 +50,7 @@ enum eLexerOptions {
 
 enum class eCxxStandard { kCxx03, kCxx11 };
 
-struct WXDLLIMPEXP_CL CxxLexerException
-{
+struct WXDLLIMPEXP_CL CxxLexerException {
     wxString message;
     CxxLexerException(const wxString& msg)
         : message(msg)
@@ -81,14 +58,14 @@ struct WXDLLIMPEXP_CL CxxLexerException
     }
 };
 
-struct WXDLLIMPEXP_CL CxxLexerToken
-{
+struct WXDLLIMPEXP_CL CxxLexerToken {
 private:
-    int lineNumber;
-    int column;
-    char* text;
-    int type;
+    int lineNumber = 0;
+    int column = 0;
+    char* text = nullptr;
+    int type = 0;
     std::string comment;
+    std::string raw_string;
 
 private:
     bool m_owned;
@@ -106,6 +83,10 @@ private:
 public:
     void SetColumn(int column) { this->column = column; }
     void SetComment(const std::string& comment) { this->comment = comment; }
+    void SetRawString(const std::string& raw_string) { this->raw_string = raw_string; }
+    const std::string& GetRawString() const { return raw_string; }
+    void ClearRawString() { this->raw_string.clear(); }
+    void ClearComment() { this->comment.clear(); }
     void SetLineNumber(int lineNumber) { this->lineNumber = lineNumber; }
     void SetOwned(bool owned) { this->m_owned = owned; }
     void SetType(int type) { this->type = type; }
@@ -118,7 +99,13 @@ public:
     wxString GetWXComment() const { return wxString(comment.c_str(), wxConvISO8859_1); }
     wxString GetWXString() const { return wxString(text, wxConvISO8859_1); }
     int GetType() const { return type; }
-    
+
+    bool is_builtin_type() const;
+    bool is_keyword() const;
+    bool is_pp_keyword() const;
+    bool is_operator() const;
+    bool is_number() const;
+
     CxxLexerToken()
         : lineNumber(0)
         , column(0)
@@ -139,7 +126,8 @@ public:
 
     CxxLexerToken(const CxxLexerToken& other)
     {
-        if(this == &other) return;
+        if(this == &other)
+            return;
         *this = other;
     }
 
@@ -167,8 +155,7 @@ public:
     typedef std::list<CxxLexerToken> List_t;
 };
 
-struct WXDLLIMPEXP_CL CxxPreProcessorToken
-{
+struct WXDLLIMPEXP_CL CxxPreProcessorToken {
     wxString name;
     wxString value;
     bool deleteOnExit;
@@ -181,11 +168,11 @@ struct WXDLLIMPEXP_CL CxxPreProcessorToken
 /**
  * @class CppLexerUserData
  */
-struct WXDLLIMPEXP_CL CppLexerUserData
-{
+struct WXDLLIMPEXP_CL CppLexerUserData {
 private:
     size_t m_flags;
     std::string m_comment;
+    std::string m_rawString;
     std::string m_rawStringLabel;
     int m_commentStartLine;
     int m_commentEndLine;
@@ -224,6 +211,14 @@ public:
     {
         b ? m_flags |= kLexerState_InPreProcessor : m_flags &= ~kLexerState_InPreProcessor;
     }
+
+    void set_raw_string_label(const char* label, size_t len) { m_rawStringLabel = std::string(label, len); }
+    void clear_raw_string_label() { m_rawStringLabel.clear(); }
+    const std::string& get_raw_string_label() const { return m_rawStringLabel; }
+    const std::string& get_raw_string() const { return m_rawString; }
+    void append_raw_string(const char* s, size_t len) { m_rawString.append(s, len); }
+    void append_raw_string(char c) { m_rawString.append(1, c); }
+    void clear_raw_string() { m_rawString.clear(); }
 
     //==--------------------
     // Comment management

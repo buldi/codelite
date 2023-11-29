@@ -7,6 +7,7 @@
 #ifndef _CODELITE_LITEEDITOR_QUICKFINDBARBASE_BASE_CLASSES_H
 #define _CODELITE_LITEEDITOR_QUICKFINDBARBASE_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
@@ -16,6 +17,7 @@
 #include <wx/toolbar.h>
 #include "clToolBar.h"
 #include <wx/textctrl.h>
+#include "clThemedTextCtrl.hpp"
 #include <wx/button.h>
 #include "clThemedButton.h"
 #include <wx/popupwin.h>
@@ -40,6 +42,8 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
+// clang-format on
+
 class QuickFindBarBase : public wxPanel
 {
 public:
@@ -49,11 +53,11 @@ public:
 
 protected:
     clToolBar* m_toolbar;
-    wxTextCtrl* m_textCtrlFind;
+    clThemedTextCtrl* m_textCtrlFind;
     clThemedButton* m_buttonFind;
     clThemedButton* m_buttonFindPrev;
     clThemedButton* m_buttonFindAll;
-    wxTextCtrl* m_textCtrlReplace;
+    clThemedTextCtrl* m_textCtrlReplace;
     clThemedButton* m_buttonReplace;
     clThemedButton* m_buttonReplaceAll;
 
@@ -78,16 +82,15 @@ protected:
 
 public:
     clToolBar* GetToolbar() { return m_toolbar; }
-    wxTextCtrl* GetTextCtrlFind() { return m_textCtrlFind; }
+    clThemedTextCtrl* GetTextCtrlFind() { return m_textCtrlFind; }
     clThemedButton* GetButtonFind() { return m_buttonFind; }
     clThemedButton* GetButtonFindPrev() { return m_buttonFindPrev; }
     clThemedButton* GetButtonFindAll() { return m_buttonFindAll; }
-    wxTextCtrl* GetTextCtrlReplace() { return m_textCtrlReplace; }
+    clThemedTextCtrl* GetTextCtrlReplace() { return m_textCtrlReplace; }
     clThemedButton* GetButtonReplace() { return m_buttonReplace; }
     clThemedButton* GetButtonReplaceAll() { return m_buttonReplaceAll; }
     QuickFindBarBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxSize(-1, -1),
-                     long style = wxTAB_TRAVERSAL | wxTRANSPARENT_WINDOW | wxBORDER_NONE);
+                     const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL | wxTRANSPARENT_WINDOW);
     virtual ~QuickFindBarBase();
 };
 
@@ -131,7 +134,8 @@ public:
     QuickFindBarImages();
     const wxBitmap& Bitmap(const wxString& name) const
     {
-        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        if(!m_bitmaps.count(name + m_resolution))
+            return wxNullBitmap;
         return m_bitmaps.find(name + m_resolution)->second;
     }
 

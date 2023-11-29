@@ -66,8 +66,8 @@
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
-    <Configuration Name="DebugUnicode" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-g;$(shell wx-config --cxxflags  --unicode=yes);" C_Options="-g;$(shell wx-config --cxxflags  --unicode=yes);" Required="yes" PreCompiledHeader="">
+    <Configuration Name="DebugUnicode" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-g;-fstandalone-debug;$(shell wx-config --cxxflags  --unicode=yes);" C_Options="-g;-fstandalone-debug;$(shell wx-config --cxxflags  --unicode=yes);" Required="yes" PreCompiledHeader="">
         <IncludePath Value="include/wx/dblayer/include"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
       </Compiler>
@@ -96,7 +96,7 @@
         <CustomPreBuild/>
       </AdditionalRules>
     </Configuration>
-    <Configuration Name="ReleaseUnicode" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="ReleaseUnicode" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --debug=no --unicode=yes);-O2;;-fPIC" C_Options="$(shell wx-config --cxxflags --debug=no --unicode=yes);-O2;;-fPIC" Required="yes" PreCompiledHeader="">
         <IncludePath Value="include/wx/dblayer/include"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
@@ -126,8 +126,8 @@
         <CustomPreBuild/>
       </AdditionalRules>
     </Configuration>
-    <Configuration Name="Win_x64_Debug" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes );-g" C_Options="$(shell wx-config --cxxflags --unicode=yes );-g" Required="yes" PreCompiledHeader="">
+    <Configuration Name="Win_x64_Debug" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes );-g;-fstandalone-debug" C_Options="$(shell wx-config --cxxflags --unicode=yes );-g;-fstandalone-debug" Required="yes" PreCompiledHeader="">
         <IncludePath Value="include/wx/dblayer/include"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
       </Compiler>
@@ -158,8 +158,8 @@
         <CustomPreBuild/>
       </AdditionalRules>
     </Configuration>
-    <Configuration Name="WinDebug_29" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes );-g" C_Options="$(shell wx-config --cxxflags --unicode=yes );-g" Required="yes" PreCompiledHeader="">
+    <Configuration Name="WinDebug_29" CompilerType="clang64/clang-15.0.2" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="$(shell wx-config --cxxflags --unicode=yes );-g;-fstandalone-debug" C_Options="$(shell wx-config --cxxflags --unicode=yes );-g;-fstandalone-debug" Required="yes" PreCompiledHeader="">
         <IncludePath Value="include/wx/dblayer/include"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>
       </Compiler>
@@ -188,7 +188,7 @@
         <CustomPreBuild/>
       </AdditionalRules>
     </Configuration>
-    <Configuration Name="Win_x86_Release" CompilerType="g++-64" DebuggerType="GNU gdb debugger" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+    <Configuration Name="Win_x86_Release" CompilerType="GCC (i686)" DebuggerType="lldb-vscode" Type="Dynamic Library" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
       <Compiler Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" C_Options="$(shell wx-config --cxxflags --unicode=yes --debug=no);-O2" Required="yes" PreCompiledHeader="">
         <IncludePath Value="include/wx/dblayer/include"/>
         <Preprocessor Value="WXMAKINGDLL_DATABASELAYER"/>

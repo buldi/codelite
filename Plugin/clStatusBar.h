@@ -26,12 +26,15 @@
 #ifndef CLSTATUSBAR_H
 #define CLSTATUSBAR_H
 
+#include "clWorkspaceEvent.hpp"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "wxCustomStatusBar.h" // Base class: wxCustomStatusBar
+
 #include <wx/bitmap.h>
 
 class IManager;
+class clToolBarGeneric;
 class WXDLLIMPEXP_SDK clStatusBar : public wxCustomStatusBar
 {
     IManager* m_mgr;
@@ -48,7 +51,7 @@ protected:
     void OnAllEditorsClosed(wxCommandEvent& event);
     void OnBuildStarted(clBuildEvent& event);
     void OnBuildEnded(clBuildEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnFieldClicked(clCommandEvent& event);
     void OnEditorSettingsChanged(wxCommandEvent& event);
     void OnGotoAnythingShowing(clGotoEvent& e);
@@ -61,7 +64,15 @@ protected:
     void DoUpdateView();
     void DoFieldClicked(int fieldIndex);
     int GetTextWidth(const wxString& text) const;
-    
+
+    clToolBarGeneric* CreatePaneButtonsToolbar();
+    void OnSidebarUI(wxUpdateUIEvent& event);
+    void OnSidebar(wxCommandEvent& event);
+    void OnSecondarySidebarUI(wxUpdateUIEvent& event);
+    void OnSecondarySidebar(wxCommandEvent& event);
+    void OnBottombarUI(wxUpdateUIEvent& event);
+    void OnBottombar(wxCommandEvent& event);
+
 public:
     clStatusBar(wxWindow* parent, IManager* mgr);
     virtual ~clStatusBar();
@@ -117,7 +128,8 @@ public:
      * @brief set a bitmap (16x16) in the source control section
      * and optionally, provide an output tab name to toggle when the bitmap is clicked
      */
-    void SetSourceControlBitmap(const wxBitmap& bmp, const wxString& outputTabName, const wxString& tooltip);
+    void SetSourceControlBitmap(const wxBitmap& bmp, const wxString& label, const wxString& outputTabName,
+                                const wxString& tooltip);
 };
 
 #endif // CLSTATUSBAR_H

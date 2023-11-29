@@ -22,21 +22,23 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
+#include "search_thread.h"
+
 #include "clFilesCollector.h"
-#include "cppwordscanner.h"
+#include "clWildMatch.hpp"
 #include "dirtraverser.h"
+#include "file_logger.h"
 #include "fileutils.h"
 #include "macros.h"
-#include "search_thread.h"
-#include "wx/event.h"
+
 #include <algorithm>
 #include <iostream>
 #include <set>
 #include <wx/dir.h>
-#if wxUSE_GUI
+#include <wx/event.h>
 #include <wx/fontmap.h>
-#endif
 #include <wx/log.h>
+#include <wx/stopwatch.h>
 #include <wx/tokenzr.h>
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
@@ -55,20 +57,28 @@ wxDEFINE_EVENT(wxEVT_SEARCH_THREAD_SEARCHSTARTED, wxCommandEvent);
         wxPostEvent(owner, event);            \
     } else if(m_notifiedWindow) {             \
         wxPostEvent(m_notifiedWindow, event); \
-    }                                         \
-    wxThread::Sleep(1);
+    }
 
 //----------------------------------------------------------------
 // SearchData
 //----------------------------------------------------------------
+namespace
+{
+bool is_word_char(wxChar ch) { return ch == '_' || wxIsalnum(ch); }
+
+// Minumum of 10ms between events that this thread is sending to the main thread
+constexpr long MIN_SEND_INTERVAL_MS = 1;
+size_t send_count = 0;
+
+} // namespace
 
 const wxString& SearchData::GetExtensions() const { return m_validExt; }
-
 SearchData& SearchData::operator=(const SearchData& rhs) { return Copy(rhs); }
-
 SearchData& SearchData::Copy(const SearchData& other)
 {
-    if(this == &other) { return *this; }
+    if(this == &other) {
+        return *this;
+    }
     m_findString = other.m_findString.c_str();
     m_flags = other.m_flags;
     m_validExt = other.m_validExt.c_str();
@@ -81,6 +91,7 @@ SearchData& SearchData::Copy(const SearchData& other)
     m_excludePatterns.insert(m_excludePatterns.end(), other.m_excludePatterns.begin(), other.m_excludePatterns.end());
     m_files.clear();
     m_files.reserve(other.m_files.size());
+    m_file_scanner_flags = other.m_file_scanner_flags;
     for(size_t i = 0; i < other.m_files.size(); ++i) {
         m_files.Add(other.m_files.Item(i).c_str());
     }
@@ -93,27 +104,12 @@ SearchData& SearchData::Copy(const SearchData& other)
 
 SearchThread::SearchThread()
     : WorkerThread()
-    , m_wordChars(wxT("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"))
     , m_reExpr(wxT(""))
 {
-    IndexWordChars();
+    m_stopWatch.Start();
 }
 
 SearchThread::~SearchThread() {}
-
-void SearchThread::IndexWordChars()
-{
-    m_wordCharsMap.clear();
-    for(size_t i = 0; i < m_wordChars.Length(); i++) {
-        m_wordCharsMap[m_wordChars.GetChar(i)] = true;
-    }
-}
-
-void SearchThread::SetWordChars(const wxString& chars)
-{
-    m_wordChars = chars;
-    IndexWordChars();
-}
 
 wxRegEx& SearchThread::GetRegex(const wxString& expr, bool matchCase)
 {
@@ -128,7 +124,8 @@ wxRegEx& SearchThread::GetRegex(const wxString& expr, bool matchCase)
         int flags = wxRE_DEFAULT;
 #endif
 
-        if(!matchCase) flags |= wxRE_ICASE;
+        if(!matchCase)
+            flags |= wxRE_ICASE;
         m_regex.Compile(m_reExpr, flags);
     }
     return m_regex;
@@ -138,6 +135,7 @@ void SearchThread::PerformSearch(const SearchData& data) { Add(new SearchData(da
 
 void SearchThread::ProcessRequest(ThreadRequest* req)
 {
+    FileLogger::RegisterThread(wxThread::GetCurrentId(), "Search Thread");
     wxStopWatch sw;
     m_summary = SearchSummary();
     DoSearchFiles(req);
@@ -153,6 +151,8 @@ void SearchThread::ProcessRequest(ThreadRequest* req)
 
 void SearchThread::GetFiles(const SearchData* data, wxArrayString& files)
 {
+    wxStopWatch sw;
+    clDEBUG() << "Building list of files ..." << endl;
     wxStringSet_t scannedFiles;
 
     const wxArrayString& rootDirs = data->GetRootDirs();
@@ -160,22 +160,51 @@ void SearchThread::GetFiles(const SearchData* data, wxArrayString& files)
 
     // Populate "scannedFiles" with list of files to scan
     scannedFiles.insert(files.begin(), files.end());
+    files.reserve(5000);
+    clDEBUG() << "Scanning directories..." << endl;
+    sw.Start();
 
+    clFileExtensionMatcher ext_matcher{ data->GetExtensions() };
+    clPathExcluder path_excluder{ data->GetExcludePatterns() };
+
+    wxStringSet_t visited_dirs;
     for(size_t i = 0; i < rootDirs.size(); ++i) {
+        clDEBUG() << "    scanning root directory:" << rootDirs.Item(i) << endl;
+        // collect only unique files that are matching the pattern
+        auto on_files = [&](const wxArrayString& paths) {
+            files.reserve(files.size() + paths.size());
+            for(const wxString& fullpath : paths) {
+                if(scannedFiles.insert(fullpath).second && ext_matcher.matches(fullpath)) {
+                    files.Add(fullpath);
+                }
+            }
+        };
+
+        // do not traverse into excluded directories or directories that
+        // we already visited
+        auto on_folder = [&](const wxString& fullpath) -> bool {
+            return
+                // first time visiting this directory
+                visited_dirs.insert(fullpath).second &&
+                // is not excluded
+                !path_excluder.is_exclude_path(fullpath);
+        };
+
         // make sure it's really a dir (not a fifo, etc.)
         clFilesScanner scanner;
-        std::vector<wxString> filesV;
-        if(scanner.Scan(rootDirs.Item(i), filesV, data->GetExtensions())) {
-            std::for_each(filesV.begin(), filesV.end(), [&](const wxString& file) { scannedFiles.insert(file); });
-        }
+        scanner.ScanWithCallbacks(rootDirs.Item(i), on_folder, on_files, data->GetFileScannerFlags());
+        clDEBUG() << "    scanning root directory:" << rootDirs.Item(i) << "..done" << endl;
     }
 
-    files.clear();
-    files.Alloc(scannedFiles.size());
-    std::for_each(scannedFiles.begin(), scannedFiles.end(), [&](const wxString& file) { files.Add(file); });
+    wxString duration;
+    duration << sw.Time() / 1000 << "." << sw.Time() % 1000;
+    clDEBUG() << "Scanning directories... done (" << duration << ")" << endl;
+    clDEBUG() << "Found" << files.size() << "files" << endl;
 
-    // Filter all non matching files
-    FilterFiles(files, data);
+    // sort the files found
+    clDEBUG() << "Sorting the matches..." << endl;
+    files.Sort([](const wxString& f1, const wxString& f2) -> int { return f1.CmpNoCase(f2); });
+    clDEBUG() << "Sorting the matches... done" << endl;
 }
 
 void SearchThread::DoSearchFiles(ThreadRequest* req)
@@ -240,10 +269,19 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
 {
     // Process single lines
     int lineNumber = 1;
-    if(!wxFileName::FileExists(fileName)) { return; }
+    if(!wxFileName::FileExists(fileName)) {
+        return;
+    }
+
+    // ignore binary executables
+    if(FileUtils::IsBinaryExecutable(fileName)) {
+        return;
+    }
 
     size_t size = FileUtils::GetFileSize(fileName);
-    if(size == 0) { return; }
+    if(size == 0) {
+        return;
+    }
     wxString fileData;
     fileData.Alloc(size);
 
@@ -261,35 +299,14 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
         return;
     }
 #endif
-    // take a wild guess and see if we really need to construct
-    // a TextStatesPtr object (it is quite an expensive operation)
-    bool shouldCreateStates(true);
-    if(data->IsMatchCase() && !data->IsRegularExpression()) {
-        shouldCreateStates = (fileData.Find(data->GetFindString()) != wxNOT_FOUND);
-
-    } else if(!data->IsMatchCase() && !data->IsRegularExpression()) {
-        // !data->IsMatchCase()
-        wxString tmpData = fileData;
-        shouldCreateStates = (tmpData.MakeLower().Find(data->GetFindString()) != wxNOT_FOUND);
-    }
-
-    wxStringTokenizer tkz(fileData, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
-
-    // Incase one of the C++ options is enabled,
-    // create a text states object
-    TextStatesPtr states(NULL);
-    if(data->HasCppOptions() && shouldCreateStates && false) {
-        CppWordScanner scanner("", fileData.mb_str().data(), 0);
-        states = scanner.states();
-    }
+    wxArrayString lines = ::wxStringTokenize(fileData, wxT("\n"), wxTOKEN_RET_EMPTY_ALL);
 
     int lineOffset = 0;
     if(data->IsRegularExpression()) {
         // regular expression search
-        while(tkz.HasMoreTokens()) {
+        for(const wxString& line : lines) {
             // Read the next line
-            wxString line = tkz.NextToken();
-            DoSearchLineRE(line, lineNumber, lineOffset, fileName, data, states);
+            DoSearchLineRE(line, lineNumber, lineOffset, fileName, data);
             lineOffset += line.Length() + 1;
             lineNumber++;
         }
@@ -312,23 +329,28 @@ void SearchThread::DoSearchFile(const wxString& fileName, const SearchData* data
             }
         }
 
-        if(!data->IsMatchCase()) { findString.MakeLower(); }
+        // Dont search for empty strings
+        if(findString.empty()) {
+            return;
+        }
 
-        while(tkz.HasMoreTokens()) {
-
-            // Read the next line
-            wxString line = tkz.NextToken();
-            DoSearchLine(line, lineNumber, lineOffset, fileName, data, findString, filters, states);
+        if(!data->IsMatchCase()) {
+            findString.MakeLower();
+        }
+        for(const wxString& line : lines) {
+            DoSearchLine(line, lineNumber, lineOffset, fileName, data, findString, filters);
             lineOffset += line.Length() + 1;
             lineNumber++;
         }
     }
 
-    if(m_results.empty() == false) { SendEvent(wxEVT_SEARCH_THREAD_MATCHFOUND, data->GetOwner()); }
+    if(m_results.empty() == false) {
+        SendEvent(wxEVT_SEARCH_THREAD_MATCHFOUND, data->GetOwner());
+    }
 }
 
 void SearchThread::DoSearchLineRE(const wxString& line, const int lineNum, const int lineOffset,
-                                  const wxString& fileName, const SearchData* data, TextStatesPtr statesPtr)
+                                  const wxString& fileName, const SearchData* data)
 {
     wxRegEx& re = GetRegex(data->GetFindString(), data->IsMatchCase());
     size_t col = 0;
@@ -356,66 +378,34 @@ void SearchThread::DoSearchLineRE(const wxString& line, const int lineNum, const
             result.SetLen(iCorrectedLen);
             result.SetFlags(data->m_flags);
             result.SetFindWhat(data->GetFindString());
+            wxArrayString regexCaptures;
+            for(size_t i = 0; i < re.GetMatchCount(); ++i) {
+                regexCaptures.Add(re.GetMatch(modLine, i));
+            }
+            result.SetRegexCaptures(regexCaptures);
 
             // Make sure our match is not on a comment
-            int position(wxNOT_FOUND);
-            bool canAdd(true);
-
-            if(statesPtr) {
-                position = statesPtr->LineToPos(lineNum - 1);
-                position += iCorrectedCol;
-            }
-
-            if(statesPtr && position != wxNOT_FOUND && data->GetSkipComments()) {
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_CPP_COMMENT || state == CppWordScanner::STATE_C_COMMENT) {
-                        canAdd = false;
-                    }
-                }
-            }
-
-            if(statesPtr && position != wxNOT_FOUND && data->GetSkipStrings()) {
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_DQ_STRING || state == CppWordScanner::STATE_SINGLE_STRING) {
-                        canAdd = false;
-                    }
-                }
-            }
-
-            result.SetMatchState(CppWordScanner::STATE_NORMAL);
-            if(canAdd && statesPtr && position != wxNOT_FOUND && data->GetColourComments()) {
-                // set the match state
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_C_COMMENT || state == CppWordScanner::STATE_CPP_COMMENT) {
-                        result.SetMatchState(state);
-                    }
-                }
-            }
-
-            if(canAdd) {
-                m_results.push_back(result);
-                m_summary.SetNumMatchesFound(m_summary.GetNumMatchesFound() + 1);
-            }
+            m_results.push_back(result);
+            m_summary.SetNumMatchesFound(m_summary.GetNumMatchesFound() + 1);
 
             col += len;
 
             // adjust the line
-            if(line.Length() - col <= 0) break;
+            if(line.Length() - col <= 0)
+                break;
             modLine = modLine.Right(line.Length() - col);
         }
     }
 }
 
 void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const int lineOffset, const wxString& fileName,
-                                const SearchData* data, const wxString& findWhat, const wxArrayString& filters,
-                                TextStatesPtr statesPtr)
+                                const SearchData* data, const wxString& findWhat, const wxArrayString& filters)
 {
     wxString modLine = line;
 
-    if(!data->IsMatchCase()) { modLine.MakeLower(); }
+    if(!data->IsMatchCase()) {
+        modLine.MakeLower();
+    }
 
     int pos = 0;
     int col = 0;
@@ -436,15 +426,15 @@ void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const i
             }
 
             // Pipe filtes OK?
-            if(!allFiltersOK) return;
+            if(!allFiltersOK)
+                return;
 
             // we have a match
             if(data->IsMatchWholeWord()) {
 
                 // make sure that the word before is not in the wordChars map
-                if((pos > 0) && (m_wordCharsMap.find(modLine.GetChar(pos - 1)) != m_wordCharsMap.end())) {
+                if(pos > 0 && is_word_char(modLine.GetChar(pos - 1))) {
                     if(!AdjustLine(modLine, pos, findWhat)) {
-
                         break;
                     } else {
                         col += (int)findWhat.Length();
@@ -455,9 +445,8 @@ void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const i
                 // in the wordCharsMap
                 if(pos + findWhat.Length() <= modLine.Length()) {
                     wxChar nextCh = modLine.GetChar(pos + findWhat.Length());
-                    if(m_wordCharsMap.find(nextCh) != m_wordCharsMap.end()) {
+                    if(is_word_char(nextCh)) {
                         if(!AdjustLine(modLine, pos, findWhat)) {
-
                             break;
                         } else {
                             col += (int)findWhat.Length();
@@ -484,50 +473,12 @@ void SearchThread::DoSearchLine(const wxString& line, const int lineNum, const i
             result.SetFindWhat(data->GetFindString());
             result.SetFlags(data->m_flags);
 
-            int position(wxNOT_FOUND);
-            bool canAdd(true);
+            m_results.push_back(result);
+            m_summary.SetNumMatchesFound(m_summary.GetNumMatchesFound() + 1);
 
-            if(statesPtr) {
-                position = statesPtr->LineToPos(lineNum - 1);
-                position += iCorrectedCol;
+            if(!AdjustLine(modLine, pos, findWhat)) {
+                break;
             }
-
-            // Make sure our match is not on a comment
-            if(statesPtr && position != wxNOT_FOUND && data->GetSkipComments()) {
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_CPP_COMMENT || state == CppWordScanner::STATE_C_COMMENT) {
-                        canAdd = false;
-                    }
-                }
-            }
-
-            if(statesPtr && position != wxNOT_FOUND && data->GetSkipStrings()) {
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_DQ_STRING || state == CppWordScanner::STATE_SINGLE_STRING) {
-                        canAdd = false;
-                    }
-                }
-            }
-
-            result.SetMatchState(CppWordScanner::STATE_NORMAL);
-            if(canAdd && statesPtr && position != wxNOT_FOUND && data->GetColourComments()) {
-                // set the match state
-                if(statesPtr->states.size() > (size_t)position) {
-                    short state = statesPtr->states.at(position).state;
-                    if(state == CppWordScanner::STATE_C_COMMENT || state == CppWordScanner::STATE_CPP_COMMENT) {
-                        result.SetMatchState(state);
-                    }
-                }
-            }
-
-            if(canAdd) {
-                m_results.push_back(result);
-                m_summary.SetNumMatchesFound(m_summary.GetNumMatchesFound() + 1);
-            }
-
-            if(!AdjustLine(modLine, pos, findWhat)) { break; }
             col += (int)findWhat.Length();
         }
     }
@@ -547,24 +498,18 @@ bool SearchThread::AdjustLine(wxString& line, int& pos, const wxString& findStri
 
 void SearchThread::SendEvent(wxEventType type, wxEvtHandler* owner)
 {
-    if(!m_notifiedWindow && !owner) return;
+    if(!m_notifiedWindow && !owner)
+        return;
 
     wxCommandEvent event(type, GetId());
-
-    if(type == wxEVT_SEARCH_THREAD_MATCHFOUND && m_counter == 10) {
+    if(type == wxEVT_SEARCH_THREAD_MATCHFOUND) {
         // match found and we scanned 10 files
-        m_counter = 0;
         event.SetClientData(new SearchResultList(m_results));
         m_results.clear();
         SEND_ST_EVENT();
 
-    } else if(type == wxEVT_SEARCH_THREAD_MATCHFOUND) {
-        // a match event, but we did not meet the minimum number of files
-        m_counter++;
-        wxThread::Sleep(10);
-
     } else if((type == wxEVT_SEARCH_THREAD_SEARCHEND) || (type == wxEVT_SEARCH_THREAD_SEARCHCANCELED)) {
-        // search eneded, if we got any matches "buffed" send them before the
+        // search eneded, if we got any matches "buffered" send them before the
         // the summary event
         if(m_results.empty() == false) {
             wxCommandEvent evt(wxEVT_SEARCH_THREAD_MATCHFOUND, GetId());
@@ -575,13 +520,17 @@ void SearchThread::SendEvent(wxEventType type, wxEvtHandler* owner)
                 wxPostEvent(m_notifiedWindow, evt);
             }
         }
-
         m_results.clear();
-        m_counter = 0;
-
         // Now send the summary event
         event.SetClientData(type == wxEVT_SEARCH_THREAD_SEARCHEND ? new SearchSummary(m_summary) : nullptr);
         SEND_ST_EVENT();
+    }
+    // to avoid flooding the UI with search events, sleep for 1ms after each
+    // send_event call
+    ++send_count;
+    if(send_count >= 10) {
+        wxThread::Sleep(1);
+        send_count = 0;
     }
 }
 
@@ -592,25 +541,30 @@ void SearchThread::FilterFiles(wxArrayString& files, const SearchData* data)
     const wxArrayString& excludePatterns = data->GetExcludePatterns();
     const wxString& mask = data->GetExtensions();
     std::for_each(files.begin(), files.end(), [&](const wxString& filename) {
-        if(uniqueFiles.count(filename)) return;
+        if(uniqueFiles.count(filename))
+            return;
         uniqueFiles.insert(filename);
         if(FileUtils::WildMatch(mask, filename) && !FileUtils::WildMatch(excludePatterns, filename)) {
             tmpFiles.Add(filename);
         }
     });
     files.swap(tmpFiles);
+    files.Sort([](const wxString& f1, const wxString& f2) -> int { return f1.CmpNoCase(f2); });
 }
 
 static SearchThread* gs_SearchThread = NULL;
 void SearchThreadST::Free()
 {
-    if(gs_SearchThread) { delete gs_SearchThread; }
+    if(gs_SearchThread) {
+        delete gs_SearchThread;
+    }
     gs_SearchThread = NULL;
 }
 
 SearchThread* SearchThreadST::Get()
 {
-    if(gs_SearchThread == NULL) gs_SearchThread = new SearchThread;
+    if(gs_SearchThread == NULL)
+        gs_SearchThread = new SearchThread;
     return gs_SearchThread;
 }
 
@@ -626,9 +580,7 @@ JSONItem SearchResult::ToJSON() const
     json.addProperty("flags", m_flags);
     json.addProperty("columnInChars", m_columnInChars);
     json.addProperty("lenInChars", m_lenInChars);
-    // json.addProperty("findWhat", m_findWhat);
-    // json.addProperty("matchState", (int)m_matchState);
-    // json.addProperty("scope", m_scope);
+    json.addProperty("regexCaptures", m_regexCaptures);
     return json;
 }
 
@@ -643,9 +595,7 @@ void SearchResult::FromJSON(const JSONItem& json)
     m_flags = json.namedObject("flags").toSize_t(m_flags);
     m_columnInChars = json.namedObject("columnInChars").toInt(m_columnInChars);
     m_lenInChars = json.namedObject("lenInChars").toInt(m_lenInChars);
-    // m_findWhat = json.namedObject("findWhat").toString(m_findWhat);
-    // m_matchState = json.namedObject("matchState").toInt(m_matchState);
-    // m_scope = json.namedObject("scope").toString(m_scope);
+    m_regexCaptures = json.namedObject("regexCaptures").toArrayString();
 }
 
 JSONItem SearchSummary::ToJSON() const

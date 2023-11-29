@@ -25,10 +25,10 @@
 #ifndef DBGCMD_H
 #define DBGCMD_H
 
-#include "wx/string.h"
-#include "wx/event.h"
-#include "debuggerobserver.h"
 #include "debugger.h"
+#include "debuggerobserver.h"
+#include "wx/event.h"
+#include "wx/string.h"
 
 class IDebugger;
 class DbgGdb;
@@ -189,17 +189,14 @@ public:
 
 class DbgCmdHandlerBp : public DbgCmdHandler
 {
-    const BreakpointInfo m_bp;
-    std::vector<BreakpointInfo>* m_bplist;
+    const clDebuggerBreakpoint m_bp;
+    std::vector<clDebuggerBreakpoint>* m_bplist;
     int m_bpType; // BP_type_break by default
     DbgGdb* m_debugger;
 
 public:
-    DbgCmdHandlerBp(IDebuggerObserver* observer,
-                    DbgGdb* debugger,
-                    BreakpointInfo bp,
-                    std::vector<BreakpointInfo>* bplist,
-                    int bptype = BP_type_break)
+    DbgCmdHandlerBp(IDebuggerObserver* observer, DbgGdb* debugger, clDebuggerBreakpoint bp,
+                    std::vector<clDebuggerBreakpoint>* bplist, int bptype = BP_type_break)
         : DbgCmdHandler(observer)
         , m_bp(bp)
         , m_bplist(bplist)
@@ -221,17 +218,6 @@ public:
     {
     }
     virtual ~DbgCmdHandlerLocals() {}
-    virtual bool ProcessOutput(const wxString& line);
-};
-
-class DbgCmdHandlerFuncArgs : public DbgCmdHandler
-{
-public:
-    DbgCmdHandlerFuncArgs(IDebuggerObserver* observer)
-        : DbgCmdHandler(observer)
-    {
-    }
-    virtual ~DbgCmdHandlerFuncArgs() {}
     virtual bool ProcessOutput(const wxString& line);
 };
 
@@ -355,10 +341,10 @@ public:
 // Callback for handling 'set condition' command
 class DbgCmdSetConditionHandler : public DbgCmdHandler
 {
-    BreakpointInfo m_bp;
+    clDebuggerBreakpoint m_bp;
 
 public:
-    DbgCmdSetConditionHandler(IDebuggerObserver* observer, const BreakpointInfo& bp)
+    DbgCmdSetConditionHandler(IDebuggerObserver* observer, const clDebuggerBreakpoint& bp)
         : DbgCmdHandler(observer)
         , m_bp(bp)
     {
@@ -372,9 +358,12 @@ public:
 // the debugger
 class DbgCmdBreakList : public DbgCmdHandler
 {
+    DbgGdb* m_gdb = nullptr;
+
 public:
-    DbgCmdBreakList(IDebuggerObserver* observer)
-        : DbgCmdHandler(observer)
+    DbgCmdBreakList(DbgGdb* gdb)
+        : DbgCmdHandler(nullptr)
+        , m_gdb(gdb)
     {
     }
     virtual ~DbgCmdBreakList() {}

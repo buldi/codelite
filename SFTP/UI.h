@@ -7,6 +7,7 @@
 #ifndef _CODELITE_SFTP_UI_BASE_CLASSES_H
 #define _CODELITE_SFTP_UI_BASE_CLASSES_H
 
+// clang-format off
 #include <wx/settings.h>
 #include <wx/xrc/xmlres.h>
 #include <wx/xrc/xh_bmp.h>
@@ -14,7 +15,7 @@
 #include <wx/artprov.h>
 #include <wx/sizer.h>
 #include <wx/notebook.h>
-#include "Notebook.h"
+#include "clGenericNotebook.hpp"
 #include <wx/imaglist.h>
 #include <wx/stc/stc.h>
 #include <wx/bitmap.h>
@@ -24,8 +25,6 @@
 #include "clToolBar.h"
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
-#include <wx/treectrl.h>
-#include "clThemedTreeCtrl.h"
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
 #include <wx/listbox.h>
@@ -51,24 +50,26 @@
 #define WXC_FROM_DIP(x) x
 #endif
 
+// clang-format on
+
 class SFTPStatusPageBase : public wxPanel
 {
 protected:
-    Notebook* m_notebook;
-    wxPanel* m_panelSearch;
-    wxStyledTextCtrl* m_stcSearch;
+    clGenericNotebook* m_notebook;
     wxPanel* m_panelLog;
     wxStyledTextCtrl* m_stcOutput;
+    wxPanel* m_panelSearch;
+    wxStyledTextCtrl* m_stcSearch;
 
 protected:
     virtual void OnContentMenu(wxContextMenuEvent& event) { event.Skip(); }
 
 public:
-    wxStyledTextCtrl* GetStcSearch() { return m_stcSearch; }
-    wxPanel* GetPanelSearch() { return m_panelSearch; }
     wxStyledTextCtrl* GetStcOutput() { return m_stcOutput; }
     wxPanel* GetPanelLog() { return m_panelLog; }
-    Notebook* GetNotebook() { return m_notebook; }
+    wxStyledTextCtrl* GetStcSearch() { return m_stcSearch; }
+    wxPanel* GetPanelSearch() { return m_panelSearch; }
+    clGenericNotebook* GetNotebook() { return m_notebook; }
     SFTPStatusPageBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                        const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~SFTPStatusPageBase();
@@ -89,7 +90,8 @@ public:
     SFTPImages();
     const wxBitmap& Bitmap(const wxString& name) const
     {
-        if(!m_bitmaps.count(name + m_resolution)) return wxNullBitmap;
+        if(!m_bitmaps.count(name + m_resolution))
+            return wxNullBitmap;
         return m_bitmaps.find(name + m_resolution)->second;
     }
 
@@ -104,20 +106,15 @@ protected:
     clToolBar* m_toolbar;
     wxStaticText* m_staticText49;
     wxTextCtrl* m_textCtrlQuickJump;
-    clThemedTreeCtrl* m_treeCtrl;
 
 protected:
     virtual void OnGotoLocationUI(wxUpdateUIEvent& event) { event.Skip(); }
     virtual void OnGotoLocation(wxCommandEvent& event) { event.Skip(); }
-    virtual void OnItemActivated(wxTreeEvent& event) { event.Skip(); }
-    virtual void OnItemExpanding(wxTreeEvent& event) { event.Skip(); }
-    virtual void OnContextMenu(wxContextMenuEvent& event) { event.Skip(); }
 
 public:
     clToolBar* GetToolbar() { return m_toolbar; }
     wxStaticText* GetStaticText49() { return m_staticText49; }
     wxTextCtrl* GetTextCtrlQuickJump() { return m_textCtrlQuickJump; }
-    clThemedTreeCtrl* GetTreeCtrl() { return m_treeCtrl; }
     SFTPTreeViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                      const wxSize& size = wxSize(-1, -1), long style = wxTAB_TRAVERSAL);
     virtual ~SFTPTreeViewBase();

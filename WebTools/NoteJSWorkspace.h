@@ -30,6 +30,7 @@
 #include "NodeDebugger.h"
 #include "TerminalEmulator.h"
 #include "cl_command_event.h"
+
 #include <wx/filename.h>
 
 class NodeDebugger;
@@ -41,7 +42,7 @@ protected:
     wxArrayString m_folders;
     NodeJSWorkspaceView* m_view;
     bool m_clangOldFlag;
-    bool m_dummy;
+    bool m_dummy = false;
     bool m_showWelcomePage;
     NodeDebugger::Ptr_t m_debugger;
     TerminalEmulator m_terminal;
@@ -101,13 +102,16 @@ protected:
     NodeJSWorkspace(); // default ctor is private
 
 public:
-    virtual wxString GetActiveProjectName() const;
-    virtual wxFileName GetProjectFileName(const wxString& projectName) const;
-    virtual wxArrayString GetWorkspaceProjects() const;
-    virtual void GetProjectFiles(const wxString& projectName, wxArrayString& files) const;
-    virtual void GetWorkspaceFiles(wxArrayString& files) const;
-    virtual wxString GetProjectFromFile(const wxFileName& filename) const;
-    virtual wxString GetFilesMask() const;
+    wxString GetActiveProjectName() const override;
+    wxFileName GetProjectFileName(const wxString& projectName) const override;
+    wxArrayString GetWorkspaceProjects() const override;
+    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
+    void GetWorkspaceFiles(wxArrayString& files) const override;
+    wxString GetProjectFromFile(const wxFileName& filename) const override;
+    wxString GetFilesMask() const override;
+    void SetProjectActive(const wxString& project) override;
+    wxString GetDebuggerName() const override;
+
     NodeJSWorkspace(bool dummy);
     virtual ~NodeJSWorkspace();
 
@@ -119,8 +123,10 @@ public:
     static void Free();
 
 public:
-    virtual bool IsBuildSupported() const;
-    virtual bool IsProjectSupported() const;
+    bool IsBuildSupported() const override;
+    bool IsProjectSupported() const override;
+
+    wxString GetName() const override { return m_filename.GetName(); }
 
     NodeJSWorkspaceView* GetView() { return m_view; }
     NodeDebugger::Ptr_t GetDebugger();
@@ -156,7 +162,8 @@ public:
     /**
      * @brief as defined by IWorkspace
      */
-    wxFileName GetFileName() const { return GetFilename(); }
+    wxString GetFileName() const override { return GetFilename().GetFullPath(); }
+    wxString GetDir() const override { return GetFilename().GetPath(); }
     void SetFolders(const wxArrayString& folders) { this->m_folders = folders; }
     const wxArrayString& GetFolders() const { return m_folders; }
     wxArrayString& GetFolders() { return m_folders; }

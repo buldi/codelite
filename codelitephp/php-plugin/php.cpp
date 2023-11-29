@@ -1,3 +1,5 @@
+#include "php.h"
+
 #include "NewPHPProjectWizard.h"
 #include "PHPDebugPane.h"
 #include "PHPXDebugSetupWizard.h"
@@ -13,7 +15,6 @@
 #include "globals.h"
 #include "localsview.h"
 #include "new_php_workspace_dlg.h"
-#include "php.h"
 #include "php_code_completion.h"
 #include "php_configuration_data.h"
 #include "php_editor_context_menu.h"
@@ -26,7 +27,9 @@
 #include "php_workspace_view.h"
 #include "quick_outline_dlg.h"
 #include "ssh_workspace_settings.h"
+#include "wxCodeCompletionBox.h"
 #include "xdebugevent.h"
+
 #include <cl_config.h>
 #include <cl_standard_paths.h>
 #include <ctags_manager.h>
@@ -46,7 +49,9 @@ static PhpPlugin* thePlugin = NULL;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new PhpPlugin(manager); }
+    if(thePlugin == 0) {
+        thePlugin = new PhpPlugin(manager);
+    }
     return thePlugin;
 }
 
@@ -191,11 +196,13 @@ bool PhpPlugin::IsWorkspaceViewDetached()
     return detachedPanes.Index(PHPStrings::PHP_WORKSPACE_VIEW_TITLE) != wxNOT_FOUND;
 }
 
-void PhpPlugin::CreateToolBar(clToolBar* toolbar) { wxUnusedVar(toolbar); }
+void PhpPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void PhpPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
-    if(pluginsMenu->GetMenuBar()) { DoPlaceMenuBar(pluginsMenu->GetMenuBar()); }
+    if(clGetManager()->GetMenuBar()) {
+        DoPlaceMenuBar(clGetManager()->GetMenuBar());
+    }
 }
 
 void PhpPlugin::HookPopupMenu(wxMenu* menu, MenuType type)
@@ -274,18 +281,19 @@ void PhpPlugin::UnPlug()
 
 void PhpPlugin::OnShowQuickOutline(clCodeCompletionEvent& e)
 {
-    IEditor* editor = dynamic_cast<IEditor*>(e.GetEditor());
-    if(editor) {
-        // we handle only .php files
-        if(!IsPHPFile(editor)) {
-            // get the position
-            e.Skip();
-            return;
-        }
-        PHPQuickOutlineDlg dlg(m_mgr->GetTheApp()->GetTopWindow(), editor, m_mgr);
-        dlg.ShowModal();
-        CallAfter(&PhpPlugin::SetEditorActive, editor);
+    e.Skip();
+    IEditor* editor = clGetManager()->FindEditor(e.GetFileName());
+    CHECK_PTR_RET(editor);
+
+    // we handle only .php files
+    if(!IsPHPFile(editor)) {
+        return;
     }
+    e.Skip(false);
+
+    PHPQuickOutlineDlg dlg(m_mgr->GetTheApp()->GetTopWindow(), editor, m_mgr);
+    dlg.ShowModal();
+    CallAfter(&PhpPlugin::SetEditorActive, editor);
 }
 
 void PhpPlugin::OnNewWorkspace(clCommandEvent& e)
@@ -352,7 +360,8 @@ void PhpPlugin::OnOpenWorkspace(clCommandEvent& e)
     e.Skip();
     wxFileName workspaceFile(e.GetFileName());
     JSON root(workspaceFile);
-    if(!root.isOk()) return;
+    if(!root.isOk())
+        return;
 
     wxString type = root.toElement().namedObject("metadata").namedObject("type").toString();
     bool hasProjects = root.toElement().hasNamedObject("projects");
@@ -364,7 +373,9 @@ void PhpPlugin::OnOpenWorkspace(clCommandEvent& e)
     }
 
     // Check if this is a PHP workspace
-    if(PHPWorkspace::Get()->IsOpen()) { PHPWorkspace::Get()->Close(true, true); }
+    if(PHPWorkspace::Get()->IsOpen()) {
+        PHPWorkspace::Get()->Close(true, true);
+    }
     DoOpenWorkspace(workspaceFile.GetFullPath());
 }
 
@@ -449,7 +460,9 @@ void PhpPlugin::OnGetCurrentFileProjectFiles(wxCommandEvent& e)
     if(PHPWorkspace::Get()->IsOpen()) {
         IEditor* editor = m_mgr->GetActiveEditor();
         wxArrayString* pfiles = (wxArrayString*)e.GetClientData();
-        if(editor && pfiles) { ::wxMessageBox("Not implemented for PHP!"); }
+        if(editor && pfiles) {
+            ::wxMessageBox("Not implemented for PHP!");
+        }
     } else {
         e.Skip();
     }
@@ -494,7 +507,9 @@ void PhpPlugin::DoPlaceMenuBar(wxMenuBar* menuBar)
                            _("Run XDebug Setup Wizard..."));
 
     int helpLoc = menuBar->FindMenu(_("Help"));
-    if(helpLoc != wxNOT_FOUND) { menuBar->Insert(helpLoc, phpMenuBarMenu, _("P&HP")); }
+    if(helpLoc != wxNOT_FOUND) {
+        menuBar->Insert(helpLoc, phpMenuBarMenu, _("P&HP"));
+    }
 }
 
 void PhpPlugin::OnMenuCommand(wxCommandEvent& e)
@@ -523,7 +538,6 @@ void PhpPlugin::OnReloadWorkspace(clCommandEvent& e)
 void PhpPlugin::OnLoadURL(PHPEvent& e)
 {
     e.Skip();
-    CL_DEBUG("Loading URL: " + e.GetUrl());
     ::wxLaunchDefaultBrowser(e.GetUrl());
 }
 
@@ -602,8 +616,12 @@ void PhpPlugin::SafelyDetachAndDestroyPane(wxWindow* pane, const wxString& name)
 void PhpPlugin::EnsureAuiPaneIsVisible(const wxString& paneName, bool update)
 {
     wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(paneName);
-    if(pi.IsOk() && !pi.IsShown()) { pi.Show(); }
-    if(update) { m_mgr->GetDockingManager()->Update(); }
+    if(pi.IsOk() && !pi.IsShown()) {
+        pi.Show();
+    }
+    if(update) {
+        m_mgr->GetDockingManager()->Update();
+    }
 }
 
 void PhpPlugin::OnNewProjectFinish(clNewProjectEvent& e)

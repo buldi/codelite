@@ -39,6 +39,7 @@
 #include "cl_command_event.h"
 #include "plugin.h"
 #include "spellcheckeroptions.h"
+
 #include <wx/timer.h>
 //------------------------------------------------------------
 class IHunSpell;
@@ -57,7 +58,7 @@ public:
     // --------------------------------------------
     // Abstract methods
     // --------------------------------------------
-    virtual void CreateToolBar(clToolBar* toolbar) override;
+    virtual void CreateToolBar(clToolBarGeneric* toolbar) override;
     virtual void CreatePluginMenu(wxMenu* pluginsMenu) override;
     virtual void UnPlug() override;
 
@@ -65,8 +66,8 @@ public:
     void OnCheck(wxCommandEvent& e);
     void OnContinousCheck(wxCommandEvent& e);
     void OnTimer(wxTimerEvent& e);
-    void OnWspLoaded(wxCommandEvent& e);
-    void OnWspClosed(wxCommandEvent& e);
+    void OnWspLoaded(clWorkspaceEvent& e);
+    void OnWspClosed(clWorkspaceEvent& e);
     void OnSuggestion(wxCommandEvent& e);
     void OnIgnoreWord(wxCommandEvent& e);
     void OnAddWord(wxCommandEvent& e);
@@ -91,6 +92,7 @@ protected:
 
     IEditor* m_pLastEditor;           // The editor checked last time the spell check ran.
     wxUint64 m_lastModificationCount; // Modification count of the editor last time the spell check ran.
+    bool m_forceCheck = false;        // Force re-check if user added or ignored a word to the list
 };
 //------------------------------------------------------------
 #endif // SpellCheck

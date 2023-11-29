@@ -23,18 +23,25 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "file_logger.h"
 #include "unixprocess_impl.h"
-#include <cstring>
+
+#include "SocketAPI/clSocketBase.h"
+#include "StringUtils.h"
+#include "cl_exception.h"
 #include "file_logger.h"
 #include "fileutils.h"
-#include "SocketAPI/clSocketBase.h"
+
+#include <cstring>
+#include <string>
 #include <thread>
-#include "StringUtils.h"
+#include <wx/buffer.h>
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
 
 #include "procutils.h"
+
+extern char** environ;
+
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
@@ -51,9 +58,9 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #elif defined(__NetBSD__)
-#include <util.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <util.h>
 #else
 #include <pty.h>
 #include <utmp.h>
@@ -61,9 +68,6 @@
 #else
 #include <util.h>
 #endif
-
-static char** argv = NULL;
-static int argc = 0;
 
 // ----------------------------------------------
 #define ISBLANK(ch) ((ch) == ' ' || (ch) == '\t')
@@ -102,170 +106,32 @@ extern char* strdup();  /* Duplicate a string */
 
 static void freeargv(char** vector)
 {
-    register char** scan;
-
+    char** scan;
     if(vector != NULL) {
         for(scan = vector; *scan != NULL; scan++) {
             free(*scan);
         }
-        free(vector);
+        delete[] vector;
     }
-}
-
-char** dupargv(char** argv)
-{
-    int argc;
-    char** copy;
-
-    if(argv == NULL) return NULL;
-
-    /* the vector */
-    for(argc = 0; argv[argc] != NULL; argc++)
-        ;
-    copy = (char**)malloc((argc + 1) * sizeof(char*));
-    if(copy == NULL) return NULL;
-
-    /* the strings */
-    for(argc = 0; argv[argc] != NULL; argc++) {
-        int len = strlen(argv[argc]);
-        copy[argc] = (char*)malloc(sizeof(char*) * (len + 1));
-        if(copy[argc] == NULL) {
-            freeargv(copy);
-            return NULL;
-        }
-        strcpy(copy[argc], argv[argc]);
-    }
-    copy[argc] = NULL;
-    return copy;
-}
-
-char** buildargv(const char* input)
-{
-    char* arg;
-    char* copybuf;
-    int squote = 0;
-    int dquote = 0;
-    int bsquote = 0;
-    int argc = 0;
-    int maxargc = 0;
-    char** argv = NULL;
-    char** nargv;
-
-    if(input != NULL) {
-        copybuf = (char*)alloca(strlen(input) + 1);
-        /* Is a do{}while to always execute the loop once.  Always return an
-        argv, even for null strings.  See NOTES above, test case below. */
-        do {
-            /* Pick off argv[argc] */
-            while(ISBLANK(*input)) {
-                input++;
-            }
-            if((maxargc == 0) || (argc >= (maxargc - 1))) {
-                /* argv needs initialization, or expansion */
-                if(argv == NULL) {
-                    maxargc = INITIAL_MAXARGC;
-                    nargv = (char**)malloc(maxargc * sizeof(char*));
-                } else {
-                    maxargc *= 2;
-                    nargv = (char**)realloc(argv, maxargc * sizeof(char*));
-                }
-                if(nargv == NULL) {
-                    if(argv != NULL) {
-                        freeargv(argv);
-                        argv = NULL;
-                    }
-                    break;
-                }
-                argv = nargv;
-                argv[argc] = NULL;
-            }
-            /* Begin scanning arg */
-            arg = copybuf;
-            while(*input != EOS) {
-                if(ISBLANK(*input) && !squote && !dquote && !bsquote) {
-                    break;
-                } else {
-                    if(bsquote) {
-                        bsquote = 0;
-                        *arg++ = *input;
-                    } else if(*input == '\\') {
-                        bsquote = 1;
-                    } else if(squote) {
-                        if(*input == '\'') {
-                            squote = 0;
-                        } else {
-                            *arg++ = *input;
-                        }
-                    } else if(dquote) {
-                        if(*input == '"') {
-                            dquote = 0;
-                        } else {
-                            *arg++ = *input;
-                        }
-                    } else {
-                        if(*input == '\'') {
-                            squote = 1;
-                        } else if(*input == '"') {
-                            dquote = 1;
-                        } else {
-                            *arg++ = *input;
-                        }
-                    }
-                    input++;
-                }
-            }
-            *arg = EOS;
-            argv[argc] = strdup(copybuf);
-            if(argv[argc] == NULL) {
-                freeargv(argv);
-                argv = NULL;
-                break;
-            }
-            argc++;
-            argv[argc] = NULL;
-
-            while(ISBLANK(*input)) {
-                input++;
-            }
-        } while(*input != EOS);
-    }
-    return (argv);
 }
 
 //-----------------------------------------------------
 
-static void make_argv(const wxString& cmd)
+static char** make_argv(const wxArrayString& args, int& argc)
 {
-    if(argc) {
-        freeargv(argv);
-        argc = 0;
+    char** argv = new char*[args.size() + 1];
+    for(size_t i = 0; i < args.size(); ++i) {
+        argv[i] = strdup(args[i].mb_str(wxConvUTF8).data());
     }
-
-    argv = buildargv(cmd.mb_str(wxConvUTF8).data());
-    argc = 0;
-
-    for(char** targs = argv; *targs != NULL; targs++) {
-        argc++;
-    }
-}
-
-static void RemoveTerminalColoring(char* buffer)
-{
-    std::string cinput = buffer;
-    std::string coutout;
-    StringUtils::StripTerminalColouring(cinput, coutout);
-
-    // coutout is ALWAYS <= cinput, so we can safely copy the content to the buffer
-    if(coutout.length() < cinput.length()) {
-        strcpy(buffer, coutout.c_str());
-    }
+    argv[args.size()] = 0;
+    argc = args.size();
+    return argv;
 }
 
 UnixProcessImpl::UnixProcessImpl(wxEvtHandler* parent)
     : IProcess(parent)
     , m_readHandle(-1)
     , m_writeHandle(-1)
-    , m_thr(NULL)
 {
 }
 
@@ -275,7 +141,9 @@ void UnixProcessImpl::Cleanup()
 {
     close(GetReadHandle());
     close(GetWriteHandle());
-    if(GetStderrHandle() != wxNOT_FOUND) { close(GetStderrHandle()); }
+    if(GetStderrHandle() != wxNOT_FOUND) {
+        close(GetStderrHandle());
+    }
     if(m_thr) {
         // Stop the reader thread
         m_thr->Stop();
@@ -293,40 +161,53 @@ void UnixProcessImpl::Cleanup()
 
 bool UnixProcessImpl::IsAlive() { return kill(m_pid, 0) == 0; }
 
-bool UnixProcessImpl::ReadFromFd(int fd, fd_set& rset, wxString& output)
+bool UnixProcessImpl::ReadFromFd(int fd, fd_set& rset, wxString& output, std::string& raw_output)
 {
-    if(fd == wxNOT_FOUND) { return false; }
+    if(fd == wxNOT_FOUND) {
+        return false;
+    }
     if(FD_ISSET(fd, &rset)) {
         // there is something to read
         char buffer[BUFF_SIZE + 1]; // our read buffer
         int bytesRead = read(fd, buffer, sizeof(buffer));
         if(bytesRead > 0) {
+
             buffer[bytesRead] = 0; // always place a terminator
+            raw_output = std::string(buffer, bytesRead);
 
             // Remove coloring chars from the incomnig buffer
             // colors are marked with ESC and terminates with lower case 'm'
-            if(!(this->m_flags & IProcessRawOutput)) { RemoveTerminalColoring(buffer); }
-            wxString convBuff = wxString(buffer, wxConvUTF8);
-            if(convBuff.IsEmpty()) { convBuff = wxString::From8BitData(buffer); }
+            if(!(this->m_flags & IProcessRawOutput)) {
+                std::string stripped_buffer;
+                StringUtils::StripTerminalColouring(raw_output, stripped_buffer);
+                raw_output.swap(stripped_buffer);
+            }
 
-            output = convBuff;
+            wxString convBuff = wxString(raw_output.c_str(), wxConvUTF8, raw_output.length());
+            if(convBuff.empty()) {
+                convBuff = wxString::From8BitData(raw_output.c_str(), raw_output.length());
+            }
+
+            output.swap(convBuff);
             return true;
         }
     }
     return false;
 }
 
-bool UnixProcessImpl::Read(wxString& buff, wxString& buffErr)
+bool UnixProcessImpl::Read(wxString& buff, wxString& buffErr, std::string& raw_buff, std::string& raw_buffErr)
 {
     fd_set rs;
     timeval timeout;
 
     memset(&rs, 0, sizeof(rs));
     FD_SET(GetReadHandle(), &rs);
-    if(m_stderrHandle != wxNOT_FOUND) { FD_SET(m_stderrHandle, &rs); }
+    if(m_stderrHandle != wxNOT_FOUND) {
+        FD_SET(m_stderrHandle, &rs);
+    }
 
-    timeout.tv_sec = 0;      // 0 seconds
-    timeout.tv_usec = 50000; // 50 ms
+    timeout.tv_sec = 0;       // 0 seconds
+    timeout.tv_usec = 250000; // 250 ms
 
     int errCode(0);
     errno = 0;
@@ -341,19 +222,49 @@ bool UnixProcessImpl::Read(wxString& buff, wxString& buffErr)
 
     } else if(rc > 0) {
         // We differentiate between stdout and stderr?
-        bool stderrRead = ReadFromFd(GetStderrHandle(), rs, buffErr);
-        bool stdoutRead = ReadFromFd(GetReadHandle(), rs, buff);
+        bool stderrRead = ReadFromFd(GetStderrHandle(), rs, buffErr, raw_buffErr);
+        bool stdoutRead = ReadFromFd(GetReadHandle(), rs, buff, raw_buff);
         return stderrRead || stdoutRead;
 
     } else {
 
-        if(errCode == EINTR || errCode == EAGAIN) { return true; }
+        if(errCode == EINTR || errCode == EAGAIN) {
+            return true;
+        }
 
         // Process terminated
         // the exit code will be set in the sigchld event handler
         return false;
     }
 }
+
+namespace
+{
+bool do_write(int fd, const wxMemoryBuffer& buffer)
+{
+    static constexpr int max_retry_count = 10;
+    size_t bytes_written = 0;
+    size_t bytes_left = buffer.GetDataLen();
+
+    char* pdata = (char*)buffer.GetData();
+    std::string str(pdata, bytes_left);
+    LOG_IF_TRACE
+    {
+        clDEBUG1() << "do_write() buffer:" << str << endl;
+        clDEBUG1() << "do_write() length:" << str.length() << endl;
+    }
+    while(bytes_left) {
+        int bytes_sent = ::write(fd, (const char*)pdata, bytes_left);
+        LOG_IF_TRACE { clDEBUG1() << "::do_write() completed. number of bytes sent:" << bytes_sent << endl; }
+        if(bytes_sent <= 0) {
+            return false;
+        }
+        pdata += bytes_sent;
+        bytes_left -= bytes_sent;
+    }
+    return true;
+}
+} // namespace
 
 bool UnixProcessImpl::Write(const std::string& buff) { return WriteRaw(buff + "\n"); }
 
@@ -362,45 +273,28 @@ bool UnixProcessImpl::Write(const wxString& buff) { return Write(FileUtils::ToSt
 bool UnixProcessImpl::WriteRaw(const wxString& buff) { return WriteRaw(FileUtils::ToStdString(buff)); }
 bool UnixProcessImpl::WriteRaw(const std::string& buff)
 {
-    std::string tmpbuf = buff;
-    const int chunk_size = 1024;
-    while(!tmpbuf.empty()) {
-        int bytes_written =
-            ::write(GetWriteHandle(), tmpbuf.c_str(), tmpbuf.length() > chunk_size ? chunk_size : tmpbuf.length());
-        if(bytes_written <= 0) { return false; }
-        tmpbuf.erase(0, bytes_written);
-    }
-    return true;
+    int fd = GetWriteHandle();
+    wxMemoryBuffer mb;
+    mb.AppendData(buff.c_str(), buff.length());
+    return do_write(GetWriteHandle(), mb);
 }
 
-IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
+IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxArrayString& args, size_t flags,
                                    const wxString& workingDirectory, IProcessCallback* cb)
 {
-    wxString newCmd = cmd;
-    if((flags & IProcessCreateAsSuperuser)) {
-        if(wxFileName::Exists("/usr/bin/sudo")) {
-            newCmd.Prepend("/usr/bin/sudo --askpass ");
-            clDEBUG1() << "Executing command:" << newCmd << clEndl;
-
-        } else {
-            clWARNING() << "Unable to run command: '" << cmd
-                        << "' as superuser: /usr/bin/sudo: no such file or directory" << clEndl;
-        }
-    } else {
-        clDEBUG1() << "Executing command:" << newCmd << clEndl;
+    int argc = 0;
+    char** argv = make_argv(args, argc);
+    if(argc == 0 || argv == nullptr) {
+        return nullptr;
     }
-
-    make_argv(newCmd);
-    if(argc == 0) { return NULL; }
 
     // fork the child process
     wxString curdir = wxGetCwd();
 
     // Prentend that we are a terminal...
-    int master, slave;
+    int master;
     char pts_name[1024];
     memset(pts_name, 0x0, sizeof(pts_name));
-    openpty(&master, &slave, pts_name, NULL, NULL);
 
     // Create a one-way communication channel (pipe).
     // If successful, two file descriptors are stored in stderrPipes;
@@ -415,42 +309,49 @@ IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, si
         }
     }
 
-    int rc = fork();
+    int rc = forkpty(&master, pts_name, nullptr, nullptr);
     if(rc == 0) {
         //===-------------------------------------------------------
         // Child process
         //===-------------------------------------------------------
-        struct termios termio;
-        tcgetattr(slave, &termio);
-        cfmakeraw(&termio);
-        termio.c_lflag = ICANON;
-        termio.c_oflag = ONOCR | ONLRET;
-        tcsetattr(slave, TCSANOW, &termio);
-
-        // Set 'slave' as STD{IN|OUT|ERR} and close slave FD
-        login_tty(slave);
-        close(master); // close the un-needed master end
+        for(int i = 0; i < FD_SETSIZE; ++i) {
+            if(i != STDERR_FILENO && i != STDOUT_FILENO && i != STDIN_FILENO) {
+                if((i == stderrPipes[1]) && (flags & IProcessStderrEvent)) {
+                    // skip it
+                } else {
+                    ::close(i);
+                }
+            }
+        }
 
         // Incase the user wants to get separate events for STDERR, dup2 STDERR to the PIPE write end
         // we opened earlier
         if(flags & IProcessStderrEvent) {
             // Dup stderrPipes[1] into stderr
-            close(STDERR_FILENO);
             dup2(stderrPipes[1], STDERR_FILENO);
-            close(stderrPipes[0]); // close the read end
+            close(stderrPipes[1]);
         }
-        close(slave);
 
         // at this point, slave is used as stdin/stdout/stderr
         // Child process
-        if(workingDirectory.IsEmpty() == false) { wxSetWorkingDirectory(workingDirectory); }
+        if(workingDirectory.IsEmpty() == false) {
+            wxSetWorkingDirectory(workingDirectory);
+        }
 
         // execute the process
         errno = 0;
-        if(execvp(argv[0], argv) < 0) { clERROR() << "execvp('" << newCmd << "') error:" << strerror(errno) << clEndl; }
+        if(execvp(argv[0], argv) < 0) {
+            wxString errmsg = strerror(errno);
+            clERROR() << "execvp" << args << "error:" << errmsg << endl;
+            // print the environment as well
+            clERROR() << "Dumping environment:" << endl;
+            for(char** scan = environ; *scan != nullptr; scan++) {
+                clERROR() << *scan << endl;
+            }
+        }
 
         // if we got here, we failed...
-        exit(0);
+        exit(1);
 
     } else if(rc < 0) {
         // Error
@@ -464,7 +365,11 @@ IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, si
         //===-------------------------------------------------------
         // Parent
         //===-------------------------------------------------------
-        close(slave);
+        struct termios tios;
+        tcgetattr(master, &tios);
+        tios.c_lflag &= ~(ECHO | ECHONL);
+        tcsetattr(master, TCSAFLUSH, &tios);
+
         freeargv(argv);
         argc = 0;
 
@@ -472,7 +377,8 @@ IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, si
         struct termios termio;
         tcgetattr(master, &termio);
         cfmakeraw(&termio);
-        termio.c_lflag = ICANON;
+        termio.c_lflag = ICANON | ISIG; // support signals
+        termio.c_lflag &= ~ECHO;
         termio.c_oflag = ONOCR | ONLRET;
         tcsetattr(master, TCSANOW, &termio);
 
@@ -491,13 +397,24 @@ IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, si
         proc->SetWriteHandler(master);
         proc->SetPid(rc);
         proc->m_flags = flags; // Keep the creation flags
-        
+
         // Keep the terminal name, we will need it
         proc->SetTty(pts_name);
-        
-        if(!(proc->m_flags & IProcessCreateSync)) { proc->StartReaderThread(); }
+
+        if(!(proc->m_flags & IProcessCreateSync)) {
+            proc->StartReaderThread();
+        }
         return proc;
     }
+}
+
+IProcess* UnixProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
+                                   const wxString& workingDirectory, IProcessCallback* cb)
+{
+    wxArrayString args = StringUtils::BuildArgv(cmd);
+    clDEBUG() << "Executing:" << cmd << endl;
+    clDEBUG() << "As array:" << args << endl;
+    return Execute(parent, args, flags, workingDirectory, cb);
 }
 
 void UnixProcessImpl::StartReaderThread()
@@ -521,10 +438,12 @@ bool UnixProcessImpl::WriteToConsole(const wxString& buff)
 {
     wxString tmpbuf = buff;
     tmpbuf.Trim().Trim(false);
-
-    tmpbuf << wxT("\n");
-    int bytes = write(GetWriteHandle(), tmpbuf.mb_str(wxConvUTF8).data(), tmpbuf.Length());
-    return bytes == (int)tmpbuf.length();
+    tmpbuf << "\n";
+    int fd = GetWriteHandle();
+    wxMemoryBuffer mb;
+    wxCharBuffer cb = buff.mb_str(wxConvUTF8).data();
+    mb.AppendData(cb.data(), cb.length());
+    return do_write(GetWriteHandle(), mb);
 }
 
 void UnixProcessImpl::Detach()
@@ -537,4 +456,6 @@ void UnixProcessImpl::Detach()
     m_thr = NULL;
 }
 
-#endif //#if defined(__WXMAC )||defined(__WXGTK__)
+void UnixProcessImpl::Signal(wxSignal sig) { wxKill(GetPid(), sig, NULL, wxKILL_CHILDREN); }
+
+#endif // #if defined(__WXMAC )||defined(__WXGTK__)

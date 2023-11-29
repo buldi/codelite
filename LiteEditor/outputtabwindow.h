@@ -25,12 +25,12 @@
 #ifndef __outputtabwindow__
 #define __outputtabwindow__
 
+#include "clFindResultsStyler.h"
+#include "clToolBar.h"
+
 #include <wx/panel.h>
 #include <wx/stc/stc.h>
-#include "theme_handler_helper.h"
-#include "clFindResultsStyler.h"
 
-class clToolBar;
 class wxBoxSizer;
 
 class QuickFindBar;
@@ -45,9 +45,8 @@ protected:
     bool m_autoAppearErrors;
     bool m_errorsFirstLine;
     wxBoxSizer* m_vSizer;
-    ThemeHandlerHelper* m_themeHelper;
     clFindResultsStyler::Ptr_t m_styler;
-    
+
     static void DefineMarker(wxStyledTextCtrl* sci, int marker, int markerType, wxColor fore, wxColor back);
     static void InitStyle(wxStyledTextCtrl* sci, int lexer, bool folding);
 
@@ -82,8 +81,9 @@ public:
     virtual ~OutputTabWindow();
 
     virtual void Clear();
+    void ScrollToBottom();
     const wxString& GetCaption() const { return m_name; }
     wxStyledTextCtrl* GetSci() { return m_sci; }
-    virtual void AppendText(const wxString& text);
+    virtual void AppendText(const wxString& text, bool toggle_view = true);
 };
 #endif // __outputtabwindow__

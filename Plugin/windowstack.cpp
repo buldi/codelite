@@ -22,24 +22,29 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#include "drawingutils.h"
 #include "windowstack.h"
+
+#include "clSystemSettings.h"
+#include "drawingutils.h"
+#include "event_notifier.h"
+
 #include <algorithm>
 #include <wx/dcbuffer.h>
 #include <wx/wupdlock.h>
-#include "clThemeUpdater.h"
 
-WindowStack::WindowStack(wxWindow* parent, wxWindowID id)
+#if !wxUSE_WINDOWSTACK_SIMPLEBOOK
+WindowStack::WindowStack(wxWindow* parent, wxWindowID id, bool useNativeThemeColours)
     : wxWindow(parent, id)
 {
     Bind(wxEVT_SIZE, &WindowStack::OnSize, this);
-    clThemeUpdater::Get().RegisterWindow(this);
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &WindowStack::OnColoursChanged, this);
 }
 
 WindowStack::~WindowStack()
 {
     Unbind(wxEVT_SIZE, &WindowStack::OnSize, this);
-    clThemeUpdater::Get().UnRegisterWindow(this);
+    EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &WindowStack::OnColoursChanged, this);
 }
 
 void WindowStack::Select(wxWindow* win)
@@ -48,7 +53,9 @@ void WindowStack::Select(wxWindow* win)
     //    wxWindowUpdateLocker locker(this);
     //#endif
     int index = FindPage(win);
-    if(index == wxNOT_FOUND) { return; }
+    if(index == wxNOT_FOUND) {
+        return;
+    }
     ChangeSelection(index);
 }
 
@@ -65,15 +72,21 @@ void WindowStack::Clear()
 bool WindowStack::Remove(wxWindow* win)
 {
     int index = FindPage(win);
-    if(index == wxNOT_FOUND) { return false; }
+    if(index == wxNOT_FOUND) {
+        return false;
+    }
     m_windows.erase(m_windows.begin() + index);
-    if(win == m_activeWin) { m_activeWin = nullptr; }
+    if(win == m_activeWin) {
+        m_activeWin = nullptr;
+    }
     return true;
 }
 
 bool WindowStack::Add(wxWindow* win, bool select)
 {
-    if(!win || Contains(win)) { return false; }
+    if(!win || Contains(win)) {
+        return false;
+    }
     win->Reparent(this);
     m_windows.push_back(win);
     if(select) {
@@ -89,44 +102,133 @@ bool WindowStack::Contains(wxWindow* win) { return FindPage(win) != wxNOT_FOUND;
 int WindowStack::FindPage(wxWindow* page) const
 {
     for(size_t i = 0; i < m_windows.size(); ++i) {
-        if(m_windows[i] == page) { return i; }
+        if(m_windows[i] == page) {
+            return i;
+        }
     }
     return wxNOT_FOUND;
 }
 
 wxWindow* WindowStack::GetSelected() const { return m_activeWin; }
 
-void WindowStack::ChangeSelection(size_t index)
+int WindowStack::ChangeSelection(size_t index)
 {
-    if(index >= m_windows.size()) { return; }
-    DoSelect(m_windows[index]);
+    if(index >= m_windows.size()) {
+        return wxNOT_FOUND;
+    }
+    return DoSelect(m_windows[index]);
 }
 
-void WindowStack::DoSelect(wxWindow* win)
+int WindowStack::DoSelect(wxWindow* win)
 {
-    if(!win) { return; }
+    if(!win) {
+        return wxNOT_FOUND;
+    }
     // Firsr, show the window
     win->SetSize(wxRect(0, 0, GetSize().x, GetSize().y));
     win->Show();
+    int oldSel = FindPage(win);
     m_activeWin = win;
     // Hide the rest
     CallAfter(&WindowStack::DoHideNoActiveWindows);
+    return oldSel;
 }
 
 void WindowStack::OnSize(wxSizeEvent& e)
 {
     e.Skip();
-    if(!m_activeWin) { return; }
+    if(!m_activeWin) {
+        return;
+    }
     m_activeWin->SetSize(wxRect(0, 0, GetSize().x, GetSize().y));
 }
 
 void WindowStack::DoHideNoActiveWindows()
 {
-    std::for_each(m_windows.begin(), m_windows.end(), [&](wxWindow* w) {
-        if(w != m_activeWin) { w->Hide(); }
-    });
+    for(auto w : m_windows) {
+        if(w != m_activeWin) {
+            w->Hide();
+        }
+    }
 
 #ifdef __WXOSX__
-    if(m_activeWin) { m_activeWin->Refresh(); }
+    if(m_activeWin) {
+        m_activeWin->Refresh();
+    }
 #endif
 }
+
+void WindowStack::OnColoursChanged(clCommandEvent& event)
+{
+    event.Skip();
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+}
+#else
+WindowStack::WindowStack(wxWindow* parent, wxWindowID id, bool useNativeThemeColours)
+    : wxSimplebook(parent, id)
+{
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+    EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &WindowStack::OnColoursChanged, this);
+    wxUnusedVar(useNativeThemeColours);
+}
+
+WindowStack::~WindowStack()
+{
+    EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &WindowStack::OnColoursChanged, this);
+}
+
+bool WindowStack::Add(wxWindow* win, bool select)
+{
+    if(!win || Contains(win)) {
+        return false;
+    }
+    win->Reparent(this);
+    return AddPage(win, wxEmptyString, select);
+}
+
+void WindowStack::Select(wxWindow* win)
+{
+    wxWindowUpdateLocker locker(this);
+    for(size_t i = 0; i < GetPageCount(); ++i) {
+        if(GetPage(i) == win) {
+            ChangeSelection(i);
+        }
+    }
+}
+
+int WindowStack::FindPage(wxWindow* win) const
+{
+    for(size_t i = 0; i < GetPageCount(); ++i) {
+        if(GetPage(i) == win) {
+            return i;
+        }
+    }
+    return wxNOT_FOUND;
+}
+
+void WindowStack::Clear() { DeleteAllPages(); }
+
+bool WindowStack::Remove(wxWindow* win)
+{
+    int index = FindPage(win);
+    if(index == wxNOT_FOUND) {
+        return false;
+    }
+    return RemovePage(index);
+}
+
+bool WindowStack::Contains(wxWindow* win) { return FindPage(win) != wxNOT_FOUND; }
+wxWindow* WindowStack::GetSelected() const
+{
+    if(GetSelection() == wxNOT_FOUND) {
+        return nullptr;
+    }
+    return GetPage(GetSelection());
+}
+
+void WindowStack::OnColoursChanged(clCommandEvent& e)
+{
+    e.Skip();
+    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
+}
+#endif

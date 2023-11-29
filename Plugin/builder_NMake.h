@@ -26,18 +26,20 @@
 #define BUILDER_NMAKE_H
 
 #include "builder.h"
-#include "workspace.h"
 #include "codelite_exports.h"
-#include <wx/wfstream.h>
-#include <wx/txtstrm.h>
 #include "project.h"
+#include "workspace.h"
+
+#include <wx/txtstrm.h>
+#include <wx/wfstream.h>
 /*
  * Build using a generated CMakefile - this is made as a traditional multistep build :
  *  sources -> (preprocess) -> compile -> link -> exec/lib.
  */
 class WXDLLIMPEXP_SDK BuilderNMake : public Builder
 {
-    size_t m_objectChunks;
+    size_t m_objectChunks = 1;
+    bool m_hasObjectPCH = false;
     clProjectFile::Vec_t m_allFiles;
 
 public:
@@ -58,6 +60,11 @@ public:
                                           const wxString& arguments, const wxString& fileName, wxString& errMsg);
     virtual wxString GetPORebuildCommand(const wxString& project, const wxString& confToBuild,
                                          const wxString& arguments);
+    virtual OptimalBuildConfig GetOptimalBuildConfig(const wxString& projectType) const;
+    virtual wxString GetStaticLibSuffix() const { return ".lib"; }
+
+protected:
+    virtual wxString GetIntermediateDirectory(ProjectPtr proj, BuildConfigPtr bldConf) const;
 
 protected:
     virtual void CreateListMacros(ProjectPtr proj, const wxString& confToBuild, wxString& text);

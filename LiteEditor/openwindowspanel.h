@@ -27,13 +27,13 @@
 
 #include "Notebook.h"
 #include "bitmap_loader.h"
+#include "clToolBar.h"
 #include "cl_command_event.h"
 #include "imanager.h"
 #include "openwindowspanelbase.h"
-#include "theme_handler_helper.h"
+
 #include <map>
 
-class clToolBar;
 class IEditor;
 class OpenWindowsPanel : public OpenWindowsPanelBase
 {
@@ -43,7 +43,8 @@ class OpenWindowsPanel : public OpenWindowsPanelBase
     std::map<wxString, wxDataViewItem> m_editors;
     bool m_workspaceClosing;
     bool m_workspaceOpened;
-    clToolBar* m_toolbar;
+    clToolBarGeneric* m_toolbar;
+    bool m_sortItems = false;
 
 protected:
     wxString GetEditorPath(wxDataViewItem item);
@@ -57,8 +58,11 @@ protected:
     void AppendEditor(const clTab& tab);
     void Clear();
     void PopulateView();
-    void DoMarkModify(const wxString& filename, bool b);
-    wxVariant PrepareValue(const clTab& tab);
+    void DoMarkModify(IEditor* editor, const wxString& filename, bool b);
+    wxVariant PrepareValue(const clTab& tab, bool* isModified);
+    wxString GetDisplayName(const clTab& tab) const;
+    void MarkItemModified(const wxDataViewItem& item, bool b, bool saved_before);
+    void OnThemeChanged(clCommandEvent& event);
 
 protected:
     virtual void OnMenu(wxDataViewEvent& event);
@@ -80,8 +84,8 @@ protected:
     void OnIdle(wxIdleEvent& event);
     void OnEditorModified(clCommandEvent& event);
     void OnEditorSaved(clCommandEvent& event);
-    void OnWorkspaceClosed(wxCommandEvent& event);
-    void OnWorkspaceClosing(wxCommandEvent& event);
+    void OnWorkspaceClosed(clWorkspaceEvent& event);
+    void OnWorkspaceClosing(clWorkspaceEvent& event);
 
     DECLARE_EVENT_TABLE()
 

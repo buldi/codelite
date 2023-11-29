@@ -45,7 +45,7 @@ class PSBuildEventsPage : public PSBuildEventsBasePage, public IProjectSettingsP
 protected:
     virtual void OnProjectEnabledUI(wxUpdateUIEvent& event);
     // Handlers for PSBuildEventsBasePage events.
-    void OnCmdEvtVModified(wxCommandEvent& event);
+    void OnStcEvtVModified(wxStyledTextEvent& event);
 
 public:
     /** Constructor */
