@@ -10,7 +10,6 @@
 #include "LSP/FindReferencesRequest.hpp"
 #include "LSP/GotoDeclarationRequest.h"
 #include "LSP/GotoDefinitionRequest.h"
-#include "LSP/GotoImplementationRequest.h"
 #include "LSP/HoverRequest.hpp"
 #include "LSP/InitializeRequest.h"
 #include "LSP/InitializedNotification.hpp"
@@ -38,12 +37,7 @@
 #include "ieditor.h"
 #include "imanager.h"
 #include "macros.h"
-#include "processreaderthread.h"
-#include "wxmd5.h"
 
-#include <iomanip>
-#include <sstream>
-#include <thread>
 #include <unordered_map>
 #include <wx/filesys.h>
 #include <wx/stc/stc.h>
@@ -79,11 +73,15 @@ LanguageServerProtocol::LanguageServerProtocol(const wxString& name, eNetworkTyp
     // Use sockets here
     switch(netType) {
     case eNetworkType::kStdio:
+#if USE_SFTP
         if(clWorkspaceManager::Get().GetWorkspace() && clWorkspaceManager::Get().GetWorkspace()->IsRemote()) {
             m_network.reset(new LSPNetworkRemoteSTDIO());
         } else {
             m_network.reset(new LSPNetworkSTDIO());
         }
+#else
+        m_network.reset(new LSPNetworkSTDIO());
+#endif
         break;
     case eNetworkType::kTcpIP:
         m_network.reset(new LSPNetworkSocketClient());
@@ -328,7 +326,7 @@ void LanguageServerProtocol::OnCodeComplete(clCodeCompletionEvent& event)
 
     if(CanHandle(editor)) {
         event.Skip(false);
-        CodeComplete(editor);
+        CodeComplete(editor, event.GetTriggerKind() == LSP::CompletionItem::kTriggerUser);
     }
 }
 
@@ -454,6 +452,7 @@ void LanguageServerProtocol::SendSaveRequest(IEditor* editor, const wxString& fi
     // For now: report a change event
     wxString filename = GetEditorFilePath(editor);
     if(ShouldHandleFile(editor)) {
+
         // before sending the save request, send a change request
         LSP_DEBUG() << "Flushing changes before save" << endl;
         SendOpenOrChangeRequest(editor, fileContent, GetLanguageId(editor));
@@ -489,13 +488,13 @@ void LanguageServerProtocol::SendCodeActionRequest(IEditor* editor, const std::v
     }
 }
 
-void LanguageServerProtocol::SendCodeCompleteRequest(IEditor* editor, size_t line, size_t column)
+void LanguageServerProtocol::SendCodeCompleteRequest(IEditor* editor, size_t line, size_t column, bool userTriggered)
 {
     CHECK_PTR_RET(editor);
     wxString filename = GetEditorFilePath(editor);
     if(ShouldHandleFile(editor)) {
-        LSP::CompletionRequest::Ptr_t req = LSP::MessageWithParams::MakeRequest(
-            new LSP::CompletionRequest(LSP::TextDocumentIdentifier(filename), LSP::Position(line, column)));
+        LSP::CompletionRequest::Ptr_t req = LSP::MessageWithParams::MakeRequest(new LSP::CompletionRequest(
+            LSP::TextDocumentIdentifier(filename), LSP::Position(line, column), userTriggered));
         QueueMessage(req);
     }
 }
@@ -590,7 +589,7 @@ void LanguageServerProtocol::HoverTip(IEditor* editor)
     }
 }
 
-void LanguageServerProtocol::CodeComplete(IEditor* editor)
+void LanguageServerProtocol::CodeComplete(IEditor* editor, bool userTriggered)
 {
     // sanity
     CHECK_PTR_RET(editor);
@@ -602,7 +601,8 @@ void LanguageServerProtocol::CodeComplete(IEditor* editor)
     SendOpenOrChangeRequest(editor, fileContent, GetLanguageId(editor));
 
     // Now request the for code completion
-    SendCodeCompleteRequest(editor, editor->GetCurrentLine(), editor->GetColumnInChars(editor->GetCurrentPosition()));
+    SendCodeCompleteRequest(editor, editor->GetCurrentLine(), editor->GetColumnInChars(editor->GetCurrentPosition()),
+                            userTriggered);
 }
 
 void LanguageServerProtocol::ProcessQueue()
@@ -975,7 +975,7 @@ void LanguageServerProtocol::HandleResponse(LSP::ResponseMessage& response, LSP:
 
     } else if(response.IsPushDiagnostics()) {
         // Get the URI
-        LSP_DEBUG() << "Received diagnostic message" << endl;
+        LSP_DEBUG() << "Received diagnostic message:" << endl;
         wxString fn = FileUtils::FilePathFromURI(response.GetDiagnosticsUri());
 
         // Don't show this message on macOS as it appears in the middle of the screen...

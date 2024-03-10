@@ -68,6 +68,17 @@ public:
     static bool IsDark(const wxColour& col);
 
     /**
+     * @brief draw a tab area background
+     */
+    static void DrawTabBackgroundArea(wxDC& dc, wxWindow* wnd, const wxRect& rect);
+
+    /**
+     * @brief return the height of tab control
+     * @param requestedHeight - the value from `ptions->GetNotebookTabHeight()`
+     */
+    static int GetTabHeight(wxDC& dc, wxWindow* win, int requestedHeight);
+
+    /**
      * @brief return a fallback fixed font incase we could not locate one in the
      * settings
      * @param win unused

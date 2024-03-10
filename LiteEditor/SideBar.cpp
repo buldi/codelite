@@ -28,12 +28,9 @@
 #include "cl_config.h"
 #include "cl_editor.h"
 #include "codelite_events.h"
-#include "detachedpanesinfo.h"
-#include "dockablepane.h"
 #include "dockablepanemenumanager.h"
 #include "editor_config.h"
 #include "event_notifier.h"
-#include "file_logger.h"
 #include "fileexplorer.h"
 #include "fileview.h"
 #include "frame.h"
@@ -62,11 +59,19 @@
 #define VIEW_NAME "Workspace View"
 #define SECONDARY_VIEW_NAME "Secondary Sidebar"
 
+namespace
+{
+const wxString WORKSPACE_LABEL = _("Workspace");
+const wxString EXPLORER_LABEL = _("Explorer");
+const wxString TABS_LABEL = _("Tabs");
+const wxString GROUPS_LABEL = _("Groups");
+} // namespace
+
 SideBar::SideBar(wxWindow* parent, const wxString& caption, wxAuiManager* mgr, long style)
     : m_caption(caption)
     , m_mgr(mgr)
 {
-    if(!wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, style)) {
+    if (!wxPanel::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, style)) {
         return;
     }
     SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
@@ -94,17 +99,17 @@ void SideBar::CreateGUIControls()
     SetSizer(mainSizer);
 
     long style = 0;
-    if(EditorConfigST::Get()->GetOptions()->GetWorkspaceTabsDirection() == wxRIGHT) {
+    if (EditorConfigST::Get()->GetOptions()->GetWorkspaceTabsDirection() == wxRIGHT) {
         style = wxBK_RIGHT;
     }
 
-    m_book = new clSideBarCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(300, -1), style);
+    m_book = new clSideBarCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, style);
     m_book->Bind(wxEVT_SIDEBAR_CONTEXT_MENU, &SideBar::OnContextMenu, this);
 
     // Calculate the widest tab (the one with the 'Workspace' label)
     int xx, yy;
     wxFont fnt = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-    wxWindow::GetTextExtent(_("Workspace"), &xx, &yy, NULL, NULL, &fnt);
+    wxWindow::GetTextExtent(WORKSPACE_LABEL, &xx, &yy, NULL, NULL, &fnt);
 
     mainSizer->Add(m_book, 1, wxEXPAND | wxALL, 0);
 
@@ -118,49 +123,42 @@ void SideBar::CreateGUIControls()
     m_parsingProgress->Hide();
     m_staticText->Hide();
 
-    // Add the workspace tab
-    wxString name;
-
     // the IManager instance
     IManager* mgr = PluginManager::Get();
 
-    name = _("Workspace");
-    m_workspaceTab = new WorkspaceTab(m_book, name);
-    m_book->AddPage(m_workspaceTab, name, clLoadSidebarBitmap("workspace-button", m_book), true);
+    m_workspaceTab = new WorkspaceTab(m_book, WORKSPACE_LABEL);
+    m_book->AddPage(m_workspaceTab, WORKSPACE_LABEL, "workspace-button", true);
 
-    m_tabs.insert(std::make_pair(name, Tab(name, m_workspaceTab)));
-    mgr->AddWorkspaceTab(name);
+    m_tabs.insert(std::make_pair(WORKSPACE_LABEL, Tab(WORKSPACE_LABEL, m_workspaceTab)));
+    mgr->AddWorkspaceTab(WORKSPACE_LABEL);
 
     // Add the explorer tab
-    name = _("File Explorer");
-    m_explorer = new FileExplorer(m_book, name);
-    m_book->AddPage(m_explorer, name, clLoadSidebarBitmap("file-explorer-button", m_book), false);
+    m_explorer = new FileExplorer(m_book, EXPLORER_LABEL);
+    m_book->AddPage(m_explorer, EXPLORER_LABEL, "file-explorer-button", false);
 
-    m_tabs.insert(std::make_pair(name, Tab(name, m_explorer)));
-    mgr->AddWorkspaceTab(name);
+    m_tabs.insert(std::make_pair(EXPLORER_LABEL, Tab(EXPLORER_LABEL, m_explorer)));
+    mgr->AddWorkspaceTab(EXPLORER_LABEL);
 
     // Add the "File Explorer" view to the list of files managed by the workspace-view
-    m_workspaceTab->GetView()->AddPage(m_explorer, _("File Explorer"), false);
+    m_workspaceTab->GetView()->AddPage(m_explorer, EXPLORER_LABEL, false);
 
     // Add the Open Windows Panel (Tabs)
     // #ifndef __WXOSX__
-    name = _("Tabs");
-    m_openWindowsPane = new OpenWindowsPanel(m_book, name);
-    m_book->AddPage(m_openWindowsPane, name, clLoadSidebarBitmap("tabs-button", m_book));
+    m_openWindowsPane = new OpenWindowsPanel(m_book, TABS_LABEL);
+    m_book->AddPage(m_openWindowsPane, TABS_LABEL, "tabs-button");
 
-    m_tabs.insert(std::make_pair(name, Tab(name, m_openWindowsPane)));
-    mgr->AddWorkspaceTab(name);
+    m_tabs.insert(std::make_pair(TABS_LABEL, Tab(TABS_LABEL, m_openWindowsPane)));
+    mgr->AddWorkspaceTab(TABS_LABEL);
     // #endif
 
     // Add the Tabgroups tab
-    name = _("Groups");
-    m_TabgroupsPane = new TabgroupsPane(m_book, name);
-    m_book->AddPage(m_TabgroupsPane, name, clLoadSidebarBitmap("groups-button", m_book));
+    m_TabgroupsPane = new TabgroupsPane(m_book, GROUPS_LABEL);
+    m_book->AddPage(m_TabgroupsPane, GROUPS_LABEL, "groups-button");
 
-    m_tabs.insert(std::make_pair(name, Tab(name, m_TabgroupsPane)));
-    mgr->AddWorkspaceTab(name);
+    m_tabs.insert(std::make_pair(GROUPS_LABEL, Tab(GROUPS_LABEL, m_TabgroupsPane)));
+    mgr->AddWorkspaceTab(GROUPS_LABEL);
 
-    if(m_book->GetPageCount() > 0) {
+    if (m_book->GetPageCount() > 0) {
         m_book->SetSelection((size_t)0);
     }
 
@@ -179,7 +177,7 @@ void SideBar::ClearProgress()
 
 void SideBar::UpdateProgress(int val)
 {
-    if(m_parsingProgress->IsShown() == false) {
+    if (m_parsingProgress->IsShown() == false) {
         m_parsingProgress->Show();
         m_staticText->Show();
         Layout();
@@ -195,14 +193,14 @@ void SideBar::ApplySavedTabOrder(bool update_ui) const
     wxWindowUpdateLocker locker{ m_book };
     wxArrayString tabs;
     int index = -1;
-    if(!clConfig::Get().GetWorkspaceTabOrder(tabs, index))
+    if (!clConfig::Get().GetWorkspaceTabOrder(tabs, index))
         return;
 
-    for(size_t i = 0; i < tabs.size(); ++i) {
+    for (size_t i = 0; i < tabs.size(); ++i) {
         m_book->MovePageToIndex(tabs[i], i);
     }
 
-    if(update_ui) {
+    if (update_ui) {
         m_mgr->Update();
     }
 }
@@ -212,7 +210,7 @@ void SideBar::SaveWorkspaceViewTabOrder() const
     wxArrayString panes;
     panes.reserve(m_book->GetPageCount());
 
-    for(size_t i = 0; i < m_book->GetPageCount(); ++i) {
+    for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
         panes.Add(m_book->GetPageText(i));
     }
     clConfig::Get().SetWorkspaceTabOrder(panes, m_book->GetSelection());
@@ -220,15 +218,15 @@ void SideBar::SaveWorkspaceViewTabOrder() const
 
 wxWindow* SideBar::DoGetControlByName(const wxString& title)
 {
-    if(title == _("Explorer"))
+    if (title == EXPLORER_LABEL)
         return m_explorer;
-    else if(title == _("Workspace"))
+    else if (title == WORKSPACE_LABEL)
         return m_workspaceTab;
 #ifndef __WXOSX__
-    else if(title == _("Tabs"))
+    else if (title == TABS_LABEL)
         return m_openWindowsPane;
 #endif
-    else if(title == _("Groups"))
+    else if (title == GROUPS_LABEL)
         return m_TabgroupsPane;
     return NULL;
 }
@@ -238,33 +236,33 @@ bool SideBar::IsTabVisible(int flag)
     wxWindow* win(NULL);
     wxString title;
 
-    switch(flag) {
+    switch (flag) {
     case View_Show_Workspace_Tab:
-        title = _("Workspace");
-        win = DoGetControlByName(_("Workspace"));
+        title = WORKSPACE_LABEL;
+        win = DoGetControlByName(WORKSPACE_LABEL);
         break;
     case View_Show_Explorer_Tab:
-        title = _("Explorer");
-        win = DoGetControlByName(_("Explorer"));
+        title = EXPLORER_LABEL;
+        win = DoGetControlByName(EXPLORER_LABEL);
         break;
 #ifndef __WXOSX__
     case View_Show_Tabs_Tab:
-        title = _("Tabs");
-        win = DoGetControlByName(_("Tabs"));
+        title = TABS_LABEL;
+        win = DoGetControlByName(TABS_LABEL);
         break;
 #endif
     case View_Show_Tabgroups_Tab:
-        title = _("Groups");
-        win = DoGetControlByName(_("Groups"));
+        title = GROUPS_LABEL;
+        win = DoGetControlByName(GROUPS_LABEL);
         break;
     }
 
-    if(!win || title.IsEmpty())
+    if (!win || title.IsEmpty())
         return false;
 
     // if the control exists in the notebook, return true
-    for(size_t i = 0; i < m_book->GetPageCount(); ++i) {
-        if(m_book->GetPageText(i) == title) {
+    for (size_t i = 0; i < m_book->GetPageCount(); ++i) {
+        if (m_book->GetPageText(i) == title) {
             return true;
         }
     }
@@ -274,9 +272,10 @@ bool SideBar::IsTabVisible(int flag)
 void SideBar::OnInitDone(wxCommandEvent& event)
 {
     event.Skip();
-    if(m_book->GetPageCount() == 0) {
+    if (m_book->GetPageCount() == 0) {
         return;
     }
+    m_book->Realize();
 
     // Move tabs to the secondary bar if needed
     MoveToSecondarySideBar();
@@ -284,8 +283,8 @@ void SideBar::OnInitDone(wxCommandEvent& event)
 
 void SideBar::SelectTab(const wxString& tabTitle)
 {
-    for(size_t i = 0; i < m_book->GetPageCount(); i++) {
-        if(m_book->GetPageText(i) == tabTitle) {
+    for (size_t i = 0; i < m_book->GetPageCount(); i++) {
+        if (m_book->GetPageText(i) == tabTitle) {
             // requested to add a page which already exists
             m_book->SetSelection(i);
         }
@@ -298,6 +297,7 @@ void SideBar::OnSettingsChanged(wxCommandEvent& event)
 
     auto direction = EditorConfigST::Get()->GetOptions()->GetWorkspaceTabsDirection();
     m_book->SetButtonPosition(direction);
+    m_book->Realize();
 }
 
 void SideBar::ShowTab(const wxString& name, bool show)
@@ -329,7 +329,7 @@ void SideBar::SetSecondarySideBar(SecondarySideBar* ssb) { m_secondarySideBar = 
 void SideBar::MoveToSecondarySideBar(int pos)
 {
     wxString label = m_book->GetPageText(pos);
-    wxBitmap bmp = m_book->GetPageBitmap(pos);
+    wxString bmp = m_book->GetPageBitmap(pos);
     wxWindow* win = m_book->GetPage(pos);
 
     m_book->RemovePage(pos);
@@ -338,7 +338,7 @@ void SideBar::MoveToSecondarySideBar(int pos)
     // add it to the right side bar
     m_secondarySideBar->AddPage(win, bmp, label);
 
-    if(m_book->GetPageCount() == 0) {
+    if (m_book->GetPageCount() == 0) {
         // hide the sidebar
         clGetManager()->ShowPane(VIEW_NAME, false);
     }
@@ -347,14 +347,14 @@ void SideBar::MoveToSecondarySideBar(int pos)
 void SideBar::MoveToSecondarySideBar()
 {
     auto secondary_tabs = clConfig::Get().Read("secondary_side_bar.tabs", wxArrayString{});
-    if(secondary_tabs.empty()) {
+    if (secondary_tabs.empty()) {
         clGetManager()->ShowPane(SECONDARY_VIEW_NAME, false);
         return;
     }
 
-    for(const auto& tab_label : secondary_tabs) {
+    for (const auto& tab_label : secondary_tabs) {
         int pos = m_book->GetPageIndex(tab_label);
-        if(pos == wxNOT_FOUND) {
+        if (pos == wxNOT_FOUND) {
             continue;
         }
         MoveToSecondarySideBar(pos);
@@ -363,9 +363,9 @@ void SideBar::MoveToSecondarySideBar()
     m_secondarySideBar->SetSelection(selection);
 }
 
-void SideBar::AddPage(wxWindow* win, wxBitmap bmp, const wxString& label, bool selected)
+void SideBar::AddPage(wxWindow* win, const wxString& bmpname, const wxString& label, bool selected)
 {
-    m_book->AddPage(win, label, bmp, selected);
+    m_book->AddPage(win, label, bmpname, selected);
     m_book->GetSizer()->Layout();
     clGetManager()->ShowPane(VIEW_NAME, true);
 }

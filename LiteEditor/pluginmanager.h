@@ -25,6 +25,8 @@
 #ifndef PLUGINMANAGER_H
 #define PLUGINMANAGER_H
 
+#include "Notebook.h"
+#include "clAuiBook.hpp"
 #include "clToolBar.h"
 #include "debugger.h"
 #include "dynamiclibrary.h"
@@ -93,7 +95,7 @@ public:
     TreeItemInfo GetSelectedTreeItemInfo(TreeType type) override;
     clTreeCtrl* GetFileExplorerTree() override;
     clTreeCtrl* GetWorkspaceTree() override;
-    Notebook* GetMainNotebook() override;
+    clAuiBook* GetMainNotebook() override;
     IEditor* OpenFile(const wxString& fileName, const wxString& projectName = wxEmptyString, int lineno = wxNOT_FOUND,
                       OF_extra flags = OF_AddJump) override;
     IEditor* OpenFile(const wxString& fileName, const wxString& bmpResourceName,
@@ -203,7 +205,7 @@ public:
 
     /// Add a book page
     void BookAddPage(PaneId pane_id, wxWindow* page, const wxString& label,
-                     const wxBitmap& bmp = wxNullBitmap) override;
+                     const wxString& bmpname = wxEmptyString) override;
 
     /// Find a book page by its label
     wxWindow* BookGetPage(PaneId pane_id, const wxString& label) override;

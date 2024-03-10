@@ -27,6 +27,7 @@
 #define NOTEBOOK_H
 
 #include "cl_defs.h"
+
 #if CL_USE_NATIVEBOOK
 
 #include "clNativeNotebook.hpp"
@@ -37,4 +38,5 @@ typedef clNativeNotebook Notebook;
 typedef clGenericNotebook Notebook;
 
 #endif // CL_USE_NATIVEBOOK
+
 #endif // NOTEBOOK_H

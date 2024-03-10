@@ -93,7 +93,7 @@ clStatusBar::clStatusBar(wxWindow* parent, IManager* mgr)
 #endif
 
     // set the width to include a possible label
-    int lable_width = GetTextWidth("_Subversion_Subversion_");
+    int lable_width = GetTextWidth("_git_source_control_with_long_branch_name");
     wxCustomStatusBarField::Ptr_t sourceControl(
         new wxCustomStatusBarBitmapField(this, clGetScaledSize(30) + lable_width));
     STATUSBAR_SCM_IDX = AddField(sourceControl);
@@ -197,8 +197,12 @@ void clStatusBar::DoSetLinePosColumn(const wxString& message)
     wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_LINE_COL_IDX);
     CHECK_PTR_RET(field);
 
-    field->Cast<wxCustomStatusBarFieldText>()->SetText(message);
-    field->SetTooltip(message);
+    auto line_col_text = field->Cast<wxCustomStatusBarFieldText>();
+    if(line_col_text->GetText() != message) {
+        // new message, set it
+        field->Cast<wxCustomStatusBarFieldText>()->SetText(message);
+        field->SetTooltip(message);
+    }
 }
 
 void clStatusBar::OnAllEditorsClosed(wxCommandEvent& event)

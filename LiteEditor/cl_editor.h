@@ -84,6 +84,43 @@ enum TrimFlags {
     TRIM_IGNORE_CARET_LINE = (1 << 3),
 };
 
+/// Current editor state
+struct EditorViewState {
+    int current_line = wxNOT_FOUND;
+    int first_visible_line = wxNOT_FOUND;
+    int lines_on_screen = wxNOT_FOUND;
+
+    bool operator==(const EditorViewState& other) const
+    {
+        return current_line == other.current_line && first_visible_line == other.first_visible_line &&
+               lines_on_screen == other.lines_on_screen;
+    }
+
+    void Reset()
+    {
+        current_line = wxNOT_FOUND;
+        first_visible_line = wxNOT_FOUND;
+        lines_on_screen = wxNOT_FOUND;
+    }
+
+    EditorViewState& operator=(const EditorViewState& other)
+    {
+        current_line = other.current_line;
+        first_visible_line = other.first_visible_line;
+        lines_on_screen = other.lines_on_screen;
+        return *this;
+    }
+
+    static EditorViewState From(wxStyledTextCtrl* ctrl)
+    {
+        EditorViewState state;
+        state.first_visible_line = ctrl->GetFirstVisibleLine();
+        state.current_line = ctrl->GetCurrentLine();
+        state.lines_on_screen = ctrl->LinesOnScreen();
+        return state;
+    }
+};
+
 wxDECLARE_EVENT(wxCMD_EVENT_REMOVE_MATCH_INDICATOR, wxCommandEvent);
 wxDECLARE_EVENT(wxCMD_EVENT_ENABLE_WORD_HIGHLIGHT, wxCommandEvent);
 
@@ -108,7 +145,6 @@ wxDECLARE_EVENT(wxCMD_EVENT_ENABLE_WORD_HIGHLIGHT, wxCommandEvent);
  */
 class clEditor : public wxStyledTextCtrl, public IEditor
 {
-
 private:
     struct SelectionInfo {
         std::vector<std::pair<int, int>> selections;
@@ -237,9 +273,7 @@ protected:
     wxChar m_lastCharEntered;
     int m_lastCharEnteredPos;
     bool m_isFocused;
-    bool m_pluginInitializedRMenu;
     BOM m_fileBom;
-    int m_positionToEnsureVisible;
     bool m_preserveSelection;
     std::vector<std::pair<int, int>> m_savedMarkers;
     bool m_findBookmarksActive;
@@ -259,8 +293,7 @@ protected:
     wxString m_keywordLocals;
     int m_editorBitmap = wxNOT_FOUND;
     size_t m_statusBarFields;
-    int m_lastBeginLine = wxNOT_FOUND;
-    int m_lastLine = wxNOT_FOUND;
+    EditorViewState m_editorState;
     int m_lastEndLine;
     int m_lastLineCount;
     wxColour m_selTextColour;
@@ -276,6 +309,10 @@ protected:
     // after the styles have been updated
     int m_trigger_cc_at_pos = wxNOT_FOUND;
     bool m_clearModifiedLines = false;
+
+    // track the position between Idle event calls
+    long m_lastIdlePosition = wxNOT_FOUND;
+    uint64_t m_lastIdleEvent = 0;
 
 public:
     static bool m_ccShowPrivateMembers;
@@ -329,7 +366,6 @@ public:
     bool IsFocused() const;
     CLCommandProcessor& GetCommandsProcessor() { return m_commandsProcessor; }
 
-public:
     /// Construct a clEditor object
     clEditor(wxWindow* parent);
 
@@ -404,15 +440,6 @@ public:
     const wxString& GetProject() const { return m_project; }
     // Set the project name
     void SetProject(const wxString& proj) { m_project = proj; }
-
-    /**
-     * @brief attempt to code complete the expression up until the caret position
-     * @param refreshingList when set to true, it means that the 'CodeComplete' was invoked
-     * by the code completion box itself in attempt to request new items for the list
-     * This feature is only supported internally for C++ and is not exposed to plugins
-     * i.e. the event wxEVT_CC_CODE_COMPLETE is fired only when refreshingList == false
-     */
-    void CodeComplete(bool refreshingList = false);
 
     /**
      * @brief toggle line comment
@@ -545,6 +572,11 @@ public:
     bool LineIsMarked(enum marker_mask_type mask);
     // Toggle marker at the current line
     void ToggleMarker();
+
+    /**
+     * @brief notify the control that was updated externally
+     */
+    void NotifyTextUpdated() override;
 
     /**
      * Delete markers from the current document
@@ -1098,11 +1130,16 @@ public:
     SFTPClientData* GetRemoteData() const override;
 
 private:
+    void DrawLineNumbers(bool force);
     void UpdateLineNumberMarginWidth();
     void DoUpdateTLWTitle(bool raise);
     void DoWrapPrevSelectionWithChars(wxChar first, wxChar last);
     int GetFirstSingleLineCommentPos(int from, int commentStyle);
     void DoSelectRange(const LSP::Range& range, bool center_line);
+    /**
+     * @brief attempt to code complete the expression up until the caret position
+     */
+    void CodeComplete();
 
     /**
      * @brief set the zoom factor
@@ -1143,8 +1180,8 @@ private:
     void DoToggleFold(int line, const wxString& textTag);
 
     // Line numbers drawings
-    void DoUpdateLineNumbers(bool relative_numbers);
-    void UpdateLineNumbers();
+    void DoUpdateLineNumbers(bool relative_numbers, bool force);
+    void UpdateLineNumbers(bool force);
     void UpdateDefaultTextWidth();
 
     // Event handlers
@@ -1188,6 +1225,7 @@ private:
     void OnEditorConfigChanged(wxCommandEvent& event);
     void OnColoursAndFontsUpdated(clCommandEvent& event);
     void OnModifiedExternally(clFileSystemEvent& event);
+    void OnActiveEditorChanged(wxCommandEvent& event);
 };
 
 #endif // LITEEDITOR_EDITOR_H
