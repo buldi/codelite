@@ -7,7 +7,7 @@ ThemeImporterJava::ThemeImporterJava()
                  "extends final  finally float for future generic goto if implements import inner "
                  "instanceof int interface long native new null outer  package private protected public rest "
                  "return short static super switch synchronized this throw throws transient try  var "
-                 "void volatile while");
+                 "void volatile while async await enum");
     // Documentation comment keywords
     SetKeywords2("a addindex addtogroup anchor arg attention author b brief bug c callgraph callergraph category class "
                  "code "
@@ -24,11 +24,18 @@ ThemeImporterJava::ThemeImporterJava()
                  "see showinitializer since skip skipline struct 	subpage  subsection subsubsection test throw "
                  "todo "
                  "tparam typedef union until var verbatim verbinclude version warning weakgroup xmlonly xrefitem");
+
+    // Special task markers
+    // will be styled with SCE_C_TASKMARKER
+    SetKeywords5("TODO FIXME BUG ATTN");
+
     // Secondary keywords and identifiers
     SetFunctionsWordSetIndex(1);
     SetClassWordSetIndex(3);
-    SetLangName("java");
+    SetOthersWordSetIndex(4);
+    SetLocalsWordSetIndex(LexerConf::WS_VARIABLES, true);
     SetFileExtensions("*.java");
+    SetLangName("java");
 }
 
 ThemeImporterJava::~ThemeImporterJava() {}
@@ -56,6 +63,11 @@ LexerConf::Ptr_t ThemeImporterJava::Import(const wxFileName& theme_file)
     AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORDERROR, "Javadoc keyword error", m_javadocKeyword);
     AddProperty(lexer, wxSTC_C_WORD2, "Methods", m_function);
     AddProperty(lexer, wxSTC_C_GLOBALCLASS, "Classes", m_klass);
+    AddProperty(lexer, wxSTC_C_TASKMARKER, "Task Markers", m_task);
+    AddPropertySubstyle(lexer, LexerConf::WS_VARIABLES, "Variable", m_variable);
+
+    // the base for all our substyles
+    lexer->SetSubstyleBase(wxSTC_C_IDENTIFIER);
 
     FinalizeImport(lexer);
     return lexer;

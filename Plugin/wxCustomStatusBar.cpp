@@ -97,7 +97,7 @@ void wxCustomStatusBarFieldText::SetText(const wxString& text)
 #if defined(__WXOSX__) || defined(__WXMSW__)
             m_parent->Refresh();
             return;
-#endif
+#else
             // Make sure we draw only when the "art" objects are in sync with the field
             // and with the bar itself
             if((m_rect.GetHeight() > 0) && (m_rect.GetWidth() > 0)) {
@@ -141,6 +141,7 @@ void wxCustomStatusBarFieldText::SetText(const wxString& text)
                 m_parent->PrepareDC(cdc);
                 cdc.DrawBitmap(bmp, m_rect.GetTopLeft(), true);
             }
+#endif
         }
     }
 }
@@ -268,7 +269,7 @@ wxCustomStatusBar::wxCustomStatusBar(wxWindow* parent, wxWindowID id, long style
     m_mainText->Cast<wxCustomStatusBarFieldText>()->SetTextAlignment(wxALIGN_LEFT);
 
     Bind(wxEVT_PAINT, &wxCustomStatusBar::OnPaint, this);
-    Bind(wxEVT_ERASE_BACKGROUND, &wxCustomStatusBar::OnEraseBackround, this);
+    Bind(wxEVT_ERASE_BACKGROUND, &wxCustomStatusBar::OnEraseBackground, this);
     Bind(wxEVT_LEFT_DOWN, &wxCustomStatusBar::OnLeftDown, this);
     Bind(wxEVT_MOTION, &wxCustomStatusBar::OnMouseMotion, this);
     m_timer = new wxTimer(this);
@@ -288,7 +289,7 @@ wxCustomStatusBar::~wxCustomStatusBar()
     wxDELETE(m_timer);
 
     Unbind(wxEVT_PAINT, &wxCustomStatusBar::OnPaint, this);
-    Unbind(wxEVT_ERASE_BACKGROUND, &wxCustomStatusBar::OnEraseBackround, this);
+    Unbind(wxEVT_ERASE_BACKGROUND, &wxCustomStatusBar::OnEraseBackground, this);
     Unbind(wxEVT_LEFT_DOWN, &wxCustomStatusBar::OnLeftDown, this);
     Unbind(wxEVT_MOTION, &wxCustomStatusBar::OnMouseMotion, this);
 }
@@ -332,7 +333,7 @@ void wxCustomStatusBar::OnPaint(wxPaintEvent& event)
     }
 }
 
-void wxCustomStatusBar::OnEraseBackround(wxEraseEvent& event) { wxUnusedVar(event); }
+void wxCustomStatusBar::OnEraseBackground(wxEraseEvent& event) { wxUnusedVar(event); }
 
 size_t wxCustomStatusBar::DoGetFieldsWidth()
 {

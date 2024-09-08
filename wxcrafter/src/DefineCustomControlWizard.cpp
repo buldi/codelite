@@ -1,7 +1,9 @@
 #include "DefineCustomControlWizard.h"
+
 #include "NewCustomEventDlg.h"
-#include <globals.h>
-#include <json_node.h>
+#include "globals.h"
+#include "json_node.h"
+
 #include <wx/msgdlg.h>
 
 DefineCustomControlWizard::DefineCustomControlWizard(wxWindow* parent)
@@ -14,7 +16,7 @@ DefineCustomControlWizard::~DefineCustomControlWizard() {}
 void DefineCustomControlWizard::OnPageChanging(wxWizardEvent& event)
 {
     if(event.GetDirection()) {
-        if(event.GetPage() == m_wizardPageGeneral && !::IsValidCppIndetifier(m_textClassName->GetValue())) {
+        if(event.GetPage() == m_wizardPageGeneral && !::IsValidCppIdentifier(m_textClassName->GetValue())) {
             wxMessageBox(_("Invalid C++ class name provided!"), wxT("wxCrafter"), wxOK | wxICON_WARNING | wxCENTER);
             event.Veto();
             return;

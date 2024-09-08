@@ -95,12 +95,8 @@ select the ones you are interested in and then [configure them in CodeLite][14]
         - On `Windows`, we build it from sources. Open `MSYS2` terminal and type:
 
             ```bash
-            cd ~
-            git clone https://github.com/rust-lang/rust-analyzer.git
-            cd rust-analyzer
-            cargo build --release \
-                && mkdir -p ~/.cargo/bin \
-                && cp target/release/rust-analyzer.exe target/release/rust-analyzer-proc-macro-srv.exe ~/.cargo/bin```
+            pacman -Sy mingw-w64-clang-x86_64-rust mingw-w64-clang-x86_64-rust-src
+            ```
 
     You should now have `rust-analyzer` installed under `rustup` local folder, for example, under `Linux` or `macOS`,
     it can be found here:
@@ -109,28 +105,13 @@ select the ones you are interested in and then [configure them in CodeLite][14]
     TARGET=$(rustup target list|grep installed|cut -d" " -f1)
     $HOME/.rustup/toolchains/nightly-$TARGET/bin/rust-analyzer```
 
-=== "rls"
-    `rls` is yet another rust language server, but less popular than `rust-analzyer`
+=== "gopls"
+    `gopls` (pronounced "Go Please") is the official LSP for `golang`
 
     To install it:
-
-    - [Install rust][13]
-    - Open a terminal and type:
-        - On `macOS` and `Linux`:
-            ```bash
-            rustup update
-            rustup component add rls rust-analysis rust-src```
-
-        - On `Windows`:
-            ```batch
-            %USERPROFILE%\.cargo\bin\rustup update
-            %USERPROFILE%\.cargo\bin\rustup component add rls rust-analysis rust-src```
-
-    Visit the [project home page][8]
-
-    !!! Important
-        The `rls` language server must be started from the cargo project directory
-        i.e. the location of the `Cargo.toml` file
+    ```bash
+    go install golang.org/x/tools/gopls@latest
+    ```
 
 ---
 
@@ -151,7 +132,7 @@ and configure any server the follows the LSP protocol. You will however, need to
 - Install the LSP you want on your computer. You can [visit this site][2] to get a complete list of all LSP implementations out there
 - From the main menu, `Plugins` &#8594; `Language Server` &#8594; `Settings...`
 - Click on the `Add` button
-- In the dialog that opens, fill the mandatory fields:
+- In the dialogue that opens, fill the mandatory fields:
 
 Field   | Mandatory | Description
 --------|-----------|-------------

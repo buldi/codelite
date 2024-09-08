@@ -24,9 +24,10 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "unittestpp.h"
 
-#include "asyncprocess.h"
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "bitmap_loader.h"
-#include "clKeyboardManager.h"
 #include "codelite_events.h"
 #include "ctags_manager.h"
 #include "dirsaver.h"
@@ -35,7 +36,6 @@
 #include "macros.h"
 #include "newunittestdlg.h"
 #include "pipedprocess.h"
-#include "processreaderthread.h"
 #include "procutils.h"
 #include "project.h"
 #include "testclassdlg.h"
@@ -53,20 +53,15 @@
 #include <wx/xrc/xmlres.h>
 
 #ifdef __WXMSW__
-#include "evnvarlist.h"
+#include "envvarlist.h"
 
 #include <wx/msw/registry.h>
 #endif
 
-static UnitTestPP* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new UnitTestPP(manager);
-    }
-    return thePlugin;
+    return new UnitTestPP(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

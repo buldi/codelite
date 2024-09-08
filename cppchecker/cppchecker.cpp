@@ -25,13 +25,14 @@
 
 #include "cppchecker.h"
 
+#include "AsyncProcess/processreaderthread.h"
 #include "IWorkspace.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "Notebook.h"
-#include "Platform.hpp"
+#include "Platform/Platform.hpp"
 #include "StringUtils.h"
 #include "build_settings_config.h"
 #include "clAnsiEscapeCodeColourBuilder.hpp"
-#include "clKeyboardManager.h"
 #include "clWorkspaceManager.h"
 #include "cl_process.h"
 #include "codelite_events.h"
@@ -42,7 +43,6 @@
 #include "globals.h"
 #include "imanager.h"
 #include "macros.h"
-#include "processreaderthread.h"
 #include "procutils.h"
 #include "project.h"
 #include "shell_command.h"
@@ -62,15 +62,10 @@
 #include <wx/xml/xml.h>
 #include <wx/xrc/xmlres.h>
 
-static CppCheckPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if (thePlugin == 0) {
-        thePlugin = new CppCheckPlugin(manager);
-    }
-    return thePlugin;
+    return new CppCheckPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

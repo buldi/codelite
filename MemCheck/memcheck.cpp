@@ -7,8 +7,9 @@
 
 #include "memcheck.h"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "async_executable_cmd.h"
-#include "asyncprocess.h"
 #include "build_config.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
@@ -21,22 +22,16 @@
 #include "memchecksettings.h"
 #include "memchecksettingsdialog.h"
 #include "memcheckui.h"
-#include "processreaderthread.h"
 #include "valgrindprocessor.h"
 #include "workspace.h"
 
 #include <wx/busyinfo.h>
 #include <wx/filedlg.h>
 
-static MemCheckPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new MemCheckPlugin(manager);
-    }
-    return thePlugin;
+    return new MemCheckPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

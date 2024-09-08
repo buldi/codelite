@@ -1,6 +1,6 @@
 #include "clFileName.hpp"
 
-#include "Platform.hpp"
+#include "Platform/Platform.hpp"
 #include "StringUtils.h"
 #include "file_logger.h"
 #include "fileutils.h"
@@ -144,9 +144,3 @@ const wxString& clFileName::GetRemoteFullPath() const
     }
     return m_remotePath;
 }
-
-wxString clFileName::GetRemotePath() const { return wxFileName(GetRemotePath(), wxPATH_UNIX).GetPath(wxPATH_UNIX); }
-
-wxString clFileName::GetRemoteFullName() const { return wxFileName(GetRemotePath(), wxPATH_UNIX).GetFullName(); }
-
-wxString clFileName::GetRemoteName() const { return wxFileName(GetRemotePath(), wxPATH_UNIX).GetName(); }

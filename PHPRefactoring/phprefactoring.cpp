@@ -1,32 +1,29 @@
+#include "phprefactoring.h"
+
+#include "AsyncProcess/asyncprocess.h"
+#include "Diff/clPatch.h"
 #include "PHPRefactoringPreviewDlg.h"
-#include "asyncprocess.h"
 #include "clEditorStateLocker.h"
-#include "clPatch.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "globals.h"
 #include "phpoptions.h"
-#include "phprefactoring.h"
 #include "phprefactoringdlg.h"
 #include "phprefactoringoptions.h"
-#include "string"
+
 #include <sstream>
+#include <string>
 #include <wx/filename.h>
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
 #include <wx/xrc/xmlres.h>
 
-static PHPRefactoring* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == NULL) {
-        thePlugin = new PHPRefactoring(manager);
-    }
-    return thePlugin;
+    return new PHPRefactoring(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

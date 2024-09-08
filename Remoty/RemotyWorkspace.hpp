@@ -1,13 +1,13 @@
 #ifndef REMOTEWORKSPACE_HPP
 #define REMOTEWORKSPACE_HPP
 
+#include "AsyncProcess/asyncprocess.h"
+#include "FileSystemWorkspace/clFileSystemWorkspaceConfig.hpp"
 #include "IWorkspace.h" // Base class: IWorkspace
 #include "JSON.h"
 #include "LSP/LSPEvent.h"
-#include "asyncprocess.h"
 #include "clCodeLiteRemoteProcess.hpp"
 #include "clFileSystemEvent.h"
-#include "clFileSystemWorkspaceConfig.hpp"
 #include "clRemoteFinderHelper.hpp"
 #include "clRemoteTerminal.hpp"
 #include "clSFTPEvent.h"

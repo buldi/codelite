@@ -65,8 +65,6 @@
 namespace
 {
 
-SpellCheck* thePlugin = NULL;
-
 constexpr size_t maxSuggestions = 15;
 
 const int SPC_IGNORE_WORD = XRCID("spellcheck_ignore_word");
@@ -82,10 +80,7 @@ constexpr int PARSE_TIME = 500;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new SpellCheck(manager);
-    }
-    return thePlugin;
+    return new SpellCheck(manager);
 }
 // ------------------------------------------------------------
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -113,7 +108,7 @@ SpellCheck::~SpellCheck()
 
     m_topWin->Unbind(wxEVT_MENU, &SpellCheck::OnSettings, this, IDM_SETTINGS);
     m_topWin->Unbind(wxEVT_MENU, &SpellCheck::OnCheck, this, XRCID(s_doCheckID.ToUTF8()));
-    m_topWin->Unbind(wxEVT_MENU, &SpellCheck::OnContinousCheck, this, XRCID(s_contCheckID.ToUTF8()));
+    m_topWin->Unbind(wxEVT_MENU, &SpellCheck::OnContinuousCheck, this, XRCID(s_contCheckID.ToUTF8()));
     m_topWin->Unbind(wxEVT_CONTEXT_MENU_EDITOR, &SpellCheck::OnContextMenu, this);
     m_topWin->Unbind(wxEVT_WORKSPACE_LOADED, &SpellCheck::OnWspLoaded, this);
     m_topWin->Unbind(wxEVT_WORKSPACE_CLOSED, &SpellCheck::OnWspClosed, this);
@@ -178,7 +173,7 @@ void SpellCheck::CreateToolBar(clToolBarGeneric* toolbar)
                      _("Run spell-checker"));
     toolbar->AddToggleButton(XRCID(s_contCheckID.ToUTF8()), images->Add("repeat", size), _("Check continuous"));
     wxTheApp->Bind(wxEVT_MENU, &SpellCheck::OnCheck, this, XRCID(s_doCheckID.ToUTF8()));
-    wxTheApp->Bind(wxEVT_MENU, &SpellCheck::OnContinousCheck, this, XRCID(s_contCheckID.ToUTF8()));
+    wxTheApp->Bind(wxEVT_MENU, &SpellCheck::OnContinuousCheck, this, XRCID(s_contCheckID.ToUTF8()));
     SetCheckContinuous(GetCheckContinuous());
 }
 
@@ -306,7 +301,7 @@ void SpellCheck::OnCheck(wxCommandEvent& e)
     CHECK_PTR_RET(m_pEngine);
     CHECK_PTR_RET(editor);
 
-    bool old_continous_value = GetCheckContinuous();
+    bool old_continuous_value = GetCheckContinuous();
     if(GetCheckContinuous()) {
         // switch continuous search off if running
         SetCheckContinuous(false);
@@ -323,7 +318,7 @@ void SpellCheck::OnCheck(wxCommandEvent& e)
         editor->ClearUserIndicators();
     }
 
-    if(old_continous_value) {
+    if(old_continuous_value) {
         SetCheckContinuous(true);
     }
 }
@@ -357,7 +352,7 @@ void SpellCheck::SaveSettings()
     m_mgr->GetConfigTool()->WriteObject(s_spOptions, &m_options);
 }
 // ------------------------------------------------------------
-void SpellCheck::OnContinousCheck(wxCommandEvent& e)
+void SpellCheck::OnContinuousCheck(wxCommandEvent& e)
 {
     CHECK_PTR_RET(m_pEngine);
 

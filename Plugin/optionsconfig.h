@@ -30,10 +30,12 @@
 #include "clEditorConfig.h"
 #include "codelite_exports.h"
 #include "configuration_object.h"
-#include "wx/colour.h"
-#include "wx/font.h"
-#include "wx/string.h"
-#include "wx/xml/xml.h"
+
+#include <memory>
+#include <wx/colour.h>
+#include <wx/font.h>
+#include <wx/string.h>
+#include <wx/xml/xml.h>
 
 class WXDLLIMPEXP_SDK OptionsConfig : public ConfObject
 {
@@ -156,7 +158,7 @@ protected:
     int m_nbTabHeight; // Should notebook tabs be too tall, too short or...
     wxString m_webSearchPrefix;
     bool m_smartParen = true;
-    bool m_lineNumberHighlightCurrent = true;
+    bool m_lineNumberHighlightCurrent = false;
     bool m_showRightMarginIndicator = false;
     int m_rightMarginColumn = 120;
 
@@ -481,6 +483,6 @@ public:
     wxXmlNode* ToXml() const;
 };
 
-typedef SmartPtr<OptionsConfig> OptionsConfigPtr;
+using OptionsConfigPtr = std::shared_ptr<OptionsConfig>;
 
 #endif // OPTIONS_CONFIG_H

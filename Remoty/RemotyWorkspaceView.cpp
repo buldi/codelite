@@ -1,10 +1,11 @@
 #include "RemotyWorkspaceView.hpp"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
+#include "FileSystemWorkspace/clFileSystemWorkspaceConfig.hpp"
+#include "FileSystemWorkspace/clFileSystemWorkspaceDlg.h"
 #include "RemotyWorkspace.hpp"
 #include "SFTPClientData.hpp"
-#include "asyncprocess.h"
-#include "clFileSystemWorkspaceConfig.hpp"
-#include "clFileSystemWorkspaceDlg.h"
 #include "clRemoteFindDialog.h"
 #include "clSFTPManager.hpp"
 #include "codelite_events.h"
@@ -13,15 +14,14 @@
 #include "globals.h"
 #include "ieditor.h"
 #include "imanager.h"
-#include "processreaderthread.h"
 #include "search_thread.h"
 #include "ssh/ssh_account_info.h"
-#include "wx/event.h"
-#include "wx/tokenzr.h"
-#include "wx/wxcrt.h"
 
 #include <wx/arrstr.h>
+#include <wx/event.h>
 #include <wx/msgdlg.h>
+#include <wx/tokenzr.h>
+#include <wx/wxcrt.h>
 #include <wx/xrc/xmlres.h>
 
 RemotyWorkspaceView::RemotyWorkspaceView(wxWindow* parent, RemotyWorkspace* workspace)

@@ -56,13 +56,10 @@
 
 #define myLog(...) LogFn(wxString::Format(__VA_ARGS__))
 
-CallGraph* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new CallGraph(manager); }
-    return thePlugin;
+    return new CallGraph(manager);
 }
 
 wxString wxbuildinfo()
@@ -290,11 +287,11 @@ wxString CallGraph::GetGprofPath()
     return wxEmptyString;
 #else
     gprofPath = LocateApp(GPROF_FILENAME_EXE);
-#endif
 
     confData.SetGprofPath(gprofPath);
     m_mgr->GetConfigTool()->WriteObject(wxT("CallGraph"), &confData);
     return gprofPath;
+#endif
 }
 
 //---- Get Dot Path -----------------------------------------------------------
@@ -313,13 +310,13 @@ wxString CallGraph::GetDotPath()
     return wxEmptyString;
 #else
     dotPath = LocateApp(DOT_FILENAME_EXE);
-#endif
 
     confData.SetDotPath(dotPath);
 
     m_mgr->GetConfigTool()->WriteObject(wxT("CallGraph"), &confData);
 
     return dotPath;
+#endif
 }
 
 //---- Show CallGraph event ---------------------------------------------------

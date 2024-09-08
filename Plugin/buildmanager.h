@@ -25,14 +25,14 @@
 #ifndef BUILDMANAGER_H
 #define BUILDMANAGER_H
 
-#include "builder.h"
+#include "builder/builder.h"
 #include "codelite_exports.h"
 #include "singleton.h"
-#include "wx/string.h"
 #include "wxStringHash.h"
 
 #include <list>
 #include <map>
+#include <wx/string.h>
 
 /**
  * \ingroup SDK

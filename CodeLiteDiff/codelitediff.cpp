@@ -25,11 +25,11 @@
 
 #include "codelitediff.h"
 
-#include "DiffFoldersFrame.h"
-#include "DiffSideBySidePanel.h"
+#include "Diff/DiffFoldersFrame.h"
+#include "Diff/DiffSideBySidePanel.h"
+#include "Diff/clDiffFrame.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "NewFileComparison.h"
-#include "clDiffFrame.h"
-#include "clKeyboardManager.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "macros.h"
@@ -38,15 +38,10 @@
 #include <wx/menu.h>
 #include <wx/xrc/xmlres.h>
 
-static CodeLiteDiff* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new CodeLiteDiff(manager);
-    }
-    return thePlugin;
+    return new CodeLiteDiff(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

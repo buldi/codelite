@@ -29,11 +29,15 @@
 #include "ColoursAndFontsManager.h"
 #include "CompilersDetectorManager.h"
 #include "CompilersFoundDlg.h"
-#include "DebuggerToolBar.h"
+#include "Cxx/cpptoken.h"
+#include "Debugger/DebuggerToolBar.h"
+#include "Debugger/debuggermanager.h"
+#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
 #include "GCCMetadata.hpp"
 #include "Notebook.h"
 #include "NotebookNavigationDlg.h"
 #include "SideBar.hpp"
+#include "StdToWX.h"
 #include "SwitchToWorkspaceDlg.h"
 #include "WelcomePage.h"
 #include "acceltabledlg.h"
@@ -46,14 +50,11 @@
 #include "bookmark_manager.h"
 #include "build_custom_targets_menu_manager.h"
 #include "build_settings_config.h"
-#include "builder.h"
-#include "buildmanager.h"
 #include "buildtabsettingsdata.h"
 #include "clAboutDialog.h"
 #include "clBootstrapWizard.h"
 #include "clCustomiseToolBarDlg.h"
 #include "clEditorBar.h"
-#include "clFileSystemWorkspace.hpp"
 #include "clGotoAnythingManager.h"
 #include "clInfoBar.h"
 #include "clLocaleManager.hpp"
@@ -75,10 +76,8 @@
 #include "configuration_manager_dlg.h"
 #include "context_cpp.h"
 #include "cpp_symbol_tree.h"
-#include "cpptoken.h"
 #include "debugcoredump.h"
 #include "debuggerconfigtool.h"
-#include "debuggermanager.h"
 #include "debuggerpane.h"
 #include "debuggersettingsdlg.h"
 #include "detachedpanesinfo.h"
@@ -158,12 +157,14 @@ int FrameTimerId = wxNewId();
 // return the wxBORDER_SIMPLE that matches the current application theme
 wxBorder get_border_simple_theme_aware_bit()
 {
-#ifdef __WXMAC__
-    return wxBORDER_NONE;
-#elif defined(__WXGTK__)
-    return wxBORDER_STATIC;
+#if defined(__WXMAC__) || defined(__WXMSW__)
+    if (clSystemSettings::GetAppearance().IsDark()) {
+        return wxBORDER_SIMPLE;
+    } else {
+        return wxBORDER_STATIC;
+    }
 #else
-    return wxBORDER_NONE;
+    return wxBORDER_DEFAULT;
 #endif
 } // DoGetBorderSimpleBit
 } // namespace
@@ -870,7 +871,7 @@ void clMainFrame::Construct()
     m_highlightWord = (bool)value;
 
     // Initialize the frame helper
-    m_frameHelper.Reset(new clMainFrameHelper(this, &m_mgr));
+    m_frameHelper = std::make_unique<clMainFrameHelper>(this, &m_mgr);
     CreateGUIControls();
 
     ManagerST::Get(); // Dummy call
@@ -1015,8 +1016,7 @@ void clMainFrame::AddKeyboardAccelerators()
     mgr->AddAccelerator(_("C++"), { { "swap_files", _("Swap Header/Implementation file"), "F12" },
                                     { "find_decl", _("Goto Declaration") },
                                     { "find_impl", _("Goto Implementation") },
-                                    { "open_include_file", _("Open Include File") },
-                                    { "add_include_file", _("Add Include File"), "Ctrl-Shift-I" } });
+                                    { "open_include_file", _("Open Include File") } });
     mgr->AddAccelerator(_("C++ | Code Generation / Refactoring"),
                         { { "setters_getters", _("Generate Setters/Getters...") },
                           { "move_impl", _("Move Function Implementation to...") },
@@ -1243,14 +1243,7 @@ void clMainFrame::CreateGUIControls()
 
     m_mgr.GetArtProvider()->SetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE, 0);
     m_mgr.GetArtProvider()->SetMetric(wxAUI_DOCKART_PANE_BUTTON_SIZE, GetBestXButtonSize(this));
-
-#if defined(__WXMSW__)
     m_mgr.GetArtProvider()->SetMetric(wxAUI_DOCKART_SASH_SIZE, 4);
-#elif defined(__WXMAC__)
-    m_mgr.GetArtProvider()->SetMetric(wxAUI_DOCKART_SASH_SIZE, 1);
-#else
-    m_mgr.GetArtProvider()->SetMetric(wxAUI_DOCKART_SASH_SIZE, 4);
-#endif
 
     // add menu bar
     m_mainMenuBar = wxXmlResource::Get()->LoadMenuBar("main_menu");
@@ -1311,10 +1304,10 @@ void clMainFrame::CreateGUIControls()
 
     // Add the workspace pane
     m_sidebar =
-        new SideBar(m_mainPanel, "Workspace View", &m_mgr, wxTAB_TRAVERSAL | get_border_simple_theme_aware_bit());
+        new SideBar(m_mainPanel, "Workspace View", &m_mgr, wxTAB_TRAVERSAL /* | get_border_simple_theme_aware_bit()*/);
     RegisterDockWindow(XRCID("workspace_pane"), "Workspace View");
 
-    m_secondary_sidebar = new SecondarySideBar(m_mainPanel, wxTAB_TRAVERSAL | get_border_simple_theme_aware_bit());
+    m_secondary_sidebar = new SecondarySideBar(m_mainPanel, wxTAB_TRAVERSAL /* | get_border_simple_theme_aware_bit()*/);
     RegisterDockWindow(XRCID("secondary_side_bar"), "Secondary Sidebar");
 
     // link between the side bars
@@ -1328,7 +1321,7 @@ void clMainFrame::CreateGUIControls()
 
     // Wrap the mainbook with a wxPanel
     // We do this so we can place the find bar under the main book
-    long container_style = get_border_simple_theme_aware_bit() | wxTAB_TRAVERSAL;
+    long container_style = wxBORDER_NONE | wxTAB_TRAVERSAL;
     wxPanel* container = new wxPanel(m_mainPanel, wxID_ANY, wxDefaultPosition, wxDefaultSize, container_style);
 
     EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, [container](clCommandEvent& e) {
@@ -1385,9 +1378,6 @@ void clMainFrame::CreateGUIControls()
 
     // update ctags options
     TagsManagerST::Get()->SetCtagsOptions(m_tagsOptionsData);
-
-    // set this frame as the event handler for any events
-    TagsManagerST::Get()->SetEvtHandler(this);
 
     // We must do Layout() before loading the toolbars, otherwise they're broken in >=wxGTK-2.9
     Layout();
@@ -1448,7 +1438,7 @@ void clMainFrame::DoShowToolbars(bool show, bool update)
 void clMainFrame::OnEditMenuOpened(wxMenuEvent& event)
 {
     event.Skip();
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     wxMenuItem* labelCurrentState = event.GetMenu()->FindChildItem(XRCID("label_current_state"));
     if (labelCurrentState) { // Here seems to be the only reliable place to do 'updateui' for this; a real UpdateUI
                              // handler is only hit when there's no editor :/
@@ -1473,7 +1463,7 @@ void clMainFrame::OnEditMenuOpened(wxMenuEvent& event)
 
 void clMainFrame::OnNativeTBUnRedoDropdown(wxCommandEvent& event)
 {
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor && m_mainToolbar) {
         bool undoing = event.GetId() == wxID_UNDO;
         wxMenu* menu = new wxMenu;
@@ -1703,7 +1693,7 @@ void clMainFrame::OnQuit(wxCommandEvent& WXUNUSED(event)) { Close(); }
 
 void clMainFrame::OnTBUnRedoMenu(wxCommandEvent& event)
 {
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->GetCommandsProcessor().ProcessEvent(event);
 
@@ -1728,7 +1718,7 @@ bool clMainFrame::IsEditorEvent(wxEvent& event)
 
 #ifdef __WXGTK__
     MainBook* mainBook = GetMainBook();
-    if (!mainBook || !mainBook->GetActiveEditor(true)) {
+    if (!mainBook || !mainBook->GetActiveEditor()) {
         if (event.GetId() == XRCID("id_find")) {
             return true;
         } else {
@@ -1749,7 +1739,7 @@ bool clMainFrame::IsEditorEvent(wxEvent& event)
             isFocused = true;
 
         } else {
-            isFocused = mainBook->GetActiveEditor(true)->IsFocused();
+            isFocused = mainBook->GetActiveEditor()->IsFocused();
         }
         return isFocused;
     }
@@ -1804,7 +1794,7 @@ void clMainFrame::DispatchCommandEvent(wxCommandEvent& event)
         return;
     }
 
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->OnMenuCommand(event);
     } else if (event.GetId() == XRCID("id_find")) {
@@ -1842,7 +1832,7 @@ void clMainFrame::DispatchUpdateUIEvent(wxUpdateUIEvent& event)
         return;
     }
 
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (!editor) {
         event.Enable(false);
         return;
@@ -1860,7 +1850,7 @@ void clMainFrame::DispatchUpdateUIEvent(wxUpdateUIEvent& event)
 void clMainFrame::OnFileExistUpdateUI(wxUpdateUIEvent& event)
 {
     CHECK_SHUTDOWN();
-    event.Enable(GetMainBook()->GetActiveEditor(true) != NULL);
+    event.Enable(GetMainBook()->GetActiveEditor() != NULL);
 }
 
 void clMainFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
@@ -1967,7 +1957,7 @@ void clMainFrame::LoadSession(const wxString& sessionName)
 void clMainFrame::OnSave(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->SaveFile();
 
@@ -2038,7 +2028,7 @@ void clMainFrame::OnFileLoadTabGroup(wxCommandEvent& WXUNUSED(event))
 void clMainFrame::OnFileReload(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         if (editor->GetModify()) {
             // Ask user if he really wants to lose all changes
@@ -2139,7 +2129,7 @@ void clMainFrame::OnCompleteWordRefreshList(wxCommandEvent& event) { wxUnusedVar
 void clMainFrame::OnCodeComplete(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->CompleteWord(LSP::CompletionItem::kTriggerUser);
     }
@@ -2148,7 +2138,7 @@ void clMainFrame::OnCodeComplete(wxCommandEvent& event)
 void clMainFrame::OnFunctionCalltip(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->ShowFunctionTipFromCurrentPos();
     }
@@ -2215,10 +2205,9 @@ void clMainFrame::OnFileSaveTabGroup(wxCommandEvent& WXUNUSED(event))
 
     std::vector<clEditor*> editors;
     wxArrayString filepaths;
-    GetMainBook()->GetAllEditors(editors, MainBook::kGetAll_RetainOrder |
-                                              MainBook::kGetAll_IncludeDetached); // We'll want the order of intArr
-                                                                                  // to match the order in
-                                                                                  // MainBook::SaveSession
+    GetMainBook()->GetAllEditors(editors, MainBook::kGetAll_RetainOrder); // We'll want the order of intArr
+                                                                          // to match the order in
+                                                                          // MainBook::SaveSession
     for (size_t i = 0; i < editors.size(); ++i) {
         filepaths.Add(editors[i]->GetFileName().GetFullPath());
     }
@@ -2281,7 +2270,7 @@ void clMainFrame::OnCompleteWordUpdateUI(wxUpdateUIEvent& event)
 {
     CHECK_SHUTDOWN();
 
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     // This menu item is enabled only if the current editor belongs to a project
     event.Enable(editor);
 }
@@ -2956,7 +2945,7 @@ void clMainFrame::OnQuickOutline(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     // Sanity
-    clEditor* activeEditor = GetMainBook()->GetActiveEditor(true);
+    clEditor* activeEditor = GetMainBook()->GetActiveEditor();
     CHECK_PTR_RET(activeEditor);
 
     // let the plugins process this first
@@ -3102,7 +3091,7 @@ void clMainFrame::OnImportMSVS(wxCommandEvent& e)
             cmp = BuildSettingsConfigST::Get()->GetNextCompiler(cookie);
         }
 
-        // Get the prefered compiler type
+        // Get the preferred compiler type
         wxString compilerName = wxGetSingleChoice(_("Select the compiler to use:"), _("Choose compiler"), cmps);
         ManagerST::Get()->ImportMSVSSolution(dlg.GetPath(), compilerName);
     }
@@ -3539,9 +3528,7 @@ void clMainFrame::CompleteInitialization()
     clGotoAnythingManager::Get().Initialise();
 
     // Update the toolbar view
-    wxArrayString dummy;
-    dummy.Add("No Entries");
-    wxArrayString hiddenItems = clConfig::Get().Read("ToolBarHiddenItems", dummy);
+    wxArrayString hiddenItems = clConfig::Get().Read("ToolBarHiddenItems", StdToWX::ToArrayString({ "No Entries" }));
     if (hiddenItems.GetCount() == 1 && hiddenItems.Item(0) == "No Entries") {
         // By default, hide these entries
         std::vector<wxString> v = { "New",
@@ -3892,7 +3879,7 @@ void clMainFrame::OnManagePlugins(wxCommandEvent& e)
 
 void clMainFrame::OnCppContextMenu(wxCommandEvent& e)
 {
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     if (editor) {
         editor->GetContext()->ProcessEvent(e);
     }
@@ -3953,7 +3940,13 @@ void clMainFrame::OnSingleInstanceOpenFiles(clCommandEvent& e)
             OnSwitchWorkspace(workspaceEvent);
 
         } else {
-            GetMainBook()->OpenFile(files.Item(i), wxEmptyString);
+            long lineNumber = e.GetLineNumber();
+            if (lineNumber > 0) {
+                lineNumber--;
+            } else {
+                lineNumber = 0;
+            }
+            GetMainBook()->OpenFile(files.Item(i), wxEmptyString, lineNumber);
         }
     }
 
@@ -4307,7 +4300,7 @@ void clMainFrame::OnOpenShellFromFilePath(wxCommandEvent& e)
     DirSaver ds;
     wxSetWorkingDirectory(filepath);
 
-    // Apply the environment variabels before opening the shell
+    // Apply the environment variables before opening the shell
     EnvSetter setter;
     FileUtils::OpenTerminal(filepath);
 }
@@ -4939,7 +4932,7 @@ void clMainFrame::SelectBestEnvSet()
 
     wxString globalActiveSet = "Default";
     wxString activeSetName;
-    EvnVarList vars = EnvironmentConfig::Instance()->GetSettings();
+    EnvVarList vars = EnvironmentConfig::Instance()->GetSettings();
 
     // By default, use the global one
     activeSetName = globalActiveSet;
@@ -5038,8 +5031,10 @@ void clMainFrame::OnRestoreDefaultLayout(wxCommandEvent& e)
 void clMainFrame::SetAUIManagerFlags()
 {
     // Set the manager flags
-    unsigned int auiMgrFlags = wxAUI_MGR_TRANSPARENT_HINT | wxAUI_MGR_HINT_FADE | wxAUI_MGR_ALLOW_FLOATING;
+    unsigned int auiMgrFlags = wxAUI_MGR_TRANSPARENT_HINT | wxAUI_MGR_HINT_FADE;
+#if defined(__WXMAC__) || defined(__WXGTK__)
     auiMgrFlags |= wxAUI_MGR_LIVE_RESIZE;
+#endif
     m_mgr.SetFlags(auiMgrFlags);
 }
 
@@ -5257,7 +5252,7 @@ void clMainFrame::DoCreateBuildDropDownMenu(wxMenu* menu)
             clCxxWorkspaceST::Get()->GetProjBuildConf(clCxxWorkspaceST::Get()->GetActiveProjectName(), "");
         if (bldcfg && bldcfg->IsCustomBuild()) {
 
-            // Update teh custom targets
+            // Update the custom targets
             CustomTargetsMgr::Get().SetTargets(clCxxWorkspaceST::Get()->GetActiveProjectName(),
                                                bldcfg->GetCustomTargets());
 
@@ -5303,7 +5298,6 @@ void clMainFrame::OnFileSaveAllUI(wxUpdateUIEvent& event)
     bool hasModifiedEditor = false;
     clTab::Vec_t tabs;
     GetMainBook()->GetAllTabs(tabs);
-    GetMainBook()->GetDetachedTabs(tabs);
 
     for (size_t i = 0; i < tabs.size(); ++i) {
         if (tabs.at(i).isFile && tabs.at(i).isModified) {
@@ -5458,9 +5452,7 @@ void clMainFrame::OnSettingsChanged(wxCommandEvent& e)
     m_mainFrameTitleTemplate = clConfig::Get().Read(kConfigFrameTitlePattern, wxString("$workspace $fullpath"));
 }
 
-void clMainFrame::OnDetachEditor(wxCommandEvent& e)
-{ /*GetMainBook()->DetachActiveEditor();*/
-}
+void clMainFrame::OnDetachEditor(wxCommandEvent& e) { /*GetMainBook()->DetachActiveEditor();*/ }
 
 void clMainFrame::OnDetachEditorUI(wxUpdateUIEvent& e) { e.Enable(GetMainBook()->GetActiveEditor() != NULL); }
 
@@ -5508,7 +5500,7 @@ void clMainFrame::OnSwitchWorkspaceUI(wxUpdateUIEvent& event)
 
 void clMainFrame::OnSplitSelection(wxCommandEvent& event)
 {
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     CHECK_PTR_RET(editor);
 
     editor->SplitSelection();
@@ -5516,7 +5508,7 @@ void clMainFrame::OnSplitSelection(wxCommandEvent& event)
 
 void clMainFrame::OnSplitSelectionUI(wxUpdateUIEvent& event)
 {
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     event.Enable(editor && editor->HasSelection());
 }
 
@@ -5623,15 +5615,15 @@ void clMainFrame::OnDebugEnded(clDebugEvent& event)
 
 void clMainFrame::OnPrint(wxCommandEvent& event)
 {
-    if (GetMainBook()->GetActiveEditor(true)) {
-        GetMainBook()->GetActiveEditor(true)->Print();
+    if (GetMainBook()->GetActiveEditor()) {
+        GetMainBook()->GetActiveEditor()->Print();
     }
 }
 
 void clMainFrame::OnPageSetup(wxCommandEvent& event)
 {
-    if (GetMainBook()->GetActiveEditor(true)) {
-        GetMainBook()->GetActiveEditor(true)->PageSetup();
+    if (GetMainBook()->GetActiveEditor()) {
+        GetMainBook()->GetActiveEditor()->PageSetup();
     }
 }
 
@@ -5885,7 +5877,7 @@ void clMainFrame::OnEnvironmentVariablesModified(clCommandEvent& e)
 void clMainFrame::OnWordComplete(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-    clEditor* editor = GetMainBook()->GetActiveEditor(true);
+    clEditor* editor = GetMainBook()->GetActiveEditor();
     CHECK_PTR_RET(editor);
 
     // Get the filter
@@ -5937,7 +5929,7 @@ void ShowNavDialog(Notebook* book)
         return;
     }
 
-    NotebookNavigationDlg dlg(book->GetParent(), book);
+    NotebookNavigationDlg dlg(EventNotifier::Get()->TopFrame(), book);
     if (dlg.ShowModal() == wxID_OK && dlg.GetSelection() != wxNOT_FOUND) {
         book->SetSelection(dlg.GetSelection());
     }
@@ -6184,7 +6176,7 @@ void clMainFrame::OnSetActivePoject(wxCommandEvent& e)
     CHECK_COND_RET(!projects.empty());
 
     // sort the entries
-    projects.Sort([](const wxString& first, const wxString& second) { return first.CmpNoCase(second) < 0; });
+    projects.Sort(+[](const wxString& first, const wxString& second) { return first.CmpNoCase(second) < 0; });
 
     int initialSelection = projects.Index(cur_active_project);
     clSingleChoiceDialog dlg(this, projects, initialSelection == wxNOT_FOUND ? 0 : initialSelection);

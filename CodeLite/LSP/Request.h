@@ -3,14 +3,14 @@
 
 #include "IPathConverter.hpp"
 #include "LSP/MessageWithParams.h"
-#include "wx/string.h"
 
 #include <wx/filename.h>
+#include <wx/string.h>
 
 namespace LSP
 {
 
-class WXDLLIMPEXP_SDK Request : public LSP::MessageWithParams
+class WXDLLIMPEXP_CL Request : public LSP::MessageWithParams
 {
     int m_id = wxNOT_FOUND;
     wxString m_server_name;

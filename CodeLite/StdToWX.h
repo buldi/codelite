@@ -62,14 +62,9 @@ public:
     static void RemoveLast(std::string& str, size_t count);
 
     /**
-     * @brief convert wxArrayString into std::vector
-     */
-    static void ToVector(const wxArrayString& arr, std::vector<wxString>* vec);
-
-    /**
      * @brief convert std::vector into wxArrayString
      */
-    static void ToArrayString(const std::vector<wxString>& vec, wxArrayString* arr);
+    static wxArrayString ToArrayString(const std::vector<wxString>& vec);
 };
 
 #endif // STDTOWX_H

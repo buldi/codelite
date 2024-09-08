@@ -11,11 +11,12 @@
 - Open `MSYS` terminal, and type:
 
 ```bash
-pacman -S mingw-w64-clang-x86_64-zlib       \
-          mingw-w64-clang-x86_64-libssh     \
-          mingw-w64-clang-x86_64-hunspell   \
-          mingw-w64-clang-x86_64-openssl    \
-          mingw-w64-clang-x86_64-sqlite3
+pacman -S mingw-w64-clang-x86_64-zlib     \
+          mingw-w64-clang-x86_64-libssh   \
+          mingw-w64-clang-x86_64-hunspell \
+          mingw-w64-clang-x86_64-openssl  \
+          mingw-w64-clang-x86_64-sqlite3  \
+          flex bison
 ```
 
 - Download and build `wx-config.exe` from sources:
@@ -25,7 +26,7 @@ git clone https://github.com/eranif/wx-config-msys2.git
 cd wx-config-msys2
 mkdir build-release
 cd $_
-cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX=$HOME/root
+cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/root"
 mingw32-make -j$(nproc) install
 ```
 
@@ -39,7 +40,7 @@ cd codelite
 git submodule update --init --recursive
 mkdir build-release
 cd $_
-cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles" -DWXWIN=$HOME/root -Wno-dev
+cmake .. -DCMAKE_BUILD_TYPE=Release -G"MinGW Makefiles" -DWXWIN="$HOME/root" -Wno-dev
 mingw32-make -j$(nproc) install
 ```
 
@@ -56,15 +57,14 @@ cd build-release/install
 
 ## Linux
 ----
-
-- To build CodeLite on your computer you will first need to [Build wxWidgets from sources][6]
+- To build CodeLite on your computer you will first need to install wXWidget 3.1+ (sudo apt install libwxgtk3.2-dev libgtk-3-dev) or [Build wxWidgets from sources][6]
 - Install `libssh-dev` and `libsqlite3-dev` packages (or similar, depending on your distro). On **Ubuntu / Debian**, you can use this command:
 
 ```bash
     sudo apt install build-essential            \
-                     git cmake                  \
+                     git cmake flex             \
                      libssh-dev libsqlite3-dev  \
-                     libpcre2-dev
+                     libpcre2-dev bison flex
 ```
 
 - Git clone the sources:
@@ -106,6 +106,8 @@ Prerequisites:
  - Xcode
  - Xcode command-line tools
  - Homebrew
+ - Flex
+ - autoconf
 
 Preparation:
 
@@ -122,10 +124,13 @@ Preparation:
 
 ```bash
 brew update
-brew install git \
-             cmake \
-             libssh \
-             hunspell
+brew install git        \
+             cmake      \
+             flex       \
+             autoconf   \
+             automake   \
+             libtool    \
+             gettext
 ```
 
  - Usually, `brew` will install everything under `/opt/homebrew`, so run this from the terminal:
@@ -139,25 +144,22 @@ source $HOME/.$(basename $SHELL)rc
  - Finally, Build CodeLite:
 
 ```bash
-    mkdir -p $HOME/src
-    cd $HOME/src
+    mkdir -p $HOME/devl
+    cd $_
     git clone https://github.com/eranif/codelite.git
     cd codelite
     git submodule update --init --recursive
-
-    # build CodeLite release configuration
     mkdir build-release
-    cd build-release
+    cd $_
     cmake .. -DCMAKE_BUILD_TYPE=Release
-    cmake --build . -j $(sysctl -n hw.physicalcpu)
-    cmake --build . --target install
+    make -j$(sysctl -n hw.physicalcpu) install
 ```
 
-You should now have an app bundle `$HOME/src/codelite/build-release/codelite.app`
+You should now have an app bundle `$HOME/devl/codelite/build-release/codelite.app`
 
 To launch CodeLite:
 
-- `open $HOME/src/codelite/build-release/codelite.app`
+- `open $HOME/devl/codelite/build-release/codelite.app`
 
 ----------
 

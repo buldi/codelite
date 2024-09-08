@@ -25,16 +25,15 @@
 
 #include "editorsettingsterminal.h"
 
-#include "clConsoleBase.h"
+#include "Console/clConsoleBase.h"
 #include "cl_config.h"
 #include "editor_config.h"
-
-#include <exelocator.h>
+#include "exelocator.h"
 
 EditorSettingsTerminal::EditorSettingsTerminal(wxWindow* parent, OptionsConfigPtr options)
     : OptionsConfigPage(parent, options)
 {
-    wxArrayString terminals = clConsoleBase::GetAvailaleTerminals();
+    wxArrayString terminals = clConsoleBase::GetAvailableTerminals();
 #if defined(__WXGTK__)
     wxString where; // GetAvailableTerminals() doesn't, it gets a list of supported ones; so check for existence
     for(size_t t = terminals.GetCount(); t > 0; --t) {

@@ -24,11 +24,13 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "pptable.h"
-#include <wx/tokenzr.h>
-#include <set>
-#include "CxxLexerAPI.h"
-#include "CxxScannerTokens.h"
+
+#include "Cxx/CxxLexerAPI.h"
+#include "Cxx/CxxScannerTokens.h"
+
 #include <algorithm>
+#include <set>
+#include <wx/tokenzr.h>
 
 bool IsWordChar(const wxString& s, int strSize)
 {
@@ -164,7 +166,7 @@ void PPToken::processArgs(const wxString& argsList)
 {
     args = wxStringTokenize(argsList, wxT(","), wxTOKEN_STRTOK);
 
-    // replace all occurances of 'arg' with %1, %2 etc
+    // replace all occurrences of 'arg' with %1, %2 etc
     for(size_t i = 0; i < args.GetCount(); i++) {
         wxString replaceWith = wxString::Format(wxT("%%%d"), (int)i);
         std::string res = ReplaceWordA(

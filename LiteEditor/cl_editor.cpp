@@ -28,6 +28,7 @@
 #include "BreakpointsView.hpp"
 #include "ColoursAndFontsManager.h"
 #include "CompletionHelper.hpp"
+#include "Debugger/debuggersettings.h"
 #include "StringUtils.h"
 #include "attribute_style.h"
 #include "bitmap_loader.h"
@@ -35,6 +36,7 @@
 #include "buildtabsettingsdata.h"
 #include "cc_box_tip_window.h"
 #include "clEditorStateLocker.h"
+#include "clIdleEventThrottler.hpp"
 #include "clPrintout.h"
 #include "clResizableTooltip.h"
 #include "clSFTPManager.hpp"
@@ -48,7 +50,6 @@
 #include "ctags_manager.h"
 #include "debuggerconfigtool.h"
 #include "debuggerpane.h"
-#include "debuggersettings.h"
 #include "drawingutils.h"
 #include "editor_config.h"
 #include "event_notifier.h"
@@ -81,29 +82,25 @@
 #include <wx/display.h>
 #include <wx/filefn.h>
 #include <wx/filename.h>
+#include <wx/fontmap.h>
 #include <wx/log.h>
 #include <wx/printdlg.h>
 #include <wx/regex.h>
 #include <wx/richtooltip.h> // wxRichToolTip
 #include <wx/stc/stc.h>
+#include <wx/textdlg.h>
 #include <wx/wupdlock.h>
 #include <wx/wxcrt.h>
 
 // #include "clFileOrFolderDropTarget.h"
 
 #if wxUSE_PRINTING_ARCHITECTURE
-#include "wx/paper.h"
+#include <wx/paper.h>
 #endif // wxUSE_PRINTING_ARCHITECTURE
 
 #if defined(USE_UCHARDET)
 #include "uchardet/uchardet.h"
 #endif
-
-#define NUMBER_MARGIN_ID 0
-#define EDIT_TRACKER_MARGIN_ID 1
-#define SYMBOLS_MARGIN_ID 2
-#define SYMBOLS_MARGIN_SEP_ID 3
-#define FOLD_MARGIN_ID 4
 
 #define CL_LINE_MODIFIED_STYLE 200
 #define CL_LINE_SAVED_STYLE 201
@@ -136,12 +133,22 @@ bool clEditor::m_ccInitialized = false;
 
 wxPrintData* g_printData = NULL;
 wxPageSetupDialogData* g_pageSetupData = NULL;
-static int ID_OPEN_URL = wxNOT_FOUND;
 
 //---------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------
 namespace
 {
+
+int ID_OPEN_URL = wxNOT_FOUND;
+
+// Margins. The orders here matters
+constexpr int FOLD_MARGIN_ID = 0;
+constexpr int NUMBER_MARGIN_ID = 1;
+constexpr int EDIT_TRACKER_MARGIN_ID = 2;
+constexpr int SYMBOLS_MARGIN_ID = 3;
+constexpr int SYMBOLS_MARGIN_SEP_ID = 4;
+constexpr int LAST_MARGIN_ID = 4;
+constexpr int MARGIN_WIDTH = 16;
 
 /// A helper class that sets the cursor of the current control to
 /// left pointing arrow and restores it once its destroyed
@@ -370,7 +377,7 @@ bool IsDefaultFgColourDark(wxStyledTextCtrl* ctrl) { return DrawingUtils::IsDark
 void SetCurrentLineMarginStyle(wxStyledTextCtrl* ctrl)
 {
     // Use a distinct style to highlight the current line number
-    wxColour default_bg_colour = ctrl->StyleGetBackground(0);
+    wxColour default_bg_colour = ctrl->StyleGetBackground(wxSTC_STYLE_LINENUMBER);
     wxColour default_fg_colour = DrawingUtils::IsDark(default_bg_colour) ? default_bg_colour.ChangeLightness(120)
                                                                          : default_bg_colour.ChangeLightness(80);
     wxColour current_line_bg_colour = ctrl->StyleGetBackground(0);
@@ -449,12 +456,7 @@ clEditor::clEditor(wxWindow* parent)
     Hide();
 #endif
 
-#ifdef __WXGTK3__
-    wxStyledTextCtrl::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_DEFAULT);
-#else
     wxStyledTextCtrl::Create(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNO_BORDER);
-#endif
-
     MSWSetWindowDarkTheme(this);
 
     Bind(wxEVT_IDLE, &clEditor::OnIdle, this);
@@ -752,11 +754,6 @@ void clEditor::SetProperties()
     SetCaretPeriod(options->GetCaretBlinkPeriod());
     SetMarginLeft(1);
 
-    wxColour line_colour, line_bg_colour;
-    GetLineMarginColours(GetCtrl(), &line_bg_colour, &line_colour);
-    StyleSetBackground(wxSTC_STYLE_LINENUMBER, line_bg_colour);
-    StyleSetForeground(wxSTC_STYLE_LINENUMBER, line_colour);
-
     // Mark current line
     SetCaretLineVisible(options->GetHighlightCaretLine());
 #if wxCHECK_VERSION(3, 3, 0)
@@ -769,7 +766,7 @@ void clEditor::SetProperties()
         bool is_dark = IsDefaultFgColourDark(this);
         SetCaretLineBackground(is_dark ? wxColour("GRAY") : wxColour("LIGHT GRAY"));
         SetCaretLineBackAlpha(wxSTC_ALPHA_NOALPHA);
-        SetCaretLineFrame(2);
+        SetCaretLineFrame(1);
     }
 #else
     SetCaretLineBackground(options->GetCaretLineColour());
@@ -813,12 +810,13 @@ void clEditor::SetProperties()
     SetMarginType(SYMBOLS_MARGIN_SEP_ID, wxSTC_MARGIN_COLOUR);
     SetMarginMask(SYMBOLS_MARGIN_SEP_ID, 0);
     SetMarginWidth(SYMBOLS_MARGIN_SEP_ID, FromDIP(1));
+
     wxColour bgColour = StyleGetBackground(0);
     SetMarginBackground(SYMBOLS_MARGIN_SEP_ID,
                         DrawingUtils::IsDark(bgColour) ? bgColour.ChangeLightness(120) : bgColour.ChangeLightness(60));
 
     // Set margins' width
-    SetMarginWidth(SYMBOLS_MARGIN_ID, options->GetDisplayBookmarkMargin() ? FromDIP(16) : 0); // Symbol margin
+    SetMarginWidth(SYMBOLS_MARGIN_ID, options->GetDisplayBookmarkMargin() ? FromDIP(MARGIN_WIDTH) : 0); // Symbol margin
 
     // allow everything except for the folding symbols
     SetMarginMask(SYMBOLS_MARGIN_ID, ~(wxSTC_MASK_FOLDERS));
@@ -826,7 +824,7 @@ void clEditor::SetProperties()
     // Show number margin according to settings.
     UpdateLineNumberMarginWidth();
 
-    // Mark fold margin & symbols margins as sensetive
+    // Mark fold margin & symbols margins as sensitive
     SetMarginSensitive(SYMBOLS_MARGIN_ID, true);
 
     // Right margin
@@ -838,6 +836,10 @@ void clEditor::SetProperties()
     //---------------------------------------------------
     // Fold settings
     //---------------------------------------------------
+    SetMarginCursor(FOLD_MARGIN_ID, 8);
+    StyleSetBackground(wxSTC_STYLE_FOLDDISPLAYTEXT, StyleGetBackground(wxSTC_STYLE_DEFAULT));
+    StyleSetForeground(wxSTC_STYLE_FOLDDISPLAYTEXT, DrawingUtils::IsDark(bg_colour) ? "YELLOW" : "ORANGE");
+
     // Determine the folding symbols colours
     wxColour foldFgColour = wxColor(0xff, 0xff, 0xff);
     wxColour foldBgColour = wxColor(0x80, 0x80, 0x80);
@@ -872,7 +874,8 @@ void clEditor::SetProperties()
     SetMarginMask(FOLD_MARGIN_ID, wxSTC_MASK_FOLDERS);
     SetMarginType(FOLD_MARGIN_ID, wxSTC_MARGIN_SYMBOL);
     SetMarginSensitive(FOLD_MARGIN_ID, true);
-    SetMarginWidth(FOLD_MARGIN_ID, options->GetDisplayFoldMargin() ? FromDIP(16) : 0);
+    SetMarginWidth(FOLD_MARGIN_ID, options->GetDisplayFoldMargin() ? FromDIP(MARGIN_WIDTH) : 0);
+    StyleSetBackground(FOLD_MARGIN_ID, StyleGetBackground(wxSTC_STYLE_DEFAULT));
 
     if (options->GetFoldStyle() == wxT("Flatten Tree Square Headers")) {
         DefineMarker(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS, foldFgColour, foldBgColour);
@@ -1042,8 +1045,8 @@ void clEditor::SetProperties()
 
     bool isDarkTheme = (lexer && lexer->IsDark());
     auto indicator_style = isDarkTheme ? wxSTC_INDIC_BOX : wxSTC_INDIC_ROUNDBOX;
-    SetUserIndicatorStyleAndColour(isDarkTheme ? wxSTC_INDIC_SQUIGGLE : wxSTC_INDIC_ROUNDBOX,
-                                   isDarkTheme ? "WHITE" : "RED");
+    SetUserIndicatorStyleAndColour(isDarkTheme ? wxSTC_INDIC_COMPOSITIONTHICK : wxSTC_INDIC_ROUNDBOX,
+                                   isDarkTheme ? "PINK" : "RED");
 
     wxColour highlight_colour{ *wxGREEN };
     wxString val2 = EditorConfigST::Get()->GetString(wxT("WordHighlightColour"));
@@ -1267,7 +1270,7 @@ void clEditor::OnCharAdded(wxStyledTextEvent& event)
         break;
     case '\n': {
         long matchedPos(wxNOT_FOUND);
-        // incase ENTER was hit immediatly after we inserted '{' into the code...
+        // incase ENTER was hit immediately after we inserted '{' into the code...
         if (m_lastCharEntered == wxT('{') &&                         // Last char entered was {
             m_autoAddMatchedCurlyBrace &&                            // auto-add-match-brace option is enabled
             !m_disableSmartIndent &&                                 // the disable smart indent option is NOT enabled
@@ -1952,7 +1955,7 @@ void clEditor::OnDwellStart(wxStyledTextEvent& event)
     // Always cancel the previous tooltip...
     DoCancelCodeCompletionBox();
 
-    for (int n = 0; n < FOLD_MARGIN_ID; ++n) {
+    for (int n = 0; n < LAST_MARGIN_ID; ++n) {
         margin += GetMarginWidth(n);
     }
 
@@ -2079,7 +2082,7 @@ wxChar clEditor::PreviousChar(const int& pos, int& foundPos, bool wantWhitespace
     while (true) {
         ch = GetCharAt(curpos);
         if (ch == wxT('\t') || ch == wxT(' ') || ch == wxT('\r') || ch == wxT('\v') || ch == wxT('\n')) {
-            // if the caller is intrested in whitepsaces,
+            // if the caller is interested in whitespaces,
             // simply return it
             if (wantWhitespace) {
                 foundPos = curpos;
@@ -3298,13 +3301,6 @@ void clEditor::DoUpdateLineNumbers(bool relative_numbers, bool force)
         }
     }
 
-    // wxColour bg_colour, fg_colour;
-    // GetLineMarginColours(GetCtrl(), &bg_colour, &fg_colour);
-    // wxUnusedVar(bg_colour);
-
-    // StyleSetBackground(LINE_NUMBERS_ATTR_ID, StyleGetBackground(0));
-    // StyleSetForeground(LINE_NUMBERS_ATTR_ID, fg_colour);
-
     // set the line numbers, taking hidden lines into consideration
     for (auto& [line_number, line_to_render] : lines_to_draw) {
         line_text.Printf(wxT("%d"), line_to_render);
@@ -3495,10 +3491,11 @@ void clEditor::OnContextMenu(wxContextMenuEvent& event)
 
         // If the right-click is in the margin, provide a different context menu: bookmarks/breakpts
         int margin = 0;
-        for (int n = 0; n < FOLD_MARGIN_ID;
+        for (int n = 0; n < LAST_MARGIN_ID;
              ++n) { // Assume a click anywhere to the left of the fold margin is for markers
             margin += GetMarginWidth(n);
         }
+
         if (clientPt.x < margin) {
             GotoPos(PositionFromPoint(clientPt));
             DoBreakptContextMenu(clientPt);
@@ -3700,9 +3697,6 @@ void clEditor::OnKeyDown(wxKeyEvent& event)
                 clEditorStateLocker editor(this);
                 ClearSelections();
             }
-#if 0
-            clMainFrame::Get()->ViewPane(wxT("Output View"), false);
-#endif
         }
     }
     m_context->OnKeyDown(event);
@@ -3777,7 +3771,9 @@ void clEditor::OnMotion(wxMouseEvent& event)
         DoMarkHyperlink(event, true);
     } else {
         event.Skip();
-        SetSTCCursor(wxSTC_CURSORNORMAL);
+        if (GetSTCCursor() != wxSTC_CURSORNORMAL) {
+            SetSTCCursor(wxSTC_CURSORNORMAL);
+        }
     }
 }
 
@@ -4053,19 +4049,18 @@ void clEditor::SetWarningMarker(int lineno, CompilerMessage&& msg)
     if (m_compilerMessagesMap.count(lineno)) {
         m_compilerMessagesMap.erase(lineno);
     }
+
+    wxString display_message = msg.message;
     m_compilerMessagesMap.insert({ lineno, std::move(msg) });
 
-    BuildTabSettingsData options;
-    EditorConfigST::Get()->ReadObject(wxT("BuildTabSettings"), &options);
-
-    if (options.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_BOOKMARKS) {
+    if (m_buildOptions.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_BOOKMARKS) {
         MarkerAdd(lineno, smt_warning);
         NotifyMarkerChanged(lineno);
     }
 
-    if (options.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_ANNOTATE) {
+    if (m_buildOptions.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_ANNOTATE) {
         // define the warning marker
-        AnnotationSetText(lineno, msg.message);
+        AnnotationSetText(lineno, display_message);
         AnnotationSetStyle(lineno, ANNOTATION_STYLE_WARNING);
     }
 }
@@ -4080,18 +4075,17 @@ void clEditor::SetErrorMarker(int lineno, CompilerMessage&& msg)
     if (m_compilerMessagesMap.count(lineno)) {
         m_compilerMessagesMap.erase(lineno);
     }
+
+    wxString display_message = msg.message;
     m_compilerMessagesMap.insert({ lineno, std::move(msg) });
 
-    BuildTabSettingsData options;
-    EditorConfigST::Get()->ReadObject(wxT("BuildTabSettings"), &options);
-
-    if (options.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_BOOKMARKS) {
+    if (m_buildOptions.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_BOOKMARKS) {
         MarkerAdd(lineno, smt_error);
         NotifyMarkerChanged(lineno);
     }
 
-    if (options.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_ANNOTATE) {
-        AnnotationSetText(lineno, msg.message);
+    if (m_buildOptions.GetErrorWarningStyle() == BuildTabSettingsData::MARKER_ANNOTATE) {
+        AnnotationSetText(lineno, display_message);
         AnnotationSetStyle(lineno, ANNOTATION_STYLE_ERROR);
     }
 }
@@ -4784,6 +4778,10 @@ void clEditor::DoCancelCalltip()
 
 int clEditor::DoGetOpenBracePos()
 {
+    if (m_calltip && m_calltip->IsShown()) {
+        return m_calltip->GetEditorStartPosition();
+    }
+
     // determine the closest open brace from the current caret position
     int depth(0);
     int char_tested(0); // we add another performance tuning here: dont test more than 256 characters backward
@@ -4863,12 +4861,22 @@ void clEditor::OnChange(wxStyledTextEvent& event)
     bool isUndo = modification_flags & wxSTC_PERFORMED_UNDO;
     bool isRedo = modification_flags & wxSTC_PERFORMED_REDO;
 
-    int newLineCount = GetLineCount();
-    if (m_lastLineCount != newLineCount) {
-        int lastWidthCount = log10(m_editorState.current_line) + 1;
-        int newWidthCount = log10(newLineCount) + 1;
-        if (newWidthCount != lastWidthCount) {
-            UpdateLineNumberMarginWidth();
+    bool line_numbers_margin_updated = false;
+    if (isUndo || isRedo) {
+        // update line numbers on the next event loop
+        NotifyTextUpdated();
+        line_numbers_margin_updated = true;
+    }
+
+    if (!line_numbers_margin_updated) {
+        int newLineCount = GetLineCount();
+        if (m_lastLineCount != newLineCount) {
+            int lastWidthCount = log10(m_editorState.current_line) + 1;
+            int newWidthCount = log10(newLineCount) + 1;
+            if (newWidthCount != lastWidthCount) {
+                NotifyTextUpdated();
+                line_numbers_margin_updated = true;
+            }
         }
     }
 
@@ -5204,6 +5212,8 @@ void clEditor::UpdateOptions()
         clCxxWorkspaceST::Get()->GetLocalWorkspace()->GetOptions(m_options, GetProject());
     }
 
+    EditorConfigST::Get()->ReadObject(wxT("BuildTabSettings"), &m_buildOptions);
+
     clEditorConfigEvent event(wxEVT_EDITOR_CONFIG_LOADING);
     event.SetFileName(CLRealPath(GetFileName().GetFullPath()));
     if (EventNotifier::Get()->ProcessEvent(event)) {
@@ -5331,7 +5341,7 @@ void clEditor::ShowCalltip(clCallTipPtr tip)
     // In an ideal world, we would like our tooltip to be placed
     // on top of the caret.
     wxPoint pt = PointFromPosition(GetCurrentPosition());
-    GetFunctionTip()->Activate(pt, GetCurrLineHeight(), StyleGetBackground(wxSTC_C_DEFAULT));
+    GetFunctionTip()->Activate(pt, GetCurrLineHeight(), StyleGetBackground(wxSTC_C_DEFAULT), GetLexerId());
 }
 
 int clEditor::PositionAfterPos(int pos) { return wxStyledTextCtrl::PositionAfter(pos); }
@@ -5679,7 +5689,6 @@ void clEditor::OnTimer(wxTimerEvent& event)
             }
         }
     }
-    GetContext()->ProcessIdleActions();
 }
 
 void clEditor::SplitSelection()
@@ -6110,7 +6119,7 @@ void clEditor::OpenURL(wxCommandEvent& event)
 
 void clEditor::ReloadFromDisk(bool keepUndoHistory)
 {
-    wxWindowUpdateLocker locker(this);
+    wxWindowUpdateLocker locker(GetParent());
     SetReloadingFile(true);
 
     DoCancelCalltip();
@@ -6380,13 +6389,14 @@ void clEditor::SetSemanticTokens(const wxString& classes, const wxString& variab
     SetKeywordClasses(flatStrClasses);
 
     if (lexer->GetWordSet(LexerConf::WS_CLASS).is_ok()) {
-        LOG_IF_TRACE { clDEBUG1() << "Setting semantic tokens:" << endl; }
+        LOG_IF_DEBUG { clDEBUG1() << "Setting semantic tokens:" << endl; }
         lexer->ApplyWordSet(this, LexerConf::WS_CLASS, flatStrClasses);
         lexer->ApplyWordSet(this, LexerConf::WS_FUNCTIONS, flatStrMethods);
         lexer->ApplyWordSet(this, LexerConf::WS_VARIABLES, flatStrLocals);
         lexer->ApplyWordSet(this, LexerConf::WS_OTHERS, flatStrOthers);
 
     } else {
+        LOG_IF_DEBUG { clDEBUG1() << "Setting semantic tokens (default):" << endl; }
 
         int keywords_class = wxNOT_FOUND;
         int keywords_variables = wxNOT_FOUND;
@@ -6505,18 +6515,15 @@ void clEditor::UpdateDefaultTextWidth() { m_default_text_width = TextWidth(wxSTC
 
 void clEditor::OnIdle(wxIdleEvent& event)
 {
-    event.Skip();
-    std::chrono::milliseconds ms =
-        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
-
-    // We allow IDLE event once in 100ms
-    uint64_t current_ts = ms.count();
-    if ((current_ts - m_lastIdleEvent) < 100) {
+    if (!IsShown()) {
         return;
     }
 
-    m_lastIdleEvent = current_ts;
-    if (!IsShown()) {
+    event.Skip();
+
+    // The internval between idle events can not be under 250ms
+    static clIdleEventThrottler event_throttler{ 250 };
+    if (!event_throttler.CanHandle()) {
         return;
     }
 
@@ -6590,6 +6597,11 @@ void clEditor::OnIdle(wxIdleEvent& event)
 
     // Always update the status bar with event, calling it directly causes performance degredation
     m_mgr->GetStatusBar()->SetLinePosColumn(message);
+
+#if defined(__WXGTK__)
+    m_mgr->GetStatusBar()->Refresh();
+#endif
+    GetContext()->ProcessIdleActions();
 }
 
 void clEditor::ClearModifiedLines()

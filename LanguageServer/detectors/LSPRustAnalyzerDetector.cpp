@@ -1,8 +1,8 @@
 #include "LSPRustAnalyzerDetector.hpp"
 
-#include "Platform.hpp"
-#include "asyncprocess.h"
-#include "clRustup.hpp"
+#include "AsyncProcess/asyncprocess.h"
+#include "Platform/Platform.hpp"
+#include "Rust/clRustup.hpp"
 #include "file_logger.h"
 #include "globals.h"
 #include "macros.h"
@@ -30,7 +30,7 @@ bool LSPRustAnalyzerDetector::DoLocate()
     SetCommand(command);
 
     // Add support for the languages
-    GetLangugaes().Add("rust");
+    GetLanguages().Add("rust");
     SetConnectionString("stdio");
     return true;
 }

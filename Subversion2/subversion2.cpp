@@ -25,12 +25,13 @@
 
 #include "subversion2.h"
 
+#include "Keyboard/clKeyboardManager.h"
+#include "StdToWX.h"
 #include "SvnCommitDialog.h"
 #include "SvnLogDialog.h"
 #include "SvnShowFileChangesHandler.h"
 #include "SvnShowRecentChangesDlg.h"
 #include "clGotoAnythingManager.h"
-#include "clKeyboardManager.h"
 #include "cl_standard_paths.h"
 #include "detachedpanesinfo.h"
 #include "dockablepane.h"
@@ -67,8 +68,6 @@
 #include <wx/textdlg.h>
 #include <wx/tokenzr.h>
 #include <wx/xrc/xmlres.h>
-
-static Subversion2* thePlugin = NULL;
 
 // Convert to Windows EOL
 static void ConvertToWindowsEOL(wxString& str)
@@ -130,10 +129,7 @@ static void ConvertToUnixEOL(wxString& str)
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new Subversion2(manager);
-    }
-    return thePlugin;
+    return new Subversion2(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -483,12 +479,7 @@ void Subversion2::OnFolderAdd(wxCommandEvent& event)
 void Subversion2::OnCommit(wxCommandEvent& event)
 {
     // Coming from file explorer
-    wxArrayString paths;
-    if(!m_selectedFile.IsOk()) {
-        paths.Add(".");
-    } else {
-        paths.Add(m_selectedFile.GetFullName());
-    }
+    const wxArrayString paths = StdToWX::ToArrayString({ m_selectedFile.IsOk() ? m_selectedFile.GetFullName() : "." });
     DoCommit(paths, m_selectedFolder, event);
 }
 

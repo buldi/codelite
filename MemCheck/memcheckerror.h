@@ -88,12 +88,14 @@ public:
  * @class MemCheckErrorLocation
  * @brief Represents on record from error stacktrace.
  */
-struct MemCheckErrorLocation {
+class MemCheckErrorLocation
+{
+public:
     bool operator==(const MemCheckErrorLocation & other) const;
     bool operator!=(const MemCheckErrorLocation & other) const;
     
     /**
-     * @brief Returns all atributed concatenated to tab separated string.
+     * @brief Returns all attributed concatenated to tab separated string.
      * @return string
      * 
      * this function is used in searching function
@@ -138,15 +140,17 @@ struct MemCheckErrorLocation {
  * @class MemCheckError
  * @brief Represents one error with label, stack trace (location list), and some additional record.
  *
- * Aditional records have also stacttrace, so they are implemented same as errors. Auxiliary record implemented as list of error. Some tool have more than one auxiliary section. Type is used to distinguish between them.
+ * Additional records have also stacktrace, so they are implemented same as errors. Auxiliary record implemented as list of error. Some tool have more than one auxiliary section. Type is used to distinguish between them.
  */
-struct MemCheckError {
+class MemCheckError
+{
+public:
     enum Type { TYPE_ERROR, TYPE_AUXILIARY };
     MemCheckError();
     
     
     /**
-     * @brief Returns all atributed and atributes of all locations and all atributes from nested errors concatenated to tab separated string.
+     * @brief Returns all attributed and attributes of all locations and all atributes from nested errors concatenated to tab separated string.
      * @return string
      *
      * TODO: It cloud be buffered to improve speed, but it would cost more memory.
@@ -254,7 +258,7 @@ public:
 
 protected:
     /**
-     * @brief ctor creates object which hold shared atributes and provides all functionality for iterration over ErrorLists and LocationLists
+     * @brief ctor creates object which hold shared attributes and provides all functionality for iterration over ErrorLists and LocationLists
      * @param workspacePath
      * @param flags
      */

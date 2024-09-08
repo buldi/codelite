@@ -24,12 +24,12 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "copyright.h"
 
-#include "clKeyboardManager.h"
+#include "Cxx/cpptoken.h"
+#include "Cxx/cppwordscanner.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "copyrights_options_dlg.h"
 #include "copyrights_proj_sel_dlg.h"
 #include "copyrightsconfigdata.h"
-#include "cpptoken.h"
-#include "cppwordscanner.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
@@ -48,8 +48,6 @@
 #include <wx/tokenzr.h>
 #include <wx/xrc/xmlres.h>
 
-static Copyright* thePlugin = NULL;
-
 // Internal events used by this plugin
 const wxEventType CR_copyrights_options = wxNewEventType();
 const wxEventType CR_insert_copyrights = wxNewEventType();
@@ -58,10 +56,7 @@ const wxEventType CR_insert_prj_copyrights = wxNewEventType();
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new Copyright(manager);
-    }
-    return thePlugin;
+    return new Copyright(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

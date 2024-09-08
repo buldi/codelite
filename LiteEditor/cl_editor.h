@@ -25,17 +25,18 @@
 #ifndef LITEEDITOR_EDITOR_H
 #define LITEEDITOR_EDITOR_H
 
+#include "Debugger/debuggermanager.h"
 #include "LSP/CompletionItem.h"
 #include "SFTPClientData.hpp"
 #include "bookmark_manager.h"
 #include "browse_record.h"
+#include "buildtabsettingsdata.h"
 #include "clEditorStateLocker.h"
 #include "cl_calltip.h"
 #include "cl_defs.h"
 #include "cl_unredo.h"
 #include "context_base.h"
-#include "debuggermanager.h"
-#include "entry.h"
+#include "database/entry.h"
 #include "findreplacedlg.h"
 #include "globals.h"
 #include "lexer_configuration.h"
@@ -313,6 +314,7 @@ protected:
     // track the position between Idle event calls
     long m_lastIdlePosition = wxNOT_FOUND;
     uint64_t m_lastIdleEvent = 0;
+    BuildTabSettingsData m_buildOptions;
 
 public:
     static bool m_ccShowPrivateMembers;
@@ -638,7 +640,7 @@ public:
     // Replace all
     bool ReplaceAll();
     bool ReplaceAllExactMatch(const wxString& what, const wxString& replaceWith);
-    // mark all occurances
+    // mark all occurrences
     bool MarkAllFinds();
 
     // Folding API
@@ -679,7 +681,7 @@ public:
     void QuickAddNext();
 
     /**
-     * @brief find all occurances of the selected text and select
+     * @brief find all occurrences of the selected text and select
      */
     void QuickFindAll();
 

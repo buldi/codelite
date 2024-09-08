@@ -1,6 +1,7 @@
 #include "clSideBarCtrl.hpp"
 
 #include "bitmap_loader.h"
+#include "clSystemSettings.h"
 
 #include <wx/anybutton.h>
 #include <wx/dcbuffer.h>
@@ -9,9 +10,6 @@
 #include <wx/sizer.h>
 #include <wx/toolbar.h>
 #include <wx/tooltip.h>
-
-thread_local int BUTTON_ID = 0;
-constexpr int BAR_SIZE = 24;
 
 wxDEFINE_EVENT(wxEVT_SIDEBAR_SELECTION_CHANGED, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_SIDEBAR_CONTEXT_MENU, wxContextMenuEvent);
@@ -24,6 +22,18 @@ wxDEFINE_EVENT(wxEVT_SIDEBAR_CONTEXT_MENU, wxContextMenuEvent);
     if ((size_t)pos >= m_book->GetPageCount()) { \
         return WHAT;                             \
     }
+
+#if USE_NATIVETOOLBAR
+#define TOOL_GET_USER_DATA(tool) m_toolbar->GetUserData(tool)
+#define TOOL_SET_USER_DATA(tool, data) m_toolbar->SetUserData(tool, data)
+#define TOOL_SET_BITMAP(tool, bmp) tool->SetNormalBitmap(bmp)
+#define TOOL_IS_CHECKED(tool) tool->IsToggled()
+#else
+#define TOOL_GET_USER_DATA(tool) tool->GetUserData()
+#define TOOL_SET_BITMAP(tool, bmp) tool->SetBitmap(bmp)
+#define TOOL_SET_USER_DATA(tool, data) tool->SetUserData(data)
+#define TOOL_IS_CHECKED(tool) tool->IsActive()
+#endif
 
 namespace
 {
@@ -40,7 +50,43 @@ wxBorder border_simple_theme_aware_bit()
 #endif
 } // DoGetBorderSimpleBit
 
+/// Return true if we are running under Windows 11 in dark mode
+bool IsWindows11DarkMode()
+{
+#ifdef __WXMSW__
+    static int major = wxNOT_FOUND;
+    static int min = wxNOT_FOUND;
+    static int build = wxNOT_FOUND;
+    if (major == wxNOT_FOUND) {
+        ::wxGetOsVersion(&major, &min, &build);
+    }
+    return major == 10 && build >= 22000 && clSystemSettings::GetAppearance().IsDark();
+#else
+    return false;
+#endif
+}
 } // namespace
+
+#if USE_NATIVETOOLBAR
+// SideBarToolBar
+SideBarToolBar::SideBarToolBar(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
+{
+    long tb_style = wxTB_NODIVIDER;
+    wxSize sz = wxDefaultSize;
+    wxBitmap dark_theme_bmp, light_theme_bmp;
+    ::clLoadSidebarBitmap("workspace-button", parent, &light_theme_bmp, &dark_theme_bmp);
+    if (style & wxAUI_TB_VERTICAL) {
+        tb_style |= wxTB_VERTICAL;
+        sz.SetWidth(dark_theme_bmp.GetScaledWidth());
+    } else if (style & wxAUI_TB_HORIZONTAL) {
+        tb_style |= wxTB_HORIZONTAL;
+        sz.SetHeight(dark_theme_bmp.GetScaledHeight());
+    }
+
+    wxUnusedVar(size);
+    wxToolBar::Create(parent, id, pos, wxDefaultSize, tb_style);
+}
+#endif
 
 // -----------------------
 // SideBar control
@@ -114,19 +160,20 @@ void clSideBarCtrl::PlaceButtons()
 
     tb_style |= wxBORDER_NONE;
     if (!m_toolbar) {
-        m_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, tb_style);
+        m_toolbar = new SideBarToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, tb_style);
 
     } else {
         GetSizer()->Detach(m_toolbar);
     }
 
     // need to re-create the toolbar
-    wxAuiToolBar* old_toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, tb_style);
+    SideBarToolBar* old_toolbar = new SideBarToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, tb_style);
     wxSwap(old_toolbar, m_toolbar);
+
     size_t tools_count = old_toolbar->GetToolCount();
     for (size_t i = 0; i < tools_count; ++i) {
         auto tool = old_toolbar->FindToolByIndex(i);
-        auto tool_data_id = tool->GetUserData();
+        auto tool_data_id = TOOL_GET_USER_DATA(tool);
         const clSideBarToolData* cd = GetToolData(tool_data_id);
         AddTool(tool->GetLabel(), cd ? cd->data : wxString(), i);
         DeleteToolData(tool_data_id);
@@ -134,54 +181,73 @@ void clSideBarCtrl::PlaceButtons()
     wxDELETE(old_toolbar);
 
     // Reconnect the event
+#if USE_NATIVETOOLBAR
+    m_toolbar->Bind(wxEVT_TOOL_RCLICKED, &clSideBarCtrl::OnContextMenu, this);
+#else
     m_toolbar->Bind(wxEVT_AUITOOLBAR_RIGHT_CLICK, &clSideBarCtrl::OnContextMenu, this);
+#endif
     m_toolbar->Realize();
 
     // adjust the sizer orientation
     m_mainSizer->SetOrientation((m_buttonsPosition == wxLEFT || m_buttonsPosition == wxRIGHT) ? wxHORIZONTAL
                                                                                               : wxVERTICAL);
-
+    int border = 0;
     switch (m_buttonsPosition) {
     case wxRIGHT:
     case wxBOTTOM:
         GetSizer()->Add(m_book, 1, wxEXPAND);
-        GetSizer()->Add(m_toolbar, 0, wxEXPAND);
+        GetSizer()->Add(m_toolbar, 0, wxEXPAND | wxALL, border);
         break;
     default:
     case wxLEFT:
     case wxTOP:
-        GetSizer()->Add(m_toolbar, 0, wxEXPAND);
+        GetSizer()->Add(m_toolbar, 0, wxEXPAND | wxALL, border);
         GetSizer()->Add(m_book, 1, wxEXPAND);
         break;
     }
     GetSizer()->Layout();
 }
 
+void clSideBarCtrl::MSWUpdateToolbarBitmaps(int new_selection, int old_selection)
+{
+    wxUnusedVar(new_selection);
+    wxUnusedVar(old_selection);
+}
+
 void clSideBarCtrl::AddTool(const wxString& label, const wxString& bmpname, size_t book_index)
 {
-    wxBitmap bmp = ::clLoadSidebarBitmap(bmpname, this);
-    if (!bmp.IsOk()) {
+    wxBitmap dark_theme_bmp, light_theme_bmp;
+    ::clLoadSidebarBitmap(bmpname, this, &light_theme_bmp, &dark_theme_bmp);
+    if (!light_theme_bmp.IsOk() || !dark_theme_bmp.IsOk()) {
         clWARNING() << "clSideBarCtrl::AddPage(): Invalid bitmap:" << bmpname << endl;
     }
 
-    auto tool = m_toolbar->AddTool(wxID_ANY, label, bmp, label, wxITEM_CHECK);
+    const wxBitmap& bmp = clSystemSettings::GetAppearance().IsDark()
+                              // Under Windows 11, the toolbar selection is "very light"
+                              // so use the light theme bitmap
+                              ? (IsWindows11DarkMode() ? light_theme_bmp : dark_theme_bmp)
+                              : light_theme_bmp;
+
+    auto tool = m_toolbar->AddTool(wxID_ANY, label, wxBitmapBundle(bmp), label, wxITEM_CHECK);
+    auto tool_id = tool->GetId();
     long tool_data_id = AddToolData(clSideBarToolData(bmpname));
-    tool->SetUserData(tool_data_id);
+    TOOL_SET_USER_DATA(tool, tool_data_id);
 
     m_toolbar->Bind(
         wxEVT_TOOL,
         [label, this](wxCommandEvent& event) {
             wxUnusedVar(event);
             int book_index = GetPageIndex(label);
-            m_book->ChangeSelection(book_index);
+            ChangeSelection(book_index);
         },
         tool->GetId());
 
     m_toolbar->Bind(
         wxEVT_UPDATE_UI,
-        [label, this](wxUpdateUIEvent& event) {
+        [label, tool_id, this](wxUpdateUIEvent& event) {
             int book_index = GetPageIndex(label);
-            event.Check(m_book->GetSelection() == book_index);
+            bool is_checked = m_book->GetSelection() == book_index;
+            event.Check(is_checked);
         },
         tool->GetId());
 }
@@ -206,13 +272,13 @@ void clSideBarCtrl::DoRemovePage(size_t pos, bool delete_it)
     }
 
     int tool_id = tool->GetId();
-    bool was_selection = tool->IsActive();
+    bool was_selection = TOOL_IS_CHECKED(tool);
 
     m_toolbar->DeleteTool(tool->GetId());
 
     // sync the selection between the book and the button bar
     if (was_selection && m_book->GetPageCount()) {
-        m_book->ChangeSelection(0);
+        ChangeSelection(0);
     }
 }
 
@@ -222,11 +288,36 @@ void clSideBarCtrl::DeletePage(size_t pos) { DoRemovePage(pos, true); }
 
 void clSideBarCtrl::SetSelection(size_t pos) { ChangeSelection(pos); }
 
+int clSideBarCtrl::GetToolIdForBookPos(int book_index) const
+{
+    if (book_index < 0 || book_index >= (int)m_book->GetPageCount()) {
+        return wxNOT_FOUND;
+    }
+
+    wxString label = m_book->GetPageText(book_index);
+    for (size_t i = 0; i < m_toolbar->GetToolCount(); ++i) {
+#if USE_NATIVETOOLBAR
+        auto tool = m_toolbar->GetToolByPos(i);
+#else
+        auto tool = m_toolbar->FindToolByIndex(i);
+#endif
+        if (tool->GetLabel() == label) {
+            return tool->GetId();
+        }
+    }
+    return wxNOT_FOUND;
+}
+
 void clSideBarCtrl::ChangeSelection(size_t pos)
 {
     if (pos >= m_book->GetPageCount()) {
         return;
     }
+
+    int new_tool_id = GetToolIdForBookPos(pos);
+    int old_tool_id = GetToolIdForBookPos(m_book->GetSelection());
+    CallAfter(&clSideBarCtrl::MSWUpdateToolbarBitmaps, new_tool_id, old_tool_id);
+    m_selectedToolId = new_tool_id;
     m_book->ChangeSelection(pos);
 }
 
@@ -244,7 +335,7 @@ wxString clSideBarCtrl::GetPageBitmap(size_t pos) const
     auto tool = m_toolbar->FindToolByIndex(pos);
 
     CHECK_POINTER_RETURN(tool, wxEmptyString);
-    auto tool_data = GetToolData(tool->GetUserData());
+    auto tool_data = GetToolData(TOOL_GET_USER_DATA(tool));
     CHECK_POINTER_RETURN(tool_data, wxEmptyString);
 
     return tool_data->data;
@@ -257,12 +348,21 @@ void clSideBarCtrl::SetPageBitmap(size_t pos, const wxString& bmpname)
     auto tool = m_toolbar->FindToolByIndex(pos);
     CHECK_POINTER_RETURN(tool, );
 
-    long tool_data_idx = tool->GetUserData();
+    long tool_data_idx = TOOL_GET_USER_DATA(tool);
     const clSideBarToolData* cd = GetToolData(tool_data_idx);
     if (cd) {
         const_cast<clSideBarToolData*>(cd)->data = bmpname;
     }
-    tool->SetBitmap(::clLoadSidebarBitmap(bmpname, m_toolbar));
+
+    wxBitmap light_theme_bmp, dark_theme_bmp;
+    ::clLoadSidebarBitmap(bmpname, m_toolbar, &light_theme_bmp, &dark_theme_bmp);
+
+    const wxBitmap& bmp = clSystemSettings::GetAppearance().IsDark()
+                              // Under Windows 11, the toolbar selection is "very light"
+                              // so use the light theme bitmap
+                              ? (IsWindows11DarkMode() ? light_theme_bmp : dark_theme_bmp)
+                              : light_theme_bmp;
+    TOOL_SET_BITMAP(tool, bmp);
 }
 
 wxString clSideBarCtrl::GetPageText(size_t pos) const { return m_book->GetPageText(pos); }
@@ -334,10 +434,21 @@ void clSideBarCtrl::Realize()
     SendSizeEvent(wxSEND_EVENT_POST);
 }
 
-void clSideBarCtrl::OnContextMenu(wxAuiToolBarEvent& event)
+void clSideBarCtrl::OnContextMenu(
+#if USE_NATIVETOOLBAR
+    wxCommandEvent& event
+#else
+    wxAuiToolBarEvent& event
+#endif
+)
 {
     event.Skip();
+#if USE_NATIVETOOLBAR
+    int tool_id = event.GetId();
+#else
     int tool_id = event.GetToolId();
+#endif
+
     CHECK_COND_RET(tool_id != wxNOT_FOUND);
 
     auto tool = m_toolbar->FindTool(tool_id);
@@ -356,7 +467,6 @@ void clSideBarCtrl::OnDPIChangedEvent(wxDPIChangedEvent& event)
 {
     event.Skip();
     clDEBUG() << "DPI changed event captured. Rebuilding SideBar control" << endl;
-
     // clear the bitmaps cache and rebuild the control
     ::clClearSidebarBitmapCache();
     PlaceButtons();

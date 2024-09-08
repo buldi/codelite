@@ -26,18 +26,17 @@
 #ifndef PHPCODECOMPLETION_H
 #define PHPCODECOMPLETION_H
 
-#include "PHPEntityBase.h"
-#include "PHPExpression.h"
-#include "PHPLookupTable.h"
+#include "PHP/PHPEntityBase.h"
+#include "PHP/PHPExpression.h"
+#include "PHP/PHPLookupTable.h"
+#include "cc_box_tip_window.h"
 #include "cl_command_event.h"
 #include "ieditor.h"
 #include "php_event.h"
 #include "precompiled_header.h"
 #include "wxStringHash.h"
 
-#include <cc_box_tip_window.h>
-#include <cl_command_event.h>
-#include <smart_ptr.h>
+#include <memory>
 #include <vector>
 
 struct PHPLocation {
@@ -45,7 +44,7 @@ struct PHPLocation {
     wxString filename; // file name (absolute path)
     int linenumber;    // line number within filename
     PHPEntityBase::Ptr_t entity;
-    typedef SmartPtr<PHPLocation> Ptr_t;
+    using Ptr_t = std::shared_ptr<PHPLocation>;
 };
 
 class IManager;

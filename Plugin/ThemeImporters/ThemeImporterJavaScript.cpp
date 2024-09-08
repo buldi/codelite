@@ -3,9 +3,9 @@
 #include "cl_standard_paths.h"
 #include "fileutils.h"
 #include "globals.h"
-#include "wx/dir.h"
 #include "xmlutils.h"
 
+#include <wx/dir.h>
 #include <wx/stc/stc.h>
 
 ThemeImporterJavaScript::ThemeImporterJavaScript()
@@ -56,12 +56,12 @@ ThemeImporterJavaScript::ThemeImporterJavaScript()
     // Used for wxSTC_C_GLOBALCLASS ("classes")
     SetKeywords3("Math Array Date document window NumberObject URL");
 
-    // used for functions
+    // Secondary keywords and identifiers
     SetFunctionsWordSetIndex(1);
-
-    // Global classes and typedefs, it already contains values, so be careful here
-    // so when used, append the values
     SetClassWordSetIndex(3);
+    SetOthersWordSetIndex(4);
+    SetLangName("javascript");
+    SetLocalsWordSetIndex(LexerConf::WS_VARIABLES, true);
     SetFileExtensions("*.js;*.javascript;*.qml;*.json;*.ts");
 }
 
@@ -69,7 +69,7 @@ ThemeImporterJavaScript::~ThemeImporterJavaScript() {}
 
 LexerConf::Ptr_t ThemeImporterJavaScript::Import(const wxFileName& theme_file)
 {
-    LexerConf::Ptr_t lexer = InitializeImport(theme_file, "javascript", wxSTC_LEX_CPP);
+    LexerConf::Ptr_t lexer = InitializeImport(theme_file, GetLangName(), wxSTC_LEX_CPP);
     CHECK_PTR_RET_NULL(lexer);
 
     // Covnert to codelite's XML properties
@@ -89,6 +89,11 @@ LexerConf::Ptr_t ThemeImporterJavaScript::Import(const wxFileName& theme_file)
     AddProperty(lexer, wxSTC_C_GLOBALCLASS, "JavaScript global classes", m_klass);
     AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORD, "Javadoc keyword", m_javadocKeyword);
     AddProperty(lexer, wxSTC_C_COMMENTDOCKEYWORDERROR, "Javadoc keyword error", m_javadocKeyword);
+    AddPropertySubstyle(lexer, LexerConf::WS_VARIABLES, "Variables", m_variable);
+
+    // the base for all our substyles
+    lexer->SetSubstyleBase(wxSTC_C_IDENTIFIER);
+
     FinalizeImport(lexer);
     return lexer;
 }

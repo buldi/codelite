@@ -4,8 +4,8 @@
 #include "NodeJSEvents.h"
 #include "NodeJSWorkspaceView.h"
 #include "NoteJSWorkspace.h"
-#include "PHPSourceFile.h"
-#include "PhpLexerAPI.h"
+#include "PHP/PHPSourceFile.h"
+#include "PHP/PhpLexerAPI.h"
 #include "WebToolsBase.h"
 #include "WebToolsConfig.h"
 #include "WebToolsSettings.h"
@@ -27,15 +27,10 @@
 #include <wx/stc/stc.h>
 #include <wx/xrc/xmlres.h>
 
-static WebTools* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new WebTools(manager);
-    }
-    return thePlugin;
+    return new WebTools(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -96,8 +91,8 @@ WebTools::WebTools(IManager* manager)
     Bind(wxEVT_MENU, &WebTools::OnSettings, this, XRCID("webtools_settings"));
     Bind(wxEVT_NODE_COMMAND_TERMINATED, &WebTools::OnNodeCommandCompleted, this);
 
-    m_xmlCodeComplete.Reset(new XMLCodeCompletion(this));
-    m_cssCodeComplete.Reset(new CSSCodeCompletion(this));
+    m_xmlCodeComplete = std::make_unique<XMLCodeCompletion>(this);
+    m_cssCodeComplete = std::make_unique<CSSCodeCompletion>(this);
 
     // Connect the timer
     m_timer = new wxTimer(this);

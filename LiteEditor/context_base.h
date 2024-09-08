@@ -25,16 +25,16 @@
 #ifndef CONTEXT_BASE_H
 #define CONTEXT_BASE_H
 
-#include "entry.h"
+#include "database/entry.h"
 #include "lexer_configuration.h"
 #include "macros.h"
-#include "smart_ptr.h"
-#include "wx/filename.h"
-#include "wx/string.h"
 
+#include <memory>
 #include <set>
 #include <vector>
+#include <wx/filename.h>
 #include <wx/stc/stc.h>
+#include <wx/string.h>
 
 class clEditor;
 
@@ -120,7 +120,7 @@ public:
     virtual void OnDwellEnd(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnDbgDwellEnd(wxStyledTextEvent& event) { event.Skip(); }
     virtual void OnDbgDwellStart(wxStyledTextEvent& event) { event.Skip(); }
-    virtual void OnKeyDown(wxKeyEvent& event) { event.Skip(); }
+    virtual void OnKeyDown(wxKeyEvent& event);
     virtual void AddMenuDynamicContent(wxMenu* WXUNUSED(menu)) {}
     virtual void RemoveMenuDynamicContent(wxMenu* WXUNUSED(menu)) {}
     virtual void OnSciUpdateUI(wxStyledTextEvent& WXUNUSED(event)) {}
@@ -168,5 +168,5 @@ public:
     int PositionBeforeCurrent() const;
 };
 
-typedef SmartPtr<ContextBase> ContextBasePtr;
+using ContextBasePtr = std::shared_ptr<ContextBase>;
 #endif // CONTEXT_BASE_H

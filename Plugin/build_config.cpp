@@ -24,10 +24,10 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "build_config.h"
 
+#include "Debugger/debuggermanager.h"
 #include "StringUtils.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
-#include "debuggermanager.h"
 #include "editor_config.h"
 #include "environmentconfig.h"
 #include "file_logger.h"
@@ -35,7 +35,6 @@
 #include "macromanager.h"
 #include "macros.h"
 #include "project.h"
-#include "wx_xml_compatibility.h"
 #include "xmlutils.h"
 
 #include <wx/tokenzr.h>
@@ -593,7 +592,7 @@ wxString expand_env_variable(const wxString& value, const wxEnvVariableHashMap& 
 clEnvList_t BuildConfig::GetEnvironment(Project* project) const
 {
     wxString envstr;
-    EvnVarList env = EnvironmentConfig::Instance()->GetSettings();
+    EnvVarList env = EnvironmentConfig::Instance()->GetSettings();
 
     wxString config_name;
     wxString project_name;

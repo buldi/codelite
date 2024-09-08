@@ -4,11 +4,12 @@
 
 %{
 /*************** Includes and Defines *****************************/
-#include "string"
-#include "vector"
-#include "stdio.h"
-#include "map"
 #include "function.h"
+
+#include <cstdio>
+#include <string>
+#include <vector>
+#include <map>
 
 #define YYDEBUG_LEXER_TEXT (cl_func_lval)
 #define YYSTYPE std::string
@@ -19,6 +20,9 @@
 #define yylex cl_scope_lex
 #endif
 
+void yyerror(const char *s) {}
+void func_consumeTemplateDecl();
+void func_consumeFuncArgList();
 int cl_func_parse();
 void cl_func_error(char *string);
 
@@ -315,8 +319,6 @@ variable_decl		:	nested_scope_specifier basic_type_name special_star_amp
 							}
 						;
 %%
-void yyerror(char *s) {}
-
 void func_consumeFuncArgList()
 {
 	curr_func.m_signature = "(";

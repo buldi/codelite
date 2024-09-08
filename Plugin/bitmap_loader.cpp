@@ -24,10 +24,9 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "bitmap_loader.h"
 
-#include "clBitmap.h"
+#include "Zip/clZipReader.h"
 #include "clFilesCollector.h"
 #include "clSystemSettings.h"
-#include "clZipReader.h"
 #include "cl_standard_paths.h"
 #include "editor_config.h"
 #include "event_notifier.h"
@@ -168,6 +167,9 @@ void BitmapLoader::CreateMimeList()
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-python", 16), FileExtManager::TypePython);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-css", 16), FileExtManager::TypeCSS);
         m_mimeBitmaps.AddBitmap(LoadBitmap("mime-js", 16), FileExtManager::TypeJS);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("mime-ts", 16), FileExtManager::TypeTypeScript);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("mime-java", 16), FileExtManager::TypeJava);
+        m_mimeBitmaps.AddBitmap(LoadBitmap("mime-go", 16), FileExtManager::TypeGo);
         m_mimeBitmaps.AddBitmap(LoadBitmap("cxx-workspace", 16), FileExtManager::TypeWorkspace);
         m_mimeBitmaps.AddBitmap(LoadBitmap("php-workspace", 16), FileExtManager::TypeWorkspacePHP);
         m_mimeBitmaps.AddBitmap(LoadBitmap("folder-yellow", 16), FileExtManager::TypeWorkspaceFileSystem);
@@ -560,30 +562,23 @@ void clClearSidebarBitmapCache()
     light_sidebar_bitmaps.clear();
 }
 
-wxBitmap clLoadSidebarBitmap(const wxString& name, wxWindow* win)
+static wxBitmap LoadSidebarBitmapInternal(const wxString& name, wxWindow* win, bool dark_theme)
 {
-    wxUnusedVar(win);
-
-    std::unordered_map<wxString, wxBitmap>& cache =
-        clSystemSettings::IsDark() ? dark_sidebar_bitmaps : light_sidebar_bitmaps;
+    std::unordered_map<wxString, wxBitmap>& cache = dark_theme ? dark_sidebar_bitmaps : light_sidebar_bitmaps;
     if (cache.count(name)) {
         return cache.find(name)->second;
     }
 
     wxFileName svg_path{ clStandardPaths::Get().GetDataDir(), wxEmptyString };
     svg_path.AppendDir("svgs");
-    svg_path.AppendDir(clSystemSettings::IsDark() ? "dark-theme" : "light-theme");
+    svg_path.AppendDir(dark_theme ? "dark-theme" : "light-theme");
     svg_path.SetFullName(name + ".svg");
     if (!svg_path.DirExists()) {
         clWARNING() << "Unable to locate:" << svg_path << ". broken installation?" << endl;
         return wxNullBitmap;
     }
 
-#if defined(__WXMSW__)
-    wxSize button_size{ 24, 24 };
-#else
     wxSize button_size{ 32, 32 };
-#endif
 
     auto bmpbundle = wxBitmapBundle::FromSVGFile(svg_path.GetFullPath(), button_size);
     if (!bmpbundle.IsOk()) {
@@ -593,4 +588,10 @@ wxBitmap clLoadSidebarBitmap(const wxString& name, wxWindow* win)
     auto bmp = bmpbundle.GetBitmapFor(win);
     cache.insert({ name, bmp });
     return bmp;
+}
+
+void clLoadSidebarBitmap(const wxString& name, wxWindow* win, wxBitmap* light_theme_bmp, wxBitmap* dark_theme_bmp)
+{
+    *light_theme_bmp = LoadSidebarBitmapInternal(name, win, false);
+    *dark_theme_bmp = LoadSidebarBitmapInternal(name, win, true);
 }

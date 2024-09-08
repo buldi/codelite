@@ -25,20 +25,16 @@
 #ifndef CODELITE_LANGUAGE_H
 #define CODELITE_LANGUAGE_H
 
-#include "CxxTokenizer.h"
-#include "CxxVariable.h"
+#include "Cxx/CxxTokenizer.h"
+#include "Cxx/CxxVariable.h"
+#include "Cxx/cpp_scanner.h"
 #include "codelite_exports.h"
-#include "comment.h"
-#include "cpp_scanner.h"
-#include "entry.h"
+#include "database/entry.h"
 #include "expression_result.h"
 #include "function.h"
 #include "macros.h"
 #include "parsedtoken.h"
-#include "singleton.h"
-#include "tokenizer.h"
 #include "variable.h"
-#include "y.tab.h"
 
 #include <set>
 #include <vector>
@@ -65,7 +61,7 @@ public:
     ~TemplateHelper() {}
 
     void SetTemplateDeclaration(const wxString& templateDeclaration);
-    void SetTemplateInstantiation(const wxString& tempalteInstantiation);
+    void SetTemplateInstantiation(const wxString& templateInstantiation);
 
     void SetTemplateDeclaration(const wxArrayString& templateDeclaration)
     {
@@ -95,25 +91,14 @@ class WXDLLIMPEXP_CL Language
     friend class TagsManager;
 
 private:
-    std::map<char, char> m_braces;
-    std::vector<wxString> m_delimArr;
     wxString m_expression;
-    CppScannerPtr m_scanner;
     CxxTokenizer m_tokenScanner;
     TagsManager* m_tm;
-    wxString m_visibleScope;
-    wxString m_lastFunctionSignature;
     std::vector<wxString> m_additionalScopes;                          // collected by parsing 'using namespace XXX'
     std::map<wxString, std::vector<wxString>> m_additionalScopesCache; // collected by parsing 'using namespace XXX'
     TemplateHelper m_templateHelper;
     std::set<wxString> m_templateArgs;
     CxxVariable::Map_t m_locals;
-
-protected:
-    void SetVisibleScope(const wxString& visibleScope) { this->m_visibleScope = visibleScope; }
-    const wxString& GetVisibleScope() const { return m_visibleScope; }
-    CxxVariable::Ptr_t FindLocalVariable(const wxString& name);
-    CxxVariable::Ptr_t FindVariableInScope(const wxString& scope, const wxString& name);
 
 public:
     /**
@@ -152,32 +137,14 @@ public:
 
     void CheckForTemplateAndTypedef(ParsedToken* token);
 
-    void SetLastFunctionSignature(const wxString& lastFunctionSignature)
-    {
-        this->m_lastFunctionSignature = lastFunctionSignature;
-    }
-    const wxString& GetLastFunctionSignature() const { return m_lastFunctionSignature; }
-
     void SetAdditionalScopes(const std::vector<wxString>& additionalScopes, const wxString& filename);
 
-    /**
-     * @brief update the 'additional scopes' cache with list of scopes
-     * @param filename
-     * @param additionalScopes
-     */
-    void UpdateAdditionalScopesCache(const wxString& filename, const std::vector<wxString>& additionalScopes);
     /**
      * @brief clear the additional scopes cache
      */
     void ClearAdditionalScopesCache();
 
     const std::vector<wxString>& GetAdditionalScopes() const;
-    /**
-     * Set the language specific auto completion delimeteres, for example: for C++ you should populate
-     * the array with { . , -> , :: }
-     * @param delimArr delimeter array
-     */
-    void SetAutoCompDeliemters(const std::vector<wxString>& delimArr);
 
     /**
      * @brief set the tags manager to be used by this language instance
@@ -190,13 +157,6 @@ public:
      * @return
      */
     TagsManager* GetTagsManager();
-
-    /**
-     * Parse comments from source file
-     * @param name file name
-     * @param comments [output] returned vector of comments
-     */
-    void ParseComments(const wxFileName& fileName, std::vector<CommentPtr>* comments);
 
     //==========================================================
     // New API based on the yacc grammar files
@@ -214,7 +174,7 @@ public:
      * @param typeName [output]
      * @param typeScope [output]
      * @param oper [output] return the operator used (::, ., ->)
-     * @param scopeTemplateInitList [output] return the scope tempalte intialization (e.g. "std::auto_ptr<wxString>
+     * @param scopeTemplateInitList [output] return the scope template intialization (e.g. "std::auto_ptr<wxString>
      * str;" -> <wxString>
      * @return true on success, false otherwise. The output fields are only to be checked with the return
      * valus is 'true'
@@ -343,17 +303,12 @@ private:
 
     void ParseTemplateArgs(const wxString& argListStr, wxArrayString& argsList);
     void ParseTemplateInitList(const wxString& argListStr, wxArrayString& argsList);
-    void DoRemoveTempalteInitialization(wxString& str, wxArrayString& tmplInitList);
+    void DoRemoveTemplateInitialization(wxString& str, wxArrayString& tmplInitList);
     void DoResolveTemplateInitializationList(wxArrayString& tmpInitList);
-    void DoFixFunctionUsingCtagsReturnValue(clFunction& foo, TagEntryPtr tag);
-    void DoReplaceTokens(wxString& inStr, const wxStringTable_t& ignoreTokens);
-    wxArrayString DoExtractTemplateDeclarationArgsFromScope();
     wxArrayString DoExtractTemplateDeclarationArgs(ParsedToken* token);
     wxArrayString DoExtractTemplateDeclarationArgs(TagEntryPtr tag);
     void DoExtractTemplateInitListFromInheritance(TagEntryPtr tag, ParsedToken* token);
     void DoExtractTemplateInitListFromInheritance(ParsedToken* token);
-    void DoExtractTemplateArgsFromSelf(ParsedToken* token);
-    void DoFixTokensFromVariable(TokenContainer* tokeContainer, const wxString& variableDecl);
 
     // Wrapper methods to help the transition from the [wxString,wxString] API into the new ParsedToken
     // code

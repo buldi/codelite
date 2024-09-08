@@ -25,6 +25,8 @@
 
 #include "DebugAdapterClient.hpp"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "DAPBreakpointsView.h"
 #include "DAPConsoleOutput.hpp"
 #include "DAPMainView.h"
@@ -35,22 +37,21 @@
 #include "DapDebuggerSettingsDlg.h"
 #include "DapLocator.hpp"
 #include "DapLoggingHelper.hpp"
+#include "Debugger/debuggermanager.h"
+#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
 #include "StringUtils.h"
-#include "asyncprocess.h"
 #include "bookmark_manager.h"
-#include "clFileSystemWorkspace.hpp"
+#include "clAuiBook.hpp"
 #include "clResizableTooltip.h"
 #include "clWorkspaceManager.h"
 #include "cl_config.h"
 #include "clcommandlineparser.h"
-#include "debuggermanager.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "macromanager.h"
-#include "processreaderthread.h"
 
 #include <wx/aui/framemanager.h>
 #include <wx/filename.h>
@@ -62,8 +63,6 @@
 #if USE_SFTP
 #include "sftp_settings.h"
 #endif
-
-static DebugAdapterClient* thePlugin = NULL;
 
 namespace
 {
@@ -127,10 +126,7 @@ wxString get_dap_settings_file()
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if (thePlugin == 0) {
-        thePlugin = new DebugAdapterClient(manager);
-    }
-    return thePlugin;
+    return new DebugAdapterClient(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -437,7 +433,7 @@ void DebugAdapterClient::OnDebugStart(clDebugEvent& event)
 
         // Determine the executable to debug, working directory and arguments
         LOG_DEBUG(LOG) << "Preparing environment variables.." << endl;
-        env = bldConf->GetEnvironment(project.Get());
+        env = bldConf->GetEnvironment(project.get());
         LOG_DEBUG(LOG) << "Success" << endl;
         exepath = bldConf->GetCommand();
 
@@ -644,7 +640,7 @@ void DebugAdapterClient::DestroyUI()
     if (m_textView) {
         int index = clGetManager()->GetMainNotebook()->FindPage(m_textView);
         if (index != wxNOT_FOUND) {
-            clGetManager()->GetMainNotebook()->RemovePage(index);
+            clGetManager()->GetMainNotebook()->RemovePage(index, false);
         }
         m_textView->Destroy();
         m_textView = nullptr;
@@ -985,9 +981,9 @@ void DebugAdapterClient::OnDapInitializeResponse(DAPEvent& event)
     LOG_DEBUG(LOG) << "working directory:" << m_session.working_directory << endl;
 
     // FIXME: apply the environment here
-    auto v = m_session.command;
-    LOG_DEBUG(LOG) << "Calling Launch() with command:" << v << endl;
+    LOG_DEBUG(LOG) << "Calling Launch() with command:" << m_session.command << endl;
     if (m_session.dap_server.GetLaunchType() == DapLaunchType::LAUNCH) {
+        auto v = m_session.command;
         m_client.Launch(std::move(v), m_session.working_directory, m_session.MakeEnvironment());
 
     } else {
@@ -1119,7 +1115,7 @@ void DebugAdapterClient::OnDapSetSourceBreakpointResponse(DAPEvent& event)
     auto resp = event.GetDapResponse()->As<dap::SetBreakpointsResponse>();
     CHECK_PTR_RET(resp);
 
-    auto req = event.GetOriginatingReuqest();
+    auto req = event.GetOriginatingRequest();
     CHECK_PTR_RET(req);
 
     auto set_bp_req = req->As<dap::SetBreakpointsRequest>();

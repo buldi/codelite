@@ -1,13 +1,13 @@
 #include "clNodeJS.h"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
+#include "Console/clConsoleBase.h"
 #include "NodeJSLocator.h"
-#include "asyncprocess.h"
-#include "clConsoleBase.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "ieditor.h"
 #include "imanager.h"
-#include "processreaderthread.h"
 
 #include <algorithm>
 
@@ -75,7 +75,7 @@ void clNodeJS::OnProcessTerminated(clProcessEvent& event)
         const ProcessData& d = m_processes[process];
         // Handle lint
         if(!d.GetOutput().IsEmpty() && d.GetUid() == "lint") {
-            ProcessLintOuput(d.GetFilename(), d.GetOutput());
+            ProcessLintOutput(d.GetFilename(), d.GetOutput());
         }
         if(d.GetSink()) {
             clProcessEvent evt(wxEVT_NODE_COMMAND_TERMINATED);
@@ -165,7 +165,7 @@ void clNodeJS::LintFile(const wxFileName& filename)
     }
 }
 
-void clNodeJS::ProcessLintOuput(const wxFileName& fn, const wxString& output)
+void clNodeJS::ProcessLintOutput(const wxFileName& fn, const wxString& output)
 {
     // the first line in the output is "file:line\n"
     wxString where = output.BeforeFirst('\n');

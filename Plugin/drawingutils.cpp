@@ -406,7 +406,11 @@ wxBrush DrawingUtils::GetStippleBrush()
     wxColour bgColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
     wxBitmap bmpStipple(3, 3);
     wxColour lightPen = bgColour.ChangeLightness(105);
+#if wxCHECK_VERSION(3, 3, 0)
     wxColour darkPen = clSystemSettings::Get().SelectLightDark(bgColour.ChangeLightness(95), *wxBLACK);
+#else
+    wxColour darkPen = clSystemSettings::Get().IsDark() ? bgColour.ChangeLightness(95) : *wxBLACK;
+#endif
 #else
     wxColour bgColour = clSystemSettings::GetDefaultPanelColour();
     wxBitmap bmpStipple(3, 3);
@@ -862,21 +866,15 @@ void DrawingUtils::DrawNativeChoice(wxWindow* win, wxDC& dc, const wxRect& rect,
     dc.DestroyClippingRegion();
 }
 
-clColours& DrawingUtils::GetColours(bool darkColours)
+clColours& DrawingUtils::GetColours()
 {
     static bool once = true;
-    static clColours g_darkColours;
     static clColours g_normalColours;
     if (once) {
-        g_darkColours.InitDarkDefaults();
         g_normalColours.InitDefaults();
         once = false;
     }
-    if (darkColours) {
-        return g_darkColours;
-    } else {
-        return g_normalColours;
-    }
+    return g_normalColours;
 }
 
 int DrawingUtils::GetFallbackFixedFontSize() { return GetFallbackFixedFont().GetPointSize(); }

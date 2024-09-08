@@ -56,6 +56,20 @@ class NavMgr;
 class IMacroManager;
 class wxAuiManager;
 class clInfoBar;
+class clGenericNotebook;
+class clAuiBook;
+
+#if defined(__WXMSW__) || defined(__WXMAC__)
+#define MAINBOOK_AUIBOOK 0
+#else
+#define MAINBOOK_AUIBOOK 1
+#endif
+
+#if MAINBOOK_AUIBOOK
+using MainNotebook = clAuiBook;
+#else
+using MainNotebook = clGenericNotebook;
+#endif
 
 //--------------------------
 // Auxulary class
@@ -84,6 +98,7 @@ enum class PaneId {
     BOTTOM_BAR,
     SIDE_BAR,
     DEBUG_BAR,
+    SECONDARY_SIDE_BAR,
 };
 
 //------------------------------------------------------------------
@@ -155,6 +170,12 @@ public:
      * the selection
      */
     virtual void ToggleSidebarPane(const wxString& selectWindow = "") = 0;
+
+    /**
+     * @brief locate the management window `selectedWindow` and make it visible (or hide it)
+     * This function does not care where the `selectedWindow` is located
+     */
+    virtual void ShowManagementWindow(const wxString& selectedWindow, bool show) = 0;
 
     /**
      * @brief toggle the secondary pane and if provided, select 'selectedWindow'
@@ -273,7 +294,7 @@ public:
     /**
      * @brief return the main editor notebook
      */
-    virtual wxAuiNotebook* GetMainNotebook() = 0;
+    virtual MainNotebook* GetMainNotebook() = 0;
 
     /**
      * @brief append text line to the tab in the "Output View"

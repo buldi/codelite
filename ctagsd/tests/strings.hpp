@@ -1,7 +1,7 @@
 #include <wx/string.h>
 const wxString big_file = R"(
-#include "CxxScannerTokens.h"
-#include "CxxVariableScanner.h"
+#include "Cxx/CxxScannerTokens.h"
+#include "Cxx/CxxVariableScanner.h"
 #include "file_logger.h"
 
 #include <algorithm>
@@ -496,7 +496,7 @@ const wxString tokenizer_sample_file_2 = R"(#include "TextView.h"
 #include "wxTerminalCtrl.h"
 
 #ifdef __WXMSW__
-#include "wx/msw/wrapwin.h" // includes windows.h
+#include <wx/msw/wrapwin.h> // includes windows.h
 #endif
 #include <fileutils.h>
 #include <wx/tokenzr.h>
@@ -512,12 +512,11 @@ wxTerminalColourHandler::wxTerminalColourHandler()
 const wxString cc_text_ProtocolHandler = R"(
 #include "CTags.hpp"
 #include "CompletionHelper.hpp"
-#include "CxxCodeCompletion.hpp"
-#include "CxxPreProcessor.h"
-#include "CxxScannerTokens.h"
-#include "CxxTokenizer.h"
-#include "CxxUsingNamespaceCollector.h"
-#include "CxxVariableScanner.h"
+#include "Cxx/CxxCodeCompletion.hpp"
+#include "Cxx/CxxPreProcessor.h"
+#include "Cxx/CxxScannerTokens.h"
+#include "Cxx/CxxTokenizer.h"
+#include "Cxx/CxxVariableScanner.h"
 #include "LSP/LSPEvent.h"
 #include "LSP/basic_types.h"
 #include "LSPUtils.hpp"
@@ -527,13 +526,11 @@ const wxString cc_text_ProtocolHandler = R"(
 #include "SimpleTokenizer.hpp"
 #include "clFilesCollector.h"
 #include "cl_calltip.h"
-#include "crawler_include.h"
 #include "ctags_manager.h"
-#include "fc_fileopener.h"
+#include "database/tags_storage_sqlite3.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
 #include "tags_options_data.h"
-#include "tags_storage_sqlite3.h"
 
 #include <deque>
 #include <iostream>
@@ -1060,7 +1057,7 @@ public:
         // m_persistencManager = new clPersistenceManager();
         // wxPersistenceManager::Set(*m_persistencManager);
 #ifdef __WXMSW__
-        typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
+        typedef BOOL (WINAPI* SetProcessDPIAwareFunc)();
         HINSTANCE user32Dll = LoadLibrary(L"User32.dll");
         if(user32Dll) {
             SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(user32Dll, "SetProcessDPIAware");

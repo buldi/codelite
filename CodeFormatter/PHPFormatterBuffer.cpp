@@ -1,6 +1,6 @@
 #include "PHPFormatterBuffer.h"
 
-#include "PHPScannerTokens.h"
+#include "PHP/PHPScannerTokens.h"
 
 #include <wx/tokenzr.h>
 
@@ -95,7 +95,7 @@ PHPFormatterBuffer& PHPFormatterBuffer::ProcessToken(const phpLexerToken& token)
             if(m_options.flags & kPFF_BreakBeforeWhile) {
                 InsertSeparatorLine();
             }
-        } else if(token.type == kPHP_T_CLASS) {
+        } else if(token.type == kPHP_T_CLASS || token.type == kPHP_T_ENUM) {
             if(m_options.flags & kPFF_BreakBeforeClass) {
                 InsertSeparatorLine();
             }

@@ -25,12 +25,12 @@
 
 #include "RemotyPlugin.hpp"
 
-#include "NewFileSystemWorkspaceDialog.h"
+#include "AsyncProcess/asyncprocess.h"
+#include "FileSystemWorkspace/NewFileSystemWorkspaceDialog.h"
+#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
+#include "FileSystemWorkspace/clFileSystemWorkspaceConfig.hpp"
 #include "RemotyConfig.hpp"
 #include "RemotyWorkspace.hpp"
-#include "asyncprocess.h"
-#include "clFileSystemWorkspace.hpp"
-#include "clFileSystemWorkspaceConfig.hpp"
 #include "clWorkspaceManager.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
@@ -39,15 +39,10 @@
 
 #include <wx/msgdlg.h>
 
-static RemotyPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new RemotyPlugin(manager);
-    }
-    return thePlugin;
+    return new RemotyPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

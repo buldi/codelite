@@ -1,14 +1,17 @@
 #include "wxc_bitmap_code_generator.h"
+
+#include "AsyncProcess/processreaderthread.h"
 #include "DirectoryChanger.h"
+#include "StdToWX.h"
+#include "environmentconfig.h"
+#include "globals.h"
 #include "top_level_win_wrapper.h"
 #include "wxc_project_metadata.h"
 #include "wxgui_bitmaploader.h"
 #include "wxgui_helpers.h"
 #include "wxguicraft_main_view.h"
 #include "wxrc.h"
-#include <environmentconfig.h>
-#include <globals.h>
-#include <processreaderthread.h>
+
 #include <wx/frame.h>
 #include <wx/log.h>
 #include <wx/sstream.h>
@@ -54,10 +57,7 @@ bool wxcCodeGeneratorHelper::CreateXRC()
     MapString_t::const_iterator iter = m_bitmapMap.begin();
 
     // Supported hi-res images extension
-    wxArrayString exts;
-    exts.Add("@2x");
-    exts.Add("@1.25x");
-    exts.Add("@1.5x");
+    const wxArrayString exts = StdToWX::ToArrayString({ "@2x", "@1.25x", "@1.5x" });
 
     for(; iter != m_bitmapMap.end(); ++iter) {
         wxFileName fn(iter->second);

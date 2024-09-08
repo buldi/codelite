@@ -24,16 +24,18 @@ cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release                 \
          -DwxBUILD_DEBUG_LEVEL=0                                        \
          -DwxBUILD_MONOLITHIC=1 -DwxBUILD_SAMPLES=SOME -DwxUSE_STL=1    \
          -DCMAKE_INSTALL_PREFIX=$HOME/root
-mingw32-make -j$(nproc)
+mingw32-make -j$(nproc) install
 ```
 
-- For a `Debug` build of wxWidgets, run this:
+- If you need a `Debug` build of wxWidgets, run this command instead:
 
 ```bash
 mkdir build-debug
 cd build-debug
-cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DwxBUILD_DEBUG_LEVEL=1
-mingw32-make -j$(nproc)
+cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DwxBUILD_DEBUG_LEVEL=1 \
+    -DwxBUILD_SAMPLES=SOME  -DwxBUILD_MONOLITHIC=1  -DwxUSE_STL=1             \
+    -DCMAKE_INSTALL_PREFIX=$HOME/root  
+mingw32-make -j$(nproc) install
 ```
 
 ## Linux
@@ -98,16 +100,15 @@ make -j$(nproc) && sudo make install
 #### Build wxWidgets
 
 ```bash
-mkdir $HOME/src
-cd $HOME/src
+mkdir -p $HOME/devl
+cd $_
 git clone https://github.com/wxWidgets/wxWidgets.git
-cd $HOME/src/wxWidgets
-git submodule init
-git submodule update
+cd wxWidgets
+git submodule update --init
 mkdir build-release
-cd build-release
-../configure --enable-shared --enable-monolithic --with-osx_cocoa CXX='clang++ -std=c++11 -stdlib=libc++ -I../src/tiff/libtiff' CC=clang --disable-debug --disable-mediactrl --enable-stl
-make -j10
+cd $_
+../configure --enable-shared --enable-monolithic --with-osx_cocoa CXX='clang++ -std=c++17 -stdlib=libc++' CC=clang --disable-debug --disable-mediactrl --enable-stl --with-libtiff=no --enable-utf8
+make -j$(sysctl -n hw.physicalcpu)
 sudo make install
 ```
 

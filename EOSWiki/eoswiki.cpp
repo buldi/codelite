@@ -1,26 +1,24 @@
 #include "eoswiki.h"
-#include <wx/xrc/xmlres.h>
-#include "EOSProjectWizard.h"
-#include "event_notifier.h"
-#include <wx/msgdlg.h>
-#include "compiler.h"
-#include "build_settings_config.h"
-#include <workspace.h>
-#include <algorithm>
-#include "cl_standard_paths.h"
-#include "clZipReader.h"
-#include "fileutils.h"
-#include <algorithm>
-#include "file_logger.h"
-#include <wx/app.h>
 
-static EOSWiki* thePlugin = NULL;
+#include "EOSProjectWizard.h"
+#include "Zip/clZipReader.h"
+#include "build_settings_config.h"
+#include "cl_standard_paths.h"
+#include "compiler.h"
+#include "event_notifier.h"
+#include "file_logger.h"
+#include "fileutils.h"
+#include "workspace.h"
+
+#include <algorithm>
+#include <wx/app.h>
+#include <wx/msgdlg.h>
+#include <wx/xrc/xmlres.h>
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == NULL) { thePlugin = new EOSWiki(manager); }
-    return thePlugin;
+    return new EOSWiki(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

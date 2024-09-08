@@ -24,7 +24,8 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "debuggergdb.h"
 
-#include "asyncprocess.h"
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "clFileName.hpp"
 #include "cl_command_event.h"
 #include "codelite_events.h"
@@ -37,7 +38,6 @@
 #include "file_logger.h"
 #include "fileutils.h"
 #include "globals.h"
-#include "processreaderthread.h"
 #include "procutils.h"
 #include "ssh/ssh_account_info.h"
 
@@ -53,7 +53,7 @@
 
 // On Windows lower than XP, the function DebugBreakProcess does not exist
 // so we need to bind it dynamically
-typedef BOOL WINAPI (*DBG_BREAK_PROC_FUNC_PTR)(HANDLE);
+typedef BOOL(WINAPI* DBG_BREAK_PROC_FUNC_PTR)(HANDLE);
 DBG_BREAK_PROC_FUNC_PTR DebugBreakProcessFunc = NULL;
 HINSTANCE Kernel32Dll = NULL;
 

@@ -24,22 +24,22 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "buildmanager.h"
 
-#include "BuilderGnuMakeMSYS.hpp"
-#include "builder.h"
-#include "builder_NMake.h"
-#include "builder_gnumake.h"
-#include "builder_gnumake_default.h"
-#include "builder_gnumake_onestep.h"
+#include "builder/BuilderGnuMakeMSYS.hpp"
+#include "builder/builder.h"
+#include "builder/builder_NMake.h"
+#include "builder/builder_gnumake.h"
+#include "builder/builder_gnumake_default.h"
+#include "builder/builder_gnumake_onestep.h"
 
 BuildManager::BuildManager()
 {
     // register all builders here
-    AddBuilder(new BuilderGnuMake());
-    AddBuilder(new BuilderGNUMakeClassic());
-    AddBuilder(new BuilderGnuMakeOneStep());
+    AddBuilder(std::make_shared<BuilderGnuMake>());
+    AddBuilder(std::make_shared<BuilderGNUMakeClassic>());
+    AddBuilder(std::make_shared<BuilderGnuMakeOneStep>());
 #ifdef __WXMSW__
-    AddBuilder(new BuilderNMake());
-    AddBuilder(new BuilderGnuMakeMSYS());
+    AddBuilder(std::make_shared<BuilderNMake>());
+    AddBuilder(std::make_shared<BuilderGnuMakeMSYS>());
 #endif
 }
 

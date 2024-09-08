@@ -1,24 +1,23 @@
-#include "asyncprocess.h"
+#include "phplint.h"
+
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
+#include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "lintoptions.h"
-#include "phplint.h"
 #include "phplintdlg.h"
 #include "phpoptions.h"
-#include "processreaderthread.h"
-#include "wx/menu.h"
-#include <event_notifier.h>
+
+#include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/sstream.h>
 #include <wx/xrc/xmlres.h>
 
-static PHPLint* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == NULL) { thePlugin = new PHPLint(manager); }
-    return thePlugin;
+    return new PHPLint(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

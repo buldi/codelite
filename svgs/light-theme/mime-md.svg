@@ -1,1 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M100 22.1l-3.5 18.6H79.1l-3.5 18.6H93l-2.3 18.6H72.1l-2.3 17.4H51.2l3.5-17.4H36l-3.5 17.4H15.1l2.3-17.4H0l3.5-18.6h17.4l3.5-18.6H7l2.3-18.6h18.6l2.3-17.4h18.6l-3.5 17.4H64l3.5-17.4h17.4l-2.3 17.4H100zM60.5 40.7H41.9l-3.5 18.6h19.8l2.3-18.6z" fill="#bababa"/></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   fill="#000000"
+   height="800px"
+   width="800px"
+   version="1.1"
+   id="Layer_1"
+   viewBox="0 0 512 512"
+   enable-background="new 0 0 512 512"
+   xml:space="preserve"
+   sodipodi:docname="mime-md.svg"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+   id="defs7" /><sodipodi:namedview
+   id="namedview5"
+   pagecolor="#ffffff"
+   bordercolor="#eeeeee"
+   borderopacity="1"
+   inkscape:pageshadow="0"
+   inkscape:pageopacity="0"
+   inkscape:pagecheckerboard="0"
+   showgrid="false"
+   inkscape:zoom="0.97375"
+   inkscape:cx="399.48652"
+   inkscape:cy="399.48652"
+   inkscape:window-width="3840"
+   inkscape:window-height="2080"
+   inkscape:window-x="-11"
+   inkscape:window-y="-11"
+   inkscape:window-maximized="1"
+   inkscape:current-layer="Layer_1" />
+<polygon
+   points="204.3,341.3 33.7,170.7 33.7,298.7 247,512 460.3,298.7 460.3,170.7 289.7,341.3 289.7,0 204.3,0 "
+   id="polygon2"
+   transform="matrix(0.87291399,0,0,0.87291399,40.390244,32.534019)"
+   style="fill:#ee82ee" />
+</svg>

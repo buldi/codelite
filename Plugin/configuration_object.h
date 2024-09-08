@@ -25,8 +25,7 @@
 #ifndef CONF_OBJECT_H
 #define CONF_OBJECT_H
 
-#include "smart_ptr.h"
-#include "wx/xml/xml.h"
+#include <wx/xml/xml.h>
 
 #ifdef WXMAKINGDLL_LE_SDK
 #define WXDLLIMPEXP_LE_SDK WXEXPORT
@@ -50,5 +49,4 @@ public:
     virtual wxXmlNode* ToXml() const = 0;
 };
 
-typedef SmartPtr<ConfObject> ConfObjectPtr;
 #endif // CONFIGURATION_OBJECT_H

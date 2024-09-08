@@ -3,19 +3,19 @@
 #include "ColoursAndFontsManager.h"
 #include "LSP/LSPEvent.h"
 #include "LSP/basic_types.h"
-#include "PHPEntityBase.h"
-#include "PHPEntityClass.h"
-#include "PHPEntityFunction.h"
-#include "PHPEntityFunctionAlias.h"
-#include "PHPEntityKeyword.h"
-#include "PHPEntityVariable.h"
-#include "PHPExpression.h"
+#include "PHP/PHPEntityBase.h"
+#include "PHP/PHPEntityClass.h"
+#include "PHP/PHPEntityFunction.h"
+#include "PHP/PHPEntityFunctionAlias.h"
+#include "PHP/PHPEntityKeyword.h"
+#include "PHP/PHPEntityVariable.h"
+#include "PHP/PHPExpression.h"
 #include "clEditorBar.h"
 #include "clSelectSymbolDialog.h"
 #include "cl_command_event.h"
 #include "cl_config.h"
+#include "database/entry.h"
 #include "editor_config.h"
-#include "entry.h"
 #include "event_notifier.h"
 #include "globals.h"
 #include "imanager.h"
@@ -425,7 +425,7 @@ PHPLocation::Ptr_t PHPCodeCompletion::FindDefinition(IEditor* editor, int pos)
                 // use the internal function
                 resolved = resolved->Cast<PHPEntityFunctionAlias>()->GetFunc();
             }
-            loc = new PHPLocation;
+            loc = std::make_shared<PHPLocation>();
             loc->filename = resolved->GetFilename().GetFullPath();
             loc->linenumber = resolved->GetLine();
             loc->what = resolved->GetShortName();
@@ -762,7 +762,7 @@ int PHPCodeCompletion::GetLocationForSettersGetters(const wxString& filecontent,
     phpLexerToken token;
     bool isOK = false;
     while(::phpLexerNext(scanner, token)) {
-        if(token.type != kPHP_T_CLASS) {
+        if(token.type != kPHP_T_CLASS && token.type != kPHP_T_ENUM) {
             continue;
         }
 

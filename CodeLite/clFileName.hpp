@@ -23,7 +23,7 @@ public:
     static wxString FromCygwin(const wxString& fullpath);
 
     /**
-     * @brief covnert to cygwin path
+     * @brief convert to cygwin path
      */
     static wxString ToCygwin(const wxString& fullpath);
     static wxString ToCygwin(const wxFileName& fullpath);
@@ -43,9 +43,6 @@ public:
 
     inline bool IsRemote() const { return m_isRemote; }
     const wxString& GetRemoteFullPath() const;
-    wxString GetRemoteFullName() const;
-    wxString GetRemoteName() const;
-    wxString GetRemotePath() const;
 };
 
 #endif // CLFILENAME_HPP

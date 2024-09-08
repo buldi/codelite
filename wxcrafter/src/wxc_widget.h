@@ -140,10 +140,8 @@ public:
     typedef wxOrderedMap<wxString, PropertyBase*> MapProperties_t;
     typedef wxOrderedMap<wxString, ConnectDetails> MapEvents_t;
     typedef std::map<wxString, ConnectDetails> Map_t;
-    typedef std::map<wxString, wxArrayString> AntiGroupMap_t;
     typedef std::map<int, int> SizerFlagsValueSet_t;
 
-    static AntiGroupMap_t s_antiGroup;
     static SizerFlagsValueSet_t s_sizerFlagsValue;
 
 protected:
@@ -490,7 +488,7 @@ public:
         /// A good example is ToolBarItem: it serves 2 widgets wx{Aui}ToolBar
         /// However, there is no way to determine the parent of the toolbar item at the creation time
         /// this functions attempts to fix this by allowing the widget to adjust its content after a parent has been
-        /// asigned to it
+        /// assigned to it
         UpdateRegisteredEventsIfNeeded();
         return m_controlEvents;
     }
@@ -524,7 +522,7 @@ public:
     virtual wxString CppDtorCode() const { return ""; }
 
     /**
-     * @brief return the underlyging WX class represented by
+     * @brief return the underlying WX class represented by
      * this class
      */
     virtual wxString GetWxClassName() const = 0;

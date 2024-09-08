@@ -23,32 +23,29 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "asyncprocess.h"
+#include "wxformbuilder.h"
+
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "confformbuilder.h"
 #include "event_notifier.h"
 #include "formbuildsettingsdlg.h"
 #include "globals.h"
-#include "processreaderthread.h"
 #include "procutils.h"
 #include "project.h"
 #include "workspace.h"
 #include "wxfbitemdlg.h"
-#include "wxformbuilder.h"
+
 #include <wx/app.h>
 #include <wx/menu.h>
 #include <wx/mimetype.h>
 #include <wx/msgdlg.h>
 #include <wx/xrc/xmlres.h>
 
-static wxFormBuilder* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new wxFormBuilder(manager);
-    }
-    return thePlugin;
+    return new wxFormBuilder(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

@@ -27,7 +27,7 @@ namespace
 void import_files(const wxString& input_dir, const wxString& output_dir)
 {
     wxFileName output_file(output_dir, "lexers.json");
-    if(output_file.FileExists()) {
+    if (output_file.FileExists()) {
         wxRenameFile(output_file.GetFullPath(), output_file.GetFullPath() + ".orig");
     }
 
@@ -40,15 +40,23 @@ void import_files(const wxString& input_dir, const wxString& output_dir)
     {
         wxArrayString xml_files;
         wxDir::GetAllFiles(input_dir, &xml_files, "*.xml");
-        for(const wxString& file : xml_files) {
+        for (const wxString& file : xml_files) {
             clDEBUG() << "Importing Eclipse Theme:" << file << "..." << importer.Import(file) << endl;
         }
     }
     {
         wxArrayString json_files;
         wxDir::GetAllFiles(input_dir, &json_files, "*.json");
-        for(const wxString& file : json_files) {
+        for (const wxString& file : json_files) {
             clDEBUG() << "Importing VSCode Theme:" << file << "..." << importer.Import(file) << endl;
+        }
+    }
+
+    {
+        wxArrayString toml_files;
+        wxDir::GetAllFiles(input_dir, &toml_files, "*.toml");
+        for (const wxString& file : toml_files) {
+            clDEBUG() << "Importing Alacritty Theme (toml):" << file << "..." << importer.Import(file) << endl;
         }
     }
 
@@ -68,11 +76,11 @@ public:
     {
 
 #ifdef __WXMSW__
-        typedef BOOL WINAPI (*SetProcessDPIAwareFunc)();
+        typedef BOOL(WINAPI * SetProcessDPIAwareFunc)();
         HINSTANCE user32Dll = LoadLibrary(L"User32.dll");
-        if(user32Dll) {
+        if (user32Dll) {
             SetProcessDPIAwareFunc pFunc = (SetProcessDPIAwareFunc)GetProcAddress(user32Dll, "SetProcessDPIAware");
-            if(pFunc) {
+            if (pFunc) {
                 pFunc();
             }
             FreeLibrary(user32Dll);
@@ -83,7 +91,7 @@ public:
         wxImage::AddHandler(new wxJPEGHandler);
 
         ImportThemesDialog dlg(nullptr);
-        if(dlg.ShowModal() == wxID_OK) {
+        if (dlg.ShowModal() == wxID_OK) {
             wxString input_dir = dlg.GetInputDirectory();
             wxString output_dir = dlg.GetOutputDirectory();
             import_files(input_dir, output_dir);

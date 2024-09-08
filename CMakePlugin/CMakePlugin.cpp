@@ -51,11 +51,11 @@
 // Declaration
 #include "CMakePlugin.h"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "CMakeBuilder.h"
 #include "ICompilerLocator.h"
 #include "StdToWX.h"
-#include "asyncprocess.h"
-#include "processreaderthread.h"
 
 // wxWidgets
 #include <wx/app.h>
@@ -99,8 +99,6 @@
 /* VARIABLES                                                                */
 /* ************************************************************************ */
 
-static CMakePlugin* g_plugin = NULL;
-
 /* ************************************************************************ */
 
 const wxString CMakePlugin::CMAKELISTS_FILE = "CMakeLists.txt";
@@ -122,11 +120,7 @@ static const wxString HELP_TAB_NAME = _("CMake");
  */
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if (!g_plugin) {
-        g_plugin = new CMakePlugin(manager);
-    }
-
-    return g_plugin;
+    return new CMakePlugin(manager);
 }
 
 /* ************************************************************************ */
@@ -251,18 +245,16 @@ BuildConfigPtr CMakePlugin::GetSelectedBuildConfig() const
 
 wxArrayString CMakePlugin::GetSupportedGenerators() const
 {
-    wxArrayString generators;
-
 #ifdef __WXMSW__
     // Windows supported generators
-    generators.Add("MinGW Makefiles");
+    return StdToWX::ToArrayString({ "MinGW Makefiles" });
 #else
     // Linux / Mac supported generators
-    generators.Add("Unix Makefiles");
-// generators.Add("Ninja");
+    return StdToWX::ToArrayString({
+        "Unix Makefiles",
+        // "Ninja",
+    });
 #endif
-
-    return generators;
 }
 
 /* ************************************************************************ */
@@ -619,8 +611,7 @@ bool CMakePlugin::IsCMakeListsExists() const
 wxString CMakePlugin::WriteCMakeListsAndOpenIt(const std::vector<wxString>& lines) const
 {
     wxFileName cmakelists_txt{ ::wxGetCwd(), "CMakeLists.txt" };
-    wxArrayString wx_lines;
-    StdToWX::ToArrayString(lines, &wx_lines);
+    const wxArrayString wx_lines = StdToWX::ToArrayString(lines);
     FileUtils::WriteFileContent(cmakelists_txt, wxJoin(wx_lines, '\n'));
     clGetManager()->OpenFile(cmakelists_txt.GetFullPath());
     return cmakelists_txt.GetFullPath();

@@ -4,12 +4,13 @@
 
 %{
 /*************** Includes and Defines *****************************/
-#include "string"
-#include "vector" 
-#include "stdio.h"
-#include "map"
-#include "variable.h"
 #include "cl_typedef.h"
+#include "variable.h"
+
+#include <cstdio>
+#include <map>
+#include <string>
+#include <vector>
 
 #ifdef yylex
 #undef yylex
@@ -22,6 +23,9 @@
 void cl_scope_error(char *string);
 int  cl_var_parse();
 void syncParser();
+void yyerror(const char *s) {}
+void var_consumeAutoAssignment(const std::string& varname);
+std::string var_consumBracketsContent(char openBrace);
 void var_consumeDefaultValue(char c1, char c2);
 void var_consumeDefaultValueIfNeeded();
 
@@ -385,7 +389,7 @@ variables           : stmnt_starter LE_AUTO LE_IDENTIFIER '=' {var_consumeAutoAs
 optional_struct_name     : /* empty */
                         | LE_IDENTIFIER
                         | '*'  LE_IDENTIFIER
-                        | '**' LE_IDENTIFIER
+                        | '*' '*' LE_IDENTIFIER
                         ;
                         
 fully_qualified_identifier_name: LE_IDENTIFIER {$$ = $1;}
@@ -538,7 +542,6 @@ variable_decl       :   const_or_volatile_spec basic_type_name
                         }
                         ;
 %%
-void yyerror(char *s) {}
 
 void var_consumeAutoAssignment(const std::string& varname)
 {
@@ -687,7 +690,7 @@ void get_variables(const std::string &in, VariableList &li, const std::map<std::
     gs_vars = &li;
     setUseIgnoreMacros(false);
 
-    // the 'g_isUsedWithinFunc' allows us to parse variabels without name
+    // the 'g_isUsedWithinFunc' allows us to parse variables without name
     // this is typical when used as function declaration (e.g. void setValue(bool);)
     g_isUsedWithinFunc = isUsedWithinFunc;
 

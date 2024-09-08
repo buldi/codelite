@@ -12,7 +12,6 @@ include_directories("${CL_SRC_ROOT}/Plugin" "${CL_SRC_ROOT}/sdk/wxsqlite3/includ
 add_definitions(-DWXUSINGDLL_WXSQLITE3)
 add_definitions(-DWXUSINGDLL_CL)
 add_definitions(-DWXUSINGDLL_SDK)
-add_definitions(-DASTYLE_LIB)
 
 if(USE_PCH AND NOT MINGW)
     add_definitions(-include "${CL_PCH_FILE}")
@@ -38,3 +37,5 @@ target_precompile_headers(CxxLocalVariables REUSE_FROM abbreviation)
 target_link_libraries(CxxLocalVariables ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} libcodelite plugin)
 add_definitions(-DCXX_TEST_DIR=\"${CL_SRC_ROOT}/CxxParserTests/Test/\")
 cl_install_executable(CxxLocalVariables)
+
+add_test(NAME "CxxParserTests" COMMAND CxxLocalVariables)

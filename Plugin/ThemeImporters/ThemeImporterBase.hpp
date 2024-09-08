@@ -30,9 +30,9 @@
 #include "codelite_exports.h"
 #include "lexer_configuration.h"
 #include "macros.h"
-#include "smart_ptr.h"
 
 #include <list>
+#include <memory>
 #include <unordered_map>
 #include <wx/filename.h>
 #include <wx/string.h>
@@ -54,8 +54,28 @@ public:
         bool isItalic = false;
     };
 
-    typedef SmartPtr<ThemeImporterBase> Ptr_t;
-    typedef std::list<ThemeImporterBase::Ptr_t> List_t;
+    struct VSCodeScope {
+        wxString scope_name;
+        wxString bg_colour;
+        wxString fg_colour;
+
+        VSCodeScope() = default;
+        VSCodeScope(const Property& editor, const wxString& fg, const wxString& bg = wxEmptyString)
+        {
+            bg_colour = editor.bg_colour;
+            fg_colour = editor.fg_colour;
+
+            if (!fg.empty()) {
+                fg_colour = fg;
+            }
+            if (!bg.empty()) {
+                bg_colour = bg;
+            }
+        }
+    };
+
+    using Ptr_t = std::unique_ptr<ThemeImporterBase>;
+    using List_t = std::list<ThemeImporterBase::Ptr_t>;
 
 protected:
     wxString m_keywords0;
@@ -83,6 +103,7 @@ protected:
     Property m_function;
     Property m_field;
     Property m_enum;
+    Property m_task;
     wxString m_langName;
     wxString m_themeName;
     bool m_isDarkTheme = false;
@@ -94,6 +115,22 @@ private:
     WordSetIndex m_functionsIndex;
     WordSetIndex m_localsIndex;
     WordSetIndex m_othersIndex;
+
+    /// Alacritty basic colours read from the configuration file
+    struct AlacrittyColours {
+        wxString theme_name;
+        wxString bg;
+        wxString fg;
+        wxString caret;
+        wxString black;
+        wxString red;
+        wxString green;
+        wxString yellow;
+        wxString blue;
+        wxString magenta;
+        wxString cyan;
+        wxString white;
+    };
 
 protected:
     void AddProperty(LexerConf::Ptr_t lexer, const wxString& id, const wxString& name, const wxString& colour,
@@ -124,10 +161,12 @@ protected:
     void DoSetKeywords(wxString& wordset, const wxString& words);
     LexerConf::Ptr_t ImportEclipseXML(const wxFileName& theme_file, const wxString& langName, int langId);
     LexerConf::Ptr_t ImportVSCodeJSON(const wxFileName& theme_file, const wxString& langName, int langId);
-    LexerConf::Ptr_t ImportAlacrittyTheme(const wxFileName& theme_file, const wxString& langName, int langId);
-    void GetVSCodeColour(const wxStringMap_t& scopes_to_colours_map, const std::vector<wxString>& scopes,
+    LexerConf::Ptr_t ImportAlacrittyThemeYAML(const wxFileName& theme_file, const wxString& langName, int langId);
+    LexerConf::Ptr_t ImportAlacrittyThemeToml(const wxFileName& theme_file, const wxString& langName, int langId);
+    void GetVSCodeColour(const std::unordered_map<wxString, VSCodeScope>& lookup, const std::vector<wxString>& scopes,
                          Property& colour);
-    void GetEditorVSCodeColour(JSONItem& colours, const wxString& bg_prop, const wxString& fg_prop, Property& colour);
+    void GetEditorVSCodeColour(const std::unordered_map<std::string_view, JSONItem>& colours, const wxString& bg_prop,
+                               const wxString& fg_prop, Property& colour);
 
 private:
     /**
@@ -136,6 +175,8 @@ private:
      */
     void GetEclipseXmlProperty(const wxString& bg_prop, const wxString& fg_prop,
                                ThemeImporterBase::Property& prop) const;
+
+    LexerConf::Ptr_t ImportAlacrittyThemeBase(AlacrittyColours& colours, const wxString& langName, int langId);
 
 public:
     const wxString& GetLangName() const { return m_langName; }

@@ -6,19 +6,19 @@
 #include "DeleteCustomControlDlg.h"
 #include "EditCustomControlDlg.h"
 #include "EventsEditorDlg.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "MessageDlg.h"
 #include "MyComboBoxXmlHandler.h"
 #include "MyRearrangeListXmlHandler.h"
 #include "NewFormWizard.h"
 #include "VirtualDirectorySelectorDlg.h"
 #include "allocator_mgr.h"
-#include "clKeyboardManager.h"
 #include "clStatusBar.h"
 #include "cl_command_event.h"
 #include "codelite_events.h"
 #include "ctags_manager.h"
+#include "database/entry.h"
 #include "editor_config.h"
-#include "entry.h"
 #include "event_notifier.h"
 #include "functions_parser.h"
 #include "globals.h"
@@ -72,15 +72,10 @@
 #include <wx/stc/stc.h>
 #include <wx/xrc/xmlres.h>
 
-static wxCrafterPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new wxCrafterPlugin(manager, false);
-    }
-    return thePlugin;
+    return new wxCrafterPlugin(manager, false);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -999,11 +994,13 @@ bool wxCrafterPlugin::IsMainViewActive()
 {
     return true; // IIUC this function was protecting against outside events being caught when in Tabbed mode and a
                  // different tab was active
+#if 0
     if(!m_mgr) {
         return true;
     } else {
         return IsTabMode() && m_mainPanel && m_mgr->GetActivePage() == m_mainPanel;
     }
+#endif
 }
 
 // plugin menu

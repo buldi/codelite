@@ -974,7 +974,7 @@ wxHandlResultStringView wxTerminalAnsiEscapeHandler::handle_csi(wxStringView sv,
 
 namespace
 {
-/// return the view before the first occurance of ch.
+/// return the view before the first occurrence of ch.
 /// return the whole string if ch is not found
 wxHandlResultStringView before_first(wxStringView sv, wxChar ch)
 {
@@ -990,7 +990,7 @@ wxHandlResultStringView before_first(wxStringView sv, wxChar ch)
 
 void wxTerminalAnsiEscapeHandler::handle_sgr(wxStringView sv, wxTerminalAnsiRendererInterface* renderer)
 {
-    LOG_IF_DEBUG { LOG_DEBUG(LOG) << "SGR:" << wxString(sv.data(), sv.length()) << endl; }
+    LOG_IF_DEBUG { LOG_DEBUG(LOG()) << "SGR:" << wxString(sv.data(), sv.length()) << endl; }
 
     if(sv.empty()) {
         // handle like reset

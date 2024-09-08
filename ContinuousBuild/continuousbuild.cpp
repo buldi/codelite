@@ -25,8 +25,9 @@
 
 #include "continuousbuild.h"
 
+#include "AsyncProcess/processreaderthread.h"
 #include "build_settings_config.h"
-#include "builder.h"
+#include "builder/builder.h"
 #include "buildmanager.h"
 #include "cl_command_event.h"
 #include "compile_request.h"
@@ -38,7 +39,6 @@
 #include "file_logger.h"
 #include "fileextmanager.h"
 #include "globals.h"
-#include "processreaderthread.h"
 #include "workspace.h"
 
 #include <wx/app.h>
@@ -46,14 +46,10 @@
 #include <wx/log.h>
 #include <wx/xrc/xmlres.h>
 
-static ContinuousBuild* thePlugin = NULL;
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new ContinuousBuild(manager);
-    }
-    return thePlugin;
+    return new ContinuousBuild(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -249,7 +245,7 @@ void ContinuousBuild::OnBuildProcessEnded(clProcessEvent& e)
         m_view->AddFailedFile(m_buildProcess.GetFileName());
     }
 
-    // Release the resources allocted for this build
+    // Release the resources allocated for this build
     m_buildProcess.Stop();
 
     // if the queue is not empty, start another build

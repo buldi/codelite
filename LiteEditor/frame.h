@@ -25,10 +25,10 @@
 #ifndef LITEEDITOR_FRAME_H
 #define LITEEDITOR_FRAME_H
 
+#include "AsyncProcess/ZombieReaperPOSIX.h"
 #include "EnvironmentVariablesDlg.h"
 #include "Notebook.h"
 #include "SecondarySideBar.hpp"
-#include "ZombieReaperPOSIX.h"
 #include "clCaptionBar.hpp"
 #include "clDockingManager.h"
 #include "clInfoBar.h"
@@ -148,7 +148,7 @@ class clMainFrame : public wxFrame
     clCaptionBar* m_captionBar = nullptr;
 #endif
     // the main tool default style
-    int m_mainToolbarStyle = wxTB_FLAT | wxTB_NODIVIDER | wxTB_RIGHT /* on the right by default */;
+    int m_mainToolbarStyle = wxTB_FLAT | wxTB_NODIVIDER /* toolbar is hidden by default */;
     wxString m_mainFrameTitleTemplate;
 
 public:
@@ -277,6 +277,11 @@ public:
     SideBar* GetWorkspacePane() { return m_sidebar; }
 
     /**
+     * @return the workspace pane (the one that contained the Symbol view & class view)
+     */
+    SecondarySideBar* GetSecondarySideBar() { return m_secondary_sidebar; }
+
+    /**
      * return the workspace tab pane
      */
     WorkspaceTab* GetWorkspaceTab();
@@ -300,7 +305,7 @@ public:
 
     /**
      * Compelete the main frame initialization
-     * this method is called immediatly after the
+     * this method is called immediately after the
      * main frame construction is over.
      */
     void CompleteInitialization();

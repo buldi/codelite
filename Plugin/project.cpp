@@ -24,9 +24,9 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "project.h"
 
+#include "AsyncProcess/asyncprocess.h"
 #include "GCCMetadata.hpp"
 #include "ICompilerLocator.h"
-#include "asyncprocess.h"
 #include "cl_command_event.h"
 #include "compiler_command_line_parser.h"
 #include "dirsaver.h"
@@ -41,7 +41,6 @@
 #include "plugin.h"
 #include "workspace.h"
 #include "wxArrayStringAppender.h"
-#include "wx_xml_compatibility.h"
 #include "xmlutils.h"
 
 #include <algorithm>
@@ -66,10 +65,10 @@ Project::Project()
     , m_workspace(NULL)
 {
     // initialize it with default settings
-    m_settings.Reset(new ProjectSettings(NULL));
+    m_settings = std::make_shared<ProjectSettings>(nullptr);
 }
 
-Project::~Project() { m_settings.Reset(NULL); }
+Project::~Project() {}
 
 bool Project::Create(const wxString& name, const wxString& description, const wxString& path, const wxString& projType)
 {
@@ -1652,7 +1651,7 @@ void Project::ReplaceCompilers(const wxStringMap_t& compilers)
 
 void Project::DoUpdateProjectSettings()
 {
-    m_settings.Reset(new ProjectSettings(XmlUtils::FindFirstByTagName(m_doc.GetRoot(), "Settings")));
+    m_settings = std::make_shared<ProjectSettings>(XmlUtils::FindFirstByTagName(m_doc.GetRoot(), "Settings"));
 }
 
 wxArrayString Project::GetPreProcessors(bool clearCache)

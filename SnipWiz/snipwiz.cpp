@@ -34,10 +34,11 @@
 // Licence:		GNU General Public Licence
 /////////////////////////////////////////////////////////////////////////////
 #include "event_notifier.h"
-#include "wx/wxprec.h"
+
+#include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
-#include "wx/wx.h"
+#include <wx/wx.h>
 #endif
 
 #include "editsnippetsdlg.h"
@@ -46,6 +47,7 @@
 #include "templateclassdlg.h"
 #include "workspace.h"
 #include "wxSerialize.h"
+
 #include <wx/clipbrd.h>
 #include <wx/filename.h>
 #include <wx/numdlg.h>
@@ -65,16 +67,11 @@
 #define TMP_ESC_CARET_STR wxT("%ESC_CARET%")
 #define TMP_ESC_SELECTION_STR wxT("%ESC_SELECTION%")
 
-////------------------------------------------------------------
-static SnipWiz* thePlugin = NULL;
-
+//------------------------------------------------------------
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new SnipWiz(manager);
-    }
-    return thePlugin;
+    return new SnipWiz(manager);
 }
 //------------------------------------------------------------
 

@@ -25,9 +25,10 @@
 #ifndef CODELITE_TAGSPROCESS_H
 #define CODELITE_TAGSPROCESS_H
 
-#include "wx/process.h"
-#include "wx/string.h"
 #include "codelite_exports.h"
+
+#include <wx/process.h>
+#include <wx/string.h>
 #include <wx/utils.h>
 
 /**
@@ -45,7 +46,6 @@ class WXDLLIMPEXP_CL clProcess : public wxProcess
 {
     long m_pid;
     int m_uid;
-    int m_type;
     wxString m_cmd;
     bool m_redirect;
 
@@ -81,9 +81,7 @@ public:
      */
     long Start(bool hide = true);
 
-    int GetUid() { return m_uid; }
-    void SetType(int type) { m_type = type; }
-    int GetType() const { return m_type; }
+    int GetUid() const { return m_uid; }
     void SetCommand(const wxString& cmd) { m_cmd = cmd; }
     bool HasInput(wxString& input, wxString& errors);
 

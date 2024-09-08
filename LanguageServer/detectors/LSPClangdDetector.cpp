@@ -1,9 +1,9 @@
 #include "LSPClangdDetector.hpp"
 
-#include "CompilerLocatorCLANG.h"
-#include "MSYS2.hpp"
-#include "Platform.hpp"
-#include "asyncprocess.h"
+#include "AsyncProcess/asyncprocess.h"
+#include "CompilerLocator/CompilerLocatorCLANG.h"
+#include "Platform/MSYS2.hpp"
+#include "Platform/Platform.hpp"
 #include "clFilesCollector.h"
 #include "file_logger.h"
 #include "globals.h"
@@ -49,7 +49,7 @@ void LSPClangdDetector::ConfigureFile(const wxFileName& clangdExe)
 
     SetCommand(command);
     // Add support for the languages
-    GetLangugaes().Add("c");
-    GetLangugaes().Add("cpp");
+    GetLanguages().Add("c");
+    GetLanguages().Add("cpp");
     SetConnectionString("stdio");
 }

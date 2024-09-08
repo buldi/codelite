@@ -1,8 +1,9 @@
 #include "GitBlamePage.h"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "ColoursAndFontsManager.h"
 #include "GitDiffOutputParser.h"
-#include "asyncprocess.h"
 #include "clResult.hpp"
 #include "clSTCHelper.hpp"
 #include "drawingutils.h"
@@ -12,7 +13,6 @@
 #include "git.h"
 #include "globals.h"
 #include "lexer_configuration.h"
-#include "processreaderthread.h"
 #include "windowattrmanager.h"
 
 #include <cmath>
@@ -164,7 +164,7 @@ void GitBlamePage::ParseBlameOutput(const wxString& blame)
     SetMarginWidth(TEXT_MARGIN_ID, maxChars * char_width);
     SetMarginWidth(LINENUMBER_MARGIN_ID, char_width * line_number_margin_width_in_chars);
 
-    // In case we're re-entering, ensure we're r/w. For a wxSTC 'readonly' also means can't append text programatically
+    // In case we're re-entering, ensure we're r/w. For a wxSTC 'readonly' also means can't append text programmatically
     SetReadOnly(false);
     ClearAll();
 

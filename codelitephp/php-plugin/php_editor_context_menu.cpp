@@ -1,20 +1,23 @@
-#include "PHPEntityBase.h"
-#include "PHPEntityClass.h"
-#include "PHPLookupTable.h"
+#include "php_editor_context_menu.h"
+
+#include "PHP/PHPEntityBase.h"
+#include "PHP/PHPEntityClass.h"
+#include "PHP/PHPLookupTable.h"
+#include "PHP/PHPSourceFile.h"
 #include "PHPRefactoring.h"
 #include "PHPSettersGettersDialog.h"
-#include "PHPSourceFile.h"
+#include "StdToWX.h"
 #include "clEditorStateLocker.h"
 #include "clSTCLineKeeper.h"
 #include "cl_command_event.h"
+#include "codelite_events.h"
 #include "editor_config.h"
+#include "event_notifier.h"
 #include "globals.h"
 #include "php_code_completion.h"
-#include "php_editor_context_menu.h"
 #include "php_utils.h"
-#include <codelite_events.h>
-#include <event_notifier.h>
-#include <plugin.h>
+#include "plugin.h"
+
 #include <wx/app.h>
 #include <wx/msgdlg.h>
 #include <wx/regex.h>
@@ -185,10 +188,12 @@ void PHPEditorContextMenu::DoGotoBeginningOfScope()
     GET_EDITOR_SCI_VOID();
 
     int caret_pos = sci->GetCurrentPos();
-    wxArrayString tokensBlackList;     // there isn't a black list for '}'
-    tokensBlackList.Add(wxT("{$"));    // T_CURLY_OPEN: complex variable parsed syntax
-    tokensBlackList.Add(wxT("${"));    // T_DOLLAR_OPEN_CURLY_BRACES: complex variable parsed syntax
-    tokensBlackList.Add(wxT("\"${a")); // T_STRING_VARNAME: complex variable parsed syntax
+    const wxArrayString tokensBlackList = StdToWX::ToArrayString({
+        // there isn't a black list for '}'
+        wxT("{$"),   // T_CURLY_OPEN: complex variable parsed syntax
+        wxT("${"),   // T_DOLLAR_OPEN_CURLY_BRACES: complex variable parsed syntax
+        wxT("\"${a") // T_STRING_VARNAME: complex variable parsed syntax
+    });
     int startOfScopePos = GetTokenPosInScope(sci, wxT("{"), 0, caret_pos, false, tokensBlackList);
     if(startOfScopePos == wxSTC_INVALID_POSITION)
         startOfScopePos = caret_pos;

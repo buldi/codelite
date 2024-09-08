@@ -101,18 +101,6 @@ else()
         ${ADDITIONAL_LIBRARIES})
 endif()
 
-if(MINGW)
-    add_custom_command(
-        TARGET codelite
-        PRE_BUILD
-        COMMAND cd "${CL_SRC_ROOT}/ctags" && "$(MAKE)" -f mk_mingw.mak
-        COMMENT "Building codelite-ctags...")
-    install(
-        FILES ${CL_SRC_ROOT}/ctags/ctags.exe
-        DESTINATION ${CL_INSTALL_BIN}
-        RENAME codelite-ctags.exe)
-endif()
-
 codelite_add_pch(codelite)
 
 # ######################################################################################################################
@@ -185,8 +173,14 @@ if(NOT APPLE)
             FILES ${CL_SRC_ROOT}/Runtime/codelite_xterm
             DESTINATION ${CL_INSTALL_BIN}
             PERMISSIONS ${EXE_PERM})
+        install(
+            FILES ${CL_SRC_ROOT}/Runtime/codelite-url-handler
+            DESTINATION ${CL_INSTALL_BIN}
+            PERMISSIONS ${EXE_PERM})
         # Create application launcher, copy application icon to standard location
         install(FILES ${CL_SRC_ROOT}/Runtime/codelite.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
+        install(FILES ${CL_SRC_ROOT}/Runtime/codelite-url-handler.desktop
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
         # Install icons
 
         # 32x32

@@ -26,12 +26,11 @@
 #include "macbundler.h"
 #include "windowattrmanager.h"
 #include "workspace.h"
-#include "wx/msgdlg.h"
-#include "wx/textfile.h"
-#include "wx/wx.h"
-#include "wx/xrc/xmlres.h"
 
-static MacBundler* thePlugin = NULL;
+#include <wx/msgdlg.h>
+#include <wx/textfile.h>
+#include <wx/wx.h>
+#include <wx/xrc/xmlres.h>
 
 // TODO: accept file drops
 class IconPicker : public wxPanel
@@ -287,8 +286,7 @@ public:
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == NULL) { thePlugin = new MacBundler(manager); }
-    return thePlugin;
+    return new MacBundler(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

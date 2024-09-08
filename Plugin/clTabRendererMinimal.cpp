@@ -12,12 +12,6 @@
 #include <wx/settings.h>
 #include <wx/stc/stc.h>
 
-#define DRAW_LINE(__p1, __p2) \
-    dc.DrawLine(__p1, __p2);  \
-    dc.DrawLine(__p1, __p2);  \
-    dc.DrawLine(__p1, __p2);  \
-    dc.DrawLine(__p1, __p2);
-
 namespace
 {
 #ifdef __WXMAC__
@@ -34,17 +28,19 @@ void GetTabColours(const clTabColours& colours, size_t style, wxColour* activeTa
 {
     *bgColour = colours.tabAreaColour;
     *activeTabBgColour = colours.activeTabBgColour;
+
+#ifdef __WXMAC__
+    // Make the active tab a bit brighther
+    if (wxSystemSettings::GetAppearance().IsDark()) {
+        *activeTabBgColour = (*activeTabBgColour).ChangeLightness(110);
+    }
+#endif
 }
 } // namespace
 
 clTabRendererMinimal::clTabRendererMinimal(const wxWindow* parent)
     : clTabRenderer("MINIMAL", parent)
 {
-    bottomAreaHeight = 0;
-    smallCurveWidth = 0;
-    majorCurveWidth = 0;
-    overlapWidth = 0;
-    verticalOverlapWidth = 0;
 }
 
 clTabRendererMinimal::~clTabRendererMinimal() {}
@@ -194,9 +190,15 @@ wxRect clTabRendererMinimal::DoDraw(wxWindow* parent, wxDC& dc, wxDC& fontDC, co
     wxColour text_colour =
         is_dark ? (tabInfo.IsActive() ? *wxWHITE : bgColour.ChangeLightness(170)) : bgColour.ChangeLightness(30);
 
+    bool is_modified = false;
+    if (tabInfo.GetWindow()) {
+        wxStyledTextCtrl* stc = dynamic_cast<wxStyledTextCtrl*>(tabInfo.GetWindow());
+        is_modified = stc && stc->GetModify();
+    }
+
     // use distinct colour to mark modified tabs
     bool has_close_button = (style & kNotebook_CloseButtonOnActiveTab);
-    if (!has_close_button && tabInfo.IsModified()) {
+    if (is_modified) {
         // no close button, and a modified tab: use different colour for drawing
         // the tab label
         text_colour = is_dark ? "PINK" : "RED";

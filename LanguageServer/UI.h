@@ -18,7 +18,6 @@
 #include <wx/checkbox.h>
 #include <wx/statline.h>
 #include <wx/notebook.h>
-#include "Notebook.h"
 #include <wx/button.h>
 #include <wx/panel.h>
 #include <wx/stattext.h>
@@ -31,6 +30,7 @@
 #include "clThemedTextCtrl.hpp"
 #include <wx/dataview.h>
 #include "clTerminalViewCtrl.hpp"
+#include "Notebook.h"
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
 #include <wx/persist/toplevel.h>
@@ -54,7 +54,7 @@ class LanguageServerSettingsDlgBase : public wxDialog
 protected:
     wxCheckBox* m_checkBoxEnable;
     wxStaticLine* m_staticLine102;
-    Notebook* m_notebook;
+    wxNotebook* m_notebook;
     wxButton* m_buttonScan;
     wxButton* m_buttonNew;
     wxButton* m_buttonDelete;
@@ -73,7 +73,7 @@ protected:
 public:
     wxCheckBox* GetCheckBoxEnable() { return m_checkBoxEnable; }
     wxStaticLine* GetStaticLine102() { return m_staticLine102; }
-    Notebook* GetNotebook() { return m_notebook; }
+    wxNotebook* GetNotebook() { return m_notebook; }
     wxButton* GetButtonScan() { return m_buttonScan; }
     wxButton* GetButtonNew() { return m_buttonNew; }
     wxButton* GetButtonDelete() { return m_buttonDelete; }
@@ -173,7 +173,7 @@ public:
     wxPanel* GetPanel155() { return m_panel155; }
     LSPOutlineViewDlgBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = _("Outline View"),
                           const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, 300),
-                          long style = wxSTAY_ON_TOP);
+                          long style = wxDEFAULT_DIALOG_STYLE | wxSTAY_ON_TOP | wxRESIZE_BORDER);
     virtual ~LSPOutlineViewDlgBase();
 };
 

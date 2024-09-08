@@ -5,8 +5,8 @@
 #include "LSPStartupInfo.h"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
+#include "macros.h"
 
-#include <macros.h>
 #include <wx/arrstr.h>
 #include <wx/event.h>
 #include <wx/string.h>
@@ -62,7 +62,7 @@ public:
 
     /**
      * @brief open connection to the LSP server
-     * @throws this method throws a clException incase an error occured
+     * @throws this method throws a clException incase an error occurred
      */
     virtual void Open(const LSPStartupInfo& info) = 0;
 

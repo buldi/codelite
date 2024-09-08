@@ -25,9 +25,9 @@
 
 #include "newclassdlg.h"
 
+#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
+#include "FileSystemWorkspace/clFileSystemWorkspaceView.hpp"
 #include "VirtualDirectorySelectorDlg.h"
-#include "clFileSystemWorkspace.hpp"
-#include "clFileSystemWorkspaceView.hpp"
 #include "editor_config.h"
 #include "globals.h"
 #include "imanager.h"
@@ -35,13 +35,13 @@
 #include "open_resource_dialog.h"
 #include "windowattrmanager.h"
 #include "workspace.h"
-#include "wx/dir.h"
-#include "wx/xrc/xmlres.h"
 
+#include <wx/dir.h>
 #include <wx/dirdlg.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/tokenzr.h>
+#include <wx/xrc/xmlres.h>
 
 NewClassDlg::NewClassDlg(wxWindow* parent, IManager* mgr)
     : NewClassBaseDlg(parent)
@@ -130,7 +130,7 @@ void NewClassDlg::OnButtonOK(wxCommandEvent& e)
 bool NewClassDlg::ValidateInput()
 {
     // validate the class name
-    if(!IsValidCppIndetifier(m_textClassName->GetValue())) {
+    if(!IsValidCppIdentifier(m_textClassName->GetValue())) {
         wxString msg;
         msg << wxT("'") << m_textClassName->GetValue() << _("' is not a valid C++ qualifier");
         wxMessageBox(msg, _("CodeLite"), wxOK | wxICON_WARNING);
@@ -143,7 +143,7 @@ bool NewClassDlg::ValidateInput()
         this->GetNamespacesList(namespacesList);
         // validate each namespace
         for(unsigned int i = 0; i < namespacesList.Count(); i++) {
-            if(!IsValidCppIndetifier(namespacesList[i])) {
+            if(!IsValidCppIdentifier(namespacesList[i])) {
                 wxString msg;
                 msg << wxT("'") << namespacesList[i] << _("' is not a valid C++ qualifier");
                 wxMessageBox(msg, _("CodeLite"), wxOK | wxICON_WARNING);
@@ -204,7 +204,7 @@ void NewClassDlg::GetNewClassInfo(NewClassInfo& info) const
     info.isAssignable = this->IsCopyableClass();
     info.isMovable = this->IsMovableClass();
     info.isInheritable = this->IsInheritable();
-    info.fileName = wxFileName(GetClassFile()).GetName(); // Ommit any suffix the user might have typed in
+    info.fileName = wxFileName(GetClassFile()).GetName(); // Omit any suffix the user might have typed in
     info.isVirtualDtor = m_checkBoxVirtualDtor->IsChecked();
     info.usePragmaOnce = m_checkBoxPragmaOnce->IsChecked();
     info.virtualDirectory = m_textCtrlVD->GetValue().Trim().Trim(false);
@@ -267,9 +267,6 @@ void NewClassDlg::OnBrowseVD(wxCommandEvent& e)
 void NewClassDlg::OnBrowseNamespace(wxCommandEvent& e)
 {
     wxUnusedVar(e);
-
-    wxArrayString kinds;
-    kinds.Add(wxT("namespace"));
 
     OpenResourceDialog dlg(this, m_mgr, "");
     if(dlg.ShowModal() == wxID_OK) {
@@ -429,10 +426,6 @@ wxString NewClassDlg::CreateFileName() const
 void NewClassDlg::OnBrowseParentClass(wxCommandEvent& event)
 {
     wxUnusedVar(event);
-
-    wxArrayString kinds;
-    kinds.Add(wxT("class"));
-    kinds.Add(wxT("struct"));
 
     OpenResourceDialog dlg(this, m_mgr, "");
     if(dlg.ShowModal() == wxID_OK) {

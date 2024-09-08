@@ -25,12 +25,13 @@
 
 #include "editorsettingsdockingwidows.h"
 
+#include "imanager.h"
+
 EditorSettingsDockingWindows::EditorSettingsDockingWindows(wxWindow* parent, OptionsConfigPtr options)
     : OptionsConfigPage(parent, options)
 {
     AddHeader(_("Tabs"));
 
-#if 1
     const std::unordered_map<wxString, int> tab_height_map = { { "TALL", OptionsConfig::nbTabHt_Tall },
                                                                { "MEDIUM", OptionsConfig::nbTabHt_Medium },
                                                                { "SHORT", OptionsConfig::nbTabHt_Short },
@@ -50,7 +51,6 @@ EditorSettingsDockingWindows::EditorSettingsDockingWindows(wxWindow* parent, Opt
                         m_options->SetNotebookTabHeight(tab_height_map.find(value_str)->second);
                     }
                 });
-#endif
 
     std::unordered_map<wxString, wxDirection> orientation_map = {
         { "UP", wxUP }, { "DOWN", wxDOWN }, { "LEFT", wxLEFT }, { "RIGHT", wxRIGHT }, { "VERTICAL", wxLEFT }
@@ -81,7 +81,7 @@ EditorSettingsDockingWindows::EditorSettingsDockingWindows(wxWindow* parent, Opt
     AddProperty(_("Show close button on tabs"), m_options->IsTabHasXButton(), UPDATE_BOOL_CB(SetTabHasXButton));
     AddProperty(_("Show file path on tab label"), m_options->IsTabShowPath(), UPDATE_BOOL_CB(SetTabShowPath));
 
-#if 0
+#if !MAINBOOK_AUIBOOK
     AddProperty(_("Mouse scroll switch bewtween tabs"), m_options->IsMouseScrollSwitchTabs(),
                 UPDATE_BOOL_CB(SetMouseScrollSwitchTabs));
     AddProperty(_("Sort tab file list"), m_options->IsSortTabsDropdownAlphabetically(),

@@ -1,18 +1,33 @@
 [submodule "ctags"]
-	path = ctags
+	path = submodules/ctags
 	url = https://github.com/eranif/ctags
 [submodule "wxdap"]
-	path = wxdap
+	path = submodules/wxdap
 	url = https://github.com/eranif/wxdap
 [submodule "wx-config-msys2"]
-	path = wx-config-msys2
+	path = submodules/wx-config-msys2
 	url = https://github.com/eranif/wx-config-msys2.git
 [submodule "yaml-cpp"]
-	path = yaml-cpp
+	path = submodules/yaml-cpp
 	url = https://github.com/jbeder/yaml-cpp
 [submodule "cc-wrapper"]
-	path = cc-wrapper
+	path = submodules/cc-wrapper
 	url = https://github.com/eranif/cc-wrapper
 [submodule "dtl"]
-	path = dtl
-	url = https://github.com/cubicdaiya/dtl.git
+	path = submodules/dtl
+	url = https://github.com/eranif/dtl.git
+[submodule "openssl-cmake"]
+	path = submodules/openssl-cmake
+	url = https://github.com/janbar/openssl-cmake.git
+[submodule "libssh"]
+	path = submodules/libssh
+	url = https://git.libssh.org/projects/libssh.git
+[submodule "zlib"]
+	path = submodules/zlib
+	url = https://github.com/madler/zlib
+[submodule "hunspell"]
+	path = submodules/hunspell
+	url = https://github.com/hunspell/hunspell.git
+[submodule "submodules/llama.cpp"]
+	path = submodules/llama.cpp
+	url = https://github.com/ggerganov/llama.cpp.git

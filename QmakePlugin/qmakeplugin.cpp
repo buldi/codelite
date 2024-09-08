@@ -23,7 +23,10 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "asyncprocess.h"
+#include "qmakeplugin.h"
+
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "build_settings_config.h"
 #include "build_system.h"
 #include "cl_standard_paths.h"
@@ -33,15 +36,14 @@
 #include "globals.h"
 #include "macros.h"
 #include "newqtprojdlg.h"
-#include "processreaderthread.h"
 #include "procutils.h"
 #include "project.h"
 #include "qmakeconf.h"
 #include "qmakegenerator.h"
-#include "qmakeplugin.h"
 #include "qmakesettingsdlg.h"
 #include "qmaketab.h"
 #include "workspace.h"
+
 #include <wx/app.h>
 #include <wx/log.h>
 #include <wx/menu.h>
@@ -50,15 +52,10 @@
 #include <wx/stdpaths.h>
 #include <wx/xrc/xmlres.h>
 
-static QMakePlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new QMakePlugin(manager);
-    }
-    return thePlugin;
+    return new QMakePlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -426,7 +423,7 @@ void QMakePlugin::OnNewQmakeBasedProject(wxCommandEvent& event)
             return;
         }
 
-        // prepend the string lenght
+        // prepend the string length
         qmake = wxString::Format(wxT("%04d%s"), qmakeSettings.Length(), qmakeSettings.c_str());
 
         content.Replace(wxT("$(TYPE)"), type);

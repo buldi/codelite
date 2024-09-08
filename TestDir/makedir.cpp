@@ -1,8 +1,7 @@
-#include "wx/cmdline.h"
-#include "wx/dir.h"
-#include "wx/filefn.h"
-
 #include <wx/arrstr.h>
+#include <wx/cmdline.h>
+#include <wx/dir.h>
+#include <wx/filefn.h>
 #include <wx/init.h> //wxInitializer
 #include <wx/log.h>
 #include <wx/string.h> //wxString
@@ -41,8 +40,8 @@ int main(int argc, char** argv)
             argument.Replace(wxT("\\"), wxT("/"));
             wxArrayString arr = wxStringTokenize(argument, wxT("/"), wxTOKEN_STRTOK);
             wxString path;
-            for(size_t i = 0; i < arr.GetCount(); i++) {
-                path << arr.Item(i) << wxT("/");
+            for (const auto& subdir : arr) {
+                path << subdir << wxT("/");
                 wxMkdir(path, 0777);
             }
         }

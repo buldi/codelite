@@ -1,6 +1,6 @@
 #include "LSPCMakeDetector.hpp"
 
-#include "Platform.hpp"
+#include "Platform/Platform.hpp"
 #include "StringUtils.h"
 
 LSPCMakeDetector::LSPCMakeDetector()
@@ -29,7 +29,7 @@ void LSPCMakeDetector::ConfigureFile(const wxFileName& cmakelsp)
 
     SetCommand(command);
     // Add support for the languages
-    GetLangugaes().Add("cmake");
+    GetLanguages().Add("cmake");
     SetConnectionString("stdio");
     SetEnabled(true);
 }

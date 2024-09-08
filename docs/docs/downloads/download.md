@@ -123,12 +123,12 @@ This allows you to select which to install using apt (or aptitude or synaptic).
 ### CodeLite RPMs
 ---
 
-There are rpms available for fedora 37, 38 & 39, and openSUSE Leap 15.4 & 15.5:
+There are rpms available for fedora 37 & 38 and 39 & 40, and openSUSE Leap 15.4 15.5 & 15.6:
 
 Distro	| x86_64 GTK+3
 --------|----------------
-fedora	| [`37 and 38`][10]  [`39`][11] 
-openSUSE | [`15.4`][12] [`15.5`][13]
+fedora	| [`37 and 38`][10]  [`39 and 40`][11] 
+openSUSE | [`15.4`][12] [`15.5`][13] [`15.6`][14]
 
 
 First tell rpm about the CodeLite public key. As superuser run:
@@ -140,7 +140,7 @@ First tell rpm about the CodeLite public key. As superuser run:
 Then either download the required rpm and install it as usual, or download and install in one step; e.g.
 
 ```bash
-  rpm -Uvh https://repos.codelite.org/rpms-17.0/fedora/37/codelite-17.0-1.fc37.x86_64.rpm
+  rpm -Uvh https://repos.codelite.org/rpms-17.0/fedora/39/codelite-17.0-1.fc39.x86_64.rpm
 ```
 
 There are also source rpms for [fedora][2] and [OpenSUSE][3]
@@ -168,7 +168,7 @@ As the above CodeLite 17.0 packages already contain wxCrafter, its gui-designer 
 
 [1]: https://downloads.codelite.org
 [2]: https://repos.codelite.org/rpms-17.0/fedora/codelite-17.0-1.fc.src.rpm
-[3]: https://repos.codelite.org/rpms-17.0/suse/codelite-17.0-1.suse.src.rpm
+[3]: https://repos.codelite.org/rpms-17.0/suse/codelite-17.0-2.suse.src.rpm
 [4]: https://aur.archlinux.org/packages/codelite/
 
 [10]: https://repos.codelite.org/rpms-17.0/fedora/37/codelite-17.0-1.fc37.x86_64.rpm
@@ -176,5 +176,6 @@ As the above CodeLite 17.0 packages already contain wxCrafter, its gui-designer 
 
 [12]: https://repos.codelite.org/rpms-17.0/suse/15.4/codelite-17.0-1.suse.x86_64.rpm
 [13]: https://repos.codelite.org/rpms-17.0/suse/15.5/codelite-17.0-1.suse.x86_64.rpm
+[14]: https://repos.codelite.org/rpms-17.0/suse/15.6/codelite-17.0-1.suse15.6.x86_64.rpm
 
 [9]: https://brew.sh

@@ -24,10 +24,11 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "externaltools.h"
 
+#include "AsyncProcess/processreaderthread.h"
 #include "ExternalToolsManager.h"
 #include "ExternalToolsProcessManager.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "async_executable_cmd.h"
-#include "clKeyboardManager.h"
 #include "clToolBarButton.h"
 #include "cl_aui_tb_are.h"
 #include "codelite_events.h"
@@ -39,7 +40,6 @@
 #include "globals.h"
 #include "macromanager.h"
 #include "plugin_version.h"
-#include "processreaderthread.h"
 #include "workspace.h"
 
 #include <algorithm>
@@ -51,8 +51,6 @@
 #include <wx/msgdlg.h>
 #include <wx/xrc/xmlres.h>
 
-static ExternalToolsPlugin* thePlugin = NULL;
-
 struct DecSort {
     bool operator()(const ToolInfo& t1, const ToolInfo& t2) { return t1.GetName().CmpNoCase(t2.GetName()) < 0; }
 };
@@ -60,10 +58,7 @@ struct DecSort {
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) {
-        thePlugin = new ExternalToolsPlugin(manager);
-    }
-    return thePlugin;
+    return new ExternalToolsPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -202,7 +197,6 @@ void ExternalToolsPlugin::DoRecreateToolbar()
     }
 
     // Add the tools
-    int where = XRCID("external_tools_monitor");
     for(size_t i = 0; i < tools.size(); i++) {
         const ToolInfo& ti = tools[i];
 

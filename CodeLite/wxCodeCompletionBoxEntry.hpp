@@ -26,15 +26,16 @@
 #ifndef WXCODECOMPLETIONBOXENTRY_H
 #define WXCODECOMPLETIONBOXENTRY_H
 
-#include <wx/clntdata.h>
-#include <wx/sharedptr.h>
-#include <vector>
-#include "codelite_exports.h"
-#include <wx/gdicmn.h>
-#include <wx/string.h>
-#include "entry.h" // TagEntryPtr
-#include <wx/bitmap.h>
 #include "LSP/basic_types.h"
+#include "codelite_exports.h"
+#include "database/entry.h" // TagEntryPtr
+
+#include <vector>
+#include <wx/bitmap.h>
+#include <wx/clntdata.h>
+#include <wx/gdicmn.h>
+#include <wx/sharedptr.h>
+#include <wx/string.h>
 
 class wxStyledTextCtrl;
 class WXDLLIMPEXP_CL wxCodeCompletionBoxEntry
@@ -52,7 +53,7 @@ protected:
     wxString m_text;
     wxString m_comment;
     wxString m_insertText;
-    LSP::Range m_insertRage;
+    LSP::Range m_insertRange;
     int m_imgIndex;
     wxClientData* m_clientData;
     wxRect m_itemRect;
@@ -118,9 +119,9 @@ public:
         m_text.Clear();
     }
 
-    void SetInsertRange(const LSP::Range& insertRage) { this->m_insertRage = insertRage; }
+    void SetInsertRange(const LSP::Range& insertRange) { this->m_insertRange = insertRange; }
     void SetInsertText(const wxString& insertText) { this->m_insertText = insertText; }
-    const LSP::Range& GetInsertRange() const { return m_insertRage; }
+    const LSP::Range& GetInsertRange() const { return m_insertRange; }
     const wxString& GetInsertText() const { return m_insertText; }
 
     void SetIsFunction(bool isFunction) { EnableFlag(isFunction, kIsFunction); }

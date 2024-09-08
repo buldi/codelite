@@ -37,23 +37,25 @@ public:
         wxAuiGenericTabArt::DrawButton(dc, wnd, in_rect, bitmap_id, button_state, orientation, out_rect);
     }
 
+#if wxCHECK_VERSION(3, 3, 0)
+    wxSize GetTabSize(wxReadOnlyDC& dcRef, wxWindow* wnd, const wxString& caption, const wxBitmapBundle& bitmap,
+                      bool WXUNUSED(active), int close_button_state, int* x_extent) override
+#else
     wxSize GetTabSize(wxDC& dcRef, wxWindow* wnd, const wxString& caption, const wxBitmapBundle& bitmap,
                       bool WXUNUSED(active), int close_button_state, int* x_extent) override
+#endif
     {
-        wxGCDC gcdc;
-        wxDC& dc = DrawingUtils::GetGCDC(dcRef, gcdc);
         wxCoord measured_textx, measured_texty, tmp;
 
         const int xPadding = wnd->FromDIP(X_SPACER);
         wxFont font = clTabRenderer::GetTabFont(true);
-        dc.SetFont(font);
-        dc.GetTextExtent(caption, &measured_textx, &measured_texty);
-        dc.GetTextExtent(wxT("ABCDEFXj"), &tmp, &measured_texty);
+        dcRef.SetFont(font);
+        dcRef.GetTextExtent(caption, &measured_textx, &measured_texty);
+        dcRef.GetTextExtent(wxT("ABCDEFXj"), &tmp, &measured_texty);
 
         // add padding around the text
         // [ _ | text | _ | bmp | _ | x | _ ]
         wxCoord tab_width = xPadding + measured_textx + xPadding;
-        wxCoord tab_height = measured_texty;
 
         // if there's a bitmap, add space for it
         if (bitmap.IsOk()) {
@@ -71,8 +73,8 @@ public:
             tab_width += m_activeCloseBmp.GetBitmapFor(wnd).GetLogicalWidth() + xPadding;
         }
 
-        // add padding
-        tab_height = DrawingUtils::GetTabHeight(dc, wnd, Y_SPACER);
+        dcRef.GetTextExtent(wxT("ABCDEFXj"), &tmp, &measured_texty);
+        int tab_height = measured_texty + (4 * Y_SPACER);
 
         if (m_flags & wxAUI_NB_TAB_FIXED_WIDTH) {
             tab_width = m_fixedTabWidth;
@@ -153,15 +155,21 @@ public:
 
             wxPoint bottom_right = tab_rect.GetBottomRight();
             wxPoint top_right = tab_rect.GetTopRight();
+            wxPoint bottom_left = tab_rect.GetBottomLeft();
+            wxPoint top_left = tab_rect.GetTopLeft();
+
+#ifndef __WXMSW__
+            bottom_left.y += 1;
             bottom_right.y += 1;
             bottom_right.x += 1;
             top_right.x += 1;
-
-            wxPoint bottom_left = tab_rect.GetBottomLeft();
-            wxPoint top_left = tab_rect.GetTopLeft();
-            bottom_left.y += 1;
             bottom_left.x -= 1;
             top_left.x -= 1;
+#endif
+
+#ifdef __WXMSW__
+            dcref.DrawLine(top_right, top_left);
+#endif
 
             dcref.DrawLine(top_left, bottom_left);
             dcref.DrawLine(top_right, bottom_right);
@@ -314,7 +322,7 @@ void clAuiBook::MoveActivePage(int newIndex)
 
     wxString label = GetPageText(cursel);
     wxBitmap bmp = GetPageBitmap(cursel);
-    if (RemovePage(cursel)) {
+    if (RemovePage(cursel, false)) {
         InsertPage(newIndex, page, label, true, bmp);
     }
 }
@@ -372,7 +380,7 @@ void clAuiBook::OnPageChanged(wxAuiNotebookEvent& event)
 
     // Send an event
     wxBookCtrlEvent changed_event(wxEVT_BOOK_PAGE_CHANGED);
-    changed_event.SetEventObject(GetParent());
+    changed_event.SetEventObject(this);
     changed_event.SetSelection(GetSelection());
     GetEventHandler()->AddPendingEvent(changed_event);
 }
@@ -409,9 +417,9 @@ void clAuiBook::OnPageDoubleClick(wxAuiNotebookEvent& event)
     }
     wxUnusedVar(event);
     wxBookCtrlEvent e(wxEVT_BOOK_TAB_DCLICKED);
-    e.SetEventObject(GetParent());
+    e.SetEventObject(this);
     e.SetSelection(GetSelection());
-    GetParent()->GetEventHandler()->AddPendingEvent(e);
+    GetEventHandler()->AddPendingEvent(e);
 }
 
 void clAuiBook::OnTabAreaDoubleClick(wxAuiNotebookEvent& event)
@@ -423,7 +431,7 @@ void clAuiBook::OnTabAreaDoubleClick(wxAuiNotebookEvent& event)
     }
 
     wxBookCtrlEvent e(wxEVT_BOOK_NEW_PAGE);
-    e.SetEventObject(GetParent());
+    e.SetEventObject(this);
     GetEventHandler()->AddPendingEvent(e);
 }
 
@@ -544,4 +552,54 @@ int clAuiBook::GetPageIndex(const wxString& name) const
         }
     }
     return wxNOT_FOUND;
+}
+
+bool clAuiBook::DeletePage(size_t index, bool notify)
+{
+    if (notify) {
+        wxBookCtrlEvent event(wxEVT_BOOK_PAGE_CLOSING);
+        event.SetEventObject(this);
+        event.SetSelection(index);
+        GetEventHandler()->ProcessEvent(event);
+        if (!event.IsAllowed()) {
+            // Vetoed
+            return false;
+        }
+    }
+
+    if (!wxAuiNotebook::DeletePage(index)) {
+        return false;
+    }
+
+    if (notify) {
+        wxBookCtrlEvent event(wxEVT_BOOK_PAGE_CLOSED);
+        event.SetEventObject(this);
+        GetEventHandler()->ProcessEvent(event);
+    }
+    return true;
+}
+
+bool clAuiBook::RemovePage(size_t index, bool notify)
+{
+    if (notify) {
+        wxBookCtrlEvent event(wxEVT_BOOK_PAGE_CLOSING);
+        event.SetEventObject(this);
+        event.SetSelection(index);
+        GetEventHandler()->ProcessEvent(event);
+        if (!event.IsAllowed()) {
+            // Vetoed
+            return false;
+        }
+    }
+
+    if (!wxAuiNotebook::RemovePage(index)) {
+        return false;
+    }
+
+    if (notify) {
+        wxBookCtrlEvent event(wxEVT_BOOK_PAGE_CLOSED);
+        event.SetEventObject(this);
+        GetEventHandler()->ProcessEvent(event);
+    }
+    return true;
 }

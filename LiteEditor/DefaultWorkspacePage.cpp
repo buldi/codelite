@@ -8,22 +8,16 @@
 #include "codelite_events.h"
 #include "event_notifier.h"
 #include "globals.h"
+#include "imanager.h"
 
 #include <algorithm>
-#include <imanager.h>
 #include <wx/dcbuffer.h>
 #include <wx/simplebook.h>
 
 DefaultWorkspacePage::DefaultWorkspacePage(wxWindow* parent)
     : DefaultWorkspacePageBase(parent)
 {
-    wxColour bg = clSystemSettings::clSystemSettings::GetDefaultPanelColour();
-    m_colours.InitFromColour(bg);
-    if(clConfig::Get().Read("UseCustomBaseColour", false)) {
-        bg = clConfig::Get().Read("BaseColour", bg);
-        m_colours.InitFromColour(bg);
-    }
-
+    m_colours.InitDefaults();
     SetDropTarget(new clFileOrFolderDropTarget(this));
     SetBackgroundColour(clSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
     m_staticBitmap521->SetDropTarget(new clFileOrFolderDropTarget(this));

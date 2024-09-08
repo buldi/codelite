@@ -25,11 +25,10 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "AsyncProcess/asyncprocess.h"
 #include "GCCMetadata.hpp"
-#include "asyncprocess.h"
 #include "codelite_exports.h"
 #include "configuration_object.h"
-#include "smart_ptr.h"
 
 #include <list>
 #include <map>
@@ -266,7 +265,7 @@ public:
     bool HasMetadata() const;
 };
 
-typedef SmartPtr<Compiler> CompilerPtr;
-typedef std::vector<CompilerPtr> CompilerPtrVec_t;
+using CompilerPtr = std::shared_ptr<Compiler>;
+using CompilerPtrVec_t = std::vector<CompilerPtr>;
 
 #endif // COMPILER_H

@@ -1,7 +1,7 @@
 #ifndef CLNODEJS_H
 #define CLNODEJS_H
 
-#include "asyncprocess.h"
+#include "AsyncProcess/asyncprocess.h"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 
@@ -49,7 +49,7 @@ protected:
 protected:
     void OnProcessOutput(clProcessEvent& event);
     void OnProcessTerminated(clProcessEvent& event);
-    void ProcessLintOuput(const wxFileName& fn, const wxString& output);
+    void ProcessLintOutput(const wxFileName& fn, const wxString& output);
 
 private:
     clNodeJS();

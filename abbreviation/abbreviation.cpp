@@ -25,9 +25,9 @@
 
 #include "abbreviation.h"
 
+#include "Keyboard/clKeyboardManager.h"
 #include "abbreviationentry.h"
 #include "abbreviationssettingsdlg.h"
-#include "clKeyboardManager.h"
 #include "cl_config.h"
 #include "event_notifier.h"
 #include "globals.h"
@@ -45,15 +45,10 @@
 #include <wx/textdlg.h>
 #include <wx/xrc/xmlres.h>
 
-static AbbreviationPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if (thePlugin == 0) {
-        thePlugin = new AbbreviationPlugin(manager);
-    }
-    return thePlugin;
+    return new AbbreviationPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()

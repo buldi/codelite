@@ -33,11 +33,10 @@
 #include "file_logger.h"
 #include "fileutils.h"
 #include "macros.h"
-#include "wx/ffile.h"
-#include "wx_xml_compatibility.h"
 #include "xmlutils.h"
 
 #include <memory>
+#include <wx/ffile.h>
 #include <wx/log.h>
 #include <wx/sstream.h>
 

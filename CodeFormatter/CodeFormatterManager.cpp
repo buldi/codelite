@@ -13,6 +13,7 @@
 #include "fmtXmlLint.hpp"
 #include "fmtYQ.hpp"
 
+#include <algorithm>
 #include <wx/filename.h>
 
 CodeFormatterManager::CodeFormatterManager() {}
@@ -22,8 +23,8 @@ CodeFormatterManager::~CodeFormatterManager() { clear(); }
 std::shared_ptr<GenericFormatter> CodeFormatterManager::GetFormatter(const wxString& filepath) const
 {
     auto type = FileExtManager::GetType(filepath);
-    for(auto f : m_formatters) {
-        if(f->IsEnabled() && f->CanHandle(type)) {
+    for (auto f : m_formatters) {
+        if (f->IsEnabled() && f->CanHandle(type)) {
             return f;
         }
     }
@@ -54,12 +55,12 @@ void CodeFormatterManager::push_back(GenericFormatter* formatter)
 
 size_t CodeFormatterManager::GetAllNames(wxArrayString* names) const
 {
-    if(!names) {
+    if (!names) {
         return 0;
     }
 
     names->reserve(m_formatters.size());
-    for(auto f : m_formatters) {
+    for (auto f : m_formatters) {
         names->Add(f->GetName());
     }
     return names->size();
@@ -70,12 +71,12 @@ void CodeFormatterManager::Load()
     wxFileName config_file{ clStandardPaths::Get().GetUserDataDir(), "code-formatters.json" };
     config_file.AppendDir("config");
 
-    if(!config_file.FileExists()) {
+    if (!config_file.FileExists()) {
         return;
     }
 
     JSON root{ config_file };
-    if(!root.isOk() || !root.toElement().isArray()) {
+    if (!root.isOk() || !root.toElement().isArray()) {
         initialize_defaults();
         return;
     }
@@ -83,7 +84,7 @@ void CodeFormatterManager::Load()
     clear();
     auto arr = root.toElement();
     int count = arr.arraySize();
-    for(int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i) {
         GenericFormatter* fmtr = new GenericFormatter();
         fmtr->FromJSON(arr[i]);
         push_back(fmtr);
@@ -96,7 +97,7 @@ void CodeFormatterManager::Save()
     config_file.AppendDir("config");
     JSON root{ cJSON_Array };
     auto arr = root.toElement();
-    for(auto fmtr : m_formatters) {
+    for (auto fmtr : m_formatters) {
         arr.arrayAppend(fmtr->ToJSON());
     }
     root.save(config_file);
@@ -104,8 +105,8 @@ void CodeFormatterManager::Save()
 
 std::shared_ptr<GenericFormatter> CodeFormatterManager::GetFormatterByName(const wxString& name) const
 {
-    for(auto f : m_formatters) {
-        if(f->GetName() == name) {
+    for (auto f : m_formatters) {
+        if (f->GetName() == name) {
             return f;
         }
     }
@@ -115,8 +116,8 @@ std::shared_ptr<GenericFormatter> CodeFormatterManager::GetFormatterByName(const
 bool CodeFormatterManager::CanFormat(const wxString& filepath) const
 {
     auto file_type = FileExtManager::GetType(filepath);
-    for(auto f : m_formatters) {
-        if(f->IsEnabled() && f->CanHandle(file_type)) {
+    for (auto f : m_formatters) {
+        if (f->IsEnabled() && f->CanHandle(file_type)) {
             return true;
         }
     }
@@ -126,12 +127,12 @@ bool CodeFormatterManager::CanFormat(const wxString& filepath) const
 bool CodeFormatterManager::CanFormatByContent(const wxString& content) const
 {
     FileExtManager::FileType file_type;
-    if(!FileExtManager::GetContentType(content, file_type)) {
+    if (!FileExtManager::GetContentType(content, file_type)) {
         return false;
     }
 
-    for(auto f : m_formatters) {
-        if(f->IsEnabled() && f->CanHandle(file_type)) {
+    for (auto f : m_formatters) {
+        if (f->IsEnabled() && f->CanHandle(file_type)) {
             return true;
         }
     }
@@ -146,7 +147,7 @@ void CodeFormatterManager::RestoreDefaults()
 
 void CodeFormatterManager::ClearRemoteCommands()
 {
-    for(auto f : m_formatters) {
+    for (auto f : m_formatters) {
         f->SetRemoteCommand(wxEmptyString, wxEmptyString, {});
     }
 }
@@ -154,14 +155,39 @@ void CodeFormatterManager::ClearRemoteCommands()
 std::shared_ptr<GenericFormatter> CodeFormatterManager::GetFormatterByContent(const wxString& content) const
 {
     FileExtManager::FileType type;
-    if(!FileExtManager::GetContentType(content, type)) {
+    if (!FileExtManager::GetContentType(content, type)) {
         return nullptr;
     }
 
-    for(auto f : m_formatters) {
-        if(f->IsEnabled() && f->CanHandle(type)) {
+    for (auto f : m_formatters) {
+        if (f->IsEnabled() && f->CanHandle(type)) {
             return f;
         }
     }
     return nullptr;
+}
+
+bool CodeFormatterManager::AddCustom(GenericFormatter* formatter)
+{
+    auto where =
+        std::find_if(m_formatters.begin(), m_formatters.end(), [formatter](std::shared_ptr<GenericFormatter> fmtr) {
+            return fmtr->GetName() == formatter->GetName();
+        });
+    if (where != m_formatters.end()) {
+        return false;
+    }
+    push_back(formatter);
+    return true;
+}
+
+bool CodeFormatterManager::DeleteFormatter(const wxString& name)
+{
+    auto where = std::find_if(m_formatters.begin(), m_formatters.end(),
+                              [&name](std::shared_ptr<GenericFormatter> fmtr) { return fmtr->GetName() == name; });
+    if (where == m_formatters.end()) {
+        // not found
+        return false;
+    }
+    m_formatters.erase(where);
+    return true;
 }

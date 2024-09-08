@@ -24,47 +24,47 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "manager.h"
 
+#include "AsyncProcess/asyncprocess.h"
+#include "AsyncProcess/processreaderthread.h"
 #include "BreakpointsView.hpp"
 #include "BuildTab.hpp"
 #include "CompilersModifiedDlg.h"
+#include "Console/clConsoleBase.h"
+#include "Debugger/debuggersettings.h"
+#include "Debugger/memoryview.h"
 #include "DebuggerCallstackView.h"
+#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
+#include "Keyboard/clKeyboardManager.h"
 #include "NewProjectDialog.h"
 #include "SideBar.hpp"
-#include "WSImporter.h"
+#include "StdToWX.h"
+#include "WorkspaceImporter/WSImporter.h"
 #include "app.h"
-#include "asyncprocess.h"
 #include "attachdbgprocdlg.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
-#include "clConsoleBase.h"
 #include "clFileSystemEvent.h"
-#include "clFileSystemWorkspace.hpp"
-#include "clKeyboardManager.h"
 #include "clProfileHandler.h"
 #include "clRemoteHost.hpp"
-#include "clSFTPEvent.h"
 #include "clSFTPManager.hpp"
+#include "clStrings.h"
 #include "clWorkspaceManager.h"
 #include "clWorkspaceView.h"
 #include "cl_command_event.h"
 #include "cl_editor.h"
 #include "clean_request.h"
-#include "code_completion_manager.h"
 #include "compile_request.h"
 #include "context_manager.h"
-#include "crawler_include.h"
 #include "ctags_manager.h"
 #include "custombuildrequest.h"
 #include "debuggerasciiviewer.h"
 #include "debuggerconfigtool.h"
-#include "debuggersettings.h"
 #include "dirsaver.h"
 #include "dockablepanemenumanager.h"
 #include "editor_config.h"
-#include "editorframe.h"
 #include "environmentconfig.h"
+#include "envvarlist.h"
 #include "event_notifier.h"
-#include "evnvarlist.h"
 #include "exelocator.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
@@ -73,28 +73,21 @@
 #include "globals.h"
 #include "language.h"
 #include "localstable.h"
-#include "localworkspace.h"
 #include "macromanager.h"
 #include "macros.h"
-#include "memoryview.h"
 #include "menumanager.h"
 #include "new_quick_watch_dlg.h"
 #include "pluginmanager.h"
-#include "precompiled_header.h"
-#include "processreaderthread.h"
 #include "reconcileproject.h"
 #include "renamefiledlg.h"
 #include "search_thread.h"
 #include "sessionmanager.h"
 #include "simpletable.h"
 #include "tabgroupmanager.h"
-#include "tabgroupspane.h"
 #include "threadlistpanel.h"
-#include "vcimporter.h"
 #include "workspacetab.h"
 #include "wxCodeCompletionBoxManager.h"
 
-#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -444,7 +437,7 @@ void Manager::DoSetupWorkspace(const wxString& path)
     EventNotifier::Get()->ProcessEvent(evtWorkspaceLoaded);
 
     // Update the refactoring cache
-    wxFileList_t allfiles;
+    std::vector<wxFileName> allfiles;
     GetWorkspaceFiles(allfiles, true);
     clGetManager()->LoadWorkspaceSession(path);
 
@@ -459,9 +452,6 @@ void Manager::DoSetupWorkspace(const wxString& path)
         wxCommandEvent e(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
         clMainFrame::Get()->GetEventHandler()->AddPendingEvent(e);
     }
-
-    // Set the encoding for the tags manager
-    TagsManagerST::Get()->SetEncoding(EditorConfigST::Get()->GetOptions()->GetFileFontEncoding());
 
     // Ensure that the "C++" view is selected
     clGetManager()->GetWorkspaceView()->SelectPage(clCxxWorkspaceST::Get()->GetWorkspaceType());
@@ -509,7 +499,7 @@ void Manager::CloseWorkspace()
     // set back the "Default" environment variable as the active set
     /////////////////////////////////////////////////////////////////
 
-    EvnVarList vars = EnvironmentConfig::Instance()->GetSettings();
+    EnvVarList vars = EnvironmentConfig::Instance()->GetSettings();
     if (vars.IsSetExist(wxT("Default"))) {
         vars.SetActiveSet(wxT("Default"));
     }
@@ -734,7 +724,6 @@ void Manager::ImportMSVSSolution(const wxString& path, const wxString& defaultCo
     wxBusyInfo info(_("Importing IDE solution/workspace..."), clMainFrame::Get());
 
     wxString errMsg;
-    // VcImporter importer(path, defaultCompiler);
     WSImporter importer;
     importer.Load(path, defaultCompiler);
     if (importer.Import(errMsg)) {
@@ -1610,15 +1599,11 @@ bool Manager::ShowOutputPane(const wxString& focusWin, bool show, bool take_focu
 void Manager::ShowDebuggerPane(bool show)
 {
     // make the output pane visible
-    wxArrayString dbgPanes;
-    dbgPanes.Add(wxT("Debugger"));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::LOCALS));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::FRAMES));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::WATCHES));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::BREAKPOINTS));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::THREADS));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::MEMORY));
-    dbgPanes.Add(wxGetTranslation(DebuggerPane::ASCII_VIEWER));
+    const wxArrayString dbgPanes = StdToWX::ToArrayString(
+        { wxT("Debugger"), wxGetTranslation(DebuggerPane::LOCALS), wxGetTranslation(DebuggerPane::FRAMES),
+          wxGetTranslation(DebuggerPane::WATCHES), wxGetTranslation(DebuggerPane::BREAKPOINTS),
+          wxGetTranslation(DebuggerPane::THREADS), wxGetTranslation(DebuggerPane::MEMORY),
+          wxGetTranslation(DebuggerPane::ASCII_VIEWER) });
 
     wxAuiManager* aui = &clMainFrame::Get()->GetDockingManager();
     if (show) {
@@ -1647,12 +1632,10 @@ void Manager::ShowDebuggerPane(bool show)
 void Manager::ShowWorkspacePane(wxString focusWin, bool commit)
 {
     // make the output pane visible
-    wxAuiPaneInfo& info = clMainFrame::Get()->GetDockingManager().GetPane(wxT("Workspace View"));
+    auto& aui = clMainFrame::Get()->GetDockingManager();
+    wxAuiPaneInfo& info = aui.GetPane(PANE_LEFT_SIDEBAR);
     if (info.IsOk() && !info.IsShown()) {
-        info.Show();
-        if (commit) {
-            clMainFrame::Get()->GetDockingManager().Update();
-        }
+        DockablePaneMenuManager::HackShowPane(info, &aui);
     }
 
     // set the selection to focus win
@@ -1662,6 +1645,23 @@ void Manager::ShowWorkspacePane(wxString focusWin, bool commit)
         book->SetSelection((size_t)index);
     } else if (index == wxNOT_FOUND) {
         clMainFrame::Get()->GetWorkspacePane()->ShowTab(focusWin, true);
+    }
+}
+
+void Manager::ShowSecondarySideBarPane(wxString focusWin, bool commit)
+{
+    // make the output pane visible
+    auto& aui = clMainFrame::Get()->GetDockingManager();
+    wxAuiPaneInfo& info = aui.GetPane(PANE_RIGHT_SIDEBAR);
+    if (info.IsOk() && !info.IsShown()) {
+        DockablePaneMenuManager::HackShowPane(info, &aui);
+    }
+
+    // set the selection to focus win
+    auto book = clMainFrame::Get()->GetSecondarySideBar()->GetNotebook();
+    int index = book->GetPageIndex(focusWin);
+    if (index != wxNOT_FOUND && index != book->GetSelection()) {
+        book->SetSelection((size_t)index);
     }
 }
 
@@ -1838,7 +1838,7 @@ void Manager::DoUpdateDebuggerTabControl(wxWindow* curpage)
     DebuggerPane* pane = clMainFrame::Get()->GetDebuggerPane();
 
     // make sure that the debugger pane is visible
-    if (!IsPaneVisible(wxT("Debugger")))
+    if (!IsPaneVisible(PANE_DEBUGGER))
         return;
 
     if (curpage == (wxWindow*)pane->GetBreakpointView() || IsPaneVisible(wxGetTranslation(DebuggerPane::BREAKPOINTS))) {
@@ -2380,7 +2380,7 @@ void Manager::DbgDoSimpleCommand(int cmd)
 
 void Manager::DbgSetFrame(int frame, int lineno)
 {
-    wxAuiPaneInfo& info = clMainFrame::Get()->GetDockingManager().GetPane(wxT("Debugger"));
+    wxAuiPaneInfo& info = clMainFrame::Get()->GetDockingManager().GetPane(PANE_DEBUGGER);
     if (info.IsShown()) {
         IDebugger* dbgr = DebuggerMgr::Get().GetActiveDebugger();
         if (dbgr && dbgr->IsRunning() && DbgCanInteract()) {
@@ -2515,7 +2515,7 @@ void Manager::UpdateGotControl(const DebuggerEventData& e)
         dlg.ShowModal();
 
         // Print the stack trace
-        wxAuiPaneInfo& info = clMainFrame::Get()->GetDockingManager().GetPane(wxT("Debugger"));
+        wxAuiPaneInfo& info = clMainFrame::Get()->GetDockingManager().GetPane(PANE_DEBUGGER);
         if (info.IsShown()) {
             clMainFrame::Get()->GetDebuggerPane()->SelectTab(wxGetTranslation(DebuggerPane::FRAMES));
             CallAfter(&Manager::UpdateDebuggerPane);
@@ -2569,7 +2569,7 @@ void Manager::UpdateLostControl()
     SendCmdEvent(wxEVT_DEBUG_EDITOR_LOST_CONTROL);
 }
 
-void Manager::UpdateTypeReolsved(const wxString& expr, const wxString& type_name)
+void Manager::UpdateTypeResolved(const wxString& expr, const wxString& type_name)
 {
     IDebugger* dbgr = DebuggerMgr::Get().GetActiveDebugger();
     // Sanity
@@ -2603,7 +2603,7 @@ void Manager::UpdateTypeReolsved(const wxString& expr, const wxString& type_name
 
     Variable variable;
     if (LanguageST::Get()->VariableFromPattern(expression, wxT("someValidName"), variable)) {
-        expression_type = _U(variable.m_type.c_str());
+        expression_type = variable.m_type.c_str();
         for (size_t i = 0; i < cmds.size(); i++) {
             DebuggerCmdData cmd = cmds.at(i);
             if (cmd.GetName() == expression_type) {
@@ -2617,7 +2617,8 @@ void Manager::UpdateTypeReolsved(const wxString& expr, const wxString& type_name
                 // Special handling for the templates
                 //---------------------------------------------------
 
-                wxArrayString types = DoGetTemplateTypes(_U(variable.m_templateDecl.c_str()));
+                wxArrayString types = DoGetTemplateTypes(variable.m_templateDecl);
+
                 // Case 1: list
                 // The user defined scripts requires that we pass info like this:
                 // plist <list name> <T>
@@ -3042,7 +3043,7 @@ void Manager::DebuggerUpdate(const DebuggerEventData& event)
 
         } else {
             // Default
-            UpdateTypeReolsved(event.m_expression, event.m_evaluated);
+            UpdateTypeResolved(event.m_expression, event.m_evaluated);
         }
         break;
 
@@ -3094,7 +3095,7 @@ void Manager::DebuggerUpdate(const DebuggerEventData& event)
                     expression.Append(wxT(")"));
                 }
             }
-            UpdateTypeReolsved(expression, event.m_variableObject.typeName);
+            UpdateTypeResolved(expression, event.m_variableObject.typeName);
         } else if (event.m_userReason == DBG_USERR_WATCHTABLE) {
             // Double clicked on the 'Watches' table
             clMainFrame::Get()->GetDebuggerPane()->GetWatchesTable()->OnCreateVariableObject(event);

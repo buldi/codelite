@@ -42,6 +42,7 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.1) # THIS MUST STAY AT THE TOP OF THE FILE
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+include(OSXDeps)
 
 # ######################################################################################################################
 # Defaults
@@ -88,7 +89,7 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 message(STATUS "CMAKE_INSTALL_PREFIX is set to ${CMAKE_INSTALL_PREFIX}")
-set(CODELITE_VERSION "17.10.0")
+set(CODELITE_VERSION "17.11.0")
 
 # for now, we keep wxCrafter version to be the same as CodeLite version this allows for better support
 set(WXCRAFTER_VERSION ${CODELITE_VERSION})
@@ -111,13 +112,42 @@ if(NOT SQLite3_FOUND)
                 " **** Could not find sqlite3. Please install sqlite3 package: pacman -S mingw-w64-clang-x86_64-sqlite3"
         )
     else()
-        message(FATAL_ERROR " **** Could not find sqlite3. Plesae install sqlite3 development package")
+        message(FATAL_ERROR " **** Could not find sqlite3. Please install sqlite3 development package")
+    endif()
+endif()
+
+find_package(BISON REQUIRED)
+
+if(NOT BISON_FOUND)
+    if(UNIX)
+        message(FATAL_ERROR " **** Could not find flex. Please install bison package")
+    elseif(APPLE)
+        message(FATAL_ERROR " **** Could not find flex. Please install bison")
+    elseif(MINGW)
+        message(FATAL_ERROR " **** Could not find flex. Please install bison package: pacman -S bison")
+    else()
+        message(FATAL_ERROR " **** Could not find bison. Please install bison package")
+    endif()
+endif()
+
+find_package(FLEX REQUIRED)
+
+if(NOT FLEX_FOUND)
+    if(UNIX)
+        message(FATAL_ERROR " **** Could not find flex. Please install flex package")
+    elseif(APPLE)
+        message(FATAL_ERROR " **** Could not find flex. Please install flex")
+    elseif(MINGW)
+        message(FATAL_ERROR " **** Could not find flex. Please install flex package: pacman -S flex")
+    else()
+        message(FATAL_ERROR " **** Could not find flex. Please install flex package")
     endif()
 endif()
 
 set(IS_FREEBSD 0)
 if(CMAKE_SYSTEM_NAME MATCHES "^.*BSD$|DragonFly")
     set(IS_FREEBSD 1)
+    add_definitions(-D_BSD_SOURCE -DFREEBSD)
 endif()
 set(IS_NETBSD 0)
 set(BUILD_WXC 0)
@@ -126,16 +156,6 @@ set(WITH_SFTP 1)
 
 # Create the post_install.cmake script (no append here)
 write_file("${CMAKE_BINARY_DIR}/post_install.cmake" "message(STATUS \"Running post install script\")")
-
-if(APPLE)
-    # add homebrew path to cmake search pathsbrew --prefix
-    execute_process(
-        COMMAND brew --prefix
-        OUTPUT_VARIABLE BREW_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-    list(APPEND CMAKE_SYSTEM_PREFIX_PATH ${BREW_PREFIX})
-    message(STATUS "CMAKE_SYSTEM_PREFIX_PATH is set to ${CMAKE_SYSTEM_PREFIX_PATH}")
-endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations") # Avoid very multiple warnings spam due to
                                                                        # deprecated wx methods
@@ -187,12 +207,16 @@ else(APPLE)
 endif()
 
 if(UNIX)
-    find_path(CTAGS_SUBMODULE CMakeLists.txt PATHS ${CMAKE_SOURCE_DIR}/ctags/)
+    find_path(CTAGS_SUBMODULE CMakeLists.txt PATHS ${CMAKE_SOURCE_DIR}/submodules/ctags/)
     if(NOT CTAGS_SUBMODULE)
-        message(STATUS "Could not locate `${CMAKE_SOURCE_DIR}/ctags/CMakeLists.txt` file")
+        message(STATUS "Could not locate `${CMAKE_SOURCE_DIR}/submodules/ctags/CMakeLists.txt` file")
         message(FATAL_ERROR "Please make sure you have run `git submodule update --init`")
     endif()
 endif()
+
+# Appstream metadata
+set(METAINFO_FILE "${CMAKE_SOURCE_DIR}/Runtime/org.codelite.codelite.metainfo.xml")
+install(FILES ${METAINFO_FILE} DESTINATION share/metainfo)
 
 if(WITH_WXPATH)
     set(ENV{PATH} ${WITH_WXPATH}:$ENV{PATH})
@@ -360,9 +384,7 @@ if(WITH_SFTP)
                 NAMES libssh.h
                 PATH_SUFFIXES include/libssh)
         elseif(APPLE)
-            cl_osx_find_brew_lib(libssh ssh.4 LIBSSH_LIB)
-            cl_osx_find_brew_header(libssh libssh/libssh.h LIBSSH_INCLUDE_DIR)
-            include_directories(${LIBSSH_INCLUDE_DIR})
+            message("-- LIBSSH_INCLUDE_DIR is set to ${LIBSSH_INCLUDE_DIR}")
         elseif(UNIX)
             # Linux
             find_library(
@@ -375,18 +397,18 @@ if(WITH_SFTP)
                 HINTS /usr/local/include /usr/include
                 PATH_SUFFIXES libssh)
         endif()
-        string(FIND ${LIBSSH_INCLUDE_DIR} "NOTFOUND" LIBSSH_NOT_FOUND_POS)
-        if(LIBSSH_NOT_FOUND_POS GREATER -1)
-            if(UNIX AND NOT APPLE)
-                # Linux / FreeBSD
-                message(FATAL_ERROR "**** NOTICE: Install libssh-dev and try again")
-            elseif(APPLE)
-                message(FATAL_ERROR "Could not locate libssh. Please run 'brew install libssh'")
-            elseif(NOT MINGW)
-                # OSX
-                message(FATAL_ERROR "**** NOTICE: Install libssh and try again (brew install libssh)")
+        if(NOT APPLE)
+            string(FIND ${LIBSSH_INCLUDE_DIR} "NOTFOUND" LIBSSH_NOT_FOUND_POS)
+            if(LIBSSH_NOT_FOUND_POS GREATER -1)
+                if(UNIX AND NOT APPLE)
+                    # Linux / FreeBSD
+                    message(FATAL_ERROR "**** NOTICE: Install libssh-dev and try again")
+                elseif(NOT MINGW)
+                    # FreeBSD ?
+                    message(FATAL_ERROR "**** NOTICE: Install libssh and try again")
+                endif()
+                message(FATAL_ERROR "-- Could not find libssh")
             endif()
-            message(FATAL_ERROR "-- Could not find libssh")
         endif()
     endif()
     message("-- LIBSSH_LIB is set to ${LIBSSH_LIB}")
@@ -866,39 +888,51 @@ if(APPLE)
     add_definitions(-mmacosx-version-min=10.8)
 endif()
 
-if(NOT SQLite3_FOUND)
-    # On Linux, we use the distro's libsqlite3
-    add_subdirectory(sqlite3)
-endif()
-
 # add the dtl module include path before we include Plugin folder
-include_directories(dtl)
+include_directories(submodules/dtl)
 
-# build the Core part of CodeLite (regardless of the final target)
 add_subdirectory(sdk/wxsqlite3)
 add_subdirectory(sdk/wxshapeframework)
 add_subdirectory(sdk/databaselayer)
-add_subdirectory(yaml-cpp)
+
+if(NOT APPLE)
+    add_subdirectory(submodules/yaml-cpp)
+    set(LIBYAML_CPP "yaml-cpp")
+endif()
+
+add_subdirectory(CxxParser)
 add_subdirectory(CodeLite)
 add_subdirectory(Plugin)
 add_subdirectory(PCH)
 
 set(WITHOUT_INSTALL ON)
-add_subdirectory(cc-wrapper)
+add_subdirectory(submodules/cc-wrapper)
 
 # include the yaml-cpp directory
-include_directories("${CL_SRC_ROOT}/yaml-cpp/include")
+include_directories("${CL_SRC_ROOT}/submodules/yaml-cpp/include")
+if(UNIX)
+    # On Windows, this is default. Set it OFF for Linux / macOS as well
+    set(BUILD_SHARED_LIBS OFF)
+endif()
+
+if(APPLE)
+    set(CMAKE_INSTALL_PREFIX ${CL_INSTALL_BIN})
+    set(CMAKE_INSTALL_BINDIR "${CMAKE_INSTALL_PREFIX}")
+endif()
+
+add_subdirectory("${CL_SRC_ROOT}/submodules/llama.cpp")
+add_subdirectory("${CL_SRC_ROOT}/submodules/llama.cpp/examples/main")
 
 if(WXC_APP)
     add_subdirectory(wxcrafter)
 else()
-    if(UNIX OR APPLE)
-        add_subdirectory(ctags)
-    endif()
+    add_subdirectory(submodules/ctags)
+    install(TARGETS ctags DESTINATION ${CL_INSTALL_BIN})
+    install(TARGETS llama-cli DESTINATION ${CL_INSTALL_BIN})
 
     if(MINGW)
         # build wx-config for Windows
-        add_subdirectory(wx-config-msys2)
+        add_subdirectory(submodules/wx-config-msys2)
         install(TARGETS wx-config DESTINATION ${CL_INSTALL_BIN})
     endif()
 
@@ -906,6 +940,7 @@ else()
         add_subdirectory(abbreviation)
         if(NOT DISABLE_CXX)
             add_subdirectory(Gizmos)
+            add_subdirectory(gdbparser)
             add_subdirectory(Debugger)
             add_subdirectory(UnitTestCPP)
             add_subdirectory(QmakePlugin)
@@ -946,6 +981,7 @@ else()
         add_subdirectory(HelpPlugin)
         add_subdirectory(WebTools)
         add_subdirectory(SmartCompletion)
+        add_subdirectory(ChatAI)
 
         if(UNIX
            AND NOT APPLE
@@ -971,22 +1007,13 @@ else()
         # makedirs
         add_subdirectory(TestDir)
 
-        # utility for importing themes
-        add_subdirectory(codelite-generate-themes)
-
     endif()
+
+    # utility for importing themes
+    add_subdirectory(codelite-generate-themes)
+
     add_subdirectory(codelite_echo)
     add_subdirectory(ctagsd)
-
-    #
-    # Setup the proper dependencies
-    #
-    if(NOT SQLite3_FOUND)
-        if(USE_PCH AND NOT MINGW)
-            add_dependencies(sqlite3lib ${CL_PCH_TARGET})
-        endif()
-        add_dependencies(wxsqlite3 sqlite3lib)
-    endif()
 
     add_subdirectory(LiteEditor)
     add_dependencies(databaselayersqlite wxsqlite3)
@@ -995,7 +1022,10 @@ else()
     add_dependencies(plugin libcodelite)
     add_dependencies(codelite plugin)
     add_dependencies(codelite ctagsd)
-    add_dependencies(codelite yaml-cpp)
+
+    if(NOT APPLE)
+        add_dependencies(codelite yaml-cpp)
+    endif()
 
     # Include our custom plugin.cmake module
     include(plugin)
@@ -1004,6 +1034,11 @@ else()
     cl_scan_for_plugins()
 endif() # NOT WXC_APP
 
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(CxxParserTests)
+endif(BUILD_TESTING)
+
 message(STATUS "CL_INSTALL_BIN is set to ${CL_INSTALL_BIN}")
 install(TARGETS cc-wrapper DESTINATION ${CL_INSTALL_BIN})
 
@@ -1011,7 +1046,7 @@ if(NOT WXC_APP)
     # building CodeLite, install the SVGs
     codelite_install_svgs()
 
-    if(UNIX AND NOT APPLE)
+    if(NOT APPLE)
         set_target_properties(ctags PROPERTIES OUTPUT_NAME "codelite-ctags")
         install(
             TARGETS ctags
@@ -1024,6 +1059,7 @@ if(NOT WXC_APP)
             DESTINATION ${CMAKE_BINARY_DIR}/codelite.app/Contents/MacOS
             PERMISSIONS ${EXE_PERM})
     endif()
+
 endif()
 
 if(MINGW)
@@ -1039,6 +1075,7 @@ if(MINGW)
         APPEND
         SYSTEM_DLLS
         libc++.dll
+        libomp.dll
         libssh.dll
         libsqlite3-0.dll
         libhunspell-1.7-0.dll
@@ -1056,6 +1093,11 @@ if(MINGW)
         ls.exe
         mv.exe)
 
+    execute_process(
+        COMMAND sh -c 'ls ${WXWIN}/lib/clang_x64_dll/wxmsw*u_clang_custom.dll|tail -1'
+        OUTPUT_VARIABLE WXDLL
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "Installing wxWidgets DLL ${WXDLL}")
     list(APPEND WXWIDGETS_DLLS wxmsw330u_clang_custom.dll)
     list(APPEND CODELITE_RESOURCES ${CMAKE_SOURCE_DIR}/wxcrafter/wxgui.zip ${CMAKE_SOURCE_DIR}/LICENSE)
 
@@ -1068,7 +1110,7 @@ if(MINGW)
     endforeach()
 
     foreach(DLL ${WXWIDGETS_DLLS})
-        install(FILES "${WXWIN}/lib/clang_x64_dll/${DLL}" DESTINATION "${CMAKE_INSTALL_PREFIX}")
+        install(FILES "${WXDLL}" DESTINATION "${CMAKE_INSTALL_PREFIX}")
     endforeach()
 
     foreach(RESOURCE ${CODELITE_RESOURCES})

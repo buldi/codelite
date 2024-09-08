@@ -8,13 +8,13 @@
 #include "LanguageServerEntry.h"
 #include "clWorkspaceEvent.hpp"
 #include "cl_command_event.h"
-#include "entry.h"
+#include "database/entry.h"
+#include "wxStringHash.h"
 
 #include <unordered_set>
 #include <vector>
 #include <wx/event.h>
 #include <wx/sharedptr.h>
-#include <wxStringHash.h>
 
 class LSPOutlineViewDlg;
 class LanguageServerPlugin;
@@ -49,7 +49,7 @@ public:
     void SetWorkspaceType(FileExtManager::FileType type);
 
     /**
-     * @brief covnert LSP::SignatureHelp class to TagEntryPtrVector_t
+     * @brief convert LSP::SignatureHelp class to TagEntryPtrVector_t
      */
     void LSPSignatureHelpToTagEntries(TagEntryPtrVector_t& tags, const LSP::SignatureHelp& sighelp);
 

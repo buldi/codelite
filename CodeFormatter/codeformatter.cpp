@@ -25,11 +25,11 @@
 #include "codeformatter.h"
 
 #include "JSON.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "SFTPClientData.hpp"
 #include "clEditorStateLocker.h"
 #include "clFileSystemEvent.h"
 #include "clFilesCollector.h"
-#include "clKeyboardManager.h"
 #include "clSFTPManager.hpp"
 #include "clSTCLineKeeper.h"
 #include "codeformatterdlg.h"
@@ -59,8 +59,6 @@ namespace
 int ID_TOOL_SOURCE_CODE_FORMATTER = ::wxNewId();
 
 //------------------------------------------------------------------------
-CodeFormatter* theFormatter = NULL;
-
 JSONItem json_get_formatter_object(JSON* root, const wxString& formatter_name)
 {
     auto json = root->toElement();
@@ -109,10 +107,7 @@ void inc_save_count(const wxString& filepath)
 // the application
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if (theFormatter == 0) {
-        theFormatter = new CodeFormatter(manager);
-    }
-    return theFormatter;
+    return new CodeFormatter(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
@@ -542,7 +537,7 @@ void CodeFormatter::OnFormatCompleted(clSourceFormatEvent& event)
     auto editor = clGetManager()->FindEditor(filepath);
 
     if (editor) {
-        wxWindowUpdateLocker window_locker{ editor->GetCtrl() };
+        wxWindowUpdateLocker window_locker{ editor->GetCtrl()->GetParent() };
         editor->GetCtrl()->BeginUndoAction();
         clEditorStateLocker locker{ editor->GetCtrl() };
         editor->GetCtrl()->SetText(event.GetFormattedString());

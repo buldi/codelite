@@ -28,9 +28,9 @@
 #include "clColours.h"
 #include "codelite_exports.h"
 #include "ieditor.h"
-#include "wx/colour.h"
-#include "wx/dc.h"
 
+#include <wx/colour.h>
+#include <wx/dc.h>
 #include <wx/dcgraph.h>
 
 enum class eButtonState {
@@ -185,7 +185,7 @@ public:
     /**
      * @brief get colours object
      */
-    static clColours& GetColours(bool darkColours = false);
+    static clColours& GetColours();
 
     /// return GCDC, this function never fails
     static wxDC& GetGCDC(wxDC& dc, wxGCDC& gdc);

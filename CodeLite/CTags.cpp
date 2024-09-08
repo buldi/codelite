@@ -1,13 +1,12 @@
 #include "CTags.hpp"
 
-#include "asyncprocess.h"
+#include "AsyncProcess/asyncprocess.h"
 #include "clTempFile.hpp"
 #include "cl_standard_paths.h"
 #include "ctags_manager.h"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "procutils.h"
-#include "readtags.h"
 
 #include <set>
 #include <wx/stopwatch.h>

@@ -32,18 +32,18 @@
 #include "optionsconfig.h"
 #include "project_settings.h"
 #include "serialized_object.h"
-#include "smart_ptr.h"
-#include "wx/filename.h"
-#include "wx/string.h"
-#include "wx/treectrl.h"
+#include "tree.h"
 #include "xmlutils.h"
 
 #include <list>
+#include <memory>
 #include <queue>
 #include <set>
-#include <tree.h>
 #include <vector>
+#include <wx/filename.h>
 #include <wx/sharedptr.h>
+#include <wx/string.h>
+#include <wx/treectrl.h>
 #include <wx/xml/xml.h>
 
 #define PROJECT_TYPE_STATIC_LIBRARY "Static Library"
@@ -139,16 +139,16 @@ public:
 };
 
 // useful typedefs
-typedef Tree<wxString, ProjectItem> ProjectTree;
-typedef SmartPtr<ProjectTree> ProjectTreePtr;
-typedef TreeNode<wxString, ProjectItem> ProjectTreeNode;
+using ProjectTree = Tree<wxString, ProjectItem>;
+using ProjectTreePtr = std::shared_ptr<ProjectTree>;
+using ProjectTreeNode = TreeNode<wxString, ProjectItem>;
 
 class Project;
 class clCxxWorkspace;
 
-typedef SmartPtr<Project> ProjectPtr;
-typedef std::set<wxFileName> FileNameSet_t;
-typedef std::vector<wxFileName> FileNameVector_t;
+using ProjectPtr = std::shared_ptr<Project>;
+using FileNameSet_t = std::set<wxFileName>;
+using FileNameVector_t = std::vector<wxFileName>;
 
 // -----------------------------------------
 // File meta data
@@ -767,12 +767,12 @@ public:
     wxArrayString GetCUnPreProcessors(bool clearCache = false);
 
     /**
-     * @brief return the compiler. Optionally ommit the defines/include paths
+     * @brief return the compiler. Optionally omit the defines/include paths
      */
     wxArrayString GetCXXCompilerOptions(bool clearCache = false, bool noDefines = true, bool noIncludePaths = true);
 
     /**
-     * @brief return the C compiler. Optionally ommit the defines/include paths
+     * @brief return the C compiler. Optionally omit the defines/include paths
      */
     wxArrayString GetCCompilerOptions(bool clearCache = false, bool noDefines = true, bool noIncludePaths = true);
 

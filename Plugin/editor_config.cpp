@@ -34,7 +34,6 @@
 #include "globals.h"
 #include "precompiled_header.h"
 #include "workspace.h"
-#include "wx_xml_compatibility.h"
 #include "xmlutils.h"
 
 #include <wx/ffile.h>
@@ -175,7 +174,7 @@ OptionsConfigPtr EditorConfig::GetOptions() const
 {
     wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc->GetRoot(), wxT("Options"));
     // node can be null ...
-    OptionsConfigPtr opts = new OptionsConfig(node);
+    OptionsConfigPtr opts = std::make_shared<OptionsConfig>(node);
 
     // import legacy tab-width setting into opts
     long tabWidth = const_cast<EditorConfig*>(this)->GetInteger(wxT("EditorTabWidth"), -1);

@@ -1,25 +1,24 @@
+#include "helpplugin.h"
+
 #include "HelpPluginMessageDlg.h"
 #include "HelpPluginSettings.h"
 #include "HelpPluginSettingsDlg.h"
-#include "clKeyboardManager.h"
+#include "Keyboard/clKeyboardManager.h"
 #include "codelite_events.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
 #include "fileutils.h"
-#include "helpplugin.h"
+
 #include <wx/msgdlg.h>
 #include <wx/stc/stc.h>
 #include <wx/uri.h>
 #include <wx/xrc/xmlres.h>
 
-static HelpPlugin* thePlugin = NULL;
-
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
 {
-    if(thePlugin == 0) { thePlugin = new HelpPlugin(manager); }
-    return thePlugin;
+    return new HelpPlugin(manager);
 }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
