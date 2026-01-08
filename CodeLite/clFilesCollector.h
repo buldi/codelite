@@ -15,7 +15,7 @@ public:
     struct EntryData {
         size_t flags = 0;
         wxString fullpath;
-        typedef std::vector<EntryData> Vec_t;
+        using Vec_t = std::vector<EntryData>;
     };
 
     enum eFileAttributes {
@@ -34,8 +34,8 @@ public:
     };
 
 public:
-    clFilesScanner();
-    virtual ~clFilesScanner();
+    clFilesScanner() = default;
+    virtual ~clFilesScanner() = default;
 
     /**
      * @brief collect all files matching a given pattern from a root folder

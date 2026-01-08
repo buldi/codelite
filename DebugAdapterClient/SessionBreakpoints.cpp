@@ -2,10 +2,6 @@
 
 #include <algorithm>
 
-SessionBreakpoints::SessionBreakpoints() {}
-
-SessionBreakpoints::~SessionBreakpoints() {}
-
 void SessionBreakpoints::clear() { m_breakpoints.clear(); }
 
 int SessionBreakpoints::find_by_id_internal(int id)
@@ -31,20 +27,6 @@ bool SessionBreakpoints::find_by_id(int id, dap::Breakpoint* bp)
     return true;
 }
 
-size_t SessionBreakpoints::find_by_path(const wxString& path, std::vector<dap::Breakpoint>* bps)
-{
-    if(!bps) {
-        return 0;
-    }
-
-    for(const auto& bp : m_breakpoints) {
-        if(bp.source.path == path) {
-            bps->push_back(bp);
-        }
-    }
-    return bps->size();
-}
-
 bool SessionBreakpoints::update_or_insert(const dap::Breakpoint& bp)
 {
     if(bp.id <= 0) {
@@ -61,13 +43,6 @@ bool SessionBreakpoints::update_or_insert(const dap::Breakpoint& bp)
         }
     }
     return true;
-}
-
-void SessionBreakpoints::bulk_update(const std::vector<dap::Breakpoint>& list)
-{
-    for(const auto& bp : list) {
-        update_or_insert(bp);
-    }
 }
 
 size_t SessionBreakpoints::find_by_path_internal(const wxString& path, std::vector<dap::Breakpoint>* bps)

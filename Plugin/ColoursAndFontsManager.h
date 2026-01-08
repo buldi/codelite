@@ -29,9 +29,7 @@
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "lexer_configuration.h"
-#include "wxStringHash.h"
 
-#include <map>
 #include <vector>
 #include <wx/event.h>
 #include <wx/filename.h>
@@ -48,8 +46,8 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_UPGRADE_LEXERS_PROGRESS, clComma
 
 class WXDLLIMPEXP_SDK ColoursAndFontsManager : public wxEvtHandler
 {
-    typedef std::vector<LexerConf::Ptr_t> Vec_t;
-    typedef std::unordered_map<wxString, ColoursAndFontsManager::Vec_t> Map_t;
+    using Vec_t = std::vector<LexerConf::Ptr_t>;
+    using Map_t = std::unordered_map<wxString, ColoursAndFontsManager::Vec_t>;
 
 protected:
     bool m_initialized = false;
@@ -73,7 +71,6 @@ private:
     void LoadDb(const wxFileName& path);
     bool IsBackupRequired() const;
     void BackupUserOldJsonFileIfNeeded();
-    void LoadDefaultLexers();
 
     /**
      * @brief load lexers from lexers.json
@@ -83,7 +80,7 @@ private:
     /**
      * @brief load lexers from lexers.db
      */
-    void LoadLexersFromDb();
+    void LoadLexersFromJSON();
 
 protected:
     void OnAdjustTheme(clCommandEvent& event);
@@ -130,6 +127,8 @@ public:
     void SetGlobalFont(const wxFont& font);
     const wxFont& GetGlobalFont() const;
 
+    void SetGlobalLineNumbersColour(const wxColour& col, bool dark_theme);
+
     void SetGlobalTheme(const wxString& globalTheme) { this->m_globalTheme = globalTheme; }
     const wxString& GetGlobalTheme() const { return m_globalTheme; }
     /**
@@ -156,7 +155,9 @@ public:
     /**
      * @brief update a theme text selection colours
      */
-    void SetThemeTextSelectionColours(const wxString& theme_name, const wxColour& bg, const wxColour& fg,
+    void SetThemeTextSelectionColours(const wxString& theme_name,
+                                      const wxColour& bg,
+                                      const wxColour& fg,
                                       bool useCustomerFgColour = true);
 
     /**

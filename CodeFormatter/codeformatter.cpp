@@ -27,6 +27,7 @@
 #include "JSON.h"
 #include "Keyboard/clKeyboardManager.h"
 #include "SFTPClientData.hpp"
+#include "StringUtils.h"
 #include "clEditorStateLocker.h"
 #include "clFileSystemEvent.h"
 #include "clFilesCollector.h"
@@ -105,10 +106,7 @@ void inc_save_count(const wxString& filepath)
 
 // Allocate the code formatter on the heap, it will be freed by
 // the application
-CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
-{
-    return new CodeFormatter(manager);
-}
+CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager) { return new CodeFormatter(manager); }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
 {
@@ -150,15 +148,13 @@ CodeFormatter::CodeFormatter(IManager* manager)
         { { "format_source", _("Format Current Source"), "Ctrl-I" }, { "formatter_options", _("Options...") } });
 }
 
-CodeFormatter::~CodeFormatter() {}
-
 void CodeFormatter::CreateToolBar(clToolBarGeneric* toolbar)
 {
     clBitmapList* images = toolbar->GetBitmapsCreateIfNeeded();
     toolbar->AddSpacer();
     toolbar->AddTool(XRCID("format_source"), _("Format Source"), images->Add("format"), _("Format Source Code"));
-    toolbar->AddTool(XRCID("formatter_options"), _("Format Options"), images->Add("cog"),
-                     _("Source Code Formatter Options..."));
+    toolbar->AddTool(
+        XRCID("formatter_options"), _("Format Options"), images->Add("cog"), _("Source Code Formatter Options..."));
     // Connect the events to us
 
     // format the current editor
@@ -173,8 +169,8 @@ void CodeFormatter::CreatePluginMenu(wxMenu* pluginsMenu)
 {
     wxMenu* menu = new wxMenu();
     wxMenuItem* item(NULL);
-    item = new wxMenuItem(menu, XRCID("format_source"), _("Format Current Source"), _("Format Current Source"),
-                          wxITEM_NORMAL);
+    item = new wxMenuItem(
+        menu, XRCID("format_source"), _("Format Current Source"), _("Format Current Source"), wxITEM_NORMAL);
     menu->Append(item);
     menu->AppendSeparator();
     item = new wxMenuItem(menu, XRCID("formatter_options"), _("Options..."), wxEmptyString, wxITEM_NORMAL);
@@ -271,13 +267,6 @@ bool CodeFormatter::DoFormatString(const wxString& content, const wxString& file
         return false;
     }
     return formatter->FormatString(content, fileName, output);
-}
-
-void CodeFormatter::ReloadCurrentEditor()
-{
-    // reload the current editor
-    wxCommandEvent reload_event{ wxEVT_CMD_RELOAD_EXTERNALLY_MODIFIED_NOPROMPT };
-    EventNotifier::Get()->ProcessEvent(reload_event);
 }
 
 bool CodeFormatter::DoFormatFile(const wxString& fileName, bool is_remote_format)
@@ -381,7 +370,7 @@ void CodeFormatter::OnFormatFiles(wxCommandEvent& event)
     wxUnusedVar(event);
     clGetManager()->SetStatusMessage(_("Code Formatter: scanning for files..."));
     std::thread thr(
-        [=](const wxString& rootFolder, CodeFormatter* formatter) {
+        [=, this](const wxString& rootFolder, CodeFormatter* formatter) {
             clFilesScanner fs;
             std::vector<wxFileName> files;
             fs.Scan(rootFolder, files, "*", "*.o;*.obj;*.dll;*.a;*.exe;*.dylib;*.db", "build-*;.codelite;.git;.svn");
@@ -395,7 +384,8 @@ void CodeFormatter::OnFormatFiles(wxCommandEvent& event)
             }
             formatter->CallAfter(&CodeFormatter::OnScanFilesCompleted, arrfiles);
         },
-        m_selectedFolder, this);
+        m_selectedFolder,
+        this);
     thr.detach();
 }
 
@@ -485,7 +475,20 @@ void CodeFormatter::OnWorkspaceLoaded(clWorkspaceEvent& e)
             continue;
         }
 
-        wxString cmd = json["command"].toString();
+        // Try both array and string name
+        wxArrayString cmdArray;
+        wxString cmd;
+
+        if (json.hasNamedObject("command") && json["command"].isArray()) {
+            cmdArray = json["command"].toArrayString();
+        } else {
+            cmd = json["command"].toString();
+        }
+
+        if (!cmdArray.empty()) {
+            cmd = StringUtils::BuildCommandStringFromArray(cmdArray);
+        }
+
         wxString wd = json["working_directory"].toString();
 
         wxString remote_cmd;

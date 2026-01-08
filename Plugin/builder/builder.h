@@ -50,7 +50,7 @@ protected:
 
 public:
     Builder(const wxString& name);
-    virtual ~Builder();
+    virtual ~Builder() = default;
 
     /**
      * Normalize the configuration name, this is done by removing any trailing and leading
@@ -87,7 +87,7 @@ public:
 
     /**
      * Export the build system specific file (e.g. GNU makefile, Ant file etc)
-     * to allow users to invoke them manualy from the command line
+     * to allow users to invoke them manually from the command line
      * \param project project to export.
      * \param errMsg output
      * \return true on success, false otherwise.

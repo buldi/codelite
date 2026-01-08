@@ -25,6 +25,9 @@
 
 #ifndef TERMINALEMULATORUI_H
 #define TERMINALEMULATORUI_H
+
+#include <wx/setup.h>
+
 #if wxUSE_GUI
 #include "TerminalEmulatorUIBase.h"
 #include "TerminalEmulator.h"
@@ -38,8 +41,8 @@ private:
     
 public:
     TerminalEmulatorUI(wxWindow* parent);
-    virtual ~TerminalEmulatorUI();
-    
+    virtual ~TerminalEmulatorUI() = default;
+
     void Clear();
     void SetTerminal(TerminalEmulator* terminal) ;
     TerminalEmulator* GetTerminal() { return m_terminal; }

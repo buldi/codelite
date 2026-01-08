@@ -32,12 +32,8 @@
 #include "cc_box_tip_window.h"
 #include "cl_command_event.h"
 #include "ieditor.h"
-#include "php_event.h"
-#include "precompiled_header.h"
-#include "wxStringHash.h"
 
 #include <memory>
-#include <vector>
 
 struct PHPLocation {
     wxString what;     // Token name
@@ -112,17 +108,16 @@ public:
     /**
      * @brief go to the definition of the word starting at pos
      * @param editor
-     * @param pos
      */
-    void GotoDefinition(IEditor* editor, int pos);
+    void GotoDefinition(IEditor* editor);
 
     void SetManager(IManager* manager) { this->m_manager = manager; }
     /**
      * @brief return a PHPLocation::Ptr_t for the declaration of the
-     * expression in the given editor / position
+     * expression in the given editor
      * @return a valid PHPLocation or NULL
      */
-    PHPLocation::Ptr_t FindDefinition(IEditor* editor, int pos);
+    PHPLocation::Ptr_t FindDefinition(IEditor* editor);
 
     /**
      * @brief return the PHPEntity under the caret
@@ -140,17 +135,6 @@ public:
      */
     void Close();
 
-    /**
-     * @brief called by the PHP symbols cache job.
-     * This is to optimize the searching the database (loading the symbols into the
-     * memory forces a kernel caching)
-     */
-    void OnSymbolsCached();
-
-    /**
-     * @brief same as the above function, but the caching went bad...
-     */
-    void OnSymbolsCacheError();
     /**
      * @brief expand 'require_once' line (or any require) by replacing __file__ etc with the proper
      * values and appending everything

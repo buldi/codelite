@@ -53,7 +53,7 @@ protected:
 
 public:
     PHPClassDetails() : m_flags(0), m_type("class") {}
-    virtual ~PHPClassDetails() {}
+    virtual ~PHPClassDetails() = default;
 
     wxString ToString(const wxString& EOL, const wxString& indent) const;
     void SetType(const wxString& type) {
@@ -109,17 +109,14 @@ public:
 
 class NewPHPClass : public NewPHPClassBase
 {
-    bool m_userModifiedFileName;
     wxString m_outputPath;
 public:
     NewPHPClass(wxWindow* parent, const wxString &classPath);
-    virtual ~NewPHPClass();
+    virtual ~NewPHPClass() = default;
 
 protected:
     virtual void OnEditExtends(wxCommandEvent& event);
     virtual void OnEditImplements(wxCommandEvent& event);
-    virtual void OnFolderUpdated(wxCommandEvent& event);
-    virtual void OnFileNameUpdated(wxCommandEvent& event);
     virtual void OnMakeSingletonUI(wxUpdateUIEvent& event);
     virtual void OnFolderPerNamespace(wxCommandEvent& event);
     virtual void OnNamespaceTextUpdated(wxCommandEvent& event);

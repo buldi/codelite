@@ -5,9 +5,9 @@
 #include "codelite_exports.h"
 #include "macros.h"
 
+#include <memory>
 #include <wx/arrstr.h>
 #include <wx/process.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_TERMINAL_EXIT, clProcessEvent);
@@ -19,10 +19,8 @@ class WXDLLIMPEXP_CL clConsoleEnvironment
 
 public:
     clConsoleEnvironment(const wxStringMap_t& env);
-    clConsoleEnvironment();
     ~clConsoleEnvironment();
 
-    void Add(const wxString& name, const wxString& value);
     void Apply();
     void UnApply();
 };
@@ -30,7 +28,7 @@ public:
 class WXDLLIMPEXP_CL clConsoleBase
 {
 public:
-    typedef wxSharedPtr<clConsoleBase> Ptr_t;
+    using Ptr_t = std::shared_ptr<clConsoleBase>;
 
 protected:
     wxStringMap_t m_environment;
@@ -49,19 +47,14 @@ protected:
     wxString m_callbackUID;
 
 protected:
-    /**
-     * @brief create an environment list to be used before we execute our terminal
-     */
-    wxString GetEnvironmentPrefix() const;
 
     wxString WrapWithQuotesIfNeeded(const wxString& s) const;
-    wxString EscapeString(const wxString& str, const wxString& c = "\"") const;
     virtual bool StartProcess(const wxString& command);
     void MacAddArgsIfNeeded(wxString* outcmd);
 
 public:
-    clConsoleBase();
-    virtual ~clConsoleBase();
+    clConsoleBase() = default;
+    virtual ~clConsoleBase() = default;
 
     /**
      * @brief when sink is provided, the terminal will send event when its done
@@ -81,11 +74,6 @@ public:
     static wxArrayString SplitArguments(const wxString& args);
 
     /**
-     * @brief add an environment variable to be applied before we start the terminal
-     */
-    void AddEnvVariable(const wxString& name, const wxString& value);
-
-    /**
      * @brief start terminal with a given command and an optional working directory
      */
     virtual bool Start() = 0;
@@ -101,7 +89,7 @@ public:
     virtual wxString PrepareCommand() = 0;
 
     /**
-     * @brief return the best terminal for the OS. Pass an empty string to return the default temrinal for the OS
+     * @brief return the best terminal for the OS. Pass an empty string to return the default terminal for the OS
      */
     static clConsoleBase::Ptr_t GetTerminal();
 

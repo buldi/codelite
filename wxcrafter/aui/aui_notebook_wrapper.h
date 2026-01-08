@@ -1,19 +1,19 @@
 #ifndef AUINOTEBOOKWRAPPER_H
 #define AUINOTEBOOKWRAPPER_H
 
-#include "notebook_base_wrapper.h" // Base class: NotebookBaseWrapper
+#include "controls/Containers/notebook_base_wrapper.h" // Base class: NotebookBaseWrapper
 
 class AuiNotebookWrapper : public NotebookBaseWrapper
 {
 public:
     AuiNotebookWrapper();
-    virtual ~AuiNotebookWrapper();
+    ~AuiNotebookWrapper() override = default;
 
 public:
-    virtual wxString GetXRCPageClass() const;
-    wxcWidget* Clone() const;
-    void GetIncludeFile(wxArrayString& headers) const;
-    wxString GetWxClassName() const;
+    wxString GetXRCPageClass() const override;
+    wxcWidget* Clone() const override;
+    void GetIncludeFile(wxArrayString& headers) const override;
+    wxString GetWxClassName() const override;
 };
 
 #endif // AUINOTEBOOKWRAPPER_H

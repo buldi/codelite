@@ -3,8 +3,6 @@
 #include "file_logger.h"
 #include <wx/filename.h>
 
-SmartCompletionUsageDB::SmartCompletionUsageDB() {}
-
 SmartCompletionUsageDB::~SmartCompletionUsageDB() { Close(); }
 
 void SmartCompletionUsageDB::Open()
@@ -16,7 +14,7 @@ void SmartCompletionUsageDB::Open()
         fn.AppendDir("config");
         m_db.Open(fn.GetFullPath());
         CreateScheme();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "Failed to open SmartCompletions DB:" << e.GetMessage() << clEndl;
     }
 }
@@ -54,7 +52,7 @@ void SmartCompletionUsageDB::CreateScheme()
         sql << "CREATE UNIQUE INDEX IF NOT EXISTS GOTO_ANYTHING_USAGE_IDX1 ON GOTO_ANYTHING_USAGE(NAME)";
         m_db.ExecuteUpdate(sql);
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SmartCompletionUsageDB::CreateScheme():" << e.GetMessage() << clEndl;
     }
 }
@@ -69,7 +67,7 @@ void SmartCompletionUsageDB::LoadCCUsageTable(std::unordered_map<wxString, int>&
             int v = res.GetInt(1);
             weightTable[k] = v;
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
 }
@@ -84,7 +82,7 @@ void SmartCompletionUsageDB::LoadGTAUsageTable(std::unordered_map<wxString, int>
             int v = res.GetInt(1);
             weightTable[k] = v;
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
 }
@@ -98,7 +96,7 @@ void SmartCompletionUsageDB::StoreCCUsage(const wxString& key, int weight)
         st.Bind(2, weight);
         st.ExecuteUpdate();
         m_db.Commit();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
 }
@@ -108,7 +106,7 @@ void SmartCompletionUsageDB::Close()
     if(m_db.IsOpen()) {
         try {
             m_db.Close();
-        } catch(wxSQLite3Exception& e) {
+        } catch (const wxSQLite3Exception& e) {
             clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
         }
     }
@@ -124,7 +122,7 @@ void SmartCompletionUsageDB::Clear()
         sql = "delete from GOTO_ANYTHING_USAGE";
         m_db.ExecuteUpdate(sql);
         m_db.Commit();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
 }
@@ -139,7 +137,7 @@ void SmartCompletionUsageDB::StoreGTAUsage(const wxString& key, int weight)
         st.Bind(2, weight);
         st.ExecuteUpdate();
         m_db.Commit();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
 }

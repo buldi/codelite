@@ -1,17 +1,19 @@
 #include "toggle_button_wrapper.h"
+
+#include "Properties/bool_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "string_property.h"
 #include "wxgui_defs.h"
 #include "xmlutils.h"
+
 #include <wx/button.h>
 
 ToggleButtonWrapper::ToggleButtonWrapper()
     : wxcWidget(ID_WXTOGGLEBUTTON)
 {
     SetPropertyString(_("Common Settings"), "wxToggleButton");
-    AddProperty(new StringProperty(PROP_LABEL, _("My Button"), _("The button label")));
-    AddProperty(new BoolProperty(PROP_CHECKED, false, _("The button initial state")));
+    Add<StringProperty>(PROP_LABEL, _("My Button"), _("The button label"));
+    Add<BoolProperty>(PROP_CHECKED, false, _("The button initial state"));
 
     PREPEND_STYLE(wxBU_BOTTOM, false);
     PREPEND_STYLE(wxBU_EXACTFIT, false);
@@ -24,8 +26,6 @@ ToggleButtonWrapper::ToggleButtonWrapper()
     m_namePattern = wxT("m_toggleButton");
     SetName(GenerateName());
 }
-
-ToggleButtonWrapper::~ToggleButtonWrapper() {}
 
 wxcWidget* ToggleButtonWrapper::Clone() const { return new ToggleButtonWrapper(); }
 

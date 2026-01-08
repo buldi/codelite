@@ -41,8 +41,8 @@ public:
     wxString active;
     
 public:
-    GdbMIThreadInfo() {}
-    virtual ~GdbMIThreadInfo() {}
+    GdbMIThreadInfo() = default;
+    virtual ~GdbMIThreadInfo() = default;
 
     ThreadEntry ToThreadEntry() const {
         ThreadEntry te;
@@ -55,7 +55,7 @@ public:
     }
 };
 
-typedef std::vector<GdbMIThreadInfo> GdbMIThreadInfoVec_t;
+using GdbMIThreadInfoVec_t = std::vector<GdbMIThreadInfo>;
 
 ////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
@@ -69,8 +69,8 @@ protected:
     bool ReadKeyValuePair(const wxString &input, const wxString &key, wxString &value);
 
 public:
-    GdbMIThreadInfoParser();
-    virtual ~GdbMIThreadInfoParser();
+    GdbMIThreadInfoParser() = default;
+    virtual ~GdbMIThreadInfoParser() = default;
 
     void Parse(const wxString &info);
     

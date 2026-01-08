@@ -4,7 +4,6 @@
 #include "AutoSaveSettings.h"
 #include "event_notifier.h"
 
-#include <algorithm>
 #include <wx/menu.h>
 #include <wx/xrc/xmlres.h>
 
@@ -36,8 +35,6 @@ AutoSave::AutoSave(IManager* manager)
     UpdateTimers();
     wxTheApp->Bind(wxEVT_MENU, &AutoSave::OnSettings, this, XRCID("auto_save_settings"));
 }
-
-AutoSave::~AutoSave() {}
 
 void AutoSave::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 

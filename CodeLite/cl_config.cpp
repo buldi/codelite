@@ -26,12 +26,10 @@
 #include "cl_config.h"
 
 #include "FontUtils.hpp"
-#include "cl_defs.h"
 #include "cl_standard_paths.h"
 #include "file_logger.h"
 #include "fileutils.h"
 
-#include <algorithm>
 #include <wx/filefn.h>
 #include <wx/filename.h>
 #include <wx/log.h>
@@ -69,13 +67,13 @@ clConfig::clConfig(const wxString& filename)
     }
 
     if (m_filename.FileExists()) {
-        m_root = new JSON(m_filename);
+        m_root = std::make_unique<JSON>(m_filename);
 
     } else {
         if (!m_filename.DirExists()) {
             m_filename.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         }
-        m_root = new JSON(cJSON_Object);
+        m_root = std::make_unique<JSON>(cJSON_Object);
     }
 
     // Load the "Recent Items" cache
@@ -97,8 +95,6 @@ clConfig::clConfig(const wxString& filename)
         }
     }
 }
-
-clConfig::~clConfig() { wxDELETE(m_root); }
 
 clConfig& clConfig::Get()
 {
@@ -186,7 +182,8 @@ bool clConfig::Write(const wxString& name, std::function<JSONItem()> serialiser_
     }
 }
 
-void clConfig::Read(const wxString& name, std::function<void(const JSONItem& item)> deserialiser_func,
+void clConfig::Read(const wxString& name,
+                    std::function<void(const JSONItem& item)> deserialiser_func,
                     const wxFileName& configFile)
 {
     if (configFile.IsOk() && configFile.FileExists()) {
@@ -216,8 +213,7 @@ void clConfig::Reload()
     if (m_filename.FileExists() == false)
         return;
 
-    delete m_root;
-    m_root = new JSON(m_filename);
+    m_root = std::make_unique<JSON>(m_filename);
 }
 
 wxArrayString clConfig::MergeArrays(const wxArrayString& arr1, const wxArrayString& arr2) const
@@ -226,6 +222,12 @@ wxArrayString clConfig::MergeArrays(const wxArrayString& arr1, const wxArrayStri
     std::set<wxString> visited;
 
     for (const wxString& element : arr1) {
+        if (visited.count(element))
+            continue;
+        visited.insert(element);
+    }
+
+    for (const wxString& element : arr2) {
         if (visited.count(element))
             continue;
         visited.insert(element);
@@ -393,64 +395,6 @@ void clConfig::SetQuickFindReplaceItems(const wxArrayString& items)
     Save();
 }
 
-void clConfig::AddQuickFindReplaceItem(const wxString& str)
-{
-    ADD_OBJ_IF_NOT_EXISTS(m_root->toElement(), "QuickFindBar");
-
-    JSONItem quickFindBar = m_root->toElement().namedObject("QuickFindBar");
-    ADD_ARR_IF_NOT_EXISTS(quickFindBar, "ReplaceHistory");
-
-    JSONItem arr = quickFindBar.namedObject("ReplaceHistory");
-    wxArrayString items = arr.toArrayString();
-
-    // Update the array
-    int where = items.Index(str);
-    if (where != wxNOT_FOUND) {
-        items.RemoveAt(where);
-        items.Insert(str, 0);
-
-    } else {
-        // remove overflow items if needed
-        if (items.GetCount() > 20) {
-            // remove last item
-            items.RemoveAt(items.GetCount() - 1);
-        }
-        items.Insert(str, 0);
-    }
-
-    quickFindBar.removeProperty("ReplaceHistory");
-    quickFindBar.addProperty("ReplaceHistory", items);
-    Save();
-}
-
-void clConfig::AddQuickFindSearchItem(const wxString& str)
-{
-    ADD_OBJ_IF_NOT_EXISTS(m_root->toElement(), "QuickFindBar");
-
-    JSONItem quickFindBar = m_root->toElement().namedObject("QuickFindBar");
-    ADD_ARR_IF_NOT_EXISTS(quickFindBar, "SearchHistory");
-
-    JSONItem arr = quickFindBar.namedObject("SearchHistory");
-    wxArrayString items = arr.toArrayString();
-
-    // Update the array
-    int where = items.Index(str);
-    if (where != wxNOT_FOUND) {
-        items.RemoveAt(where);
-    }
-    items.Insert(str, 0);
-
-    // Reudce to size to max of 20
-    while (items.size() > 20) {
-        items.RemoveAt(items.size() - 1);
-    }
-
-    // Update the array
-    quickFindBar.removeProperty("SearchHistory");
-    quickFindBar.addProperty("SearchHistory", items);
-    Save();
-}
-
 wxArrayString clConfig::GetQuickFindReplaceItems() const
 {
     ADD_OBJ_IF_NOT_EXISTS(m_root->toElement(), "QuickFindBar");
@@ -510,9 +454,9 @@ void clConfig::DoAddRecentItem(const wxString& propName, const wxString& filenam
 
     // Remove non existing items
     wxArrayString existingFiles;
-    for (size_t i = 0; i < recentItems.size(); ++i) {
-        if (wxFileName(recentItems.Item(i)).FileExists()) {
-            existingFiles.Add(recentItems.Item(i));
+    for (const auto& recentItem : recentItems) {
+        if (wxFileName(recentItem).FileExists()) {
+            existingFiles.Add(recentItem);
         }
     }
     recentItems.swap(existingFiles);

@@ -1,10 +1,9 @@
 #include "static_box_sizer_wrapper.h"
 
+#include "Properties/choice_property.h"
+#include "Properties/string_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "choice_property.h"
-#include "string_property.h"
-#include "wxgui_helpers.h"
 #include "xmlutils.h"
 
 StaticBoxSizerWrapper::StaticBoxSizerWrapper()
@@ -15,14 +14,12 @@ StaticBoxSizerWrapper::StaticBoxSizerWrapper()
     const wxArrayString arr = StdToWX::ToArrayString({ "Vertical", "Horizontal" });
 
     SetPropertyString(_("Common Settings"), "wxStaticBoxSizer");
-    AddProperty(new ChoiceProperty(PROP_ORIENTATION, arr, 0, _("Sizer orientation")));
-    AddProperty(new StringProperty(PROP_LABEL, _("My Label"), _("Label")));
+    Add<ChoiceProperty>(PROP_ORIENTATION, arr, 0, _("Sizer orientation"));
+    Add<StringProperty>(PROP_LABEL, _("My Label"), _("Label"));
 
     m_namePattern = "staticBoxSizer";
     SetName(GenerateName());
 }
-
-StaticBoxSizerWrapper::~StaticBoxSizerWrapper() {}
 
 wxcWidget* StaticBoxSizerWrapper::Clone() const { return new StaticBoxSizerWrapper(); }
 

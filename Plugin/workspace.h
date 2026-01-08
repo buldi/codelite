@@ -26,18 +26,15 @@
 #define WORKSPACE_H
 
 #include "IWorkspace.h"
-#include "JSON.h"
+#include "clWorkspaceManager.h"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "configuration_mapping.h"
 #include "localworkspace.h"
 #include "optionsconfig.h"
 #include "project.h"
-#include "singleton.h"
-#include "wxStringHash.h"
 
-#include <map>
-#include <wx/event.h>
+#include <assistant/common/json.hpp> // <nlohmann/json.hpp>
 #include <wx/filename.h>
 #include <wx/string.h>
 #include <wx/xml/xml.h>
@@ -53,7 +50,7 @@
  *
  */
 class LocalWorkspace;
-class WXDLLIMPEXP_SDK clCxxWorkspace : public IWorkspace
+class WXDLLIMPEXP_SDK clCxxWorkspace : public LocalWorkspaceCommon
 {
     friend class clCxxWorkspaceST;
 
@@ -68,7 +65,7 @@ public:
     wxString GetDebuggerName() const override;
 
 public:
-    typedef std::unordered_map<wxString, ProjectPtr> ProjectMap_t;
+    using ProjectMap_t = std::unordered_map<wxString, ProjectPtr>;
 
 protected:
     wxXmlDocument m_doc;
@@ -173,15 +170,15 @@ public:
     wxArrayString GetWorkspaceFolders() const;
 
     /**
-     * @brief create 'compile_commands' json object for the workspace projects (only the enabled ones)
-     * or compile_flags.txt file
+     * @brief create 'compile_commands' json object for the workspace (enabled) projects
      */
-    cJSON* CreateCompileCommandsJSON(bool createCompileFlagsTxt, wxArrayString* generated_paths) const;
+    nlohmann::json CreateCompileCommandsJSON() const;
 
     /**
-     * @brief generate compile_flags.txt for each project
+     * @brief create the compile_flags.txt files for each workspace (enabled) projects
+     * @return list of generated paths
      */
-    void CreateCompileFlags() const;
+    wxArrayString CreateCompileFlagsTexts() const;
 
     wxString GetFileName() const override { return GetWorkspaceFileName().GetFullPath(); }
     wxString GetDir() const override { return GetWorkspaceFileName().GetPath(); }
@@ -225,21 +222,12 @@ public:
      * Open an existing workspace
      *
      * \param fileName
-     * Workspace file name (including extesion)
+     * Workspace file name (including extension)
      *
      * \returns
      * true on success false otherwise
      */
     bool OpenWorkspace(const wxString& fileName, wxString& errMsg);
-
-    /**
-     * @brief this function opens the workspace, but does not open the tags
-     * completion database etc. It only loads the XML and then adds all the
-     * projects XML. It is mainly needed when you just need to explore the
-     * workspace from a secondary thread with no events / UI to get in the
-     * way
-     */
-    bool OpenReadOnly(const wxString& fileName, wxString& errMsg);
 
     /**
      * Close the currently opened workspace
@@ -267,18 +255,22 @@ public:
      * \returns
      * true on success false otherwise
      */
-    bool CreateProject(const wxString& name, const wxString& path, const wxString& type,
-                       const wxString& workspaceFolder, bool addToBuildMatrix, wxString& errMsg);
+    bool CreateProject(const wxString& name,
+                       const wxString& path,
+                       const wxString& type,
+                       const wxString& workspaceFolder,
+                       bool addToBuildMatrix,
+                       wxString& errMsg);
 
     /**
      * @brief rename a project
      * @param oldname current name
-     * @param newname new name for the proejct
+     * @param newname new name for the project
      */
     void RenameProject(const wxString& oldname, const wxString& newname);
 
     /**
-     * \brief get a string property from the worksapce file
+     * \brief get a string property from the workspace file
      * \returns property value or wxEmptyString
      */
     wxString GetStringProperty(const wxString& propName, wxString& errMsg);
@@ -322,18 +314,13 @@ public:
     wxString GetActiveProjectName() const override;
 
     /**
-     * @brief return the paths of all projects in the workspace (full paths)
-     */
-    wxArrayString GetAllProjectPaths();
-
-    /**
      * Set project as active
      * \param name  project name
      */
     void SetActiveProject(const wxString& name);
 
     /**
-     * Add new virtual directoy to workspace
+     * Add new virtual directory to workspace
      * \param vdFullPath virtual directory full path
      * \param errMsg [output] incase an error, report the error to the caller
      * \return true on success false otherwise
@@ -346,7 +333,7 @@ public:
     bool IsVirtualDirectoryExists(const wxString& vdFullPath);
 
     /**
-     * Remove virtual directoy to workspace
+     * Remove virtual directory to workspace
      * \param vdFullPath virtual directory full path
      * \param errMsg [output] incase an error, report the error to the caller
      * \return true on success false otherwise
@@ -355,7 +342,7 @@ public:
 
     /**
      * Add new file to project. The project name is taken from the virtual directory full path
-     * \param vdFullPath vritual directory full path including project
+     * \param vdFullPath virtual directory full path including project
      * \param fileName file name to add
      * \param errMsg output
      * \return true on success, false otherwise
@@ -364,7 +351,7 @@ public:
 
     /**
      * Remove file from a project. The project name is taken from the virtual directory full path
-     * \param vdFullPath vritual directory full path including project
+     * \param vdFullPath virtual directory full path including project
      * \param fileName file name to remove
      * \param errMsg output
      * \return true on success, false otherwise
@@ -375,16 +362,6 @@ public:
      * Save workspace & projects settings
      */
     void Save();
-
-    /**
-     * Return a node pointing to any workspace-wide editor preferences
-     */
-    wxXmlNode* GetWorkspaceEditorOptions() const;
-
-    /**
-     * Add or update local workspace options
-     */
-    void SetWorkspaceEditorOptions(LocalOptionsConfigPtr opts);
 
     /**
      * Return the configuration mapping for the workspace. 'Configuration Mapping' is
@@ -433,13 +410,13 @@ public:
     /**
      * @brief return the workspace environment variables
      */
-    wxString GetEnvironmentVariabels();
+    wxString GetEnvironmentVariables();
 
     /**
      * @brief set the workspace environment variables. These environment variables
      * will be kept in the workspace file (i.e. they are portable)
      */
-    void SetEnvironmentVariabels(const wxString& envvars);
+    void SetEnvironmentVariables(const wxString& envvars);
 
     /**
      * @brief return the selected workspace configuration
@@ -503,12 +480,12 @@ public:
     wxArrayString GetWorkspaceProjects() const override;
 
     /**
-     * @brief return list of files that are exluded for a given workspace configuration
+     * @brief return list of files that are excluded for a given workspace configuration
      */
     size_t GetExcludeFilesForConfig(std::vector<wxString>& files, const wxString& workspaceConfigName = "");
 
     /**
-     * @brief return the workspce environment
+     * @brief return the workspace environment
      */
     clEnvList_t GetEnvironment() const override;
 

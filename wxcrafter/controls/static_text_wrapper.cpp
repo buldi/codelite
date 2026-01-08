@@ -1,8 +1,12 @@
 #include "static_text_wrapper.h"
+
+#include "Properties/multi_strings_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "multi_strings_property.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
+#include <wx/stattext.h>
 
 StaticTextWrapper::StaticTextWrapper()
     : wxcWidget(ID_WXSTATICTEXT)
@@ -13,17 +17,14 @@ StaticTextWrapper::StaticTextWrapper()
     PREPEND_STYLE(wxST_NO_AUTORESIZE, false);
 
     SetPropertyString(_("Common Settings"), "wxStaticText");
-    AddProperty(new MultiStringsProperty(PROP_LABEL, _("Static Text Label"), wxT("\\n"), _("Label:")));
+    Add<MultiStringsProperty>(PROP_LABEL, _("Static Text Label"), wxT("\\n"), _("Label:"));
     m_properties.Item(PROP_LABEL)->SetValue(_("Static Text Label"));
 
-    AddProperty(
-        new StringProperty(PROP_WRAP, wxT("-1"), _("Wrap the text after N pixels. If set to -1, don't wrap")));
+    Add<StringProperty>(PROP_WRAP, wxT("-1"), _("Wrap the text after N pixels. If set to -1, don't wrap"));
 
     m_namePattern = wxT("m_staticText");
     SetName(GenerateName());
 }
-
-StaticTextWrapper::~StaticTextWrapper() {}
 
 wxString StaticTextWrapper::GetWxClassName() const { return wxT("wxStaticText"); }
 

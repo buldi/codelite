@@ -1,29 +1,14 @@
-#ifndef COMPILERLOCATORMSYS2_HPP
-#define COMPILERLOCATORMSYS2_HPP
+#pragma once
 
 #include "ICompilerLocator.h"
 #include "Platform/MSYS2.hpp"
 
 #include <unordered_map>
-#include <vector>
 #include <wx/filename.h>
 
 /// Locate for GCC compilers
 class WXDLLIMPEXP_SDK CompilerLocatorMSYS2 : public ICompilerLocator
 {
-protected:
-    MSYS2 m_msys2;
-    wxString m_repository;
-
-protected:
-    void AddTool(const wxString& tool_name, const wxString& value);
-    wxFileName GetFileName(const wxString& bin_dir, const wxString& fullname) const;
-
-    CompilerLocatorMSYS2();
-    virtual ~CompilerLocatorMSYS2();
-
-    CompilerPtr TryToolchain(const wxString& folder, const std::unordered_map<wxString, wxString>& toolchain);
-
 public:
     /**
      * @brief locate the compiler
@@ -34,26 +19,48 @@ public:
      * @brief locate a compiler in a directory
      */
     CompilerPtr Locate(const wxString& folder) override;
+
+protected:
+    wxFileName GetFileName(const wxString& bin_dir, const wxString& fullname) const;
+
+    CompilerLocatorMSYS2() = default;
+    virtual ~CompilerLocatorMSYS2() = default;
+
+    CompilerPtr TryToolchain(const wxString& folder, const std::unordered_map<wxString, wxString>& toolchain);
+
+    MSYS2 m_msys2;
+    bool m_cmdShell = false;
 };
 
 class WXDLLIMPEXP_SDK CompilerLocatorMSYS2Usr : public CompilerLocatorMSYS2
 {
 public:
     CompilerLocatorMSYS2Usr();
-    virtual ~CompilerLocatorMSYS2Usr();
+    virtual ~CompilerLocatorMSYS2Usr() = default;
 };
 
 class WXDLLIMPEXP_SDK CompilerLocatorMSYS2Clang64 : public CompilerLocatorMSYS2
 {
 public:
     CompilerLocatorMSYS2Clang64();
-    virtual ~CompilerLocatorMSYS2Clang64();
+    virtual ~CompilerLocatorMSYS2Clang64() = default;
 };
 
 class WXDLLIMPEXP_SDK CompilerLocatorMSYS2Mingw64 : public CompilerLocatorMSYS2
 {
 public:
     CompilerLocatorMSYS2Mingw64();
-    virtual ~CompilerLocatorMSYS2Mingw64();
+    virtual ~CompilerLocatorMSYS2Mingw64() = default;
 };
-#endif // COMPILERLOCATORMSYS2_HPP
+
+class WXDLLIMPEXP_SDK CompilerLocatorMSYS2Env : public CompilerLocatorMSYS2
+{
+public:
+    CompilerLocatorMSYS2Env();
+    virtual ~CompilerLocatorMSYS2Env() = default;
+
+    /**
+     * @brief locate all compilers based on the PATH env variable
+     */
+    bool Locate() override;
+};

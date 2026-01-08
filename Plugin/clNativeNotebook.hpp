@@ -1,15 +1,11 @@
-#ifndef GTKNOTEBOOK_HPP
-#define GTKNOTEBOOK_HPP
+#pragma once
 
 #include "bitmap_loader.h"
 #include "clTabHistory.h"
 #include "clTabRenderer.h"
 #include "cl_command_event.h"
-#if 0
-#include "cl_defs.h"
-#endif
 
-#if 0
+#ifdef __WXGTK__
 #include <gtk/gtk.h>
 #endif
 
@@ -17,7 +13,7 @@
 #include <wx/menu.h>
 #include <wx/notebook.h>
 
-class clNativeNotebook : public wxNotebook
+class WXDLLIMPEXP_SDK clNativeNotebook : public wxNotebook
 {
 protected:
     size_t m_bookStyle = kNotebook_Default;
@@ -46,6 +42,9 @@ public:
 
 #if 0
     void TabReordered();
+#endif
+
+#ifdef __WXGTK__
     int FindPageByGTKHandle(WXWidget page) const;
     void GTKLeftDClick(int index);
     void GTKMiddleDown(int index);
@@ -55,10 +54,18 @@ public:
 #endif
 
 public:
-    clNativeNotebook(wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxNotebookNameStr);
-    bool Create(wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxNotebookNameStr);
+    clNativeNotebook(wxWindow* parent,
+                     wxWindowID id,
+                     const wxPoint& pos = wxDefaultPosition,
+                     const wxSize& size = wxDefaultSize,
+                     long style = 0,
+                     const wxString& name = wxNotebookNameStr);
+    bool Create(wxWindow* parent,
+                wxWindowID id,
+                const wxPoint& pos = wxDefaultPosition,
+                const wxSize& size = wxDefaultSize,
+                long style = 0,
+                const wxString& name = wxNotebookNameStr);
     // dtor
     virtual ~clNativeNotebook();
 
@@ -70,9 +77,16 @@ public:
     void EnableStyle(NotebookStyle style, bool enable);
 
     // API
-    void AddPage(wxWindow* page, const wxString& label, bool selected = false, int bmp = wxNOT_FOUND,
+    void AddPage(wxWindow* page,
+                 const wxString& label,
+                 bool selected = false,
+                 int bmp = wxNOT_FOUND,
                  const wxString& shortLabel = wxEmptyString);
-    bool InsertPage(size_t index, wxWindow* page, const wxString& label, bool selected = false, int bmp = wxNOT_FOUND,
+    bool InsertPage(size_t index,
+                    wxWindow* page,
+                    const wxString& label,
+                    bool selected = false,
+                    int bmp = wxNOT_FOUND,
                     const wxString& shortLabel = wxEmptyString);
 
     bool RemovePage(size_t page, bool notify);
@@ -98,13 +112,3 @@ public:
     int ChangeSelection(size_t nPage) override;
 };
 
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_PAGE_CHANGING, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_PAGE_CHANGED, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_PAGE_CLOSING, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_PAGE_CLOSED, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_TAB_CONTEXT_MENU, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_PAGE_CLOSE_BUTTON, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_TAB_DCLICKED, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_NEW_PAGE, wxBookCtrlEvent);
-wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_BOOK_FILELIST_BUTTON_CLICKED, clContextMenuEvent);
-#endif // GTKNOTEBOOK_HPP

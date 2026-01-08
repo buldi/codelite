@@ -34,31 +34,20 @@
 
 class WXDLLIMPEXP_SDK CompilerLocatorCLANG : public ICompilerLocator
 {
-    struct MSYS2Env {
-        int cpuBits;     // 32bit or 64bit
-        wxString prefix; // directory prefix
-    };
-    std::vector<MSYS2Env> m_msys2Envs;
+public:
+    CompilerLocatorCLANG() = default;
+    ~CompilerLocatorCLANG() override = default;
+    bool Locate() override;
+    CompilerPtr Locate(const wxString& folder) override;
 
 protected:
-    void MSWLocate();
-    void AddTools(CompilerPtr compiler, const wxString& installFolder, const wxString& suffix = "");
-    void AddTool(CompilerPtr compiler, const wxString& toolname, const wxString& toolpath,
-                 const wxString& extraArgs = "");
-    wxString GetClangVersion(const wxString& clangBinary);
+    void AddTools(CompilerPtr compiler, const wxFileName& clang);
+    void AddTool(CompilerPtr compiler, const wxString& name, const wxFileName& fntool,
+                 const wxString& extraArgs = wxEmptyString);
     wxString GetCompilerFullName(const wxString& clangBinary);
-    bool ReadMSWInstallLocation(const wxString& regkey, wxString& installPath, wxString& llvmVersion);
-    virtual void CheckUninstRegKey(const wxString& displayName, const wxString& installFolder,
-                                   const wxString& displayVersion);
-    CompilerPtr AddCompiler(const wxString& clangFolder, const wxString& name = "", const wxString& suffix = "");
-
-public:
-    CompilerLocatorCLANG();
-    virtual ~CompilerLocatorCLANG();
-
-public:
-    virtual bool Locate();
-    virtual CompilerPtr Locate(const wxString& folder);
+    void CheckUninstRegKey(const wxString& displayName, const wxString& installFolder,
+                           const wxString& displayVersion) override;
+    CompilerPtr AddCompiler(const wxFileName& clang);
 };
 
 #endif // COMPILERLOCATORCLANG_H

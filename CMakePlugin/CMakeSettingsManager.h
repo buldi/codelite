@@ -149,18 +149,6 @@ public:
     const CMakeProjectSettings* GetProjectSettings(const wxString& project,
                                                    const wxString& config) const;
 
-
-    /**
-     * @brief Returns if project settings exists and are use CMake.
-     *
-     * @param project Project name.
-     * @param config  Configuration name.
-     *
-     * @return
-     */
-    bool IsProjectEnabled(const wxString& project, const wxString& config) const;
-
-
 // Public Operations
 public:
 
@@ -168,9 +156,7 @@ public:
     /**
      * @brief Save all settings.
      */
-    inline void Save() {
-        SaveProjects();
-    }
+    void Save() { SaveProjects(); }
 
 
     /**
@@ -190,9 +176,7 @@ public:
     /**
      * @brief Load all settings.
      */
-    inline void Load() {
-        LoadProjects();
-    }
+    void Load() { LoadProjects(); }
 
 
     /**

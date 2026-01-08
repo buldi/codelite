@@ -11,14 +11,14 @@
 struct WXDLLIMPEXP_SDK AnsiColours {
     static bool dark_theme;
     static void SetDarkTheme(bool b) { dark_theme = b; }
-    inline static int OneOf(int light, int dark) { return dark_theme ? dark : light; }
-    inline static int Red() { return OneOf(160, 160); }
-    inline static int Yellow() { return OneOf(220, 214); }
-    inline static int Green() { return OneOf(28, 40); }
-    inline static int NormalText() { return OneOf(0, 255); }
-    inline static int Cyan() { return OneOf(45, 117); }
-    inline static int Magenta() { return OneOf(162, 200); }
-    inline static int Gray() { return OneOf(247, 250); }
+    static int OneOf(int light, int dark) { return dark_theme ? dark : light; }
+    static int Red() { return OneOf(160, 160); }
+    static int Yellow() { return OneOf(220, 214); }
+    static int Green() { return OneOf(28, 40); }
+    static int NormalText() { return OneOf(0, 255); }
+    static int Cyan() { return OneOf(45, 117); }
+    static int Magenta() { return OneOf(162, 200); }
+    static int Gray() { return OneOf(247, 250); }
 };
 
 enum class eColourTheme : int {
@@ -38,17 +38,12 @@ protected:
 public:
     clAnsiEscapeCodeColourBuilder(wxString* string);
     clAnsiEscapeCodeColourBuilder();
-    ~clAnsiEscapeCodeColourBuilder();
+    ~clAnsiEscapeCodeColourBuilder() = default;
 
     clAnsiEscapeCodeColourBuilder& SetTheme(eColourTheme theme);
+    clAnsiEscapeCodeColourBuilder& SetDarkTheme(bool dark_theme);
     clAnsiEscapeCodeColourBuilder& Add(const wxString& text, int textColour, bool bold = false);
     clAnsiEscapeCodeColourBuilder& Add(const wxString& text, const wxColour& colour, bool bold = false);
-
-    /**
-     * @brief wrap "line" with colour and optionally, bold font
-     * @return reference to `line`
-     */
-    wxString& WrapWithColour(wxString& line, int colour, bool bold_font = false) const;
 
     /**
      * @brief should be used when working with the default constructor

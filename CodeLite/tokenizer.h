@@ -35,22 +35,11 @@
 #include "codelite_exports.h"
 
 /**
- * StringTokenizer helps you to break a string up into a number of tokens. 
- * It replaces the standard C function strtok() and also extends it in a number of ways.
+ * StringTokenizer helps you to break a string up into a number of tokens.
  *
  * Usage example:
  *
  * \code
- * StringTokenizer tok(_T("first second third"), _T(" "));
- * while( tok.HasMore() )
- * {
- *		wxString token = tok.Next();
- * }
- * \endcode
- * 
- * An alternate way to iterate over the tokenizer:
- *
- * \code 
  * StringTokenizer tok(_T("first second third"), _T(" "));
  * for(int i=0; i<tok.GetCount(); i++)
  * {
@@ -61,14 +50,14 @@
  * StringTokenizer also allows you to break string with number of delimiters:
  *
  * \code
- * wxArrayString dlimArr;
+ * wxArrayString delimArr;
  * delimArr.Add("_T(" "));
  * delimArr.Add("_T("-"));
  * delimArr.Add("_T(":"));
  * StringTokenizer tok(_T("first-second:third"), delimArr);
  * \endcode 
  * 
- * The above exmple will result with: first, second and third.
+ * The above example will result with: first, second and third.
  *
  * \ingroup CodeLite
  * \version 1.0
@@ -77,10 +66,9 @@
  * \date 09-02-2006
  * \author Eran
  */
-class WXDLLIMPEXP_CL StringTokenizer  
+class WXDLLIMPEXP_CL StringTokenizer
 {
 	std::vector<wxString> m_tokensArr;
-	int m_nCurr;
 
 public:
 	/**
@@ -89,7 +77,7 @@ public:
 	 * \param delimiter delimiter to use
 	 * \param bAllowEmptyTokens if set to true, empty tokens will be returned as well. Default is no empty tokens
 	 */
-	StringTokenizer(const wxString& str,const wxString& delimiter = _T(" ") , const bool &bAllowEmptyTokens = false);
+	StringTokenizer(const wxString& str, const wxString& delimiter = _T(" "), bool bAllowEmptyTokens = false);
 
 	/**
 	 * Construct a tokenizer with given input string and array of delimiters
@@ -97,85 +85,45 @@ public:
 	 * \param delimiterArr array of delimiters
 	 * \param bAllowEmptyTokens if set to true, empty tokens will be returned as well. Default is no empty tokens
 	 */
-	StringTokenizer(const wxString& str,const wxArrayString& delimiterArr, const bool &bAllowEmptyTokens = false);
+	StringTokenizer(const wxString& str,const wxArrayString& delimiterArr, bool bAllowEmptyTokens = false);
 	/**
 	 * Copy constructor
 	 * \param src source tokenizer
 	 */
-	StringTokenizer(const StringTokenizer& src);
+	StringTokenizer(const StringTokenizer&) = default;
 
 	/**
 	 * Default constructor
 	 */
-	StringTokenizer();		//Default
+	StringTokenizer() = default;
 
 	/**
 	 * Destructor
 	 */
-	virtual ~StringTokenizer();
+	virtual ~StringTokenizer() = default;
 
 	//-----------------------------------------------------
 	// Operations
 	//-----------------------------------------------------
 
 	/**
-	 * Return the last token 
-	 * \return last token
-	 */
-	wxString Last();
-	/**
 	 * Get the number of tokens
 	 * \return number of tokens
 	 */
-	const int Count() const;
+	int Count() const;
 	/**
-	 * Return the current token without progressing the internal pointer
-	 * \return current token
-	 */
-	wxString Current();
-
-	/**
-	 * Return the first token and progress the internal pointer
-	 * \return First token
-	 */
-	wxString First();
-	/**
-	 * Do we have more tokens?
-	 * \return true if the next call to Next() will return a token
-	 */
-	bool HasMore();
-	/** 
-	 * Return the previous string, this function moves the internal pointer backward.
-	 * So, subsequent calls to this function, will eventually return us to the start of the tokenizer
-	 * \return previous token of empty string if we are already at start
-	 */
-	wxString Previous();
-	/**
-	 * Return next token, usually combined with HasMore() function. This function progress the 
-	 * internal pointer to next token
-	 * \return next token
-	 */
-	wxString Next();
-	/**
-	 * Random acess operator, statring from zero
+	 * Random access operator, starting from zero
 	 * \param nIndex token index
 	 * \return token at nIndex (copy of it)
 	 */
-	wxString operator[](const int nIndex);
+	wxString operator[](int nIndex);
 
 	/**
 	 * Copy one tokenizer to another
 	 * \param src source tokenizer to copy from
 	 * \return this
 	 */
-	StringTokenizer& operator=(const StringTokenizer& src);
-
-private:
-	// Functions
-	/**
-	 * Initialize the tokenizer
-	 */
-	void Initialize();
+	StringTokenizer& operator=(const StringTokenizer&) = default;
 };
 
 #endif // CODELITE_TOKENIZER_H

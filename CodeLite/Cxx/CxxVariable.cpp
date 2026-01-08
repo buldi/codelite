@@ -4,15 +4,11 @@
 #include "CxxScannerTokens.h"
 #include "CxxTokenizer.h"
 
-#include <algorithm>
-
 CxxVariable::CxxVariable(eCxxStandard standard)
     : m_standard(standard)
     , m_isAuto(false)
 {
 }
-
-CxxVariable::~CxxVariable() {}
 
 wxString CxxVariable::GetTypeAsString(const wxStringTable_t& table) const
 {
@@ -28,10 +24,8 @@ wxString CxxVariable::GetTypeAsCxxString(const wxStringTable_t& table) const
     return PackType(m_type, m_standard, true, table);
 }
 
-wxString CxxVariable::ToString(size_t flags, const wxStringTable_t& table) const
+wxString CxxVariable::ToString(size_t flags) const
 {
-    wxUnusedVar(table);
-
     wxString str;
     str << GetTypeAsString({});
 

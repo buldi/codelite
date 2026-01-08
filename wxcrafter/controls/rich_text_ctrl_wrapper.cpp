@@ -1,7 +1,8 @@
 #include "rich_text_ctrl_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
-#include <wx/richtext/richtextctrl.h>
 
 RichTextCtrlWrapper::RichTextCtrlWrapper()
     : wxcWidget(ID_WXRICHTEXT)
@@ -58,13 +59,11 @@ RichTextCtrlWrapper::RichTextCtrlWrapper()
                            "control\n(which must have wxTE_PROCESS_ENTER style for this event to be generated)."));
 
     SetPropertyString(_("Common Settings"), "wxRichTextCtrl");
-    AddProperty(new StringProperty(PROP_VALUE, wxT("wxRichTextCtrl!"), _("Value")));
+    Add<StringProperty>(PROP_VALUE, wxT("wxRichTextCtrl!"), _("Value"));
 
     m_namePattern = wxT("m_richTextCtrl");
     SetName(GenerateName());
 }
-
-RichTextCtrlWrapper::~RichTextCtrlWrapper() {}
 
 wxcWidget* RichTextCtrlWrapper::Clone() const { return new RichTextCtrlWrapper(); }
 

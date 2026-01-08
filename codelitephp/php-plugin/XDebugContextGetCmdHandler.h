@@ -30,10 +30,9 @@
 
 class XDebugContextGetCmdHandler : public XDebugCommandHandler
 {
-    int m_requestedStack;
 public:
-    XDebugContextGetCmdHandler(XDebugManager* mgr, int transcationId, int requestedStack = 0);
-    virtual ~XDebugContextGetCmdHandler();
+    XDebugContextGetCmdHandler(XDebugManager* mgr, int transactionId, int requestedStack = 0);
+    virtual ~XDebugContextGetCmdHandler() = default;
 
 public:
     virtual void Process(const wxXmlNode* response);

@@ -41,8 +41,6 @@ SFTPWorkerThread::SFTPWorkerThread()
 {
 }
 
-SFTPWorkerThread::~SFTPWorkerThread() {}
-
 SFTPWorkerThread* SFTPWorkerThread::Instance()
 {
     if (ms_instance == 0) {
@@ -62,12 +60,12 @@ void SFTPWorkerThread::Release()
 
 void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
 {
-    SFTPThreadRequet* req = dynamic_cast<SFTPThreadRequet*>(request);
+    SFTPThreadRequest* req = dynamic_cast<SFTPThreadRequest*>(request);
     // Check if we need to open an ssh connection
-    wxString currentAccout = m_sftp ? m_sftp->GetAccount() : "";
+    wxString currentAccount = m_sftp ? m_sftp->GetAccount() : "";
     wxString requestAccount = req->GetAccount().GetAccountName();
 
-    if (currentAccout.IsEmpty() || currentAccout != requestAccount) {
+    if (currentAccount.IsEmpty() || currentAccount != requestAccount) {
         m_sftp.reset();
         DoConnect(req);
     }
@@ -148,7 +146,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
                 break;
             }
             }
-        } catch (clException& e) {
+        } catch (const clException& e) {
 
             msg.Clear();
             msg << "SFTP error: " << e.What();
@@ -163,7 +161,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
                 DoReportMessage(req->GetAccount().GetAccountName(), msg, SFTPThreadMessage::STATUS_NONE);
 
                 // first time trying this request, requeue it
-                SFTPThreadRequet* retryReq = static_cast<SFTPThreadRequet*>(req->Clone());
+                SFTPThreadRequest* retryReq = static_cast<SFTPThreadRequest*>(req->Clone());
                 retryReq->SetRetryCounter(1);
                 Add(retryReq);
             }
@@ -171,7 +169,7 @@ void SFTPWorkerThread::ProcessRequest(ThreadRequest* request)
     }
 }
 
-void SFTPWorkerThread::DoConnect(SFTPThreadRequet* req)
+void SFTPWorkerThread::DoConnect(SFTPThreadRequest* req)
 {
     wxString accountName = req->GetAccount().GetAccountName();
     clSSH::Ptr_t ssh(new clSSH(req->GetAccount().GetHost(), req->GetAccount().GetUsername(),
@@ -198,7 +196,7 @@ void SFTPWorkerThread::DoConnect(SFTPThreadRequet* req)
         msg << "Successfully connected to " << accountName;
         DoReportMessage(accountName, msg, SFTPThreadMessage::STATUS_OK);
 
-    } catch (clException& e) {
+    } catch (const clException& e) {
         wxString msg;
         msg << "Connect error. " << e.What();
         DoReportMessage(accountName, msg, SFTPThreadMessage::STATUS_ERROR);
@@ -223,20 +221,22 @@ void SFTPWorkerThread::DoReportStatusBarMessage(const wxString& message)
 }
 
 // -----------------------------------------
-// SFTPWriterThreadRequet
+// SFTPWriterThreadRequest
 // -----------------------------------------
 
-SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& remoteFile,
-                                   const wxString& localFile, size_t persmissions)
+SFTPThreadRequest::SFTPThreadRequest(const SSHAccountInfo& accountInfo,
+                                     const wxString& remoteFile,
+                                     const wxString& localFile,
+                                     size_t permissions)
     : m_account(accountInfo)
     , m_remoteFile(remoteFile)
     , m_localFile(localFile)
     , m_action(eSFTPActions::kUpload)
-    , m_permissions(persmissions)
+    , m_permissions(permissions)
 {
 }
 
-SFTPThreadRequet::SFTPThreadRequet(const RemoteFileInfo& remoteFile)
+SFTPThreadRequest::SFTPThreadRequest(const RemoteFileInfo& remoteFile)
     : m_account(remoteFile.GetAccount())
     , m_remoteFile(remoteFile.GetRemoteFile())
     , m_localFile(remoteFile.GetLocalFile())
@@ -245,13 +245,15 @@ SFTPThreadRequet::SFTPThreadRequet(const RemoteFileInfo& remoteFile)
 {
 }
 
-SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo)
+SFTPThreadRequest::SFTPThreadRequest(const SSHAccountInfo& accountInfo)
     : m_account(accountInfo)
     , m_action(eSFTPActions::kConnect)
 {
 }
 
-SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& oldName, const wxString& newName)
+SFTPThreadRequest::SFTPThreadRequest(const SSHAccountInfo& accountInfo,
+                                     const wxString& oldName,
+                                     const wxString& newName)
     : m_account(accountInfo)
     , m_remoteFile(oldName)
     , m_action(eSFTPActions::kRename)
@@ -259,35 +261,14 @@ SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxSt
 {
 }
 
-SFTPThreadRequet::SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& fileToDelete)
+SFTPThreadRequest::SFTPThreadRequest(const SSHAccountInfo& accountInfo, const wxString& fileToDelete)
     : m_account(accountInfo)
     , m_remoteFile(fileToDelete)
     , m_action(eSFTPActions::kDelete)
 {
 }
 
-SFTPThreadRequet::SFTPThreadRequet(const SFTPThreadRequet& other)
-{
-    if (this == &other)
-        return;
-    *this = other;
-}
-
-SFTPThreadRequet& SFTPThreadRequet::operator=(const SFTPThreadRequet& other)
-{
-    m_account = other.m_account;
-    m_remoteFile = other.m_remoteFile;
-    m_localFile = other.m_localFile;
-    m_retryCounter = other.m_retryCounter;
-    m_uploadSuccess = other.m_uploadSuccess;
-    m_action = other.m_action;
-    m_permissions = other.m_permissions;
-    return *this;
-}
-
-SFTPThreadRequet::~SFTPThreadRequet() {}
-
-ThreadRequest* SFTPThreadRequet::Clone() const { return new SFTPThreadRequet(*this); }
+ThreadRequest* SFTPThreadRequest::Clone() const { return new SFTPThreadRequest(*this); }
 
 // -----------------------------------------
 // SFTPThreadMessage
@@ -297,5 +278,3 @@ SFTPThreadMessage::SFTPThreadMessage()
     : m_status(STATUS_NONE)
 {
 }
-
-SFTPThreadMessage::~SFTPThreadMessage() {}

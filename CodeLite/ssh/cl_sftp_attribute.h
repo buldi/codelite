@@ -36,7 +36,7 @@
 
 // We do it this way to avoid exposing the include to <libssh/sftp.h> to files including this header
 struct sftp_attributes_struct;
-typedef struct sftp_attributes_struct* SFTPAttribute_t;
+using SFTPAttribute_t = sftp_attributes_struct*;
 
 class WXDLLIMPEXP_CL SFTPAttribute : public wxClientData
 {
@@ -55,7 +55,7 @@ public:
         TYPE_FOLDER = 0x00000001,
         TYPE_SYMBLINK = 0x00000002,
         TYPE_REGULAR_FILE = 0x00000004,
-        TYPE_SEPCIAL = 0x00000008,
+        TYPE_SPECIAL = 0x00000008,
         TYPE_UNKNOWN = 0x00000010,
     };
 
@@ -86,7 +86,7 @@ public:
 
     bool IsSymlink() const { return m_flags & TYPE_SYMBLINK; }
 
-    bool IsSpecial() const { return m_flags & TYPE_SEPCIAL; }
+    bool IsSpecial() const { return m_flags & TYPE_SPECIAL; }
     void SetPermissions(size_t permissions) { this->m_permissions = permissions; }
     size_t GetPermissions() const { return m_permissions; }
 

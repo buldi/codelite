@@ -1,20 +1,23 @@
 #include "generic_dir_ctrl_wrapper.h"
+
+#include "Properties/bool_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/dirctrl.h>
 
 GenericDirCtrlWrapper::GenericDirCtrlWrapper()
     : wxcWidget(ID_WXGENERICDIRCTRL)
 {
     SetPropertyString(_("Common Settings"), "wxGenericDirCtrl");
-    AddProperty(new StringProperty(PROP_DEFAULT_FOLDER, wxT(""), _("Sets the default path")));
-    AddProperty(new StringProperty(PROP_FILTER, wxT(""),
-                                   _("Sets the filter string. The syntax is similar to the one used in wxFileDialog")));
-    AddProperty(new StringProperty(PROP_DEFAULT_FILTER, wxT(""), _("Sets the current filter index (zero-based).")));
-    AddProperty(new BoolProperty(PROP_SHOW_HIDDEN, false, _("Show hidden files")));
+    Add<StringProperty>(PROP_DEFAULT_FOLDER, wxT(""), _("Sets the default path"));
+    Add<StringProperty>(
+        PROP_FILTER, wxT(""), _("Sets the filter string. The syntax is similar to the one used in wxFileDialog"));
+    Add<StringProperty>(PROP_DEFAULT_FILTER, wxT(""), _("Sets the current filter index (zero-based)."));
+    Add<BoolProperty>(PROP_SHOW_HIDDEN, false, _("Show hidden files"));
 
     PREPEND_STYLE_FALSE(wxDIRCTRL_DIR_ONLY);
     PREPEND_STYLE_TRUE(wxDIRCTRL_3D_INTERNAL);
@@ -63,8 +66,6 @@ GenericDirCtrlWrapper::GenericDirCtrlWrapper()
     m_namePattern = wxT("m_genericDirCtrl");
     SetName(GenerateName());
 }
-
-GenericDirCtrlWrapper::~GenericDirCtrlWrapper() {}
 
 wxcWidget* GenericDirCtrlWrapper::Clone() const { return new GenericDirCtrlWrapper(); }
 

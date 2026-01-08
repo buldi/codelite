@@ -38,38 +38,20 @@ class WizardsPlugin : public IPlugin
     wxString m_folderpath;
 
 protected:
-    void GizmosRemoveDuplicates(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);
     void DoPopupButtonMenu(wxPoint pt);
     void OnFolderContentMenu(clContextMenuEvent& event);
 
-    /**
-     * @brief read the contet of multiple files
-     * @param files vector of pairs {`file-name` -> `file-content`}
-     * @param path_prefix prepend this prefix to each file before reading it
-     * @return false if we failed to read one or more files. In addition, both vectors size must me the same
-     */
-    bool BulkRead(std::vector<std::pair<wxString, wxString*>>& files,
-                  const wxString& path_prefix = wxEmptyString) const;
-    /**
-     * @brief read the contet of multiple files to the file system
-     * @param files vector of pairs {`file-name` -> `file-content`}
-     * @param path_prefix prepend this prefix to each file before reading it
-     * @return false if we failed to write one or more files. In addition, both vectors size must me the same
-     */
-    bool BulkWrite(const std::vector<std::pair<wxString, wxString>>& files,
-                   const wxString& path_prefix = wxEmptyString) const;
-
 public:
     WizardsPlugin(IManager* manager);
-    ~WizardsPlugin();
+    ~WizardsPlugin() override = default;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 
     void DoCreateNewPlugin();
     void DoCreateNewClass();

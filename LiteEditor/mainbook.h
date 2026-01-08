@@ -25,19 +25,24 @@
 #ifndef MAINBOOK_H
 #define MAINBOOK_H
 
+#include "CustomControls/clStyledTextCtrlMiniMap.hpp"
+#include "FindAndReplaceDialog.h"
 #include "Notebook.h"
 #include "clAuiBook.hpp"
 #include "clEditorBar.h"
 #include "cl_command_event.h"
 #include "cl_editor.h"
 #include "filehistory.h"
-#include "quickfindbar.h"
 #include "sessionmanager.h"
 
 #include <functional>
 #include <vector>
 #include <wx/aui/auibook.h>
 #include <wx/panel.h>
+
+#if wxHAS_MINIMAP
+#include <wx/simplebook.h>
+#endif
 
 class FilesModifiedDlg;
 
@@ -48,97 +53,15 @@ class WelcomePage;
 
 class MainBook : public wxPanel
 {
-    typedef std::vector<std::function<void(IEditor*)>> CallbackVec_t;
-
-private:
-    FileHistory m_recentFiles;
-    clEditorBar* m_navBar;
-    MainNotebook* m_book = nullptr;
-    bool m_useBuffereLimit;
-    bool m_isWorkspaceReloading;
-    bool m_reloadingDoRaise; // Prevents multiple Raises() during RestoreSession()
-    FilesModifiedDlg* m_filesModifiedDlg;
-    std::unordered_map<wxString, TagEntryPtr> m_currentNavBarTags;
-    WelcomePage* m_welcomePage = nullptr;
-    QuickFindBar* m_findBar;
-    std::unordered_map<wxString, CallbackVec_t> m_callbacksTable;
-    bool m_initDone = false;
-
 public:
-    enum {
-        kGetAll_Default = 0,                       // Default
-        kGetAll_IncludeDetached = kGetAll_Default, // for backward compatability, keep this symbol
-        kGetAll_RetainOrder = (1 << 0),            // Order must be kept
-    };
-
-private:
-    FilesModifiedDlg* GetFilesModifiedDlg();
-    void DoShowTabLabelContextMenu();
-    void CreateGuiControls();
-    void ConnectEvents();
-    void DoUpdateNotebookTheme();
-    void DoOpenImageViewer(const wxFileName& filename);
-    void DoUpdateEditorsThemes();
-
-    void OnMouseDClick(wxBookCtrlEvent& e);
-    void OnTabDClicked(wxBookCtrlEvent& e);
-    void OnTabLabelContextMenu(wxBookCtrlEvent& e);
-    void OnPageClosing(wxBookCtrlEvent& e);
-    void OnPageClosed(wxBookCtrlEvent& e);
-    void OnPageChanged(wxBookCtrlEvent& e);
-    void OnClosePage(wxBookCtrlEvent& e);
-    void OnPageChanging(wxBookCtrlEvent& e);
-    void OnEditorModified(clCommandEvent& event);
-    void OnEditorSaved(clCommandEvent& event);
-    void OnProjectFileAdded(clCommandEvent& e);
-    void OnProjectFileRemoved(clCommandEvent& e);
-    void OnWorkspaceLoaded(clWorkspaceEvent& e);
-    void OnWorkspaceClosed(clWorkspaceEvent& e);
-    void OnDebugEnded(clDebugEvent& e);
-    void OnInitDone(wxCommandEvent& e);
-    void OnThemeChanged(clCommandEvent& e);
-    void OnColoursAndFontsChanged(clCommandEvent& e);
-    bool DoSelectPage(wxWindow* win);
-    void DoHandleFrameMenu(clEditor* editor);
-    void OnWorkspaceReloadStarted(clWorkspaceEvent& e);
-    void OnWorkspaceReloadEnded(clWorkspaceEvent& e);
-    void OnEditorSettingsChanged(wxCommandEvent& e);
-    void OnSettingsChanged(wxCommandEvent& e);
-    void OnIdle(wxIdleEvent& event);
-    void OnSessionLoaded(clCommandEvent& event);
-    /**
-     * @brief return proper tab label for a given filename
-     */
-    wxString CreateLabel(const wxFileName& fn, bool modified) const;
-    /**
-     * @brief open file and set an alternate content
-     */
-    void DoOpenFile(const wxString& filename, const wxString& content = "");
-
-    /**
-     * @brief display the welcome page
-     */
-    void ShowWelcomePage(bool show);
-    void DoShowWindow(wxWindow* win, bool show);
-
-    void OnEditorChanged(wxCommandEvent& event);
-    void OnAllEditorClosed(wxCommandEvent& event);
-
-    void push_callback(std::function<void(IEditor*)>&& callback, const wxString& fullpath);
-    void execute_callbacks_for_file(const wxString& fullpath);
-    bool has_callbacks(const wxString& fullpath) const;
-
-    int FindEditorIndexByFullPath(const wxString& fullpath);
-    void DoRestoreSession(const SessionEntry& entry);
-
-public:
+    using CallbackVec_t = std::vector<std::function<void(IEditor*)>>;
     MainBook(wxWindow* parent);
     virtual ~MainBook();
 
     WelcomePage* GetWelcomePage(bool createIfMissing = true);
 
-    void SetFindBar(QuickFindBar* findBar);
-    QuickFindBar* GetFindBar() const { return m_findBar; }
+    void SetFindBar(FindAndReplaceDialog* findBar);
+    FindAndReplaceDialog* GetFindBar() const { return m_findBar; }
 
     /**
      * @brief create the welcome page
@@ -186,10 +109,8 @@ public:
     clEditor* GetActiveEditor();
     /**
      * @brief return vector of all editors in the notebook. This function only returns instances of type clEditor
-     * @param editors [output]
-     * @param flags kGetAll_*
      */
-    void GetAllEditors(clEditor::Vec_t& editors, size_t flags);
+    clEditor::Vec_t GetAllEditors();
     /**
      * @brief return vector of all tabs in the notebook
      * @param tabs [output]
@@ -223,12 +144,19 @@ public:
     /**
      * @brief open a remote file into the editor mainbook
      */
-    clEditor* OpenRemoteFile(const wxString& local_path, const wxString& remote_path, const wxString& ssh_account,
+    clEditor* OpenRemoteFile(const wxString& local_path,
+                             const wxString& remote_path,
+                             const wxString& ssh_account,
                              const wxString& tooltip = wxEmptyString);
 
-    clEditor* OpenFile(const wxString& file_name, const wxString& projectName = wxEmptyString, int lineno = wxNOT_FOUND,
-                       long position = wxNOT_FOUND, OF_extra extra = OF_AddJump, bool preserveSelection = true,
-                       int bmp = wxNOT_FOUND, const wxString& tooltip = wxEmptyString);
+    clEditor* OpenFile(const wxString& file_name,
+                       const wxString& projectName = wxEmptyString,
+                       int lineno = wxNOT_FOUND,
+                       long position = wxNOT_FOUND,
+                       OF_extra extra = OF_AddJump,
+                       bool preserveSelection = true,
+                       int bmp = wxNOT_FOUND,
+                       const wxString& tooltip = wxEmptyString);
     /**
      * @brief open file based on a browsing record
      */
@@ -245,12 +173,14 @@ public:
     /**
      * @brief add page to the main book
      */
-    bool AddBookPage(wxWindow* win, const wxString& text, const wxString& tooltip, int bmp, bool selected,
-                     int insert_at_index);
+    bool AddBookPage(
+        wxWindow* win, const wxString& text, const wxString& tooltip, int bmp, bool selected, int insert_at_index);
     bool SelectPage(wxWindow* win);
 
-    bool UserSelectFiles(std::vector<std::pair<wxFileName, bool>>& files, const wxString& title,
-                         const wxString& caption, bool cancellable = true);
+    bool UserSelectFiles(std::vector<std::pair<wxFileName, bool>>& files,
+                         const wxString& title,
+                         const wxString& caption,
+                         bool cancellable = true);
 
     bool SaveAll(bool askUser, bool includeUntitled);
 
@@ -290,6 +220,269 @@ public:
     bool GetUseBuffereLimit() const { return m_useBuffereLimit; }
 
     MainNotebook* GetNotebook() { return m_book; }
+
+#if wxHAS_MINIMAP
+    /**
+     * Sets whether the minimap should be shown for the current editor page.
+     *
+     * <p>When {@code b} is {@code true}, the minimap is enabled and the current
+     * editor page is passed to {@code SelectMinimapForEditor} to refresh the view.
+     * If {@code b} is {@code false}, the minimap is disabled and no editor page
+     * is selected.</p>
+     *
+     * @param b {@code true} to enable the minimap, {@code false} to disable it.
+     */
+    void SetShowMiniMap(bool b);
+
+    /**
+     * @brief Returns the visibility status of the mini‑map.
+     *
+     * This inline function checks the value of the member variable
+     * {@code m_showMiniMap} and returns {@code true} if the mini‑map is currently
+     * displayed, or {@code false} otherwise.
+     *
+     * @return {@code true} when the mini‑map is shown, {@code false} when it is hidden.
+     */
+    inline bool IsShowMiniMap() const { return m_showMiniMap; }
+#endif
+
+private:
+    FilesModifiedDlg* GetFilesModifiedDlg();
+    void DoShowTabLabelContextMenu(size_t tabIdx);
+    void CreateGuiControls();
+    void ConnectEvents();
+    void DoUpdateNotebookTheme();
+    void DoOpenImageViewer(const wxFileName& filename);
+    /**
+     * @brief Updates editors' themes, syntax highlighting, and minimap settings.
+     *
+     * This function performs the following actions:
+     *   - Retrieves all open editors and reapplies syntax highlighting according
+     *     to each editor's associated context name.
+     *   - If there is an active editor, requests new semantic tokens for it via
+     *     the LSP manager.
+     *   - When compiled with minimap support, copies the main editor's settings
+     *     to each minimap instance to keep them in sync.
+     *
+     * No parameters are taken and no value is returned.
+     */
+    void DoUpdateEditorsThemes();
+
+    void OnMouseDClick(wxBookCtrlEvent& e);
+    void OnTabDClicked(wxBookCtrlEvent& e);
+    void OnTabLabelContextMenu(wxBookCtrlEvent& e);
+    void OnPageClosing(wxBookCtrlEvent& e);
+    void OnPageClosed(wxBookCtrlEvent& e);
+    void OnPageChanged(wxBookCtrlEvent& e);
+    void OnClosePage(wxBookCtrlEvent& e);
+    void OnPageChanging(wxBookCtrlEvent& e);
+    void OnEditorModified(clCommandEvent& event);
+    void OnEditorSaved(clCommandEvent& event);
+    void OnProjectFileAdded(clCommandEvent& e);
+    void OnProjectFileRemoved(clCommandEvent& e);
+    void OnWorkspaceLoaded(clWorkspaceEvent& e);
+    void OnWorkspaceClosed(clWorkspaceEvent& e);
+    void OnDebugEnded(clDebugEvent& e);
+    void OnInitDone(wxCommandEvent& e);
+    void OnThemeChanged(clCommandEvent& e);
+    void OnColoursAndFontsChanged(clCommandEvent& e);
+    bool DoSelectPage(wxWindow* win);
+    void DoHandleFrameMenu(clEditor* editor);
+    void OnWorkspaceReloadStarted(clWorkspaceEvent& e);
+    void OnWorkspaceReloadEnded(clWorkspaceEvent& e);
+    void OnEditorSettingsChanged(wxCommandEvent& e);
+    void OnSettingsChanged(wxCommandEvent& e);
+    void OnIdle(wxIdleEvent& event);
+    void OnSessionLoaded(clCommandEvent& event);
+    void OnHideWelcomePage(clCommandEvent& event);
+
+    /**
+     * @brief return proper tab label for a given filename
+     */
+    wxString CreateLabel(const wxFileName& fn, bool modified) const;
+    /**
+     * @brief open file and set an alternate content
+     */
+    void DoOpenFile(const wxString& filename, const wxString& content = "");
+
+    /**
+     * @brief display the welcome page
+     */
+    void ShowWelcomePage(bool show);
+    void DoShowWindow(wxWindow* win, bool show);
+
+    void OnEditorChanged(wxCommandEvent& event);
+    void OnAllEditorClosed(wxCommandEvent& event);
+
+    void push_callback(std::function<void(IEditor*)>&& callback, const wxString& fullpath);
+    void execute_callbacks_for_file(const wxString& fullpath);
+    bool has_callbacks(const wxString& fullpath) const;
+
+    int FindEditorIndexByFullPath(const wxString& fullpath);
+    void DoRestoreSession(const SessionEntry& entry);
+
+#if wxHAS_MINIMAP
+    /**
+     * Selects and displays the minimap corresponding to the given editor control.
+     *
+     * If {@code ctrl} is {@code nullptr}, the minimap view is hidden. Otherwise, the method
+     * searches for a minimap whose client data matches {@code ctrl}. If found, that
+     * minimap is made the current selection. If not found, a new minimap is created,
+     * added to the book, and the split pane is adjusted to make the minimap visible.
+     *
+     * @param ctrl the editor control to associate with a minimap; may be {@code nullptr}
+     *             to hide the minimap view.
+     */
+    clStyledTextCtrlMiniMap* SelectMinimapForEditor(wxStyledTextCtrl* ctrl);
+
+    /**
+     * @brief Selects and displays the minimap for the currently active page in the notebook.
+     *
+     * This method retrieves the current page from the notebook control, attempts to cast it to a
+     * clEditor instance, and updates the minimap view accordingly. If the current page is not an
+     * editor or no page is active, the minimap is cleared by passing nullptr to SelectMinimapForEditor.
+     *
+     * @param None
+     *
+     * @return void This function does not return a value.
+     *
+     * @note This function assumes that m_book is a valid pointer to a notebook control. If the
+     *       current page is an editor, its associated control is passed to SelectMinimapForEditor;
+     *       otherwise, nullptr is passed to clear the minimap.
+     *
+     * @code
+     * // Example: Update minimap when switching to a new page
+     * MainBook* mainBook = GetMainBook();
+     * mainBook->SelectMinimapForCurrentPage();
+     * // The minimap will now display the current editor's overview, or be cleared if no editor is active
+     * @endcode
+     *
+     * @see SelectMinimapForEditor(wxStyledTextCtrl*)
+     * @see clEditor
+     */
+    void SelectMinimapForCurrentPage();
+
+    /**
+     * @brief Creates a clStyledTextCtrlMiniMap for the given editor.
+     *
+     * This function constructs a new clStyledTextCtrlMiniMap, associates it
+     * with the provided wxStyledTextCtrl, stores the editor as client data,
+     * and copies the editor's styles to the minimap.
+     *
+     * @param ctrl Pointer to the wxStyledTextCtrl editor for which the minimap is created.
+     * @return Pointer to the newly created clStyledTextCtrlMiniMap.
+     * @see clStyledTextCtrlMiniMap
+     * @see CopyStyles
+     */
+    clStyledTextCtrlMiniMap* CreateMinimapForEditor(wxStyledTextCtrl* ctrl);
+
+    /**
+     * @brief Toggles the visibility of the mini map within the main book.
+     *
+     * If `show` is `true`, the mini map is displayed when it is not already visible.
+     * If `show` is `false`, the mini map is hidden when it is currently visible.
+     * In either case, a size event is sent to update the layout after the visibility change.
+     *
+     * @param show `true` to show the mini map, `false` to hide it.
+     */
+    void ShowMiniMap(bool show);
+
+    /**
+     * @brief Changes the mini-map book selection to the page corresponding to the given window.
+     *
+     * This method searches for the specified window in the mini-maps book and changes the selection
+     * to that page without generating selection change events. If the window is not found, no action is taken.
+     *
+     * @param win The window whose corresponding mini-map page should be selected. Must be a valid wxWindow pointer
+     *            that exists as a page in the mini-maps book.
+     *
+     * @return void This method does not return a value.
+     *
+     * @note This method uses ChangeSelection() rather than SetSelection(), meaning no page change events
+     *       (such as wxEVT_NOTEBOOK_PAGE_CHANGED) will be fired.
+     *
+     * @see wxNotebook::ChangeSelection()
+     * @see wxNotebook::FindPage()
+     */
+    void MiniMapChangeSelection(wxWindow* win);
+
+    /**
+     * @brief Finds the index of the mini-map associated with a given editor control.
+     *
+     * This method iterates through all pages in the mini-maps notebook to locate the
+     * mini-map widget whose client data matches the provided editor control pointer.
+     *
+     * @param ctrl Pointer to the wxStyledTextCtrl editor control for which to find the
+     *             corresponding mini-map index.
+     *
+     * @return The zero-based index of the mini-map page if found, or wxNOT_FOUND if no
+     *         matching mini-map exists.
+     *
+     * @note Pages that are not mini-map controls (i.e., cannot be cast to
+     *       clStyledTextCtrlMiniMap*) are silently skipped during iteration.
+     *
+     * @see clStyledTextCtrlMiniMap
+     * @see MainBook::m_miniMapsBook
+     *
+     * @par Example:
+     * @code
+     * wxStyledTextCtrl* editor = GetActiveEditor();
+     * int miniMapIndex = FindMiniMapIndexForEditor(editor);
+     * if (miniMapIndex != wxNOT_FOUND) {
+     *     m_miniMapsBook->SetSelection(miniMapIndex);
+     * }
+     * @endcode
+     */
+    int FindMiniMapIndexForEditor(wxStyledTextCtrl* ctrl);
+
+    /**
+     * @brief Checks whether the mini-map view is synchronized with the currently active editor.
+     *
+     * This function verifies that the mini-map book control is displaying the correct mini-map
+     * corresponding to the currently selected editor page. If the mini-map is hidden, it is
+     * considered in sync. If no editor is active, the mini-map should be hidden to be in sync.
+     *
+     * @return true if the mini-map is synchronized with the current editor (or if the mini-map
+     *         is hidden), false otherwise.
+     *
+     * @note This method belongs to the MainBook class, which manages the main editor notebook
+     *       and its associated mini-map view.
+     *
+     * @see FindMiniMapIndexForEditor
+     * @see m_miniMapsBook
+     * @see m_book
+     *
+     * Example usage:
+     * @code
+     * MainBook* mainBook = GetMainBook();
+     * if (!mainBook->IsMiniMapInSync()) {
+     *     // Synchronize the mini-map with the current editor
+     *     mainBook->SyncMiniMap();
+     * }
+     * @endcode
+     */
+    bool IsMiniMapInSync();
+
+#endif
+
+    FileHistory m_recentFiles;
+    clEditorBar* m_navBar{nullptr};
+    MainNotebook* m_book{nullptr};
+    bool m_useBuffereLimit{true};
+    bool m_isWorkspaceReloading{false};
+    bool m_reloadingDoRaise{true}; // Prevents multiple Raises() during RestoreSession()
+    FilesModifiedDlg* m_filesModifiedDlg{nullptr};
+    std::unordered_map<wxString, TagEntryPtr> m_currentNavBarTags;
+    WelcomePage* m_welcomePage{nullptr};
+    FindAndReplaceDialog* m_findBar{nullptr};
+    std::unordered_map<wxString, CallbackVec_t> m_callbacksTable;
+    bool m_initDone{false};
+
+#if wxHAS_MINIMAP
+    wxPanel* m_mainView{nullptr};
+    wxSimplebook* m_miniMapsBook{nullptr};
+    bool m_showMiniMap{false};
+#endif
 };
 
 #endif // MAINBOOK_H

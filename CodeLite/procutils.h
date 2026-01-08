@@ -22,12 +22,12 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#ifndef PROCUTILS_H
-#define PROCUTILS_H
+#pragma once
 
 #include "codelite_exports.h"
 
 #include <map>
+#include <set>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/defs.h>
@@ -49,7 +49,7 @@ struct ProcessEntry {
     long pid;
 };
 
-typedef std::vector<ProcessEntry> PidVec_t;
+using PidVec_t = std::vector<ProcessEntry>;
 
 /// Event class used by ProcUtils::ShellExecAsync method
 class WXDLLIMPEXP_CL clShellProcessEvent : public clCommandEvent
@@ -60,10 +60,10 @@ class WXDLLIMPEXP_CL clShellProcessEvent : public clCommandEvent
 
 public:
     clShellProcessEvent(wxEventType commandType = wxEVT_NULL, int winid = 0);
-    clShellProcessEvent(const clShellProcessEvent& event);
-    clShellProcessEvent& operator=(const clShellProcessEvent& src);
-    virtual ~clShellProcessEvent();
-    virtual wxEvent* Clone() const { return new clShellProcessEvent(*this); }
+    clShellProcessEvent(const clShellProcessEvent&) = default;
+    clShellProcessEvent& operator=(const clShellProcessEvent&) = delete;
+    ~clShellProcessEvent() override = default;
+    wxEvent* Clone() const override { return new clShellProcessEvent(*this); }
 
     void SetOutput(const wxString& output) { this->m_output = output; }
     const wxString& GetOutput() const { return m_output; }
@@ -75,7 +75,7 @@ public:
     int GetExitCode() const { return m_exitCode; }
 };
 
-typedef void (wxEvtHandler::*clShellProcessEventFunction)(clShellProcessEvent&);
+using clShellProcessEventFunction = void (wxEvtHandler::*)(clShellProcessEvent&);
 #define clShellProcessEventHandler(func) wxEVENT_HANDLER_CAST(clShellProcessEventFunction, func)
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SHELL_ASYNC_PROCESS_TERMINATED, clShellProcessEvent);
@@ -83,18 +83,20 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_CL, wxEVT_SHELL_ASYNC_PROCESS_TERMINATED, c
 class WXDLLIMPEXP_CL ProcUtils
 {
 public:
-    ProcUtils();
-    ~ProcUtils();
+    ProcUtils() = default;
+    ~ProcUtils() = default;
 
+    /**
+     * @brief wrap a given command in the shell command (e.g. cmd /c "command")
+     */
     static wxString& WrapInShell(wxString& cmd);
 
-    static void GetProcTree(std::map<unsigned long, bool>& parentsMap, long pid);
+    static std::set<unsigned long> GetProcTree(long pid);
     static void ExecuteCommand(const wxString& command, wxArrayString& output,
                                long flags = wxEXEC_NODISABLE | wxEXEC_SYNC);
     static void ExecuteInteractiveCommand(const wxString& command);
     static wxString GetProcessNameByPid(long pid);
-    static void GetProcessList(std::vector<ProcessEntry>& proclist);
-    static void GetChildren(long pid, std::vector<long>& children);
+    static std::vector<ProcessEntry> GetProcessList();
     static bool Shell(const wxString& programConsoleCommand);
     static bool Locate(const wxString& name, wxString& where);
 
@@ -105,7 +107,7 @@ public:
 
     /**
      * \brief a safe function that executes 'command' and returns its output. This function
-     * is safed to be called from secondary thread (hence, SafeExecuteCommand)
+     * is safe to be called from secondary thread (hence, SafeExecuteCommand)
      * \param command
      * \param output
      */
@@ -115,6 +117,12 @@ public:
      * @brief execute a command and return its output as plain string
      */
     static wxString SafeExecuteCommand(const wxString& command);
+
+    /**
+     * @brief execute command and execute the callback on each line until the callback returns true
+     */
+    static void GrepCommandOutputWithCallback(const std::vector<wxString>& cmd,
+                                              std::function<bool(const wxString&)> callback);
 
     /**
      * @brief execute command and search the output for the first occurrence of `find_what`
@@ -139,5 +147,3 @@ public:
      */
     static int ShellExecSync(const wxString& command, wxString* output);
 };
-
-#endif // PROCUTILS_H

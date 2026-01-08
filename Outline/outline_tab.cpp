@@ -1,7 +1,9 @@
 #include "outline_tab.h"
 
 #include "ColoursAndFontsManager.h"
+#include "LSP/LSPManager.hpp"
 #include "clAnsiEscapeCodeColourBuilder.hpp"
+#include "clSideBarCtrl.hpp"
 #include "codelite_events.h"
 #include "event_notifier.h"
 #include "file_logger.h"
@@ -27,22 +29,24 @@ using namespace LSP;
 OutlineTab::OutlineTab(wxWindow* parent)
     : OutlineTabBaseClass(parent)
 {
-    EventNotifier::Get()->Bind(wxEVT_LSP_DOCUMENT_SYMBOLS_QUICK_OUTLINE, &OutlineTab::OnOutlineSymbols, this);
+    EventNotifier::Get()->Bind(wxEVT_LSP_DOCUMENT_SYMBOLS_OUTLINE_VIEW, &OutlineTab::OnOutlineSymbols, this);
     EventNotifier::Get()->Bind(wxEVT_ACTIVE_EDITOR_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
     EventNotifier::Get()->Bind(wxEVT_ALL_EDITORS_CLOSED, &OutlineTab::OnAllEditorsClosed, this);
+    EventNotifier::Get()->Bind(wxEVT_SIDEBAR_SELECTION_CHANGED, &OutlineTab::OnSideBarPageChanged, this);
 }
 
 OutlineTab::~OutlineTab()
 {
-    EventNotifier::Get()->Unbind(wxEVT_LSP_DOCUMENT_SYMBOLS_QUICK_OUTLINE, &OutlineTab::OnOutlineSymbols, this);
+    EventNotifier::Get()->Unbind(wxEVT_LSP_DOCUMENT_SYMBOLS_OUTLINE_VIEW, &OutlineTab::OnOutlineSymbols, this);
     EventNotifier::Get()->Unbind(wxEVT_ACTIVE_EDITOR_CHANGED, &OutlineTab::OnActiveEditorChanged, this);
     EventNotifier::Get()->Unbind(wxEVT_ALL_EDITORS_CLOSED, &OutlineTab::OnAllEditorsClosed, this);
+    EventNotifier::Get()->Unbind(wxEVT_SIDEBAR_SELECTION_CHANGED, &OutlineTab::OnSideBarPageChanged, this);
 }
 
 void OutlineTab::OnOutlineSymbols(LSPEvent& event)
 {
     event.Skip();
-    if(!IsShown()) {
+    if (!IsShown()) {
         return;
     }
     RenderSymbols(event.GetSymbolsInformation(), event.GetFileName());
@@ -56,13 +60,15 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
     CHECK_PTR_RET(editor);
 
     wxString remote_path;
-    if(editor->IsRemoteFile()) {
+    if (editor->IsRemoteFile()) {
         remote_path = editor->GetRemotePath();
     }
 
     wxString local_path = editor->GetFileName().GetFullPath();
-    if(local_path != filename && remote_path != filename) {
-        // the symbols do not match the ative editor
+    if (local_path != filename && remote_path != filename) {
+        // the symbols do not match the active editor
+        // Request symbols for the current editor.
+        LSP::Manager::GetInstance().RequestSymbolsForEditor(editor, nullptr);
         return;
     }
 
@@ -70,7 +76,7 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
     m_symbols = symbols;
 
     auto lexer = ColoursAndFontsManager::Get().GetLexer("python");
-    if(symbols.empty()) {
+    if (symbols.empty()) {
         clAnsiEscapeCodeColourBuilder builder;
         builder.SetTheme(lexer->IsDark() ? eColourTheme::DARK : eColourTheme::LIGHT);
         builder.Add(_("Language Server is still not ready... "), AnsiColours::NormalText(), false);
@@ -99,10 +105,10 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
 
     std::unordered_set<wxString> containers;
     clAnsiEscapeCodeColourBuilder builder;
-    for(const SymbolInformation& si : m_symbols) {
+    for (const SymbolInformation& si : m_symbols) {
         builder.Clear();
 
-        if(!si.GetContainerName().empty() && containers.count(si.GetContainerName()) == 0) {
+        if (!si.GetContainerName().empty() && containers.count(si.GetContainerName()) == 0) {
             // probably a fake container
             containers.insert(si.GetContainerName());
             builder.Add(CLASS_SYMBOL + " ", AnsiColours::NormalText());
@@ -115,7 +121,7 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
         builder.Add(wxString(' ', indent_level), AnsiColours::NormalText());
 
         // determine the symbol
-        switch(si.GetKind()) {
+        switch (si.GetKind()) {
         case kSK_File:
         case kSK_Module:
         case kSK_Package:
@@ -134,7 +140,7 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
         case kSK_Function:
         case kSK_Constructor:
             builder.Add(FUNCTION_SYMBOL + " ", AnsiColours::NormalText());
-            if(si.GetName().Contains("(") && si.GetName().Contains(")")) {
+            if (si.GetName().Contains("(") && si.GetName().Contains(")")) {
                 // the name also has the signature
                 wxString signature = si.GetName().AfterFirst('(');
                 signature = signature.BeforeLast(')');
@@ -160,7 +166,7 @@ void OutlineTab::RenderSymbols(const std::vector<LSP::SymbolInformation>& symbol
         }
         m_dvListCtrl->AddLine(builder.GetString(), false, (wxUIntPtr)&si);
     }
-    if(!m_dvListCtrl->IsEmpty()) {
+    if (!m_dvListCtrl->IsEmpty()) {
         m_dvListCtrl->SelectRow(0);
     }
     m_dvListCtrl->Commit();
@@ -208,4 +214,12 @@ void OutlineTab::OnItemSelected(wxDataViewEvent& event)
 
     // set the focus to the editor
     editor->GetCtrl()->CallAfter(&wxStyledTextCtrl::SetFocus);
+}
+
+void OutlineTab::OnSideBarPageChanged(clCommandEvent& event)
+{
+    event.Skip();
+    // Clear and request symbols for the current editor.
+    ClearView();
+    LSP::Manager::GetInstance().RequestSymbolsForEditor(clGetManager()->GetActiveEditor(), nullptr);
 }

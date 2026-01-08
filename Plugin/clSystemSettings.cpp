@@ -1,6 +1,5 @@
 #include "clSystemSettings.h"
 
-#include "ColoursAndFontsManager.h"
 #include "cl_config.h"
 #include "codelite_events.h"
 #include "drawingutils.h"
@@ -9,8 +8,11 @@
 #include "globals.h"
 #include "imanager.h"
 
+#include <mutex>
+#include <optional>
 #include <wx/app.h>
 #include <wx/button.h>
+#include <wx/dialog.h>
 #include <wx/panel.h>
 #include <wx/settings.h>
 
@@ -18,16 +20,10 @@ wxColour clSystemSettings::btn_face;
 wxColour clSystemSettings::panel_face;
 
 #ifdef __WXMSW__
-#define IS_MSW 1
-#define IS_MAC 0
 #define IS_GTK 0
 #elif defined(__WXOSX__)
-#define IS_MSW 0
-#define IS_MAC 1
 #define IS_GTK 0
 #else
-#define IS_MSW 0
-#define IS_MAC 0
 #define IS_GTK 1
 #endif
 
@@ -35,7 +31,7 @@ namespace
 {
 /// keep the initial startup background colour
 /// we use this to detect any theme changes done to the system
-/// the checks are done in the OnAppAcitvated event
+/// the checks are done in the OnAppActivated event
 wxColour startupBackgroundColour;
 
 #ifdef __WXGTK__
@@ -62,8 +58,6 @@ clSystemSettings::clSystemSettings()
     /// keep the initial background colour
     startupBackgroundColour = wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
 }
-
-clSystemSettings::~clSystemSettings() {}
 
 wxColour clSystemSettings::GetColour(int index)
 {
@@ -138,13 +132,33 @@ void clSystemSettings::DoColourChangedEvent()
     EventNotifier::Get()->AddPendingEvent(evtColoursChanged);
 }
 
+namespace
+{
+class MyDialog : public wxDialog
+{
+public:
+    MyDialog(wxWindow* parent)
+        : wxDialog(parent, wxID_ANY, wxEmptyString)
+    {
+        Hide();
+    }
+    ~MyDialog() override = default;
+};
+std::once_flag once;
+} // namespace
+
 wxColour clSystemSettings::GetDefaultPanelColour()
 {
     wxColour panel_colour;
-#ifdef __WXMSW__
-    panel_colour = GetColour(wxSYS_COLOUR_3DFACE);
+#if defined(__WXMAC__) || defined(__WXMSW__)
+    static wxColour dlg_bg_colour;
+    std::call_once(once, []() {
+        MyDialog* dlg = new MyDialog(wxTheApp->GetTopWindow());
+        dlg_bg_colour = dlg->GetBackgroundColour();
+    });
+    panel_colour = dlg_bg_colour;
 #else
-    panel_colour = GetColour(IS_GTK ? wxSYS_COLOUR_WINDOW : wxSYS_COLOUR_3DFACE);
+    panel_colour = GetColour(wxSYS_COLOUR_WINDOW);
 #endif
     return panel_colour;
 }
@@ -163,12 +177,17 @@ void clSystemSettings::OnAppActivated(wxActivateEvent& event)
     }
 }
 
-void clSystemSettings::SampleColoursFromControls() {}
-
-bool clSystemSettings::IsLexerThemeDark()
+bool clSystemSettings::IsDark()
 {
-    auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
-    return lexer && lexer->IsDark();
+#if wxCHECK_VERSION(3, 3, 0)
+    return GetAppearance().IsDark();
+#else
+    static bool isDark = false;
+    static bool once = true;
+    if (once) {
+        once = false;
+        isDark = DrawingUtils::IsDark(GetDefaultPanelColour());
+    }
+    return isDark;
+#endif
 }
-
-bool clSystemSettings::IsDark() { return DrawingUtils::IsDark(GetDefaultPanelColour()); }

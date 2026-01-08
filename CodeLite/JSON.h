@@ -34,7 +34,7 @@
 #include <wx/gdicmn.h>
 #include "codelite_exports.h"
 #include <map>
-#include "cJSON.h"
+#include <cJSON.h>
 #if wxUSE_GUI
 #include <wx/arrstr.h>
 #include <wx/colour.h>
@@ -53,7 +53,7 @@ class WXDLLIMPEXP_CL JSONItem
 protected:
     cJSON* m_json = nullptr;
     cJSON* m_walker = nullptr;
-    wxString m_properytName;
+    wxString m_propertyName;
     int m_type = wxNOT_FOUND;
 
     // Values
@@ -66,8 +66,8 @@ public:
     JSONItem(const wxString& name, const std::string& val);
     JSONItem(const wxString& name, const char* pval, size_t len);
     JSONItem(const wxString& name, bool val);
-    JSONItem() {}
-    virtual ~JSONItem() {}
+    JSONItem() = default;
+    virtual ~JSONItem() = default;
 
     // Walkers
     JSONItem firstChild();
@@ -77,8 +77,8 @@ public:
     ////////////////////////////////////////////////
     void setType(int m_type) { this->m_type = m_type; }
     int getType() const { return m_type; }
-    const wxString& GetPropertyName() const { return m_properytName; }
-    void SetPropertyName(const wxString& name) { m_properytName = name; }
+    const wxString& GetPropertyName() const { return m_propertyName; }
+    void SetPropertyName(const wxString& name) { m_propertyName = name; }
 
     // Readers
     ////////////////////////////////////////////////
@@ -107,7 +107,7 @@ public:
     std::vector<int> toIntArray(const std::vector<int>& defaultValue = {}) const;
     JSONItem arrayItem(int pos) const;
 
-    // Retuen the object type
+    // Return the object type
     bool isNull() const;
     bool isBool() const;
     bool isString() const;
@@ -125,8 +125,33 @@ public:
     int toInt(int defaultVal = -1) const;
 
     /// Convert the value into `T` from
-    template <typename T> T fromNumber(T default_value) const { return static_cast<T>(toInt((int)default_value)); }
+    template <typename T>
+    T fromNumber(T default_value) const
+    {
+        return static_cast<T>(toInt((int)default_value));
+    }
 
+    template <typename T>
+    inline T GetValue() const
+    {
+        if constexpr (std::is_same_v<T, bool>) {
+            return toBool();
+        } else if constexpr (std::is_same_v<T, int>) {
+            return toInt();
+        } else if constexpr (std::is_same_v<T, size_t>) {
+            return toSize_t();
+        } else if constexpr (std::is_same_v<T, double>) {
+            return toDouble();
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            return toString().ToStdString(wxConvUTF8);
+        } else if constexpr (std::is_same_v<T, wxString>) {
+            return toString();
+        } else if constexpr (std::is_same_v<T, wxArrayString>) {
+            return toArrayString();
+        } else {
+            static_assert(!std::is_same_v<T, T>, "GetValue called with unsupported type.");
+        }
+    }
     size_t toSize_t(size_t defaultVal = 0) const;
     double toDouble(double defaultVal = -1.0) const;
     wxFileName toFileName() const;
@@ -136,7 +161,7 @@ public:
     wxSize toSize() const;
     wxPoint toPoint() const;
 
-    wxStringMap_t toStringMap() const;
+    wxStringMap_t toStringMap(const wxStringMap_t& default_map = {}) const;
 
     // Writers
     ////////////////////////////////////////////////
@@ -152,12 +177,12 @@ public:
     static JSONItem createArray(const wxString& name = wxT(""));
 
     /**
-     * @brief add array to this json and return a referece to the newly added array
+     * @brief add array to this json and return a reference to the newly added array
      */
     JSONItem AddArray(const wxString& name);
 
     /**
-     * @brief add object to this json and return a referece to the newly added object
+     * @brief add object to this json and return a reference to the newly added object
      */
     JSONItem AddObject(const wxString& name);
 
@@ -259,8 +284,8 @@ public:
 
 private:
     // Make this class not copyable
-    JSON(const JSON& src);
-    JSON& operator=(const JSON& src);
+    JSON(const JSON&) = delete;
+    JSON& operator=(const JSON&) = delete;
 };
 
 #endif // ZJSONNODE_H

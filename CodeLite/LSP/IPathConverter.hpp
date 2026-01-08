@@ -4,17 +4,17 @@
 #include "LSP/FilePath.hpp"
 #include "codelite_exports.h"
 
-#include <wx/sharedptr.h>
+#include <memory>
 #include <wx/string.h>
 
 class WXDLLIMPEXP_CL IPathConverter
 {
 public:
-    typedef wxSharedPtr<IPathConverter> Ptr_t;
+    using Ptr_t = std::shared_ptr<IPathConverter>;
 
 public:
-    IPathConverter() {}
-    virtual ~IPathConverter() {}
+    IPathConverter() = default;
+    virtual ~IPathConverter() = default;
 
     /**
      * @brief convert path from a given source to the known path by CodeLite (usually the system default path)

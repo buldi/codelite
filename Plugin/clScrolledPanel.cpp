@@ -267,11 +267,11 @@ void clScrolledPanel::OnCharHook(wxKeyEvent& event)
         } else if (event.GetKeyCode() == WXK_PAGEDOWN) {
             ScrollRows(GetPageSize(), wxDOWN);
         } else {
-            // propogate the event (i.e. we did not handle it here)
+            // propagate the event (i.e. we did not handle it here)
             event.Skip();
         }
     } else {
-        // propogate the event (i.e. we did not handle it here)
+        // propagate the event (i.e. we did not handle it here)
         event.Skip();
     }
 }
@@ -281,7 +281,7 @@ int clScrolledPanel::GetPageSize() const { return m_pageSize; }
 void clScrolledPanel::OnIdle(wxIdleEvent& event)
 {
     event.Skip();
-    static clIdleEventThrottler event_throttler{ 200 };
+    static clIdleEventThrottler event_throttler{200};
     if (!event_throttler.CanHandle()) {
         return;
     }
@@ -379,14 +379,6 @@ void clScrolledPanel::DoCancelDrag()
 wxFont clScrolledPanel::GetDefaultFont()
 {
     wxFont f = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-#if defined(__WXMAC__)
-    float pointSize = f.GetFractionalPointSize() * 1.2;
-    f.SetFractionalPointSize(pointSize);
-#elif defined(__WXMSW__)
-    // wxMSW
-    float pointSize = f.GetFractionalPointSize() * 1.2;
-    f.SetFractionalPointSize(pointSize);
-#endif
     return f;
 }
 

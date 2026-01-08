@@ -51,8 +51,6 @@ MySqlDbAdapter::MySqlDbAdapter(const wxString& serverName, const wxString& userN
     this->m_pDbLayer = NULL;
 }
 
-MySqlDbAdapter::~MySqlDbAdapter() {}
-
 void MySqlDbAdapter::CloseConnection()
 {
     if(this->m_pDbLayer)
@@ -307,11 +305,11 @@ void MySqlDbAdapter::GetDatabases(DbConnection* dbCon)
 
             // loading databases
             // TODO:SQL:
-            DatabaseResultSet* databaze = dbLayer->RunQueryWithResults(wxT("SHOW DATABASES"));
-            while(databaze->Next()) {
-                dbCon->AddChild(new Database(this, databaze->GetResultString(1)));
+            DatabaseResultSet* database = dbLayer->RunQueryWithResults(wxT("SHOW DATABASES"));
+            while(database->Next()) {
+                dbCon->AddChild(new Database(this, database->GetResultString(1)));
             }
-            dbLayer->CloseResultSet(databaze);
+            dbLayer->CloseResultSet(database);
             dbLayer->Close();
         }
     }
@@ -325,7 +323,7 @@ void MySqlDbAdapter::GetTables(Database* db, bool includeViews)
         if(dbLayer) {
             if(!dbLayer->IsOpen())
                 return;
-            // lading tables for database
+            // loading tables for database
             // TODO:SQL:
 
             // DatabaseResultSet *tabulky = dbLayer->RunQueryWithResults(wxString::Format(wxT("SHOW TABLES IN `%s`"),

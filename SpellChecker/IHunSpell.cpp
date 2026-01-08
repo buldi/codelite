@@ -34,30 +34,27 @@
 // License:
 /////////////////////////////////////////////////////////////////////////////
 // For compilers that support precompilation, includes "wx/wx.h".
-#include "file_logger.h"
-#include "globals.h"
-#include "macros.h"
-
-#include <wx/wxprec.h>
-
-#include <wx/log.h>
-
 #ifndef WX_PRECOMP
 #include <wx/wx.h>
 #endif
 
-#include "CorrectSpellingDlg.h"
 #include "IHunSpell.h"
-#include "ctags_manager.h"
+
+#include "CorrectSpellingDlg.h"
+#include "StringUtils.h"
+#include "file_logger.h"
+#include "globals.h"
+#include "macros.h"
 #include "scGlobals.h"
 #include "spellcheck.h"
 
-#include <wx/arrimpl.cpp>
 #include <wx/filename.h>
+#include <wx/log.h>
 #include <wx/regex.h>
 #include <wx/stc/stc.h>
 #include <wx/textfile.h>
 #include <wx/tokenzr.h>
+#include <wx/wxprec.h>
 
 namespace
 {
@@ -259,18 +256,6 @@ bool IHunSpell::CheckWord(const wxString& word) const
     return Hunspell_spell(m_pSpell, word.ToUTF8()) != 0;
 }
 // ------------------------------------------------------------
-bool IHunSpell::IsTag(const wxString& word) const
-{
-    if (GetIgnoreSymbolsInTagsDatabase()) {
-        std::vector<TagEntryPtr> tags;
-        TagsManagerST::Get()->FindSymbol(word, tags);
-        if (!tags.empty())
-            return true;
-    }
-
-    return false;
-}
-// ------------------------------------------------------------
 wxArrayString IHunSpell::GetSuggestions(const wxString& misspelled)
 {
     wxArrayString suggestions;
@@ -334,7 +319,7 @@ void IHunSpell::CheckSpelling()
             int pos = tkz.GetPosition() - token.length() + line_start_pos;
             // incase the current token real length is greater than the normal len
             // include it in the offset
-            size_t utf8_len = FileUtils::UTF8Length(token.c_str(), token.length());
+            size_t utf8_len = StringUtils::UTF8Length(token.c_str(), token.length());
             if (utf8_len > token.length()) {
                 offset += (utf8_len - token.length());
             }
@@ -401,14 +386,6 @@ void IHunSpell::CheckSpelling()
 // ------------------------------------------------------------
 // tools
 // ------------------------------------------------------------
-wxString IHunSpell::GetCharacterEncoding()
-{
-    if (m_pSpell == NULL)
-        return wxEmptyString;
-
-    wxString encoding(wxConvUTF8.cMB2WC(Hunspell_get_dic_encoding(m_pSpell)), *wxConvCurrent);
-    return encoding;
-}
 
 // ------------------------------------------------------------
 void IHunSpell::AddWordToIgnoreList(const wxString& word)
@@ -547,36 +524,24 @@ void IHunSpell::InitLanguageList()
     m_languageList[_T( "Zulu (Africa)" )] = _T( "zu_ZA" );
 }
 // ------------------------------------------------------------
-void IHunSpell::GetAllLanguageKeyNames(wxArrayString& lang)
-{
-    lang.Clear();
-    languageMap::iterator itLang;
-
-    for (itLang = m_languageList.begin(); itLang != m_languageList.end(); ++itLang) {
-        wxString key = itLang->first;
-        lang.Add(key);
-    }
-}
-// ------------------------------------------------------------
 void IHunSpell::GetAvailableLanguageKeyNames(const wxString& path, wxArrayString& lang)
 {
     lang.Clear();
-    languageMap::iterator itLang;
 
-    for (itLang = m_languageList.begin(); itLang != m_languageList.end(); ++itLang) {
+    for (const auto& [langFullName, langCode] : m_languageList) {
         wxFileName fna(path, "");
         wxFileName fnd(path, "");
 
-        fna.SetName(itLang->second);
+        fna.SetName(langCode);
         fna.SetExt("aff");
 
-        fnd.SetName(itLang->second);
+        fnd.SetName(langCode);
         fnd.SetExt("dic");
 
         if (!fna.FileExists() || !fnd.FileExists())
             continue;
 
-        lang.Add(itLang->first);
+        lang.Add(langFullName);
     }
 }
 
@@ -589,135 +554,6 @@ void IHunSpell::EnableScannerType(int type, bool state)
         m_scanners &= ~type;
 }
 // ------------------------------------------------------------
-int IHunSpell::CheckCppType(IEditor* pEditor)
-{
-    wxStringTokenizer tkz;
-
-    int retVal = kNoSpellingError;
-    int offset = 0;
-
-    for (wxUint32 i = 0; i < m_parseValues.size(); i++) {
-        posLen pl = m_parseValues[i].first;
-        wxString text = pEditor->GetTextRange(pl.first, pl.second);
-        wxString del = s_commentDelimiters;
-
-        if (m_parseValues[i].second ==
-            kString) { // replace \n\r\t in strings with blanks to correctly tokenize content like '\nNext line'
-            wxRegEx re(s_wsRegEx, wxRE_ADVANCED);
-            // to ensure that \\n will not get captured by the regex, we temporarily replace it
-            text.Replace(s_DOUBLE_BACKSLASH, s_PLACE_HOLDER);
-
-            if (re.Matches(text)) {
-                re.ReplaceAll(&text, wxT("  "));
-                del = s_cppDelimiters;
-            }
-
-            // restore
-            text.Replace(s_PLACE_HOLDER, s_DOUBLE_BACKSLASH);
-        }
-
-        tkz.SetString(text, del);
-
-        while (tkz.HasMoreTokens()) {
-            wxString token = tkz.GetNextToken();
-            int pos = pl.first + tkz.GetPosition() - token.Len() - 1;
-            pos += offset;
-
-            if (token.Len() <= MIN_TOKEN_LEN)
-                continue;
-
-            if (m_parseValues[i].second == kString) { // ignore filenames in #include
-                wxString line = pEditor->GetCtrl()->GetLine(pEditor->LineFromPos(pl.first));
-
-                if (line.Find(s_include) != wxNOT_FOUND)
-                    continue;
-            }
-
-            // Note checking tags database only in continuous mode.
-            if (!CheckWord(token)) {
-                pEditor->SetUserIndicator(pos, token.Len());
-                pEditor->SetCaretAt(pos);
-                pEditor->SelectText(pos, token.Len());
-                // show correct spelling dialog
-                retVal = kSpellingError;
-                m_pSpellDlg->SetMisspelled(token);
-                m_pSpellDlg->SetSuggestions(GetSuggestions(token));
-                int ret = m_pSpellDlg->ShowModal();
-
-                switch (ret) {
-                case SC_CHANGE: {
-                    // correct spelling
-                    wxString replace = m_pSpellDlg->GetMisspelled();
-                    offset += replace.Len() - token.Len();
-                    text.replace(tkz.GetPosition(), token.Len(), replace);
-                    pEditor->ReplaceSelection(replace);
-                } break;
-                case SC_IGNORE:
-                    AddWordToIgnoreList(token);
-                    break;
-                case SC_ADD:
-                    AddWordToUserDict(token);
-                    break;
-                default: {
-                    pEditor->ClearUserIndicators();
-                    return kSpellingCanceled;
-                }
-                }
-            }
-        }
-    }
-    return retVal;
-}
-// ------------------------------------------------------------
-int IHunSpell::MarkErrors(IEditor* pEditor)
-{
-    wxStringTokenizer tkz;
-
-    int counter = 0;
-    pEditor->ClearUserIndicators();
-
-    for (wxUint32 i = 0; i < m_parseValues.size(); i++) {
-        posLen pl = m_parseValues[i].first;
-        wxString text = pEditor->GetTextRange(pl.first, pl.second);
-        wxString del = s_commentDelimiters;
-
-        if (m_parseValues[i].second ==
-            kString) { // replace \n\r\t in strings with blanks to correctly tokenize content like '\nNext line'
-            wxRegEx re(s_wsRegEx, wxRE_ADVANCED);
-            // to ensure that \\n will not get captured by the regex, we temporarily replace it
-            text.Replace(s_DOUBLE_BACKSLASH, s_PLACE_HOLDER);
-            if (re.Matches(text)) {
-                re.ReplaceAll(&text, wxT("  "));
-                del = s_cppDelimiters;
-            }
-            text.Replace(s_PLACE_HOLDER, s_DOUBLE_BACKSLASH);
-        }
-        tkz.SetString(text, del);
-
-        while (tkz.HasMoreTokens()) {
-            wxString token = tkz.GetNextToken();
-            int pos = pl.first + tkz.GetPosition() - token.Len() - 1;
-
-            if (token.Len() <= MIN_TOKEN_LEN)
-                continue;
-
-            if (m_parseValues[i].second == kString) {
-                wxString line = pEditor->GetCtrl()->GetLine(pEditor->LineFromPos(pl.first));
-
-                if (line.Find(s_include) != wxNOT_FOUND) // ignore filenames
-                    continue;
-            }
-
-            if (!CheckWord(token) && !IsTag(token)) {
-                pEditor->SetUserIndicator(pos, token.Len());
-                counter++;
-            }
-        }
-    }
-
-    return counter;
-}
-
 void IHunSpell::SetCaseSensitiveUserDictionary(const bool caseSensitiveUserDictionary)
 {
     if (caseSensitiveUserDictionary != m_caseSensitiveUserDictionary) {
@@ -735,14 +571,3 @@ void IHunSpell::SetCaseSensitiveUserDictionary(const bool caseSensitiveUserDicti
         m_ignoreList.swap(ignoreList);
     }
 }
-
-void IHunSpell::AddWord(const wxString& word)
-{
-#if wxUSE_STL
-    // Implicit conversions are disabled when building with wxUSE_STL=1
-    Hunspell_add(m_pSpell, word.mb_str().data());
-#else
-    Hunspell_add(m_pSpell, word);
-#endif
-}
-// ------------------------------------------------------------

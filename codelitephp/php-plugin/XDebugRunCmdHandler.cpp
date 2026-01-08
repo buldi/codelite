@@ -13,12 +13,10 @@
 #include <wx/socket.h>
 #include <wx/xml/xml.h>
 
-XDebugRunCmdHandler::XDebugRunCmdHandler(XDebugManager* mgr, int transcationId)
-    : XDebugCommandHandler(mgr, transcationId)
+XDebugRunCmdHandler::XDebugRunCmdHandler(XDebugManager* mgr, int transactionId)
+    : XDebugCommandHandler(mgr, transactionId)
 {
 }
-
-XDebugRunCmdHandler::~XDebugRunCmdHandler() {}
 
 void XDebugRunCmdHandler::Process(const wxXmlNode* response)
 {

@@ -43,9 +43,7 @@ AddOptionCheckDlg::AddOptionCheckDlg(wxWindow* parent, const wxString& title,
     WindowAttrManager::Load(this);
 
     // Fill the list of available options
-    Compiler::CmpCmdLineOptions::const_iterator itOption = m_cmpOptions.begin();
-    for(; itOption != m_cmpOptions.end(); ++itOption) {
-        const Compiler::CmpCmdLineOption& cmpOption = itOption->second;
+    for (const auto& [_, cmpOption] : m_cmpOptions) {
         m_checkListOptions->Append(cmpOption.help + wxT(" [") + cmpOption.name + wxT("]"));
     }
 
@@ -54,8 +52,6 @@ AddOptionCheckDlg::AddOptionCheckDlg(wxWindow* parent, const wxString& title,
 
     clSetSmallDialogBestSizeAndPosition(this);
 }
-
-AddOptionCheckDlg::~AddOptionCheckDlg() {}
 
 void AddOptionCheckDlg::SetValue(const wxString& value)
 {
@@ -130,19 +126,18 @@ void AddOptionCheckDlg::UpdateCmdLine()
                 // options.push_back(value.AfterLast(wxT('[')).BeforeLast(wxT(']')));
                 options.insert(options.begin(), value);
             } else
-                // uncheck the option if already defined manualy
+                // uncheck the option if already defined manually
                 m_checkListOptions->Check(idx, false);
         }
     }
 
     // Update the options textctrl
     wxString value;
-    std::list<wxString>::const_iterator itOption = options.begin();
-    for(; itOption != options.end(); ++itOption) {
-        if(!value.Contains(*itOption + wxT(";"))) {
-            if(!value.empty())
+    for (const auto& option : options) {
+        if (!value.Contains(option + wxT(";"))) {
+            if (!value.empty())
                 value << wxT(";");
-            value << *itOption;
+            value << option;
         }
     }
     m_textCmdLn->SetValue(value);

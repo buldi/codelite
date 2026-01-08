@@ -31,18 +31,18 @@
 
 /**
  * @class PHPEntityVisitor
- * Accept as input a PHPEntitBase and visit all of its children
+ * Accept as input a PHPEntityBase and visit all of its children
  */
 class WXDLLIMPEXP_CL PHPEntityVisitor
 {
 public:
-    PHPEntityVisitor();
-    virtual ~PHPEntityVisitor();
-    
+    PHPEntityVisitor() = default;
+    virtual ~PHPEntityVisitor() = default;
+
     void Visit(PHPEntityBase::Ptr_t parent);
     
     /**
-     * @brief called whenver an entity is visited
+     * @brief called whenever an entity is visited
      * @param entity
      */
     virtual void OnEntity(PHPEntityBase::Ptr_t entity) = 0;

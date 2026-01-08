@@ -29,10 +29,8 @@
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
 #include <list>
-#include <map>
 #include <set>
 #include <vector>
 #include <wx/accel.h>
@@ -56,7 +54,7 @@ protected:
     wxString to_string(bool for_ui) const;
 
 public:
-    clKeyboardShortcut() {}
+    clKeyboardShortcut() = default;
     explicit clKeyboardShortcut(wxKeyCode ctrl, bool alt, bool shift, const wxString& keyCode)
         : m_control_type(ctrl)
         , m_alt(alt)
@@ -119,6 +117,9 @@ public:
     /// Similar to `ToString` but convert `rawctrl` & `ctrl` into `Ctrl` & `Cmd` accordingly
     wxString DisplayString() const;
 
+    /// Convert this into wxAcceleratorEntry
+    std::shared_ptr<wxAcceleratorEntry> ToAccelerator(const wxString& label) const;
+
     using Vec_t = std::vector<clKeyboardShortcut>;
     using Set_t = std::set<clKeyboardShortcut>;
 };
@@ -143,14 +144,14 @@ struct WXDLLIMPEXP_SDK MenuItemData {
     };
 };
 
-typedef std::unordered_map<wxString, MenuItemData> MenuItemDataMap_t;
-typedef std::unordered_map<int, MenuItemData> MenuItemDataIntMap_t;
+using MenuItemDataMap_t = std::unordered_map<wxString, MenuItemData>;
+using MenuItemDataIntMap_t = std::unordered_map<int, MenuItemData>;
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_KEYBOARD_ACCEL_INIT_DONE, clCommandEvent);
 class WXDLLIMPEXP_SDK clKeyboardManager : public wxEvtHandler
 {
 private:
-    typedef std::list<wxFrame*> FrameList_t;
+    using FrameList_t = std::list<wxFrame*>;
     bool m_initialized = false;
     MenuItemDataMap_t m_accelTable;        // a set of accelerators configured by user
     MenuItemDataMap_t m_defaultAccelTable; // a set of default accelerators
@@ -180,7 +181,6 @@ protected:
     void DoUpdateMenu(wxMenu* menu, MenuItemDataIntMap_t& accels, std::vector<wxAcceleratorEntry>& table);
     void DoUpdateFrame(wxFrame* frame, MenuItemDataIntMap_t& accels);
     void DoConvertToIntMap(const MenuItemDataMap_t& strMap, MenuItemDataIntMap_t& intMap);
-    MenuItemDataMap_t DoLoadAccelerators(const wxFileName& filename) const;
 
     clKeyboardManager();
     virtual ~clKeyboardManager();
@@ -221,7 +221,9 @@ public:
      * @brief add keyboard shortcut by specifying the action ID + the shortcut combination
      * For example: AddAccelerator("wxID_COPY", _("Edit"), _("Copy the current selection"), "Ctrl-Shift-C");
      */
-    void AddAccelerator(const wxString& resourceID, const wxString& parentMenu, const wxString& action,
+    void AddAccelerator(const wxString& resourceID,
+                        const wxString& parentMenu,
+                        const wxString& action,
                         const clKeyboardShortcut& accel = {});
 
     /**
@@ -235,7 +237,7 @@ public:
     void AddAccelerator(const wxString& parentMenu, const std::vector<AddAccelData>& table);
 
     /**
-     * @brief replace all acceleratos with 'accels'
+     * @brief replace all accelerators with 'accels'
      */
     void SetAccelerators(const MenuItemDataMap_t& accels);
 
@@ -247,12 +249,17 @@ public:
     /**
      * @brief update accelerators
      */
-    void Update(wxFrame* frame = NULL);
+    void Update();
 
     /**
      * @brief restore keyboard shortcuts to defaults
      */
     void RestoreDefaults();
+
+    /**
+     * @brief return keyboard shortcut for given XRCID
+     */
+    clKeyboardShortcut GetShortcutForCommand(const wxString& xrcid_string) const;
 };
 
 #endif // KEYBOARDMANAGER_H

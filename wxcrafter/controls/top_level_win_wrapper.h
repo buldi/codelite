@@ -1,7 +1,6 @@
 #ifndef TOPLEVELWINWRAPPER_H
 #define TOPLEVELWINWRAPPER_H
 
-#include "string_property.h"
 #include "wxc_project_metadata.h"
 #include "wxc_widget.h" // Base class: WrapperBase
 
@@ -13,8 +12,10 @@ class TopLevelWinWrapper : public wxcWidget
 
 protected:
     TopLevelWinWrapper(int type);
-    virtual ~TopLevelWinWrapper();
+    ~TopLevelWinWrapper() override = default;
+
     wxString FormatCode(const wxString& chunk) const;
+
     virtual wxString BaseCtorImplPrefix() const = 0;
     virtual wxString BaseCtorDecl() const = 0;
 
@@ -22,7 +23,7 @@ public:
     static void WrapXRC(wxString& text);
     virtual wxString DesignerXRC(bool forPreviewDialog) const = 0;
 
-    virtual wxString CppCtorCode() const;
+    wxString CppCtorCode() const override;
     /**
      * @brief to avoid code duplications, check if another aui toolbar
      * already registered the helpers for this TLW
@@ -49,7 +50,7 @@ public:
     virtual void GenerateCode(const wxcProjectMetadata& project, bool promptUser, bool baseOnly, wxString& baseCpp,
                               wxString& baseHeader, wxArrayString& headers, wxStringMap_t& additionalFiles);
 
-    virtual bool IsTopWindow() const { return true; }
+    bool IsTopWindow() const override { return true; }
     /**
      * @brief return true if the top-level window is a real wxWindow derived class
      */

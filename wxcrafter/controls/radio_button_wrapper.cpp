@@ -1,7 +1,8 @@
 #include "radio_button_wrapper.h"
+
+#include "Properties/bool_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "string_property.h"
 #include "xmlutils.h"
 
 RadioButtonWrapper::RadioButtonWrapper()
@@ -11,8 +12,8 @@ RadioButtonWrapper::RadioButtonWrapper()
     PREPEND_STYLE(wxRB_SINGLE, false);
 
     SetPropertyString(_("Common Settings"), "wxRadioButton");
-    AddProperty(new StringProperty(PROP_LABEL, _("My RadioButton"), _("Label")));
-    AddProperty(new BoolProperty(PROP_VALUE, true, _("Initial value")));
+    Add<StringProperty>(PROP_LABEL, _("My RadioButton"), _("Label"));
+    Add<BoolProperty>(PROP_VALUE, true, _("Initial value"));
 
     RegisterEventCommand(wxT("wxEVT_COMMAND_RADIOBUTTON_SELECTED"),
                          _("Process a wxEVT_COMMAND_RADIOBUTTON_SELECTED event, when the radiobutton is clicked."));
@@ -20,8 +21,6 @@ RadioButtonWrapper::RadioButtonWrapper()
     m_namePattern = wxT("m_radioButton");
     SetName(GenerateName());
 }
-
-RadioButtonWrapper::~RadioButtonWrapper() {}
 
 wxcWidget* RadioButtonWrapper::Clone() const { return new RadioButtonWrapper(); }
 

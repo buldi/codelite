@@ -27,11 +27,9 @@
 #define CLFILEVIWERTREECTRL_H
 
 #include "clThemedTreeCtrl.h"
-#include "clTreeCtrl.h"
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
-#include <map>
+#include <memory>
 #include <wx/filename.h>
 #include <wx/treectrl.h>
 
@@ -44,8 +42,8 @@ class WXDLLIMPEXP_SDK clTreeNodeIndex
     std::unordered_map<wxString, wxTreeItemId> m_children;
 
 public:
-    clTreeNodeIndex() {}
-    virtual ~clTreeNodeIndex() {}
+    clTreeNodeIndex() = default;
+    virtual ~clTreeNodeIndex() = default;
 
     wxTreeItemId Find(const wxString& path);
     void Add(const wxString& path, const wxTreeItemId& item);
@@ -71,20 +69,19 @@ public:
     // If file, contains the fullpath otherwise, contains the path
     wxString m_path;
     wxString m_name;
-    clTreeNodeIndex* m_index;
+    std::unique_ptr<clTreeNodeIndex> m_index;
 
 public:
     clTreeCtrlData(eKind kind)
         : m_kind(kind)
-        , m_index(NULL)
     {
         if(IsFolder()) {
-            m_index = new clTreeNodeIndex();
+            m_index = std::make_unique<clTreeNodeIndex>();
         }
     }
-    virtual ~clTreeCtrlData() { wxDELETE(m_index); }
+    virtual ~clTreeCtrlData() = default;
 
-    clTreeNodeIndex* GetIndex() { return m_index; }
+    clTreeNodeIndex* GetIndex() { return m_index.get(); }
 
     void SetKind(const eKind& kind) { this->m_kind = kind; }
     const eKind& GetKind() const { return m_kind; }
@@ -133,7 +130,7 @@ public:
     clFileViewerTreeCtrl(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                          const wxSize& size = wxDefaultSize,
                          long style = wxTR_DEFAULT_STYLE | wxTR_MULTIPLE | wxTR_HIDE_ROOT | wxBORDER_STATIC);
-    virtual ~clFileViewerTreeCtrl();
+    virtual ~clFileViewerTreeCtrl() = default;
 };
 
 #endif // CLFILEVIWERTREECTRL_H

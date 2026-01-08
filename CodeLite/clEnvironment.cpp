@@ -3,8 +3,8 @@
 #include "StringUtils.h"
 #include "archive.h"
 #include "cl_standard_paths.h"
-#include "file_logger.h"
 #include "fileutils.h"
+#include "xmlutils.h"
 
 #include <wx/any.h>
 #include <wx/filename.h>
@@ -13,7 +13,7 @@
 
 namespace
 {
-static const wxString VARIARBLE_REG_EXPR = R"#(\$[\(\{]?([\w]+)[\\/\)\}]?)#";
+static const wxString VARIABLE_REG_EXPR = R"#(\$[\(\{]?([\w]+)[\\/\)\}]?)#";
 
 /// Return vector of [{var_name, pattern}]
 /// where:
@@ -22,7 +22,7 @@ static const wxString VARIARBLE_REG_EXPR = R"#(\$[\(\{]?([\w]+)[\\/\)\}]?)#";
 /// pattern -> `${HOME}`
 std::vector<std::pair<wxString, wxString>> FindVariablesInString(wxString str)
 {
-    wxRegEx re{ VARIARBLE_REG_EXPR };
+    wxRegEx re{ VARIABLE_REG_EXPR };
     std::vector<std::pair<wxString, wxString>> result;
     bool cont = true;
     while(cont) {
@@ -55,21 +55,6 @@ std::vector<std::pair<wxString, wxString>> FindVariablesInString(wxString str)
     return result;
 }
 
-wxXmlNode* FindFirstByTagName(const wxXmlNode* parent, const wxString& tagName)
-{
-    if(!parent) {
-        return nullptr;
-    }
-
-    wxXmlNode* child = parent->GetChildren();
-    while(child) {
-        if(child->GetName() == tagName) {
-            return child;
-        }
-        child = child->GetNext();
-    }
-    return nullptr;
-}
 } // namespace
 
 clEnvironment::clEnvironment()
@@ -80,7 +65,7 @@ clEnvironment::clEnvironment()
     if(!doc.Load(config.GetFullPath()))
         return;
 
-    wxXmlNode* node = FindFirstByTagName(doc.GetRoot(), "ArchiveObject");
+    wxXmlNode* node = XmlUtils::FindFirstByTagName(doc.GetRoot(), "ArchiveObject");
     if(node) {
         Archive arc;
         arc.SetXmlNode(node);

@@ -43,7 +43,7 @@ enum class eSFTPActions {
     kDelete,
 };
 
-class SFTPThreadRequet : public ThreadRequest
+class SFTPThreadRequest : public ThreadRequest
 {
     SSHAccountInfo m_account;
     wxString m_remoteFile;
@@ -56,15 +56,15 @@ class SFTPThreadRequet : public ThreadRequest
     int m_lineNumber = wxNOT_FOUND;
 
 public:
-    SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& remoteFile, const wxString& localFile,
-                     size_t persmissions);
-    SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& oldName, const wxString& newName);
-    SFTPThreadRequet(const SSHAccountInfo& accountInfo, const wxString& fileToDelete);
-    SFTPThreadRequet(const RemoteFileInfo& remoteFile);
-    SFTPThreadRequet(const SSHAccountInfo& accountInfo);
-    SFTPThreadRequet(const SFTPThreadRequet& other);
-    SFTPThreadRequet& operator=(const SFTPThreadRequet& other);
-    virtual ~SFTPThreadRequet();
+    SFTPThreadRequest(const SSHAccountInfo& accountInfo, const wxString& remoteFile, const wxString& localFile,
+                     size_t permissions);
+    SFTPThreadRequest(const SSHAccountInfo& accountInfo, const wxString& oldName, const wxString& newName);
+    SFTPThreadRequest(const SSHAccountInfo& accountInfo, const wxString& fileToDelete);
+    explicit SFTPThreadRequest(const RemoteFileInfo& remoteFile);
+    explicit SFTPThreadRequest(const SSHAccountInfo& accountInfo);
+    SFTPThreadRequest(const SFTPThreadRequest&) = default;
+    SFTPThreadRequest& operator=(const SFTPThreadRequest&) = default;
+    ~SFTPThreadRequest() override = default;
 
     void SetUploadSuccess(bool uploadSuccess) { this->m_uploadSuccess = uploadSuccess; }
     bool IsUploadSuccess() const { return m_uploadSuccess; }
@@ -103,7 +103,7 @@ public:
 
 public:
     SFTPThreadMessage();
-    virtual ~SFTPThreadMessage();
+    virtual ~SFTPThreadMessage() = default;
 
     void SetAccount(const wxString& account) { this->m_account = account; }
     void SetMessage(const wxString& message) { this->m_message = message; }
@@ -125,8 +125,8 @@ public:
 
 private:
     SFTPWorkerThread();
-    virtual ~SFTPWorkerThread();
-    void DoConnect(SFTPThreadRequet* req);
+    virtual ~SFTPWorkerThread() = default;
+    void DoConnect(SFTPThreadRequest* req);
     void DoReportMessage(const wxString& account, const wxString& message, int status);
     void DoReportStatusBarMessage(const wxString& message);
 

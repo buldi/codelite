@@ -29,41 +29,16 @@
 
 #include <map>
 
-#ifdef __VISUALC__
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-#endif
-
 struct tagCallTipInfo {
     wxString sig;
-    wxString retValue;
     std::vector<std::pair<int, int>> paramLen;
 };
 
-clCallTip::clCallTip()
-    : m_curr(0)
-{
-}
-
 clCallTip::clCallTip(const std::vector<TagEntryPtr>& tips)
-    : m_curr(0)
 {
     Initialize(tips);
 }
 
-clCallTip::clCallTip(const clCallTip& rhs) { *this = rhs; }
-
-clCallTip& clCallTip::operator=(const clCallTip& rhs)
-{
-    if (this == &rhs)
-        return *this;
-    m_tips = rhs.m_tips;
-    m_curr = rhs.m_curr;
-    return *this;
-}
-
-thread_local wxString empty_tip;
 wxString clCallTip::First()
 {
     m_curr = 0;
@@ -110,7 +85,7 @@ wxString clCallTip::Prev()
     return TipAt(m_curr);
 }
 
-wxString clCallTip::All()
+wxString clCallTip::All() const
 {
     wxString tip;
     for (size_t i = 0; i < m_tips.size(); i++) {
@@ -215,9 +190,6 @@ void clCallTip::FormatTagsToTips(const TagEntryPtrVector_t& tags, std::vector<cl
 
                 wxString raw_sig(t->GetSignature().Trim().Trim(false));
 
-                // evaluate the return value of the tag
-                cti.retValue = TagsManagerST::Get()->GetFunctionReturnValueFromPattern(t);
-
                 bool hasDefaultValues = (raw_sig.Find(wxT("=")) != wxNOT_FOUND);
 
                 // the key for unique entries is the function prototype without the variables names and
@@ -237,7 +209,7 @@ void clCallTip::FormatTagsToTips(const TagEntryPtrVector_t& tags, std::vector<cl
                     mymap[key] = cti;
                 }
 
-                // make sure we dont add duplicates
+                // make sure we don't add duplicates
                 if (mymap.find(key) == mymap.end()) {
                     // add it
                     mymap[key] = cti;
@@ -265,21 +237,17 @@ void clCallTip::FormatTagsToTips(const TagEntryPtrVector_t& tags, std::vector<cl
         }
     }
 
-    std::map<wxString, tagCallTipInfo>::iterator iter = mymap.begin();
     tips.clear();
-    for (; iter != mymap.end(); iter++) {
+    for (const auto& p : mymap) {
         wxString tip;
-        tip << iter->second.sig;
+        tip << p.second.sig;
 
         // Rust & Php have "self" or other variant of it in the argument
         // list, so lets filter it
         tip.Trim().Trim(false);
-        if (iter->second.retValue.empty() == false) {
-            tip << " -> " << iter->second.retValue.Trim(false).Trim();
-        }
 
         clTipInfo ti;
-        ti.paramLen = iter->second.paramLen;
+        ti.paramLen = p.second.paramLen;
         ti.str = tip;
         tips.push_back(ti);
     }

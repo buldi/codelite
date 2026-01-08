@@ -25,6 +25,7 @@
 #ifndef CODELITE_ENTRY_H
 #define CODELITE_ENTRY_H
 
+#include <wx/setup.h>
 #if wxUSE_GUI
 #include <wx/treectrl.h>
 #endif
@@ -183,7 +184,7 @@ public:
     bool is_scoped_enum() const;
     bool is_auto() const;
     bool is_lambda() const;
-    const wxString& get_assigment() const { return m_assignment; }
+    const wxString& get_assignment() const { return m_assignment; }
 
     void SetTagProperties(const wxString& prop);
     const wxString& GetTagProperties() const { return m_tag_properties; }
@@ -226,12 +227,12 @@ public:
      * \param rhs Right hand side
      * \return true if identical, false otherwise
      */
-    bool operator==(const TagEntry& rhs);
+    bool operator==(const TagEntry& rhs) const;
 
     /**
      *	Destructor
      */
-    virtual ~TagEntry();
+    virtual ~TagEntry() = default;
 
     /**
      * @brief return if this tag entry is a function template
@@ -250,7 +251,7 @@ public:
      * \param lineNumber Tag line number
      * \param pattern Pattern
      * \param kind Tag kind (class, struct, etc)
-     * \param extFields Map of extenstion fields (key:value)
+     * \param extFields Map of extension fields (key:value)
      * \param project Project name
      */
     void Create(const wxString& fileName, const wxString& name, int lineNumber, const wxString& pattern,
@@ -386,7 +387,7 @@ public:
     wxString GetFullDisplayName() const;
 
     //------------------------------------------
-    // Extenstion fields
+    // Extension fields
     //------------------------------------------
     const wxString& GetExtField(const wxString& extField) const;
 

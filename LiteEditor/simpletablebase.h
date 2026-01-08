@@ -76,7 +76,7 @@ public:
     {
     }
 
-    virtual ~DbgTreeItemData() {}
+    ~DbgTreeItemData() override = default;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -108,14 +108,14 @@ protected:
 
 protected:
     int m_DBG_USERR;
-    int m_QUERY_NUM_CHILDS;
-    int m_LIST_CHILDS;
+    int m_QUERY_NUM_CHILDREN;
+    int m_LIST_CHILDREN;
 
 public:
     DebuggerTreeListCtrlBase(wxWindow* parent, wxWindowID id = wxID_ANY, bool withButtonsPane = true,
                              const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(500, 300),
                              long style = wxTAB_TRAVERSAL);
-    ~DebuggerTreeListCtrlBase();
+    ~DebuggerTreeListCtrlBase() = default;
 
     //////////////////////////////////////////////
     // Common to both Locals / Watches

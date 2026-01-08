@@ -17,8 +17,6 @@ WSImporter::WSImporter()
     AddImporter(std::make_shared<CodeBlocksImporter>());
 }
 
-WSImporter::~WSImporter() {}
-
 void WSImporter::AddImporter(std::shared_ptr<GenericImporter> importer) { importers.push_back(importer); }
 
 void WSImporter::Load(const wxString& filename, const wxString& defaultCompiler)
@@ -267,7 +265,7 @@ bool WSImporter::Import(wxString& errMsg)
 
                     proj->SetSettings(le_settings);
 
-                    proj->BeginTranscation();
+                    proj->BeginTransaction();
 
                     // Delete default virtual directory
                     proj->DeleteVirtualDir("include");
@@ -290,7 +288,7 @@ bool WSImporter::Import(wxString& errMsg)
                         proj->AddFile(fileNameInfo.GetFullPath(), vpath);
                     }
 
-                    proj->CommitTranscation();
+                    proj->CommitTransaction();
 
                     for(GenericProjectCfgPtr cfg : project->cfgs) {
                         for(GenericProjectFilePtr excludeFile : cfg->excludeFiles) {

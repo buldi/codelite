@@ -1,22 +1,20 @@
 #ifndef CLDOCKERWORKSPACE_H
 #define CLDOCKERWORKSPACE_H
 
-#include "IWorkspace.h"
 #include "clDockerDriver.h"
 #include "clDockerWorkspaceSettings.h"
+#include "clWorkspaceManager.h"
 #include "cl_command_event.h"
 
 class clDockerWorkspaceView;
-class clDockerWorkspace : public IWorkspace
+class clDockerWorkspace : public LocalWorkspaceCommon
 {
     bool m_bindEvents = false;
     wxFileName m_filename;
     clDockerWorkspaceSettings m_settings;
     bool m_isOpen = false;
-    bool m_clangOldFlag = false;
     clDockerWorkspaceView* m_view = nullptr;
     clDockerDriver::Ptr_t m_driver;
-    Docker* m_plugin = nullptr;
 
 public:
     wxString GetActiveProjectName() const override;
@@ -83,7 +81,7 @@ public:
     void Close();
 
     /**
-     * @brief do we have worksapce opened?
+     * @brief do we have workspace opened?
      */
     bool IsOpen() const;
 

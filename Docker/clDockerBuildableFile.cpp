@@ -1,9 +1,12 @@
 #include "clDockerBuildableFile.h"
+
+#include "StringUtils.h"
 #include "clDockerComposeFile.h"
 #include "clDockerSettings.h"
 #include "clDockerfile.h"
 #include "globals.h"
 #include "imanager.h"
+
 #include <wx/filename.h>
 
 clDockerBuildableFile::clDockerBuildableFile(const wxString& path, eDockerFileType type)
@@ -11,8 +14,6 @@ clDockerBuildableFile::clDockerBuildableFile(const wxString& path, eDockerFileTy
     , m_type(type)
 {
 }
-clDockerBuildableFile::clDockerBuildableFile() {}
-clDockerBuildableFile::~clDockerBuildableFile() {}
 
 void clDockerBuildableFile::FromJSON(const JSONItem& json, const wxString& workspaceDir)
 {
@@ -58,7 +59,7 @@ clDockerBuildableFile::Ptr_t clDockerBuildableFile::New(eDockerFileType type)
 wxString clDockerBuildableFile::GetBuildBaseCommand() const
 {
     wxString cmd = GetDockerExe();
-    ::WrapWithQuotes(cmd);
+    StringUtils::WrapWithQuotes(cmd);
     cmd << " build";
     return cmd;
 }

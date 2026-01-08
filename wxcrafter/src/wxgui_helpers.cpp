@@ -2,12 +2,10 @@
 
 #include "StdToWX.h"
 #include "cl_command_event.h"
-#include "event_notifier.h"
 #include "file_logger.h"
 #include "macros.h"
 #include "main.h"
 #include "map"
-#include "plugin.h"
 #include "project.h"
 #include "workspace.h"
 #include "wxc_project_metadata.h"
@@ -30,6 +28,11 @@
 #include <wx/tokenzr.h>
 #include <wx/xml/xml.h>
 #include <wx/xrc/xmlres.h>
+
+#if !STANDALONE_BUILD
+#include "codelite_events.h"
+#include "event_notifier.h"
+#endif
 
 namespace
 {
@@ -146,7 +149,7 @@ wxFontWeight StringToFontWeight(const wxString& str)
 wxBorder wxCrafter::GetControlBorder()
 {
 #if wxVERSION_NUMBER >= 3300 && defined(__WXMSW__)
-    return wxSystemSettings::GetAppearance().IsDark() ? wxBORDER_SIMPLE : wxBORDER_STATIC;
+    return wxSystemSettings::GetAppearance().IsDark() ? wxBORDER_SIMPLE : wxBORDER_DEFAULT;
 #else
     return wxBORDER_DEFAULT;
 #endif
@@ -823,12 +826,11 @@ wxString wxCrafter::XMLEncode(const wxString& text, bool decode /*=false*/)
         s_xmlEntities[wxT("\\n")] = wxT("&#x0A;");
     }
 
-    std::map<wxString, wxString>::const_iterator iter = s_xmlEntities.begin();
-    for(; iter != s_xmlEntities.end(); iter++) {
-        if(!decode) {
-            str.Replace(iter->first, iter->second);
+    for (const auto& p : s_xmlEntities) {
+        if (!decode) {
+            str.Replace(p.first, p.second);
         } else {
-            str.Replace(iter->second, iter->first);
+            str.Replace(p.second, p.first);
         }
     }
     return str;
@@ -917,7 +919,7 @@ float wxCrafter::ToFloat(const wxString& str, float defaultValue)
     double v;
 
     /// Use ToCDouble to avoid cases (e.g. German locale)
-    /// where 0.5 is actually 0,5 - which obvisouly breaks compilation
+    /// where 0.5 is actually 0,5 - which obviously breaks compilation
     if(str.ToCDouble(&v)) {
         return v;
     } else {
@@ -928,9 +930,8 @@ float wxCrafter::ToFloat(const wxString& str, float defaultValue)
 std::set<wxString> wxCrafter::VectorToSet(const std::vector<wxFileName>& v)
 {
     std::set<wxString> s;
-    for(size_t i = 0; i < v.size(); i++) {
-        wxString fullpath = v.at(i).GetFullPath();
-        s.insert(fullpath);
+    for (const auto& filename : v) {
+        s.insert(filename.GetFullPath());
     }
     return s;
 }
@@ -1390,8 +1391,9 @@ void wxCrafter::GetProjectFiles(const wxString& projectName, wxStringSet_t& file
     }
     const Project::FilesMap_t& filesMap = p->GetFiles();
     files.reserve(filesMap.size());
-    std::for_each(filesMap.begin(), filesMap.end(),
-                  [&](const Project::FilesMap_t::value_type& vt) { files.insert(vt.first); });
+    for (const auto& p : filesMap) {
+        files.insert(p.first);
+    }
 }
 
 void wxCrafter::FormatString(wxString& content, const wxFileName& filename)

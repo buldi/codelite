@@ -26,6 +26,7 @@
 #define OUTPUT_PANE_H
 
 #include "Notebook.h"
+#include "clAuiBook.hpp"
 #include "cl_command_event.h"
 #include "shelltab.h"
 #include "wxTerminalCtrl/clBuiltinTerminalPane.hpp"
@@ -35,11 +36,6 @@
 class BuildTab;
 class ClangOutputTab;
 class FindResultsTab;
-#if CL_USE_NEW_BUILD_TAB
-class NewBuildTab;
-#else
-class BuildTab;
-#endif
 class ReplaceInFilesPanel;
 class ShellTab;
 class TaskPanel;
@@ -76,7 +72,7 @@ protected:
         {
         }
 
-        Tab() {}
+        Tab() = default;
     };
     std::unordered_map<wxString, Tab> m_tabs;
 
@@ -85,9 +81,7 @@ private:
     Notebook* m_book = nullptr;
     FindResultsTab* m_findResultsTab;
     ReplaceInFilesPanel* m_replaceResultsTab;
-    // NewBuildTab* m_buildWin;
     ShellTab* m_outputWind;
-    TaskPanel* m_taskPanel;
     FindUsageTab* m_showUsageTab;
     BuildTab* m_build_tab = nullptr;
     clBuiltinTerminalPane* m_terminal = nullptr;

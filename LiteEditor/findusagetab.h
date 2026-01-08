@@ -28,10 +28,8 @@
 
 #include "LSP/LSPEvent.h"
 #include "LSP/basic_types.h"
-#include "clTerminalViewCtrl.hpp"
 #include "clThemedTreeCtrl.h"
 #include "clWorkspaceEvent.hpp"
-#include "wxStringHash.h"
 
 #include <wx/colour.h>
 #include <wx/panel.h>
@@ -41,6 +39,7 @@ class FindUsageTab : public wxPanel
     std::vector<LSP::Location> m_locations;
     clThemedTreeCtrl* m_ctrl = nullptr;
     wxColour m_headerColour;
+    wxColour m_matchColour;
 
 private:
     void DoAddFileEntries(const wxString& filename, const std::vector<const LSP::Location*>& matches);

@@ -29,17 +29,10 @@
 #include "JSON.h"
 #include "codelite_exports.h"
 #include "commentconfigdata.h"
-#include "wxStringHash.h"
 
-#include <iostream>
-#include <list>
-#include <map>
 #include <memory>
-#include <set>
 #include <wx/filename.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
-#include <wx/wxcrtvararg.h> // Needed for wxPrintf
 #include <wx/wxsqlite3.h>
 
 // The entity type
@@ -115,7 +108,7 @@ protected:
     
 public:
     PHPEntityBase();
-    virtual ~PHPEntityBase(){};
+    virtual ~PHPEntityBase() = default;
 
     const PHPEntityBase::List_t& GetChildren() const { return m_children; }
     PHPEntityBase* Parent() const { return m_parent; }
@@ -167,12 +160,6 @@ public:
     // Short name (usually, this is the last part after the namespace separator)
     void SetShortName(const wxString& shortName) { this->m_shortName = shortName; }
     const wxString& GetShortName() const { return m_shortName; }
-
-    /**
-     * @brief recursive print to stdout this object and all its children
-     * @param parent
-     */
-    void RecursivePrintStdout(PHPEntityBase::Ptr_t parent, int indent);
 
     /**
      * @brief print this object to the stdout

@@ -26,16 +26,11 @@
 #ifndef __php_workspace_view__
 #define __php_workspace_view__
 
-#include "bitmap_loader.h"
 #include "clFileSystemEvent.h"
 #include "cl_command_event.h"
 #include "php_event.h"
+#include "php_project.h"
 #include "php_ui.h"
-#include "php_workspace.h"
-#include "wxStringHash.h"
-#include "wx_ordered_map.h"
-
-#include <set>
 
 class IManager;
 class ItemData;
@@ -69,7 +64,6 @@ protected:
     virtual void OnSetupRemoteUpload(wxCommandEvent& event);
     virtual void OnSetupRemoteUploadMenu(wxCommandEvent& event);
 #endif
-    virtual void OnWorkspaceOpenUI(wxUpdateUIEvent& event);
     virtual void OnActiveProjectSettings(wxCommandEvent& event);
     virtual void OnProjectSettings(wxCommandEvent& event);
     virtual void OnActiveProjectSettingsUI(wxUpdateUIEvent& event);
@@ -166,7 +160,6 @@ protected:
     void OnActiveProjectChanged(clProjectSettingsEvent& e);
 
     // Php parser events
-    void OnPhpParserStarted(clParseEvent& event);
     void OnPhpParserProgress(clParseEvent& event);
     void OnPhpParserDone(clParseEvent& event);
 

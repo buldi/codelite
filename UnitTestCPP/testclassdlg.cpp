@@ -48,8 +48,8 @@ TestClassDlg::TestClassDlg(wxWindow* parent, IManager* mgr, UnitTestPP* plugin)
 
     // populate the unit tests project list
     std::vector<ProjectPtr> projects = m_plugin->GetUnitTestProjects();
-    for(size_t i = 0; i < projects.size(); i++) {
-        m_choiceProjects->Append(projects.at(i)->GetName());
+    for (const auto& project : projects) {
+        m_choiceProjects->Append(project->GetName());
     }
 
     if(m_choiceProjects->IsEmpty() == false) {
@@ -57,8 +57,6 @@ TestClassDlg::TestClassDlg(wxWindow* parent, IManager* mgr, UnitTestPP* plugin)
     }
     ::clSetSmallDialogBestSizeAndPosition(this);
 }
-
-TestClassDlg::~TestClassDlg() {}
 
 void TestClassDlg::OnUseActiveEditor(wxCommandEvent& event)
 {
@@ -110,7 +108,7 @@ void TestClassDlg::OnButtonOk(wxCommandEvent& e)
 {
     // validate the class name
     if(m_checkListMethods->GetCount() == 0) {
-        wxMessageBox(_("There are no tests to generate"), _("CodeLite"), wxICON_WARNING | wxOK);
+        wxMessageBox(_("There are no tests to generate"), wxT("CodeLite"), wxICON_WARNING | wxOK);
         return;
     }
     EndModal(wxID_OK);
@@ -135,7 +133,7 @@ void TestClassDlg::DoRefreshFunctions(bool repportError)
     if(m_tags.count(m_textCtrlClassName->GetValue()) == 0) {
         if(repportError) {
             wxMessageBox(_("Could not find match for class '") + m_textCtrlClassName->GetValue() + wxT("'"),
-                         _("CodeLite"), wxICON_WARNING | wxOK);
+                         wxT("CodeLite"), wxICON_WARNING | wxOK);
         }
         m_checkListMethods->Clear();
         return;
@@ -150,9 +148,7 @@ void TestClassDlg::DoRefreshFunctions(bool repportError)
         // suggest the user a multiple choice
         wxArrayString choices;
 
-        for(size_t i = 0; i < matches.size(); ++i) {
-            wxString option;
-            TagEntryPtr t = matches.at(i);
+        for (const auto& t : matches) {
             choices.Add(t->GetPath());
         }
 
@@ -172,12 +168,12 @@ void TestClassDlg::DoRefreshFunctions(bool repportError)
 
     wxStringSet_t uniqueNames;
     wxArrayString methods;
-    std::for_each(matches.begin(), matches.end(), [&](TagEntryPtr m) {
+    for (const auto& m : matches) {
         if(uniqueNames.count(m->GetName()) == 0) {
             methods.push_back(m->GetName());
             uniqueNames.insert(m->GetName());
         }
-    });
+    }
 
     m_checkListMethods->Clear();
     m_checkListMethods->Append(methods);

@@ -43,16 +43,16 @@ private:
     bool m_skipWarnings = false;
 
 public:
-    BuildTabSettingsData(const BuildTabSettingsData& rhs);
-    BuildTabSettingsData& operator=(const BuildTabSettingsData& rhs);
+    BuildTabSettingsData(const BuildTabSettingsData& rhs) = default;
+    BuildTabSettingsData& operator=(const BuildTabSettingsData& rhs) = default;
 
-    BuildTabSettingsData();
-    ~BuildTabSettingsData();
+    BuildTabSettingsData() = default;
+    ~BuildTabSettingsData() = default;
 
     void Serialize(Archive& arch);
     void DeSerialize(Archive& arch);
 
-    void SetSkipWarnings(const bool& skipWarnings) { this->m_skipWarnings = skipWarnings; }
+    void SetSkipWarnings(bool skipWarnings) { this->m_skipWarnings = skipWarnings; }
     bool IsSkipWarnings() const { return m_skipWarnings; }
 
     // Setters

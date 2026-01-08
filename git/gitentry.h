@@ -34,7 +34,6 @@
 #define __gitentry__
 
 #include "cl_config.h"
-#include "wxStringHash.h"
 
 #include <map>
 #include <vector>
@@ -42,7 +41,7 @@
 #include <wx/event.h>
 
 struct GitLabelCommand {
-    GitLabelCommand() {}
+    GitLabelCommand() = default;
 
     GitLabelCommand(const wxString& l, const wxString& c)
         : label(l)
@@ -54,7 +53,7 @@ struct GitLabelCommand {
     wxString command; // The command string, without the initial 'git' or the extras like --no-pager
 };
 
-typedef std::vector<GitLabelCommand> vGitLabelCommands_t;
+using vGitLabelCommands_t = std::vector<GitLabelCommand>;
 class GitCommandsEntries // Holds a command-list for a particular git command e.g. 'git pull' might be that, or 'git
                          // pull --rebase'
 {
@@ -64,7 +63,7 @@ protected:
     int m_lastUsed;
 
 public:
-    GitCommandsEntries() {}
+    GitCommandsEntries() = default;
     GitCommandsEntries(const wxString& commandName)
         : m_commandName(commandName)
         , m_lastUsed(-1)
@@ -77,7 +76,7 @@ public:
     {
     }
 
-    virtual ~GitCommandsEntries() {}
+    virtual ~GitCommandsEntries() = default;
     void FromJSON(const JSONItem& json);
     void ToJSON(JSONItem& arr) const;
 
@@ -90,7 +89,7 @@ public:
     const wxString GetDefaultCommand() const
     {
         wxString str;
-        if(m_lastUsed >= 0 && m_lastUsed < (int)m_commands.size()) {
+        if (m_lastUsed >= 0 && m_lastUsed < (int)m_commands.size()) {
             str = m_commands.at(m_lastUsed).command;
         }
         return str;
@@ -101,12 +100,12 @@ public:
     void SetLastUsedCommandIndex(int index) { m_lastUsed = index; }
 };
 
-typedef std::unordered_map<wxString, GitCommandsEntries> GitCommandsEntriesMap_t;
+using GitCommandsEntriesMap_t = std::unordered_map<wxString, GitCommandsEntries>;
 
 class GitWorkspace
 {
 public:
-    GitWorkspace() {}
+    GitWorkspace() = default;
     GitWorkspace(const wxString& name)
         : m_name(name)
     {
@@ -126,7 +125,7 @@ protected:
     wxStringMap_t m_userEnteredRepoPath;
 };
 
-typedef std::unordered_map<wxString, GitWorkspace> GitWorkspaceMap_t;
+using GitWorkspaceMap_t = std::unordered_map<wxString, GitWorkspace>;
 
 extern const wxEventType wxEVT_GIT_CONFIG_CHANGED;
 class GitEntry : public clConfigItem
@@ -147,7 +146,6 @@ class GitEntry : public clConfigItem
     int m_gitConsoleSashPos;
     int m_gitCommitDlgHSashPos;
     int m_gitCommitDlgVSashPos;
-    wxArrayString m_recentCommits;
     wxString m_gitShellCommand;
     bool m_gitBlameShowLogControls;
     bool m_gitBlameShowParentCommit;
@@ -158,10 +156,11 @@ class GitEntry : public clConfigItem
 
 public:
     enum {
-        Git_Verbose_Log = (1 << 0),
-        Git_Show_Terminal = (1 << 1),
-        Git_Colour_Tree_View = (1 << 2),
-        Git_Show_Commit_Info = (1 << 4),
+        VerboseLog = (1 << 0),
+        ShowTerminal = (1 << 1),
+        ColourTreeView = (1 << 2),
+        ShowCommitInfo = (1 << 4),
+        CheckSignedOffBy = (1 << 5),
     };
 
     struct GitProperties {
@@ -173,7 +172,7 @@ public:
 
 public:
     GitEntry();
-    virtual ~GitEntry();
+    virtual ~GitEntry() = default;
 
 public:
     static GitEntry::GitProperties ReadGitProperties(const wxString& localRepoPath = "");
@@ -181,7 +180,7 @@ public:
 
     void EnableFlag(size_t flag, bool b)
     {
-        if(b) {
+        if (b) {
             m_flags |= flag;
         } else {
             m_flags &= ~flag;
@@ -190,8 +189,6 @@ public:
 
     void Save();
     GitEntry& Load();
-    wxArrayString& GetRecentCommit() { return m_recentCommits; }
-    void AddRecentCommit(const wxString& commitMessage);
 
     void SetGitShellCommand(const wxString& gitShellCommand) { this->m_gitShellCommand = gitShellCommand; }
     const wxString& GetGitShellCommand() const { return m_gitShellCommand; }
@@ -214,7 +211,6 @@ public:
     const wxStringMap_t& GetEntries() const { return m_entries; }
     size_t GetFlags() const { return m_flags; }
     void SetEntry(const wxString& workspace, const wxString& repo) { this->m_entries[workspace] = repo; }
-    void DeleteEntry(const wxString& workspace);
 
     GitCommandsEntriesMap_t GetCommandsMap() const { return m_commandsMap; }
     void SetTrackedFileColour(const wxColour& colour) { this->m_colourTrackedFile = colour; }
@@ -256,7 +252,7 @@ public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON() const;
 
-    bool IsShowBlameInfoInStatusBar() const { return m_flags & Git_Show_Commit_Info; }
+    bool IsShowBlameInfoInStatusBar() const { return m_flags & ShowCommitInfo; }
     void SetDifftool(const wxString& difftool) { this->m_difftool = difftool; }
     const wxString& GetDifftool() const { return m_difftool; }
 };

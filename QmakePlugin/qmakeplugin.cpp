@@ -27,8 +27,7 @@
 
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
-#include "build_settings_config.h"
-#include "build_system.h"
+#include "StringUtils.h"
 #include "cl_standard_paths.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
@@ -36,7 +35,6 @@
 #include "globals.h"
 #include "macros.h"
 #include "newqtprojdlg.h"
-#include "procutils.h"
 #include "project.h"
 #include "qmakeconf.h"
 #include "qmakegenerator.h"
@@ -45,11 +43,9 @@
 #include "workspace.h"
 
 #include <wx/app.h>
-#include <wx/log.h>
 #include <wx/menu.h>
 #include <wx/mimetype.h>
 #include <wx/msgdlg.h>
-#include <wx/stdpaths.h>
 #include <wx/xrc/xmlres.h>
 
 // Define the plugin entry point
@@ -357,7 +353,7 @@ wxString QMakePlugin::DoGetBuildCommand(const wxString& project, const wxString&
 
     wxString projectMakefile;
     projectMakefile << p->GetName() << ".mk";
-    ::WrapWithQuotes(projectMakefile);
+    StringUtils::WrapWithQuotes(projectMakefile);
     projectMakefile.Replace("\\", "/");
 
     if(!projectOnly) {
@@ -380,7 +376,7 @@ void QMakePlugin::OnNewQmakeBasedProject(wxCommandEvent& event)
     wxUnusedVar(event);
     if(m_conf->GetAllConfigurations().IsEmpty()) {
         wxMessageBox(_("There is no qmake defined, please define one from 'Plugins -> Qmake -> Settings'"),
-                     _("CodeLite"), wxOK | wxICON_WARNING | wxCENTER, m_mgr->GetTheApp()->GetTopWindow());
+                     wxT("CodeLite"), wxOK | wxICON_WARNING | wxCENTER, m_mgr->GetTheApp()->GetTopWindow());
         return;
     }
 
@@ -436,7 +432,7 @@ void QMakePlugin::OnNewQmakeBasedProject(wxCommandEvent& event)
         {
             DirSaver ds;
             if(!wxSetWorkingDirectory(path)) {
-                wxMessageBox(_("Invalid project path!"), _("CodeLite"), wxOK | wxCENTER | wxICON_WARNING);
+                wxMessageBox(_("Invalid project path!"), wxT("CodeLite"), wxOK | wxCENTER | wxICON_WARNING);
                 return;
             }
 
@@ -448,7 +444,7 @@ void QMakePlugin::OnNewQmakeBasedProject(wxCommandEvent& event)
             if(!WriteFileWithBackup(name + wxT(".project"), content, false)) {
                 wxMessageBox(wxString::Format(_("Failed to create .project file '%s'"),
                                               wxString(name + wxT(".project")).c_str()),
-                             _("CodeLite"), wxOK | wxCENTER | wxICON_WARNING);
+                             wxT("CodeLite"), wxOK | wxCENTER | wxICON_WARNING);
                 return;
             }
 
@@ -529,7 +525,7 @@ void QMakePlugin::OnExportMakefile(wxCommandEvent& event)
             if(!p) {
                 return;
             }
-            ::WrapWithQuotes(qmake_exe);
+            StringUtils::WrapWithQuotes(qmake_exe);
             qmake_exe_line << qmake_exe << wxT(" -spec ") << qmakespec << wxT(" ") << generator.GetProFileName();
             wxStringMap_t om;
             om.insert({ "QTDIR", qtdir });

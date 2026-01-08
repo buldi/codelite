@@ -1,23 +1,26 @@
 #include "info_bar_button_wrapper.h"
+
+#include "Properties/category_property.h"
+#include "Properties/string_property.h"
+#include "Properties/winid_property.h"
 #include "allocator_mgr.h"
-#include "winid_property.h"
 #include "wxgui_defs.h"
 
 InfoBarButtonWrapper::InfoBarButtonWrapper()
     : wxcWidget(ID_WXINFOBARBUTTON)
 {
-    m_properties.DeleteValues();
+    m_properties.Clear();
     m_styles.Clear();
     m_sizerFlags.Clear();
 
     SetPropertyString(_("Common Settings"), "wxInfoBarButton");
-    AddProperty(new CategoryProperty(_("Common Settings")));
-    AddProperty(new WinIdProperty());
-    AddProperty(new StringProperty(PROP_NAME, "", _("Name")));
-    AddProperty(
-        new StringProperty(PROP_LABEL, _("My Label"),
-                           _("The label of the button. It may only be empty if the button ID is one of the stock ids "
-                             "in which case the corresponding stock label (see wxGetStockLabel()) will be used")));
+    Add<CategoryProperty>(_("Common Settings"));
+    Add<WinIdProperty>();
+    Add<StringProperty>(PROP_NAME, "", _("Name"));
+    Add<StringProperty>(PROP_LABEL,
+                        _("My Label"),
+                        _("The label of the button. It may only be empty if the button ID is one of the stock ids "
+                          "in which case the corresponding stock label (see wxGetStockLabel()) will be used"));
 
     RegisterEvent(wxT("wxEVT_COMMAND_BUTTON_CLICKED"), wxT("wxCommandEvent"),
                   _("Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked."),
@@ -26,8 +29,6 @@ InfoBarButtonWrapper::InfoBarButtonWrapper()
     m_namePattern = "m_infoBarButton";
     SetName(GenerateName());
 }
-
-InfoBarButtonWrapper::~InfoBarButtonWrapper() {}
 
 wxcWidget* InfoBarButtonWrapper::Clone() const { return new InfoBarButtonWrapper(); }
 

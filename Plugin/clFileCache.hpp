@@ -2,7 +2,6 @@
 #define CLFILECACHE_HPP
 
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
 #include <unordered_set>
 #include <vector>
@@ -14,12 +13,12 @@ class WXDLLIMPEXP_SDK clFileCache
     std::unordered_set<wxString> m_filesSet;
 
 public:
-    typedef std::vector<wxFileName>::const_iterator const_iterator;
-    typedef std::vector<wxFileName>::iterator iterator;
+    using const_iterator = std::vector<wxFileName>::const_iterator;
+    using iterator = std::vector<wxFileName>::iterator;
 
 public:
-    clFileCache() {}
-    ~clFileCache() {}
+    clFileCache() = default;
+    ~clFileCache() = default;
 
     const std::vector<wxFileName>& GetFiles() const { return m_files; }
     const_iterator begin() const { return m_files.begin(); }

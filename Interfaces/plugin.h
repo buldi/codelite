@@ -32,8 +32,8 @@
 #endif
 #endif
 
+#include "clAuiToolBarArt.h"
 #include "clToolBar.h"
-#include "cl_aui_tb_are.h"
 #include "cl_defs.h"
 #include "codelite_events.h"
 #include "imanager.h"
@@ -55,12 +55,7 @@
 #define EXPORT
 #endif
 
-#if defined(__WXMSW__) || defined(__WXGTK__)
 #define CL_PLUGIN_API extern "C" EXPORT
-#else
-// OSX
-#define CL_PLUGIN_API extern "C" EXPORT
-#endif
 
 class IManager;
 
@@ -102,10 +97,10 @@ protected:
      */
     void DeletePluginMenu(wxWindowID id)
     {
-        if(!GetPluginsMenu()) {
+        if (!GetPluginsMenu()) {
             return;
         }
-        if(GetPluginsMenu()->FindItem(id)) {
+        if (GetPluginsMenu()->FindItem(id)) {
             GetPluginsMenu()->Delete(id);
         }
     }
@@ -115,7 +110,7 @@ public:
         : m_mgr(manager)
     {
     }
-    virtual ~IPlugin() {}
+    ~IPlugin() override = default;
 
     //-----------------------------------------------
     // The interface
@@ -166,39 +161,12 @@ public:
     };
 
     /**
-     * @brief load image file from /path/to/install/plugins/resources/
-     * @param name file name (name+extension)
-     * @return Bitmap of wxNullBitmap if no match was found
-     */
-    virtual wxBitmap LoadBitmapFile(const wxString& name, wxBitmapType type = wxBITMAP_TYPE_PNG)
-    {
-        wxBitmap bmp;
-#ifdef __WXGTK__
-        // /usr/share/codelite
-        wxString pluginsDir = clStandardPaths::Get().GetDataDir();
-#else
-#ifdef USE_POSIX_LAYOUT
-        wxString pluginsDir(clStandardPaths::Get().GetDataDir());
-#else
-        wxString pluginsDir(m_mgr->GetInstallDirectory() + wxT("/plugins"));
-#endif
-#endif
-        wxString basePath(pluginsDir + wxT("/resources/"));
-
-        bmp.LoadFile(basePath + name, type);
-        if(bmp.IsOk()) {
-            return bmp;
-        }
-        return wxNullBitmap;
-    }
-
-    /**
      * @brief allow the plugins to hook a tab in the project settings
      * @param notebook the parent
      * @param configName the associated configuration name
      */
-    virtual void HookProjectSettingsTab(wxBookCtrlBase* notebook, const wxString& projectName,
-                                        const wxString& configName)
+    virtual void
+    HookProjectSettingsTab(wxBookCtrlBase* notebook, const wxString& projectName, const wxString& configName)
     {
         wxUnusedVar(notebook);
         wxUnusedVar(projectName);
@@ -210,8 +178,8 @@ public:
      * @param notebook the parent
      * @param configName the associated configuration name
      */
-    virtual void UnHookProjectSettingsTab(wxBookCtrlBase* notebook, const wxString& projectName,
-                                          const wxString& configName)
+    virtual void
+    UnHookProjectSettingsTab(wxBookCtrlBase* notebook, const wxString& projectName, const wxString& configName)
     {
         wxUnusedVar(notebook);
         wxUnusedVar(projectName);
@@ -219,14 +187,14 @@ public:
     }
 };
 
-#define CHECK_CL_SHUTDOWN()               \
-    {                                     \
-        if(m_mgr->IsShutdownInProgress()) \
-            return;                       \
+#define CHECK_CL_SHUTDOWN()                \
+    {                                      \
+        if (m_mgr->IsShutdownInProgress()) \
+            return;                        \
     }
 
 // Every dll must contain at least this function
-typedef IPlugin* (*GET_PLUGIN_CREATE_FUNC)(IManager*);
-typedef PluginInfo* (*GET_PLUGIN_INFO_FUNC)();
-typedef int (*GET_PLUGIN_INTERFACE_VERSION_FUNC)();
+using GET_PLUGIN_CREATE_FUNC = IPlugin* (*)(IManager*);
+using GET_PLUGIN_INFO_FUNC = PluginInfo* (*)();
+using GET_PLUGIN_INTERFACE_VERSION_FUNC = int (*)();
 #endif // PLUGIN_H

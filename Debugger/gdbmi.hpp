@@ -1,11 +1,9 @@
 #ifndef GDBMI_HPP
 #define GDBMI_HPP
 
-#include "wxStringHash.h"
 #include <memory>
-#include <sstream>
-#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <wx/string.h>
 
@@ -59,7 +57,7 @@ struct StringView {
         }
     }
 
-    StringView() {}
+    StringView() = default;
     StringView(const wxString& buffer)
         : StringView(buffer.c_str(), buffer.length())
     {
@@ -97,8 +95,8 @@ public:
 
 struct Node {
 public:
-    typedef std::shared_ptr<Node> ptr_t;
-    typedef std::vector<ptr_t> vec_t;
+    using ptr_t = std::shared_ptr<Node>;
+    using vec_t = std::vector<ptr_t>;
 
 private:
     ptr_t do_add_child(const wxString& name)
@@ -116,7 +114,7 @@ public:
     vec_t children;
     std::unordered_map<wxString, ptr_t> children_map;
 
-    Node() {}
+    Node() = default;
     Node& find_child(const wxString& name) const;
     Node& operator[](const wxString& name) const { return find_child(name); }
     Node& operator[](size_t index) const

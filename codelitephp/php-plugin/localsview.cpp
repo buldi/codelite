@@ -16,8 +16,7 @@ public:
         : m_data(data)
     {
     }
-    virtual ~MyStringData() {}
-    void SetData(const wxString& data) { this->m_data = data; }
+    virtual ~MyStringData() = default;
     const wxString& GetData() const { return m_data; }
 };
 
@@ -27,7 +26,7 @@ LocalsView::LocalsView(wxWindow* parent)
     EventNotifier::Get()->Bind(wxEVT_XDEBUG_LOCALS_UPDATED, &LocalsView::OnLocalsUpdated, this);
     EventNotifier::Get()->Bind(wxEVT_XDEBUG_SESSION_ENDED, &LocalsView::OnXDebugSessionEnded, this);
     EventNotifier::Get()->Bind(wxEVT_XDEBUG_SESSION_STARTED, &LocalsView::OnXDebugSessionStarted, this);
-    EventNotifier::Get()->Bind(wxEVT_XDEBUG_PROPERTY_GET, &LocalsView::OnProperytGet, this);
+    EventNotifier::Get()->Bind(wxEVT_XDEBUG_PROPERTY_GET, &LocalsView::OnPropertyGet, this);
 
     ClearView();
     m_tree->AddHeader(_("Name"));
@@ -45,7 +44,7 @@ LocalsView::~LocalsView()
     EventNotifier::Get()->Unbind(wxEVT_XDEBUG_LOCALS_UPDATED, &LocalsView::OnLocalsUpdated, this);
     EventNotifier::Get()->Unbind(wxEVT_XDEBUG_SESSION_ENDED, &LocalsView::OnXDebugSessionEnded, this);
     EventNotifier::Get()->Unbind(wxEVT_XDEBUG_SESSION_STARTED, &LocalsView::OnXDebugSessionStarted, this);
-    EventNotifier::Get()->Unbind(wxEVT_XDEBUG_PROPERTY_GET, &LocalsView::OnProperytGet, this);
+    EventNotifier::Get()->Unbind(wxEVT_XDEBUG_PROPERTY_GET, &LocalsView::OnPropertyGet, this);
 }
 
 void LocalsView::OnLocalCollapsed(wxTreeEvent& event)
@@ -102,9 +101,7 @@ void LocalsView::OnLocalsUpdated(XDebugEvent& e)
 
 void LocalsView::AppendVariablesToTree(const wxTreeItemId& parent, const XVariable::List_t& children)
 {
-    XVariable::List_t::const_iterator iter = children.begin();
-    for(; iter != children.end(); ++iter) {
-        const XVariable& var = *iter;
+    for (const XVariable& var : children) {
         wxTreeItemId item =
             m_tree->AppendItem(parent, var.name, wxNOT_FOUND, wxNOT_FOUND, new MyStringData(var.fullname));
         m_tree->SetItemText(item, var.type, 1);
@@ -164,11 +161,11 @@ wxString LocalsView::DoGetItemClientData(const wxTreeItemId& item) const
     return wxEmptyString;
 }
 
-void LocalsView::OnProperytGet(XDebugEvent& e)
+void LocalsView::OnPropertyGet(XDebugEvent& e)
 {
     e.Skip();
     // An item was evaluated using property_get
-    std::unordered_map<wxString, wxTreeItemId>::iterator iter = m_waitingExpand.find(e.GetEvaluted());
+    std::unordered_map<wxString, wxTreeItemId>::iterator iter = m_waitingExpand.find(e.GetEvaluated());
     if(iter == m_waitingExpand.end()) {
         return;
     }
@@ -184,15 +181,14 @@ void LocalsView::OnProperytGet(XDebugEvent& e)
         return;
 
     // Since we got here from property_get, XDebug will reply with the specific property (e.g. $myclass->secondClass)
-    // and all its children. Howeverr, $myclass->secondClass already exist in the tree
+    // and all its children. However, $myclass->secondClass already exist in the tree
     // so we are only interested with its children. so we use here vars.begin()->children (vars is always list of size
     // == 1)
     wxASSERT_MSG(vars.size() == 1, "property_get returned list of size != 1");
-    XVariable::List_t childs;
-    childs = vars.begin()->children;
+    const auto& children = vars.begin()->children;
 
-    if(!childs.empty()) {
-        AppendVariablesToTree(item, childs);
+    if (!children.empty()) {
+        AppendVariablesToTree(item, children);
         m_tree->Expand(item);
     }
 }

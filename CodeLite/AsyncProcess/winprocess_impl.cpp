@@ -24,9 +24,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #ifdef __WXMSW__
-#ifdef NTDDI_VERSION
-#undef NTDDI_VERSION
-#endif
 
 #ifdef NTDDI_VERSION
 #undef NTDDI_VERSION
@@ -39,47 +36,39 @@
 #define NTDDI_VERSION 0x0A000006
 #define _WIN32_WINNT 0x0600
 
-typedef VOID* HPCON;
-
-#if !defined(_MSC_VER)
-typedef HRESULT(WINAPI* CreatePseudoConsole_T)(COORD size, HANDLE hInput, HANDLE hOutput, DWORD dwFlags, HPCON* phPC);
-typedef VOID(WINAPI* ClosePseudoConsole_T)(HPCON hPC);
-
-thread_local bool loadOnce = true;
-thread_local CreatePseudoConsole_T CreatePseudoConsoleFunc = nullptr;
-thread_local ClosePseudoConsole_T ClosePseudoConsoleFunc = nullptr;
-#endif
-
-#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
-#define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
-#endif
-
 #include "winprocess_impl.h"
 
+#include "StringUtils.h"
+#include "clDirChanger.hpp"
 #include "file_logger.h"
 #include "fileutils.h"
 #include "processreaderthread.h"
 #include "procutils.h"
 
 #include <atomic>
-#include <memory>
 #include <wx/filefn.h>
 #include <wx/msgqueue.h>
 #include <wx/string.h>
 
-class MyDirGuard
-{
-    wxString _d;
+using HPCON = VOID*;
 
-public:
-    MyDirGuard()
-        : _d(wxGetCwd())
-    {
-    }
-    ~MyDirGuard() { wxSetWorkingDirectory(_d); }
-};
+#ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
+#define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
+#endif
 
-typedef HANDLE HPCON;
+#if defined(_MSC_VER)
+constexpr auto CreatePseudoConsoleFunc = &CreatePseudoConsole;
+constexpr auto ClosePseudoConsoleFunc = &ClosePseudoConsole;
+#else
+using CreatePseudoConsole_T = HRESULT(WINAPI*)(COORD size, HANDLE hInput, HANDLE hOutput, DWORD dwFlags, HPCON* phPC);
+using ClosePseudoConsole_T = VOID(WINAPI*)(HPCON hPC);
+
+thread_local bool loadOnce = true;
+thread_local CreatePseudoConsole_T CreatePseudoConsoleFunc = nullptr;
+thread_local ClosePseudoConsole_T ClosePseudoConsoleFunc = nullptr;
+#endif
+
+using HPCON = HANDLE;
 
 /**
  * @class ConsoleAttacher
@@ -173,7 +162,7 @@ public:
         m_shutdown.store(false);
     }
 
-    ~WinWriterThread() {}
+    ~WinWriterThread() = default;
 
     void Start() { m_thread = new std::thread(&WinWriterThread::Entry, this, m_hStdin); }
     void Stop()
@@ -394,13 +383,12 @@ IProcess* WinProcessImpl::Execute(wxEvtHandler* parent, const wxString& cmd, siz
     SECURITY_ATTRIBUTES saAttr;
     BOOL fSuccess;
 
-    MyDirGuard dg;
 
     wxString wd(workingDir);
     if(workingDir.IsEmpty()) {
         wd = wxGetCwd();
     }
-    wxSetWorkingDirectory(wd);
+    clDirChanger dg(wd);
 
     // Set the bInheritHandle flag so pipe handles are inherited.
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -655,12 +643,12 @@ bool WinProcessImpl::Read(wxString& buff, wxString& buffErr, std::string& raw_bu
 bool WinProcessImpl::Write(const wxString& buff)
 {
     // Sanity
-    return Write(FileUtils::ToStdString(buff));
+    return Write(StringUtils::ToStdString(buff));
 }
 
 bool WinProcessImpl::Write(const std::string& buff) { return WriteRaw(buff + "\r\n"); }
 
-bool WinProcessImpl::WriteRaw(const wxString& buff) { return WriteRaw(FileUtils::ToStdString(buff)); }
+bool WinProcessImpl::WriteRaw(const wxString& buff) { return WriteRaw(StringUtils::ToStdString(buff)); }
 
 bool WinProcessImpl::WriteRaw(const std::string& buff)
 {
@@ -711,17 +699,16 @@ void WinProcessImpl::Cleanup()
 
     // terminate the process
     if(IsAlive()) {
-        std::map<unsigned long, bool> tree;
-        ProcUtils::GetProcTree(tree, GetPid());
+        const auto tree = ProcUtils::GetProcTree(GetPid());
 
-        for(const auto& vt : tree) {
+        for (const auto& pid : tree) {
             // don't kill ourself
-            if((long)vt.first == GetPid()) {
+            if ((long)pid == GetPid()) {
                 continue;
             }
             wxLogNull NoLog;
             wxKillError rc;
-            wxKill(vt.first, wxSIGKILL, &rc);
+            wxKill(pid, wxSIGKILL, &rc);
         }
         ::TerminateProcess(piProcInfo.hProcess, 0);
     }
@@ -801,16 +788,15 @@ void WinProcessImpl::Terminate()
 {
     // terminate the process
     if(IsAlive()) {
-        std::map<unsigned long, bool> tree;
-        ProcUtils::GetProcTree(tree, GetPid());
+        const std::set<unsigned long> tree = ProcUtils::GetProcTree(GetPid());
 
-        for(const auto& vt : tree) {
-            if((long)vt.first == GetPid()) {
+        for (const auto& pid : tree) {
+            if ((long)pid == GetPid()) {
                 continue;
             }
             wxLogNull NoLOG;
             wxKillError rc;
-            wxKill(vt.first, wxSIGKILL, &rc);
+            wxKill(pid, wxSIGKILL, &rc);
         }
         TerminateProcess(piProcInfo.hProcess, 0);
     }

@@ -38,13 +38,13 @@ void WordCompletionDictionary::OnEditorChanged(wxCommandEvent& event)
     wxArrayString openEditors, cachedEditors, closedEditors;
     ::clGetManager()->GetAllEditors(allEditors);
 
-    std::for_each(allEditors.begin(), allEditors.end(), [&](IEditor* editor) {
+    for (IEditor* editor : allEditors) {
         openEditors.Add(editor->GetFileName().GetFullPath());
-    });
+    }
 
-    std::for_each(m_files.begin(), m_files.end(), [&](const std::pair<wxString, wxStringSet_t>& p) {
+    for (const auto& p : m_files) {
         cachedEditors.Add(p.first);
-    });
+    }
 
     // std::set_difference requires that both arrays will be sorted
     openEditors.Sort();
@@ -58,8 +58,8 @@ void WordCompletionDictionary::OnEditorChanged(wxCommandEvent& event)
                         openEditors.end(),
                         std::back_inserter(closedEditors));
 
-    for(size_t i = 0; i < closedEditors.size(); ++i) {
-        m_files.erase(closedEditors.Item(i));
+    for (const auto& closedEditorName : closedEditors) {
+        m_files.erase(closedEditorName);
     }
 
     // 2: cache the active editor
@@ -99,7 +99,7 @@ void WordCompletionDictionary::DoCacheActiveEditor(bool overwrite)
     // Queue this file
     wxStyledTextCtrl* stc = activeEditor->GetCtrl();
     
-    // Invoke the thread to parse and suggets words for this file
+    // Invoke the thread to parse and suggest words for this file
     WordCompletionThreadRequest* req = new WordCompletionThreadRequest;
     req->buffer = stc->GetText();
     req->filename = activeEditor->GetFileName();
@@ -116,8 +116,8 @@ void WordCompletionDictionary::OnFileSaved(clCommandEvent& event)
 wxStringSet_t WordCompletionDictionary::GetWords() const
 {
     wxStringSet_t words;
-    std::for_each(m_files.begin(), m_files.end(), [&](const std::pair<wxString, wxStringSet_t>& p){
+    for (const auto& p : m_files) {
         words.insert(p.second.begin(), p.second.end());
-    });
+    }
     return words;
 }

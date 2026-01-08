@@ -1,5 +1,5 @@
 #include "my_frame.h"
 
-MyFrame::MyFrame() {}
+#include "wxc_aui_manager.h"
 
 MyFrame::~MyFrame() { wxcAuiManager::Get().UnInit(this); }

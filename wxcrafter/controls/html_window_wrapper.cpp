@@ -1,9 +1,11 @@
 #include "html_window_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "string_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/html/htmlwin.h>
 
 HtmlWindowWrapper::HtmlWindowWrapper()
@@ -14,8 +16,8 @@ HtmlWindowWrapper::HtmlWindowWrapper()
     PREPEND_STYLE(wxHW_NO_SELECTION, false);
 
     SetPropertyString(_("Common Settings"), "wxHtmlWindow");
-    AddProperty(new StringProperty(PROP_HTMLCODE, wxT("<b>wxHtmlWindow control!</b>"), _("HTML code to load")));
-    AddProperty(new StringProperty(PROP_URL, wxT(""), _("URL to load")));
+    Add<StringProperty>(PROP_HTMLCODE, wxT("<b>wxHtmlWindow control!</b>"), _("HTML code to load"));
+    Add<StringProperty>(PROP_URL, wxT(""), _("URL to load"));
 
     RegisterEvent(wxT("wxEVT_COMMAND_HTML_CELL_CLICKED"), wxT("wxHtmlCellEvent"), _("A wxHtmlCell was clicked."));
     RegisterEvent(wxT("wxEVT_COMMAND_HTML_CELL_HOVER"), wxT("wxHtmlCellEvent"),
@@ -26,8 +28,6 @@ HtmlWindowWrapper::HtmlWindowWrapper()
     m_namePattern = wxT("m_htmlWin");
     SetName(GenerateName());
 }
-
-HtmlWindowWrapper::~HtmlWindowWrapper() {}
 
 wxcWidget* HtmlWindowWrapper::Clone() const { return new HtmlWindowWrapper(); }
 

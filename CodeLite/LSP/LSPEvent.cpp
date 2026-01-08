@@ -13,6 +13,7 @@ wxDEFINE_EVENT(wxEVT_LSP_CLEAR_DIAGNOSTICS, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_DOCUMENT_SYMBOLS_QUICK_OUTLINE, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_DOCUMENT_SYMBOLS_FOR_HIGHLIGHT, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_DOCUMENT_SYMBOLS_OUTLINE_VIEW, LSPEvent);
+wxDEFINE_EVENT(wxEVT_LSP_DOCUMENT_SYMBOLS_LLM, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_OPEN_FILE, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_SEMANTICS, LSPEvent);
 wxDEFINE_EVENT(wxEVT_LSP_LOGMESSAGE, LSPEvent);
@@ -28,30 +29,3 @@ LSPEvent::LSPEvent(wxEventType commandType, int winid)
     : clCommandEvent(commandType, winid)
 {
 }
-
-LSPEvent::LSPEvent(const LSPEvent& src)
-    : clCommandEvent(src)
-{
-    *this = src;
-}
-
-LSPEvent& LSPEvent::operator=(const LSPEvent& other)
-{
-    clCommandEvent::operator=(other);
-    m_location = other.m_location;
-    m_serverName = other.m_serverName;
-    m_completions = other.m_completions;
-    m_signatureHelp = other.m_signatureHelp;
-    m_hover = other.m_hover;
-    m_diagnostics = other.m_diagnostics;
-    m_symbolsInformation = other.m_symbolsInformation;
-    m_semanticTokens = other.m_semanticTokens;
-    m_logMessageSeverity = other.m_logMessageSeverity;
-    m_locations = other.m_locations;
-    m_commands = other.m_commands;
-    m_changes = other.m_changes;
-    m_triggerKind = other.m_triggerKind;
-    return *this;
-}
-
-LSPEvent::~LSPEvent() {}

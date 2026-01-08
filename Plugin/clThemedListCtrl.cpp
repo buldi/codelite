@@ -30,7 +30,7 @@ clThemedListCtrlBase::clThemedListCtrlBase(wxWindow* parent, wxWindowID id, cons
 
 clThemedListCtrlBase::~clThemedListCtrlBase()
 {
-    m_keyboard.reset(nullptr);
+    m_keyboard.reset();
     EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &clThemedListCtrlBase::OnThemeChanged, this);
 }
 
@@ -46,15 +46,11 @@ void clThemedListCtrlBase::ApplyTheme()
     ::MSWSetWindowDarkTheme(this);
 }
 
-clThemedListCtrl::~clThemedListCtrl() {}
-
 clThemedListCtrl::clThemedListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style)
     : clThemedListCtrlBase(parent, id, pos, size, (style | LIST_STYLE))
 {
     SetSortFunction(nullptr);
 }
-
-clThemedOrderedListCtrl::~clThemedOrderedListCtrl() {}
 
 clThemedOrderedListCtrl::clThemedOrderedListCtrl(wxWindow* parent, wxWindowID id, const wxPoint& pos,
                                                  const wxSize& size, long style)

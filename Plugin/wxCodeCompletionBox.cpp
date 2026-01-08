@@ -25,6 +25,8 @@
 #include <wx/font.h>
 #include <wx/stc/stc.h>
 
+const size_t MAX_TOOLTIP_SIZE = 1 << 10; // 1KB
+
 wxCodeCompletionBox::BmpVec_t wxCodeCompletionBox::m_defaultBitmaps;
 thread_local bool strip_html_tags = false;
 
@@ -42,7 +44,6 @@ wxCodeCompletionBox::wxCodeCompletionBox(wxWindow* parent, wxEvtHandler* eventOb
 
     // Use the active editor's font (if any)
     wxColour bgColour;
-    wxColour textColour;
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("c++");
     if (!lexer) {
         lexer = ColoursAndFontsManager::Get().GetLexer("text");
@@ -50,7 +51,6 @@ wxCodeCompletionBox::wxCodeCompletionBox(wxWindow* parent, wxEvtHandler* eventOb
     IEditor* editor = clGetManager()->GetActiveEditor();
     if (editor) {
         bgColour = editor->GetCtrl()->StyleGetBackground(0);
-        textColour = editor->GetCtrl()->StyleGetForeground(0);
     } else {
         bgColour = clSystemSettings::GetColour(wxSYS_COLOUR_3DSHADOW);
     }
@@ -86,52 +86,52 @@ wxCodeCompletionBox::wxCodeCompletionBox(wxWindow* parent, wxEvtHandler* eventOb
     // Set the default bitmap list
     BitmapLoader* bmpLoader = clGetManager()->GetStdIcons();
     m_bitmaps.push_back(bmpLoader->LoadBitmap("class")); // 0
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindClass, m_bitmaps.size() - 1 });
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindConstructor, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindClass, m_bitmaps.size() - 1});
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindConstructor, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("struct")); // 1
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindStruct, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindStruct, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("namespace")); // 2
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindModule, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindModule, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("member_public")); // 3
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1 });
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindField, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1});
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindField, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("typedef")); // 4
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindReference, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindReference, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("member_private")); // 5
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("member_public")); // 6
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("member_protected")); // 7
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindVariable, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("function_private")); // 8
     m_bitmaps.push_back(bmpLoader->LoadBitmap("function_public"));  // 9
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindFunction, m_bitmaps.size() - 1 });
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindMethod, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindFunction, m_bitmaps.size() - 1});
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindMethod, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("function_protected")); // 10
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("macro")); // 11
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindText, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindText, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("enum")); // 12
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindEnum, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindEnum, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("enumerator")); // 13
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindValue, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindValue, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("mime-cpp"));    // 14
     m_bitmaps.push_back(bmpLoader->LoadBitmap("mime-h"));      // 15
     m_bitmaps.push_back(bmpLoader->LoadBitmap("mime-text"));   // 16
     m_bitmaps.push_back(bmpLoader->LoadBitmap("cpp_keyword")); // 17
-    m_lspCompletionItemImageIndexMap.insert({ LSP::CompletionItem::kKindKeyword, m_bitmaps.size() - 1 });
+    m_lspCompletionItemImageIndexMap.insert({LSP::CompletionItem::kKindKeyword, m_bitmaps.size() - 1});
 
     m_bitmaps.push_back(bmpLoader->LoadBitmap("enum")); // 18
 
@@ -171,7 +171,8 @@ void wxCodeCompletionBox::Reset(wxEvtHandler* eventObject, size_t flags)
     m_list->DeleteAllItems();
 }
 
-void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl, const wxCodeCompletionBoxEntry::Vec_t& entries,
+void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl,
+                                            const wxCodeCompletionBoxEntry::Vec_t& entries,
                                             const wxSize& control_size)
 {
     m_stc = ctrl;
@@ -209,11 +210,6 @@ void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl, const wxCode
         }
     }
 
-    // Let the plugins modify the list of the entries
-    int start = m_startPos;
-    int end = m_stc->GetCurrentPos();
-
-    wxString word = m_stc->GetTextRange(start, end); // the current word
     if (m_entries.empty()) {
         // no entries to display
         DoDestroy();
@@ -234,6 +230,11 @@ void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl, const wxCode
 void wxCodeCompletionBox::OnTooltipWindowTimer(wxTimerEvent& event)
 {
     wxUnusedVar(event);
+    if (!IsShown()) {
+        DoDestroyTipWindow();
+        return;
+    }
+
     // Display the tooltip
     if (m_list->GetItemCount() == 0) {
         DoDestroyTipWindow();
@@ -264,13 +265,19 @@ void wxCodeCompletionBox::OnTooltipWindowTimer(wxTimerEvent& event)
             // destroy old tip window
             DoDestroyTipWindow();
 
+            // Don't allow too large tooltips
+            if (docComment.size() > MAX_TOOLTIP_SIZE) {
+                docComment = docComment.Mid(0, MAX_TOOLTIP_SIZE);
+                docComment << "** ...truncated**";
+            }
+
             // keep the old tip
             m_displayedTip = docComment;
 
             // Construct a new tip window and display the tip
             m_tipWindow = new CCBoxTipWindow(GetParent(), docComment, strip_html_tags);
-            m_tipWindow->PositionRelativeTo(this, m_stc->PointFromPosition(m_stc->GetCurrentPos()),
-                                            m_stc->GetCurrentPos());
+            m_tipWindow->PositionRelativeTo(
+                this, m_stc->PointFromPosition(m_stc->GetCurrentPos()), m_stc->GetCurrentPos());
 
             // restore focus to the editor
             m_stc->CallAfter(&wxStyledTextCtrl::SetFocus);
@@ -312,7 +319,9 @@ void wxCodeCompletionBox::StcModified(wxStyledTextEvent& event)
     DoUpdateList();
 }
 
-bool wxCodeCompletionBox::FilterResults(bool updateEntries, size_t& startsWithCount, size_t& containsCount,
+bool wxCodeCompletionBox::FilterResults(bool updateEntries,
+                                        size_t& startsWithCount,
+                                        size_t& containsCount,
                                         size_t& exactMatchCount)
 {
     containsCount = 0;
@@ -399,12 +408,11 @@ void wxCodeCompletionBox::InsertSelection(wxCodeCompletionBoxEntry::Ptr_t entry)
                 CxxTemplateFunction tf(match->m_tag);
                 if (!tf.CanTemplateArgsDeduced()) {
                     // Insert a template function
-                    wxCodeCompletionBoxManager::Get().CallAfter(
-                        &wxCodeCompletionBoxManager::InsertSelectionTemplateFunction, match->GetText());
+                    wxCodeCompletionBoxManager::Get().InsertSelectionTemplateFunction(match->GetText());
                     return;
                 }
             }
-            wxCodeCompletionBoxManager::Get().CallAfter(&wxCodeCompletionBoxManager::InsertSelection, match, true);
+            wxCodeCompletionBoxManager::Get().InsertSelection(match, true);
         }
     }
 }
@@ -462,7 +470,8 @@ int wxCodeCompletionBox::GetImageId(TagEntryPtr entry)
     return wxNOT_FOUND;
 }
 
-void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl, const TagEntryPtrVector_t& tags,
+void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl,
+                                            const TagEntryPtrVector_t& tags,
                                             const wxSize& control_size)
 {
     ShowCompletionBox(ctrl, TagsToEntries(tags), control_size);
@@ -524,7 +533,7 @@ void wxCodeCompletionBox::DoDestroyTipWindow()
     if (m_tipWindow) {
         m_tipWindow->Hide();
         m_tipWindow->Destroy();
-        m_tipWindow = NULL;
+        m_tipWindow = nullptr;
         m_displayedTip.Clear();
     }
 }
@@ -689,7 +698,8 @@ wxString wxCodeCompletionBox::GetFilter()
     return m_stc->GetTextRange(start, end);
 }
 
-void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl, const LSP::CompletionItem::Vec_t& completions,
+void wxCodeCompletionBox::ShowCompletionBox(wxStyledTextCtrl* ctrl,
+                                            const LSP::CompletionItem::Vec_t& completions,
                                             const wxSize& control_size)
 {
     ShowCompletionBox(ctrl, LSPCompletionsToEntries(completions), control_size);

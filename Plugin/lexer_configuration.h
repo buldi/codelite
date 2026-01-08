@@ -32,7 +32,6 @@
 #include <memory>
 #include <wx/filename.h>
 #include <wx/font.h>
-#include <wx/sharedptr.h>
 #include <wx/stc/stc.h>
 #include <wx/string.h>
 #include <wx/xml/xml.h>
@@ -58,7 +57,7 @@ struct WXDLLIMPEXP_SDK WordSetIndex {
         , is_substyle(b)
     {
     }
-    WordSetIndex() {}
+    WordSetIndex() = default;
     JSONItem to_json() const
     {
         auto item = JSONItem::createObject();
@@ -69,7 +68,7 @@ struct WXDLLIMPEXP_SDK WordSetIndex {
 
     void from_json(const JSONItem& json)
     {
-        if(json.isNumber()) {
+        if (json.isNumber()) {
             // old style, for migration purposes
             index = json.toInt(wxNOT_FOUND);
         } else {
@@ -116,16 +115,16 @@ protected:
         kUseCustomTextSelectionFgColour = (1 << 2),
     };
 
-    inline void EnableFlag(eLexerConfFlags flag, bool b)
+    void EnableFlag(eLexerConfFlags flag, bool b)
     {
-        if(b) {
+        if (b) {
             m_flags |= flag;
         } else {
             m_flags &= ~flag;
         }
     }
 
-    inline bool HasFlag(eLexerConfFlags flag) const { return m_flags & flag; }
+    bool HasFlag(eLexerConfFlags flag) const { return m_flags & flag; }
 
 public:
     struct FindByNameAndTheme {
@@ -165,7 +164,7 @@ public:
 
 public:
     LexerConf();
-    virtual ~LexerConf();
+    virtual ~LexerConf() = default;
 
     void SetUseCustomTextSelectionFgColour(bool b) { EnableFlag(kUseCustomTextSelectionFgColour, b); }
     bool IsUseCustomTextSelectionFgColour() const { return HasFlag(kUseCustomTextSelectionFgColour); }
@@ -247,6 +246,9 @@ public:
      */
     StyleProperty& GetProperty(int propertyId);
     const StyleProperty& GetProperty(int propertyId) const;
+
+    /// Set or replace property
+    void SetProperty(const StyleProperty& prop);
 
     /**
      * @brief set the line numbers colour

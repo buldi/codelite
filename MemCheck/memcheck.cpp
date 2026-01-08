@@ -7,15 +7,12 @@
 
 #include "memcheck.h"
 
-#include "AsyncProcess/asyncprocess.h"
-#include "AsyncProcess/processreaderthread.h"
-#include "async_executable_cmd.h"
+#include "StringUtils.h"
 #include "build_config.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "globals.h"
 #include "macromanager.h"
 #include "memcheckdefs.h"
 #include "memcheckoutputview.h"
@@ -65,7 +62,7 @@ MemCheckPlugin::MemCheckPlugin(IManager* manager)
                                 wxUpdateUIEventHandler(MemCheckPlugin::OnStopProcessUI), NULL, (wxEvtHandler*)this);
 
     m_mgr->GetTheApp()->Connect(XRCID("memcheck_check_active_project"), wxEVT_COMMAND_MENU_SELECTED,
-                                wxCommandEventHandler(MemCheckPlugin::OnCheckAtiveProject), NULL, (wxEvtHandler*)this);
+                                wxCommandEventHandler(MemCheckPlugin::OnCheckActiveProject), NULL, (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Connect(XRCID("memcheck_check_active_project"), wxEVT_UPDATE_UI,
                                 wxUpdateUIEventHandler(MemCheckPlugin::OnMemCheckUI), NULL, (wxEvtHandler*)this);
 
@@ -177,12 +174,12 @@ void MemCheckPlugin::HookPopupMenu(wxMenu* menu, MenuType type)
 
 void MemCheckPlugin::UnPlug()
 {
-    m_tabHelper.reset(NULL);
+    m_tabHelper.reset();
     m_terminal.Unbind(wxEVT_TERMINAL_COMMAND_EXIT, &MemCheckPlugin::OnProcessTerminated, this);
     m_terminal.Unbind(wxEVT_TERMINAL_COMMAND_OUTPUT, &MemCheckPlugin::OnProcessOutput, this);
 
     m_mgr->GetTheApp()->Disconnect(XRCID("memcheck_check_active_project"), wxEVT_COMMAND_MENU_SELECTED,
-                                   wxCommandEventHandler(MemCheckPlugin::OnCheckAtiveProject), NULL,
+                                   wxCommandEventHandler(MemCheckPlugin::OnCheckActiveProject), NULL,
                                    (wxEvtHandler*)this);
     m_mgr->GetTheApp()->Disconnect(XRCID("memcheck_check_active_project"), wxEVT_UPDATE_UI,
                                    wxUpdateUIEventHandler(MemCheckPlugin::OnMemCheckUI), NULL, (wxEvtHandler*)this);
@@ -257,7 +254,7 @@ void MemCheckPlugin::ApplySettings(bool loadLastErrors)
 
 void MemCheckPlugin::SwitchToMyPage() { m_mgr->BookSelectPage(PaneId::BOTTOM_BAR, m_outputView); }
 
-void MemCheckPlugin::OnCheckAtiveProject(wxCommandEvent& event)
+void MemCheckPlugin::OnCheckActiveProject(wxCommandEvent& event)
 {
     CHECK_CL_SHUTDOWN()
     clCxxWorkspace* workspace = m_mgr->GetWorkspace();
@@ -436,7 +433,7 @@ wxString MemCheckPlugin::PrepareCommand(const wxString& projectName, wxString& w
     wd = workingDir.GetPath();
     cmd = fileExe.GetFullPath();
 
-    cmd = ::WrapWithQuotes(cmd);
+    cmd = StringUtils::WrapWithQuotes(cmd);
     cmd << " " << cmdArgs;
     clDEBUG() << "Command to execute:" << cmd;
     clDEBUG() << "Working directory:" << wd;

@@ -1,21 +1,13 @@
 #include "CompileCommandsGenerator.h"
 
 #include "AsyncProcess/processreaderthread.h"
-#include "CompileCommandsJSON.h"
-#include "CompileFlagsTxt.h"
-#include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
-#include "JSON.h"
-#include "clFilesCollector.h"
+#include "StringUtils.h"
 #include "cl_config.h"
-#include "clcommandlineparser.h"
-#include "compiler_command_line_parser.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "fileutils.h"
 #include "globals.h"
 #include "imanager.h"
-#include "macros.h"
 #include "md5/wxmd5.h"
 #include "workspace.h"
 
@@ -25,14 +17,14 @@ wxDEFINE_EVENT(wxEVT_COMPILE_COMMANDS_JSON_GENERATED, clCommandEvent);
 
 CompileCommandsGenerator::CompileCommandsGenerator()
 {
-    Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &CompileCommandsGenerator::OnProcessTeraminated, this);
+    Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &CompileCommandsGenerator::OnProcessTerminated, this);
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &CompileCommandsGenerator::OnProcessOutput, this);
 }
 
 CompileCommandsGenerator::~CompileCommandsGenerator()
 {
-    // If the child process is still running, detach from it. i.e. OnProcessTeraminated() event is not called
-    Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &CompileCommandsGenerator::OnProcessTeraminated, this);
+    // If the child process is still running, detach from it. i.e. OnProcessTerminated() event is not called
+    Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &CompileCommandsGenerator::OnProcessTerminated, this);
     Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &CompileCommandsGenerator::OnProcessOutput, this);
     if(m_process) {
         m_process->Detach();
@@ -40,14 +32,14 @@ CompileCommandsGenerator::~CompileCommandsGenerator()
     wxDELETE(m_process);
 }
 
-typedef wxString CheckSum_t;
+using CheckSum_t = wxString;
 static CheckSum_t ComputeFileCheckSum(const wxFileName& fn) { return wxMD5::GetDigest(fn); }
 
 void CompileCommandsGenerator::OnProcessOutput(clProcessEvent& event) { m_capturedOutput << event.GetOutput(); }
 
-void CompileCommandsGenerator::OnProcessTeraminated(clProcessEvent& event)
+void CompileCommandsGenerator::OnProcessTerminated(clProcessEvent& event)
 {
-    // dont call event.Skip() so we will delete the m_process ourself
+    // don't call event.Skip() so we will delete the m_process ourself
     wxDELETE(m_process);
     clGetManager()->SetStatusMessage(_("Ready"));
 
@@ -133,10 +125,10 @@ void CompileCommandsGenerator::GenerateCompileCommands()
 
     wxString command;
     command << codeliteMake.GetFullPath();
-    ::WrapWithQuotes(command);
+    StringUtils::WrapWithQuotes(command);
 
     wxString workspaceFile = clCxxWorkspaceST::Get()->GetFileName();
-    ::WrapWithQuotes(workspaceFile);
+    StringUtils::WrapWithQuotes(workspaceFile);
 
     wxString configName =
         clCxxWorkspaceST::Get()->GetSelectedConfig() ? clCxxWorkspaceST::Get()->GetSelectedConfig()->GetName() : "";
@@ -161,7 +153,7 @@ void CompileCommandsGenerator::GenerateCompileCommands()
     wxFileName xmlFile(clStandardPaths::Get().GetUserDataDir(), "build_settings.xml");
     xmlFile.AppendDir("config");
     wxString xmlPath = xmlFile.GetFullPath();
-    ::WrapWithQuotes(xmlPath);
+    StringUtils::WrapWithQuotes(xmlPath);
     command << " --settings=" << xmlPath;
 
     clDEBUG() << "Executing:" << command;

@@ -88,8 +88,8 @@ public:
         {
         }
     };
-    typedef std::vector<LineInfo> LineInfoVec_t;
-    typedef std::vector<std::pair<int, int>> SeqLinePair_t;
+    using LineInfoVec_t = std::vector<LineInfo>;
+    using SeqLinePair_t = std::vector<std::pair<int, int>>;
 
     enum DiffMode { kTwoPanes = 0x01, kOnePane = 0x02 };
 
@@ -99,8 +99,8 @@ private:
     SeqLinePair_t m_sequences;
 
 public:
-    clDTL();
-    virtual ~clDTL();
+    clDTL() = default;
+    virtual ~clDTL() = default;
 
     /**
      * @brief "diff" two files and store the result in the m_result member

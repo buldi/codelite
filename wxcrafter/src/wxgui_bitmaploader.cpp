@@ -3,9 +3,7 @@
 #include "Zip/clZipReader.h"
 #include "clFilesCollector.h"
 #include "wxc_project_metadata.h"
-#include "wxgui_globals.h"
 
-#include <wx/ffile.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 
@@ -16,7 +14,12 @@ wxCrafter::ResourceLoader::ResourceLoader(const wxString& skin)
 {
     if(m_bitmaps.empty()) {
         wxString zipFile;
+#ifdef __WXMSW__
+        zipFile << wxStandardPaths::Get().GetDataDir() << wxT(INSTALL_DIR) << wxFileName::GetPathSeparator() << skin
+                << wxT(".zip");
+#else
         zipFile << wxStandardPaths::Get().GetDataDir() << wxFileName::GetPathSeparator() << skin << wxT(".zip");
+#endif
         clZipReader zip(zipFile);
 
         std::unordered_map<wxString, clZipReader::Entry> entries;
@@ -46,8 +49,6 @@ wxCrafter::ResourceLoader::ResourceLoader(const wxString& skin)
         entries.clear();
     }
 }
-
-wxCrafter::ResourceLoader::~ResourceLoader() {}
 
 const wxBitmap& wxCrafter::ResourceLoader::Bitmap(const wxString& name) const
 {

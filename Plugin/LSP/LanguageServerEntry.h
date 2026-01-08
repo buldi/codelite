@@ -1,0 +1,83 @@
+#ifndef LANGUAGESERVERENTRY_H
+#define LANGUAGESERVERENTRY_H
+
+#include "LSP/LSPNetwork.h"
+#include "codelite_exports.h"
+
+#include <map>
+#include <wx/string.h>
+
+class WXDLLIMPEXP_SDK LanguageServerEntry
+{
+    bool m_enabled = true;
+    wxString m_name;
+    wxString m_exepath;
+    wxString m_args;
+    wxString m_workingDirectory;
+    wxArrayString m_languages;
+    wxString m_connectionString;
+    bool m_displayDiagnostics = true;
+    wxString m_command;
+    wxString m_remoteCommand;
+    wxString m_initOptions;
+
+public:
+    // use 'map' to keep the items sorted by name
+    using Map_t = std::map<wxString, LanguageServerEntry>;
+
+    bool IsNull() const;
+
+public:
+    virtual void FromJSON(const JSONItem& json);
+    virtual JSONItem ToJSON() const;
+
+    LanguageServerEntry();
+    ~LanguageServerEntry() = default;
+
+    void SetCommand(const wxString& command);
+    wxString GetCommand(bool pretty = false) const;
+
+    void SetInitOptions(const wxString& initOptions);
+    wxString GetInitOptions() const;
+
+    LanguageServerEntry& SetDisplayDiagnostics(bool displayDiagnostics)
+    {
+        this->m_displayDiagnostics = displayDiagnostics;
+        return *this;
+    }
+    bool IsDisplayDiagnostics() const { return m_displayDiagnostics; }
+    LanguageServerEntry& SetConnectionString(const wxString& connectionString)
+    {
+        this->m_connectionString = connectionString;
+        return *this;
+    }
+    const wxString& GetConnectionString() const { return m_connectionString; }
+    LanguageServerEntry& SetEnabled(bool enabled)
+    {
+        this->m_enabled = enabled;
+        return *this;
+    }
+    bool IsEnabled() const { return m_enabled; }
+    LanguageServerEntry& SetLanguages(const wxArrayString& languages)
+    {
+        this->m_languages = languages;
+        return *this;
+    }
+    const wxArrayString& GetLanguages() const { return m_languages; }
+    LanguageServerEntry& SetWorkingDirectory(const wxString& workingDirectory)
+    {
+        this->m_workingDirectory = workingDirectory;
+        return *this;
+    }
+    const wxString& GetWorkingDirectory() const { return m_workingDirectory; }
+    LanguageServerEntry& SetName(const wxString& name)
+    {
+        this->m_name = name;
+        return *this;
+    }
+    const wxString& GetName() const { return m_name; }
+    eNetworkType GetNetType() const;
+    bool IsAutoRestart() const;
+};
+
+#endif // LANGUAGESERVERENTRY_H

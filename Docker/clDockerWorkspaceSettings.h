@@ -3,10 +3,7 @@
 
 #include "clDockerBuildableFile.h"
 #include "cl_config.h"
-#include "wxStringHash.h"
 
-#include <algorithm>
-#include <vector>
 #include <wx/string.h>
 
 class clDockerWorkspaceSettings : public clConfigItem
@@ -22,7 +19,7 @@ public:
 
 public:
     clDockerWorkspaceSettings();
-    virtual ~clDockerWorkspaceSettings();
+    virtual ~clDockerWorkspaceSettings() = default;
 
     clDockerBuildableFile::Map_t& GetFiles() { return m_files; }
 

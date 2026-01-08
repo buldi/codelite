@@ -25,12 +25,15 @@
 
 INITIALISE_MODULE_LOG(TERM_LOG, "Terminal", "terminal.log");
 
-wxTerminalCtrl::wxTerminalCtrl() {}
-
-wxTerminalCtrl::wxTerminalCtrl(wxWindow* parent, wxWindowID winid, const wxString& working_directory,
-                               const wxPoint& pos, const wxSize& size, long style, const wxString& name)
+wxTerminalCtrl::wxTerminalCtrl(wxWindow* parent,
+                               wxWindowID winid,
+                               const wxString& working_directory,
+                               const wxPoint& pos,
+                               const wxSize& size,
+                               long style,
+                               const wxString& name)
 {
-    if(!Create(parent, winid, pos, size, style)) {
+    if (!Create(parent, winid, pos, size, style)) {
         return;
     }
     m_startingDirectory = working_directory;
@@ -50,7 +53,7 @@ wxTerminalCtrl::wxTerminalCtrl(wxWindow* parent, wxWindowID winid, const wxStrin
 
 wxTerminalCtrl::~wxTerminalCtrl()
 {
-    if(m_shell) {
+    if (m_shell) {
         m_shell->Detach();
         wxDELETE(m_shell);
     }
@@ -61,54 +64,69 @@ wxTerminalCtrl::~wxTerminalCtrl()
     Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &wxTerminalCtrl::OnProcessTerminated, this);
 }
 
-bool wxTerminalCtrl::Create(wxWindow* parent, wxWindowID winid, const wxPoint& pos, const wxSize& size, long style,
-                            const wxString& name)
+bool wxTerminalCtrl::Create(
+    wxWindow* parent, wxWindowID winid, const wxPoint& pos, const wxSize& size, long style, const wxString& name)
 {
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &wxTerminalCtrl::OnProcessOutput, this);
     Bind(wxEVT_ASYNC_PROCESS_STDERR, &wxTerminalCtrl::OnProcessError, this);
     Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &wxTerminalCtrl::OnProcessTerminated, this);
     EventNotifier::Get()->Bind(wxEVT_WORKSPACE_LOADED, &wxTerminalCtrl::OnWorkspaceLoaded, this);
     m_style = style & ~wxWINDOW_STYLE_MASK; // Remove all wxWindow style masking (Hi Word)
-    return wxPanel::Create(parent, winid, pos, size,
+    return wxPanel::Create(parent,
+                           winid,
+                           pos,
+                           size,
                            style & wxWINDOW_STYLE_MASK); // Pass only the Windows related styles
 }
 
 void wxTerminalCtrl::StartShell()
 {
     wxString shell_exec;
-    if(m_shellCommand.CmpNoCase("bash") == 0) {
-        if(!ThePlatform->Which(m_shellCommand, &shell_exec)) {
-            wxMessageBox(wxString() << _("Unable to find ") << m_shellCommand << ". Can't start a terminal", "CodeLite",
+    if (m_shellCommand.CmpNoCase("bash") == 0) {
+        shell_exec = ThePlatform->Which(m_shellCommand).value_or("");
+        if (shell_exec.IsEmpty()) {
+            wxMessageBox(wxString() << _("Unable to find ") << m_shellCommand << ". Can't start a terminal",
+                         "CodeLite",
                          wxICON_WARNING | wxOK | wxCENTRE | wxOK_DEFAULT);
             return;
         }
-    } else if(m_shellCommand.CmpNoCase("cmd") == 0) {
+    } else if (m_shellCommand.CmpNoCase("cmd") == 0) {
         shell_exec = "cmd";
     } else {
         shell_exec = m_shellCommand;
     }
 
+    EnvSetter env_setter;
     wxString path;
-    ThePlatform->GetPath(&path, true);
+    ::wxGetEnv("PATH", &path);
 
-    clEnvList_t* penv = nullptr;
+    clEnvList_t env;
+    env.push_back({"PATH", path});
+
 #ifdef __WXMSW__
     // override PATH with our own
-    clEnvList_t env;
-    env.push_back({ "WD", wxFileName(shell_exec).GetPath() });
-    penv = &env;
+    env.push_back({"WD", wxFileName(shell_exec).GetPath()});
 #endif
 
+    // required to get colours
+    env.push_back({"TERM", "xterm-256color"});
+    // always enable cargo's colouring
+    env.push_back({"CARGO_TERM_COLOR", "always"});
+    // gcc colours
+    env.push_back({"GCC_COLORS", wxEmptyString});
+    // User name
+    env.push_back({"USER", ::wxGetUserId()});
+
     LOG_DEBUG(TERM_LOG()) << "Starting shell process:" << shell_exec << endl;
-    if(m_shellCommand == "bash") {
-        m_shell = ::CreateAsyncProcess(this, shell_exec + " --login -i", IProcessRawOutput, wxEmptyString, penv);
+    if (m_shellCommand == "bash") {
+        m_shell = ::CreateAsyncProcess(this, shell_exec + " --login -i", IProcessRawOutput, wxEmptyString, &env);
     } else {
-        m_shell = ::CreateAsyncProcess(this, shell_exec, IProcessRawOutput, wxEmptyString, penv);
+        m_shell = ::CreateAsyncProcess(this, shell_exec, IProcessRawOutput, wxEmptyString, &env);
     }
 
-    if(m_shell) {
+    if (m_shell) {
         LOG_DEBUG(TERM_LOG()) << "Setting working directory to:" << m_startingDirectory << endl;
-        if(!m_startingDirectory.empty()) {
+        if (!m_startingDirectory.empty()) {
             // now that we have a shell, set the working directory
             SetTerminalWorkingDirectory(m_startingDirectory);
         }
@@ -124,17 +142,19 @@ void wxTerminalCtrl::StartShell()
 
 void wxTerminalCtrl::Run(const wxString& command)
 {
-    if(!m_shell) {
+    if (!m_shell) {
         return;
     }
     LOG_DEBUG(TERM_LOG()) << "-->" << command << endl;
     m_shell->WriteRaw(command + "\n");
 
-    wxStringView sv{ command.wc_str(), command.length() };
+#ifndef __WXMSW__
+    wxStringView sv{command.wc_str(), command.length()};
     AppendText(sv);
 
     wxStringView eol(wxT("\n"), 1);
     AppendText(eol);
+#endif
 }
 
 void wxTerminalCtrl::AppendText(wxStringView text)
@@ -144,7 +164,7 @@ void wxTerminalCtrl::AppendText(wxStringView text)
     m_outputView->SetCaretEnd();
     m_inputCtrl->SetWritePositionEnd();
 
-    if(!window_title.empty()) {
+    if (!window_title.empty()) {
         wxTerminalEvent titleEvent(wxEVT_TERMINAL_CTRL_SET_TITLE);
         titleEvent.SetEventObject(this);
         titleEvent.SetString(window_title);
@@ -154,7 +174,7 @@ void wxTerminalCtrl::AppendText(wxStringView text)
 
 void wxTerminalCtrl::GenerateCtrlC()
 {
-    if(!m_shell) {
+    if (!m_shell) {
         return;
     }
 
@@ -172,7 +192,7 @@ void wxTerminalCtrl::GenerateCtrlC()
 void wxTerminalCtrl::DoProcessTerminated()
 {
     wxDELETE(m_shell);
-    if(m_terminating) {
+    if (m_terminating) {
         wxTerminalEvent outputEvent(wxEVT_TERMINAL_CTRL_DONE);
         outputEvent.SetEventObject(this);
         GetEventHandler()->AddPendingEvent(outputEvent);
@@ -189,7 +209,9 @@ void wxTerminalCtrl::SetAttributes(const wxColour& bg_colour, const wxColour& te
 
 void wxTerminalCtrl::OnProcessOutput(clProcessEvent& event)
 {
-    m_processOutput << event.GetOutput();
+    wxString s = event.GetOutput();
+    s.Replace("\r", "");
+    m_processOutput << s;
     ProcessOutputBuffer();
 }
 
@@ -208,7 +230,7 @@ void wxTerminalCtrl::OnProcessTerminated(clProcessEvent& event)
 void wxTerminalCtrl::Terminate()
 {
     m_terminating = true;
-    if(m_shell) {
+    if (m_shell) {
         m_shell->Terminate();
     }
 }
@@ -216,7 +238,7 @@ void wxTerminalCtrl::Terminate()
 bool wxTerminalCtrl::PromptForPasswordIfNeeded(const wxString& line)
 {
     static std::vector<wxString> password_phrases;
-    if(password_phrases.empty()) {
+    if (password_phrases.empty()) {
         password_phrases = {
             "password:",
             "password for",
@@ -226,19 +248,19 @@ bool wxTerminalCtrl::PromptForPasswordIfNeeded(const wxString& line)
     }
 
     auto should_prompt_user_func = [](const wxString& text) -> bool {
-        for(const auto& expr : password_phrases) {
-            if(text.Contains(expr)) {
+        for (const auto& expr : password_phrases) {
+            if (text.Contains(expr)) {
                 return true;
             }
         }
         return false;
     };
 
-    if(should_prompt_user_func(line.Lower())) {
+    if (should_prompt_user_func(line.Lower())) {
         wxString pass = ::wxGetPasswordFromUser(line, "CodeLite", wxEmptyString, wxTheApp->GetTopWindow());
-        if(pass.empty()) {
+        if (pass.empty()) {
             GenerateCtrlC();
-        } else if(m_shell) {
+        } else if (m_shell) {
             m_shell->Write(pass);
         }
         return true;
@@ -251,7 +273,7 @@ void wxTerminalCtrl::ClearScreen() { m_outputView->Clear(); }
 
 void wxTerminalCtrl::Logout()
 {
-    if(!m_shell) {
+    if (!m_shell) {
         return;
     }
     wxString ctrld;
@@ -263,8 +285,6 @@ void wxTerminalCtrl::Logout()
 #endif
 }
 
-void wxTerminalCtrl::SendTab() {}
-
 void wxTerminalCtrl::OnWorkspaceLoaded(clWorkspaceEvent& event)
 {
     event.Skip(); // allways skip this event
@@ -274,7 +294,7 @@ void wxTerminalCtrl::SSHAndSetWorkingDirectory(const wxString& ssh_account, cons
 {
 #if USE_SFTP
     auto account = SSHAccountInfo::LoadAccount(ssh_account);
-    if(account.GetAccountName().empty()) {
+    if (account.GetAccountName().empty()) {
         return;
     }
     // build the ssh command
@@ -284,11 +304,11 @@ void wxTerminalCtrl::SSHAndSetWorkingDirectory(const wxString& ssh_account, cons
     wxString ssh_exe = "ssh";
 
     command << StringUtils::WrapWithDoubleQuotes(ssh_exe) << " -tt ";
-    if(!account.GetUsername().empty()) {
+    if (!account.GetUsername().empty()) {
         command << account.GetUsername() << "@" << account.GetHost();
     }
     wxString remote_dir = path;
-    if(!remote_dir.empty()) {
+    if (!remote_dir.empty()) {
         command << " \"cd " << path << "; $SHELL\"";
     }
     Run(command);
@@ -307,27 +327,27 @@ bool wxTerminalCtrl::IsFocused() { return m_inputCtrl->IsFocused(); }
 
 wxStringView wxTerminalCtrl::GetNextLine()
 {
-    if(m_processOutput.empty()) {
+    if (m_processOutput.empty()) {
         return {};
     }
 
     int where = m_processOutput.Find('\n');
-    if(where == wxNOT_FOUND) {
+    if (where == wxNOT_FOUND) {
         // return the entire string
-        return wxStringView{ m_processOutput.wc_str(), m_processOutput.length() };
+        return wxStringView{m_processOutput.wc_str(), m_processOutput.length()};
     }
 
-    return wxStringView{ m_processOutput.wc_str(),
-                         (size_t)where + 1 }; // return the string view, including the terminator
+    return wxStringView{
+        m_processOutput.wc_str(), (size_t)where + 1}; // return the string view, including the terminator
 }
 
 void wxTerminalCtrl::ProcessOutputBuffer()
 {
-    if(m_processOutput.empty()) {
+    if (m_processOutput.empty()) {
         return;
     }
 
-    wxStringView sv{ m_processOutput.data(), m_processOutput.length() };
+    wxStringView sv{m_processOutput.data(), m_processOutput.length()};
     LOG_IF_DEBUG { LOG_DEBUG(TERM_LOG()) << "<--" << wxString(sv.data(), sv.length()) << endl; }
 
     AppendText(sv);
@@ -338,12 +358,18 @@ void wxTerminalCtrl::ProcessOutputBuffer()
     m_processOutput.clear();
 
     // Check if any of the newly added lines require password prompting
-    for(const auto& line : new_lines) {
-        if(PromptForPasswordIfNeeded(line)) {
+    for (const auto& line : new_lines) {
+        if (PromptForPasswordIfNeeded(line)) {
             break;
         }
     }
 
     // see if we need to prompt for password
     m_inputCtrl->CallAfter(&wxTerminalInputCtrl::NotifyTerminalOutput);
+}
+
+void wxTerminalCtrl::ProcessIdle()
+{
+    // Pass it to the output control
+    m_outputView->ProcessIdle();
 }

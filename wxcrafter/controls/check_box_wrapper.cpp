@@ -1,17 +1,19 @@
 #include "check_box_wrapper.h"
+
+#include "Properties/bool_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "string_property.h"
 #include "wxgui_defs.h"
 #include "xmlutils.h"
+
 #include <wx/checkbox.h>
 
 CheckBoxWrapper::CheckBoxWrapper()
     : wxcWidget(ID_WXCHECKBOX)
 {
     SetPropertyString(_("Common Settings"), "wxCheckBox");
-    AddProperty(new StringProperty(PROP_LABEL, _("My CheckBox"), _("The Checkbox label")));
-    AddProperty(new BoolProperty(PROP_VALUE, false, _("Value")));
+    Add<StringProperty>(PROP_LABEL, _("My CheckBox"), _("The Checkbox label"));
+    Add<BoolProperty>(PROP_VALUE, false, _("Value"));
 
     PREPEND_STYLE(wxCHK_2STATE, false);
     PREPEND_STYLE(wxCHK_3STATE, false);
@@ -23,8 +25,6 @@ CheckBoxWrapper::CheckBoxWrapper()
     m_namePattern = wxT("m_checkBox");
     SetName(GenerateName());
 }
-
-CheckBoxWrapper::~CheckBoxWrapper() {}
 
 wxcWidget* CheckBoxWrapper::Clone() const { return new CheckBoxWrapper(); }
 wxString CheckBoxWrapper::CppCtorCode() const

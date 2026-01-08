@@ -4,8 +4,8 @@
 #include "codelite_exports.h"
 
 #include <algorithm>
+#include <memory>
 #include <vector>
-#include <wx/sharedptr.h>
 #include <wx/window.h>
 
 class WXDLLIMPEXP_SDK clTabHistory
@@ -13,11 +13,11 @@ class WXDLLIMPEXP_SDK clTabHistory
     std::vector<wxWindow*> m_history;
 
 public:
-    typedef wxSharedPtr<clTabHistory> Ptr_t;
+    using Ptr_t = std::shared_ptr<clTabHistory>;
 
 public:
-    clTabHistory() {}
-    virtual ~clTabHistory() {}
+    clTabHistory() = default;
+    virtual ~clTabHistory() = default;
 
     /// Compact the history, keeping only windows from the `windows` list
     /// If `add_missing` is true, we update the history with windows that

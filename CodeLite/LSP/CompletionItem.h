@@ -3,8 +3,9 @@
 
 #include "LSP/JSONObject.h"
 #include "LSP/basic_types.h"
+
+#include <memory>
 #include <vector>
-#include <wx/sharedptr.h>
 
 namespace LSP
 {
@@ -17,8 +18,8 @@ class WXDLLIMPEXP_CL CompletionItem : public Serializable
     wxString m_filterText;
     wxString m_insertText;
     wxString m_insertTextFormat;
-    wxSharedPtr<LSP::TextEdit> m_textEdit;
-    std::vector<wxSharedPtr<TextEdit>> m_vAdditionalText;
+    std::shared_ptr<LSP::TextEdit> m_textEdit;
+    std::vector<std::shared_ptr<TextEdit>> m_vAdditionalText;
 
 public:
     enum eTriggerKind {
@@ -58,12 +59,12 @@ public:
     };
 
 public:
-    typedef wxSharedPtr<CompletionItem> Ptr_t;
-    typedef std::vector<CompletionItem::Ptr_t> Vec_t;
+    using Ptr_t = std::shared_ptr<CompletionItem>;
+    using Vec_t = std::vector<CompletionItem::Ptr_t>;
 
 public:
-    CompletionItem();
-    virtual ~CompletionItem();
+    CompletionItem() = default;
+    virtual ~CompletionItem() = default;
     virtual JSONItem ToJSON(const wxString& name) const;
     virtual void FromJSON(const JSONItem& json);
     void SetDetail(const wxString& detail) { this->m_detail = detail; }
@@ -78,13 +79,13 @@ public:
     const wxString& GetInsertText() const { return m_insertText; }
     int GetKind() const { return m_kind; }
     const wxString& GetLabel() const { return m_label; }
-    wxSharedPtr<LSP::TextEdit> GetTextEdit() { return m_textEdit; }
+    std::shared_ptr<LSP::TextEdit> GetTextEdit() { return m_textEdit; }
     bool HasTextEdit() const { return m_textEdit != nullptr; }
     void SetInsertTextFormat(const wxString& insertTextFormat) { this->m_insertTextFormat = insertTextFormat; }
     const wxString& GetInsertTextFormat() const { return m_insertTextFormat; }
-    const std::vector<wxSharedPtr<TextEdit>>& GetAdditionalText() const { return m_vAdditionalText; }
+    const std::vector<std::shared_ptr<TextEdit>>& GetAdditionalText() const { return m_vAdditionalText; }
 };
 
-}; // namespace LSP
+} // namespace LSP
 
 #endif // COMPLETIONITEM_H

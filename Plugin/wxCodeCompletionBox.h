@@ -30,14 +30,12 @@
 #include "database/entry.h"
 #include "wxCodeCompletionBoxBase.h"
 #include "wxCodeCompletionBoxEntry.hpp"
-#include "wxStringHash.h"
 
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
 #include <wx/event.h>
 #include <wx/font.h>
-#include <wx/sharedptr.h>
 #include <wx/stc/stc.h>
 #include <wx/timer.h>
 
@@ -48,7 +46,7 @@ class wxCodeCompletionBoxManager;
 class WXDLLIMPEXP_SDK wxCodeCompletionBox : public wxCodeCompletionBoxBase
 {
 public:
-    typedef std::vector<wxBitmap> BmpVec_t;
+    using BmpVec_t = std::vector<wxBitmap>;
     friend class wxCodeCompletionBoxManager;
 
 public:
@@ -56,7 +54,7 @@ public:
         kNone = 0,
         kInsertSingleMatch = (1 << 0),
         kRefreshOnKeyType = (1 << 1),
-        kNoShowingEvent = (1 << 2), // Dont send the wxEVT_CCBOX_SHOWING event
+        kNoShowingEvent = (1 << 2), // Don't send the wxEVT_CCBOX_SHOWING event
         kAlwaysShow = (1 << 3),    // internally, the CC box does some checking to see if the box can be shown. Use this
                                    // flag to force it to show
         kTriggerUser = (1 << 4), // CC box was invoked by user typing Ctrl-Space
@@ -103,7 +101,7 @@ protected:
 
 public:
     /**
-     * @brief return the bitamp associated with this tag entry
+     * @brief return the bitmap associated with this tag entry
      */
     static wxBitmap GetBitmap(TagEntryPtr tag);
 

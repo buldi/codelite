@@ -19,8 +19,8 @@ protected:
     wxWindow* GetSearchTab();
 
 public:
-    clRemoteFinderHelper();
-    ~clRemoteFinderHelper();
+    clRemoteFinderHelper() = default;
+    ~clRemoteFinderHelper() = default;
 
     void SetCodeLiteRemote(clCodeLiteRemoteProcess* clr);
 
@@ -33,7 +33,11 @@ public:
     /**
      * @brief execute a search
      */
-    void Search(const wxString& root_dir, const wxString& findString, const wxString& fileExtensions, bool whole_word,
+    void Search(const wxString& root_dir,
+                const wxString& excldue_patterns,
+                const wxString& findString,
+                const wxString& fileExtensions,
+                bool whole_word,
                 bool icase);
 
     /**

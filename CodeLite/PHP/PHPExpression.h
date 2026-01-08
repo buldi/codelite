@@ -26,12 +26,14 @@
 #ifndef PHPEXPRESSION_H
 #define PHPEXPRESSION_H
 
-#include "codelite_exports.h"
-#include <wx/string.h>
-#include "PhpLexerAPI.h"
-#include <list>
-#include "PHPSourceFile.h"
 #include "PHPLookupTable.h"
+#include "PHPSourceFile.h"
+#include "PhpLexerAPI.h"
+#include "codelite_exports.h"
+
+#include <list>
+#include <memory>
+#include <wx/string.h>
 
 class WXDLLIMPEXP_CL PHPExpression
 {
@@ -54,8 +56,8 @@ public:
         {
         }
     };
-    typedef std::list<PHPExpression::Part> List_t;
-    typedef wxSharedPtr<PHPExpression> Ptr_t;
+    using List_t = std::list<PHPExpression::Part>;
+    using Ptr_t = std::shared_ptr<PHPExpression>;
 
 protected:
     eType m_type;
@@ -85,17 +87,17 @@ protected:
 
 public:
     PHPExpression(const wxString& fulltext, const wxString& exprText = wxString(), bool functionCalltipExpr = false);
-    virtual ~PHPExpression();
+    virtual ~PHPExpression() = default;
 
     const phpLexerToken::Vet_t& GetExpression() const { return m_expression; }
     /**
-     * @brief return the parse expression as string. Useful for debuggin purposes
+     * @brief return the parse expression as string. Useful for debugging purposes
      */
     wxString GetExpressionAsString() const;
 
     /**
      * @brief suggest matches for this expression.
-     * This function must be called after a successfull call to 'Resolve'
+     * This function must be called after a successful call to 'Resolve'
      * @param resolved the resolved object from the previous call to 'Resolve'
      * @param matches [output]
      */
@@ -130,7 +132,7 @@ public:
     const wxString& GetFilter() const { return m_filter; }
 
     /**
-     * @brief get the lookup flags to pass to the lookup table for feteching members
+     * @brief get the lookup flags to pass to the lookup table for fetching members
      */
     size_t GetLookupFlags() const;
 };

@@ -29,8 +29,6 @@
 #include "entry.h"
 #include "fileentry.h"
 #include "istorage.h"
-#include "tag_tree.h"
-#include "wxStringHash.h"
 
 #include <unordered_map>
 #include <wx/filename.h>
@@ -38,7 +36,7 @@
 
 /**
  * TagsDatabase is a wrapper around wxSQLite3 database with tags specific functions.
- * It allows caller to query and populate the SQLite database for tags with a set of convinient functions.
+ * It allows caller to query and populate the SQLite database for tags with a set of convenient functions.
  * this class is responsible for creating the schema for the CodeLite library.
  *
  * The tables are automatically created once a database is created
@@ -59,7 +57,7 @@
  * |Pattern       | String | pattern that can be used to located this tag in the file
  * |Parent        | String | tag direct parent, can be its class parent (for members or functions), namespace or the
  * literal "<global>"
- * |Inherits      | String | If this class/struct inherits from other class, it will cotain the name of the base class
+ * |Inherits      | String | If this class/struct inherits from other class, it will contain the name of the base class
  * |Path          | String | full name including path, (e.g. Project::ClassName::FunctionName
  * |Typeref       | String | Special type of tag, that points to other Tag (i.e. typedef)
  *
@@ -100,7 +98,7 @@ protected:
     void DoStore(const wxString& key, const std::vector<TagEntryPtr>& tags);
 
 public:
-    TagsStorageSQLiteCache();
+    TagsStorageSQLiteCache() = default;
     virtual ~TagsStorageSQLiteCache();
 
     bool Get(const wxString& sql, std::vector<TagEntryPtr>& tags);
@@ -205,7 +203,7 @@ public:
 
     /**
      * store list of tags to store. The list is considered complete and all files
-     * afftected will be erased from the db first
+     * affected will be erased from the db first
      */
     void Store(const std::vector<TagEntryPtr>& tags, bool auto_commit = true);
 
@@ -222,7 +220,7 @@ public:
      * Delete all entries from database that are related to filename.
      * @param path Database name
      * @param fileName File name
-     * @param autoCommit handle the Delete operation inside a transaction or let the user hadle it
+     * @param autoCommit handle the Delete operation inside a transaction or let the user handle it
      */
     void DeleteByFileName(const wxFileName& path, const wxString& fileName, bool autoCommit = true);
 
@@ -252,7 +250,7 @@ public:
     {
         try {
             m_db->Begin();
-        } catch(wxSQLite3Exception& e) {
+        } catch (const wxSQLite3Exception& e) {
             wxUnusedVar(e);
         }
     }
@@ -264,7 +262,7 @@ public:
     {
         try {
             m_db->Commit();
-        } catch(wxSQLite3Exception& e) {
+        } catch (const wxSQLite3Exception& e) {
             wxUnusedVar(e);
         }
     }
@@ -281,7 +279,7 @@ public:
     const bool IsOpen() const;
 
     /**
-     * Return SQLite3 preapre statement object
+     * Return SQLite3 prepare statement object
      * @param sql sql
      * @return wxSQLite3ResultSet object
      */
@@ -368,17 +366,6 @@ public:
                                std::vector<TagEntryPtr>& tags);
 
     /**
-     * \brief
-     * \param kinds
-     * \param orderingColumn
-     * \param order
-     * \param limit
-     * \param tags
-     */
-    virtual void GetTagsByKindLimit(const wxArrayString& kinds, const wxString& orderingColumn, int order, int limit,
-                                    const wxString& partName, std::vector<TagEntryPtr>& tags);
-
-    /**
      * @brief return array of items by path
      * @param path
      * @param tags
@@ -395,7 +382,7 @@ public:
     virtual void GetTagsByNameAndParent(const wxString& name, const wxString& parent, std::vector<TagEntryPtr>& tags);
 
     /**
-     * @brief reutnr array of tags by kind and path
+     * @brief return array of tags by kind and path
      * @param kinds array of kind
      * @param path
      * @param tags  [output]
@@ -414,16 +401,13 @@ public:
      * @brief return list by kind and scope
      * @param scope
      * @param kinds
+     * @param filter "starts_with" filter
      * @param tags [output]
      */
-    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds,
-                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true);
-
-    /**
-     * @brief similar to the above, but with filter ("starts_with")
-     */
-    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds, const wxString& filter,
-                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true);
+    virtual void GetTagsByScopeAndKind(const wxString& scope,
+                                       const wxArrayString& kinds,
+                                       const wxString& filter,
+                                       std::vector<TagEntryPtr>& tags);
 
     /**
      * @see ITagsStorage::GetTagsByName
@@ -437,8 +421,6 @@ public:
      */
     virtual void GetTagsByScopesAndKind(const wxArrayString& scopes, const wxArrayString& kinds,
                                         std::vector<TagEntryPtr>& tags);
-    virtual void GetTagsByScopesAndKindNoLimit(const wxArrayString& scopes, const wxArrayString& kinds,
-                                               std::vector<TagEntryPtr>& tags);
 
     /**
      * @brief get list of tags by kind and file

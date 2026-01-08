@@ -42,20 +42,15 @@ class ContextCpp : public ContextBase
     std::map<wxString, int> m_propertyInt;
     wxMenu* m_rclickMenu;
 
-    static wxBitmap m_cppFileBmp;
-    static wxBitmap m_hFileBmp;
-    static wxBitmap m_otherFileBmp;
-
 protected:
     void OnShowCodeNavMenu(clCodeCompletionEvent& e);
     void OnCodeCompleteFiles(clCodeCompletionEvent& event);
-    void OnSymbolDeclaraionFound(LSPEvent& event);
+    void OnSymbolDeclarationFound(LSPEvent& event);
 
 private:
     bool TryOpenFile(const wxFileName& fileName, bool lookInEntireWorkspace = true);
     bool IsJavaScript() const;
 
-    void DisplayFilesCompletionBox(const wxString& word);
     bool DoGetFunctionBody(long curPos, long& blockStartPos, long& blockEndPos, wxString& content);
     void Initialize();
     bool DoCodeComplete(long pos);
@@ -102,7 +97,6 @@ public:
 
     // Event handlers
     void OnDwellEnd(wxStyledTextEvent& event) override;
-    bool GetHoverTip(int pos) override;
     void OnDbgDwellEnd(wxStyledTextEvent& event) override;
     void OnDbgDwellStart(wxStyledTextEvent& event) override;
     void OnSciUpdateUI(wxStyledTextEvent& event) override;
@@ -134,31 +128,18 @@ public:
     DECLARE_EVENT_TABLE()
 
 private:
-    wxString GetWordUnderCaret();
-    wxString GetFileImageString(const wxString& ext);
-    wxString GetImageString(const TagEntry& entry);
     wxString GetExpression(long pos, bool onlyWord, clEditor* editor = NULL, bool forCC = true);
     bool DoGotoSymbol(TagEntryPtr tag);
     bool IsIncludeStatement(const wxString& line, wxString* fileName = NULL, wxString* fileNameUpToCaret = NULL);
-    void RemoveDuplicates(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);
     int FindLineToAddInclude();
-    void MakeCppKeywordsTags(const wxString& word, std::vector<TagEntryPtr>& tags);
-    void DoOpenWorkspaceFile();
-    bool DoGetSingatureRange(int line, int& start, int& end, clEditor* ctrl);
     /**
-     * @brief add missing implementaions. If line_number is provided
+     * @brief add missing implementations. If line_number is provided
      * then only add the function found on this line number
      */
     void DoAddFunctionImplementation(int line_number = wxNOT_FOUND);
 
 public:
     void DoMakeDoxyCommentString(DoxygenComment& dc, const wxString& blockPrefix, wxChar keywordPrefix);
-    /**
-     * \brief replace list of tokens representd by li with 'word'
-     * \param li
-     * \return
-     */
-    static void ReplaceInFiles(const wxString& word, const CppToken::Vec_t& li);
 
 private:
     /**

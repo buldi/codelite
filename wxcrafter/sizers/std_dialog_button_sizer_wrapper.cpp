@@ -1,10 +1,7 @@
 #include "std_dialog_button_sizer_wrapper.h"
+
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "button_wrapper.h"
-#include "wxgui_defs.h"
 #include "xmlutils.h"
-#include <map>
 
 StdDialogButtonSizerWrapper::StdDialogButtonSizerWrapper()
     : wxcWidget(ID_WXSTDDLGBUTTONSIZER)
@@ -12,8 +9,6 @@ StdDialogButtonSizerWrapper::StdDialogButtonSizerWrapper()
     m_namePattern = "m_stdBtnSizer";
     SetName(GenerateName());
 }
-
-StdDialogButtonSizerWrapper::~StdDialogButtonSizerWrapper() {}
 
 wxcWidget* StdDialogButtonSizerWrapper::Clone() const { return new StdDialogButtonSizerWrapper(); }
 
@@ -42,8 +37,8 @@ void StdDialogButtonSizerWrapper::LoadPropertiesFromwxFB(const wxXmlNode* node)
 
     // There aren't any extras needed for the sdbsizer itself but, unlike XRC, wxFB stores the button info here
     // They aren't treated as real buttons as does wxC; they're just nodes containing 0 or 1
-    typedef std::pair<wxString, wxString> Pair_t;
-    typedef std::vector<Pair_t> Vector_t;
+    using Pair_t = std::pair<wxString, wxString>;
+    using Vector_t = std::vector<Pair_t>;
     static Vector_t s_buttons;
     if(s_buttons.empty()) {
         s_buttons.push_back(Pair_t("OK", "wxID_OK"));
@@ -57,8 +52,8 @@ void StdDialogButtonSizerWrapper::LoadPropertiesFromwxFB(const wxXmlNode* node)
         s_buttons.push_back(Pair_t("Close", "wxID_CLOSE"));
     }
 
-    for(Vector_t::iterator iter = s_buttons.begin(); iter != s_buttons.end(); ++iter) {
-        wxString value, buttonname = (*iter).first;
+    for (const auto& [buttonname, id] : s_buttons) {
+        wxString value;
         wxXmlNode* child = node->GetChildren();
         while(child) {
             wxString childname(child->GetName());
@@ -71,7 +66,7 @@ void StdDialogButtonSizerWrapper::LoadPropertiesFromwxFB(const wxXmlNode* node)
                         wxcWidget* sbwrapper = Allocator::Instance()->Create(ID_WXSTDBUTTON);
                         wxCHECK_RET(sbwrapper, wxT("Failed to create a stdbtnwrapper"));
                         // We've created a button; afaict there're no styles/properties to add to it. Just set its ID
-                        sbwrapper->SetId((*iter).second);
+                        sbwrapper->SetId(id);
                         AddChild(sbwrapper);
                     }
                 }

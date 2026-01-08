@@ -1,8 +1,11 @@
 #include "spin_button_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/spinbutt.h>
 
 SpinButtonWrapper::SpinButtonWrapper()
@@ -18,15 +21,13 @@ SpinButtonWrapper::SpinButtonWrapper()
     RegisterEvent(wxT("wxEVT_SPIN"), wxT("wxSpinEvent"), _("Generated whenever an arrow is pressed."));
 
     SetPropertyString(_("Common Settings"), "wxSpinButton");
-    AddProperty(new StringProperty(PROP_VALUE, wxT("0"), _("The initial value")));
-    AddProperty(new StringProperty(PROP_MINVALUE, wxT("0"), _("Minimal value")));
-    AddProperty(new StringProperty(PROP_MAXVALUE, wxT("100"), _("Maximal value")));
+    Add<StringProperty>(PROP_VALUE, wxT("0"), _("The initial value"));
+    Add<StringProperty>(PROP_MINVALUE, wxT("0"), _("Minimal value"));
+    Add<StringProperty>(PROP_MAXVALUE, wxT("100"), _("Maximal value"));
 
     m_namePattern = wxT("m_spinButton");
     SetName(GenerateName());
 }
-
-SpinButtonWrapper::~SpinButtonWrapper() {}
 
 wxcWidget* SpinButtonWrapper::Clone() const { return new SpinButtonWrapper(); }
 

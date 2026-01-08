@@ -4,8 +4,6 @@
 #include "JSON.h"
 #include "cl_command_event.h"
 #include "fileextmanager.h"
-#include "macros.h"
-#include "wxStringHash.h"
 
 #include <vector>
 #include <wx/event.h>
@@ -48,7 +46,7 @@ protected:
 protected:
     void SetFlag(FormatterFlags flag, bool set)
     {
-        if(set) {
+        if (set) {
             __SET_FLAG(m_flags, flag);
         } else {
             __UNSET_FLAG(m_flags, flag);
@@ -58,8 +56,8 @@ protected:
     bool HasFlag(FormatterFlags flag) const { return __HAS_FLAG(m_flags, flag); }
 
 public:
-    SourceFormatterBase();
-    virtual ~SourceFormatterBase();
+    SourceFormatterBase() = default;
+    virtual ~SourceFormatterBase() = default;
 
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON() const;

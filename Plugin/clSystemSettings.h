@@ -20,7 +20,7 @@ class WXDLLIMPEXP_SDK clSystemSettings : public wxEvtHandler, public wxSystemSet
 public:
     static clSystemSettings& Get();
 
-    virtual ~clSystemSettings();
+    virtual ~clSystemSettings() = default;
     static wxColour GetColour(int index);
     /**
      * @brief return the default panel colour. On Windows, this returns
@@ -28,7 +28,6 @@ public:
      */
     static wxColour GetDefaultPanelColour();
 
-    static bool IsLexerThemeDark();
     static bool IsDark();
 
 protected:
@@ -37,7 +36,6 @@ protected:
     void OnColoursChanged(clCommandEvent& event);
     void OnSystemColourChanged(wxSysColourChangedEvent& event);
     void DoColourChangedEvent();
-    static void SampleColoursFromControls();
 
 private:
     static wxColour btn_face;

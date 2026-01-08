@@ -1,8 +1,9 @@
 #include "choice_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Properties/multi_strings_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "import_from_wxFB.h"
-#include "multi_strings_property.h"
-#include "string_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
@@ -11,9 +12,8 @@ ChoiceWrapper::ChoiceWrapper()
     : wxcWidget(ID_WXCHOICE)
 {
     SetPropertyString(_("Common Settings"), "wxChoice");
-    AddProperty(
-        new MultiStringsProperty(PROP_OPTIONS, _("The Choice drop down options. A semi-colon list of strings")));
-    AddProperty(new StringProperty(PROP_SELECTION, wxT(""), _("Selected string index")));
+    Add<MultiStringsProperty>(PROP_OPTIONS, _("The Choice drop down options. A semi-colon list of strings"));
+    Add<StringProperty>(PROP_SELECTION, wxT(""), _("Selected string index"));
 
     RegisterEventCommand(wxT("wxEVT_COMMAND_CHOICE_SELECTED"),
                          _("Process a wxEVT_COMMAND_CHOICE_SELECTED event, when an item on the list is selected."));
@@ -21,8 +21,6 @@ ChoiceWrapper::ChoiceWrapper()
     m_namePattern = wxT("m_choice");
     SetName(GenerateName());
 }
-
-ChoiceWrapper::~ChoiceWrapper() {}
 
 wxcWidget* ChoiceWrapper::Clone() const { return new ChoiceWrapper(); }
 

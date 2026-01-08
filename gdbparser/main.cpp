@@ -16,7 +16,7 @@ static void printNode(const std::string& str, int depth = 0)
     printf("%s\n", str.c_str());
 }
 
-static void GDB_STRIP_QUOATES(std::string &currentToken)
+static void GDB_STRIP_QUOTES(std::string &currentToken)
 {
     size_t where = currentToken.find("\"");
     if (where != std::string::npos && where == 0) {
@@ -156,8 +156,8 @@ void MakeTree()
             break;
         }
 
-        // remove quoates from the name value
-        GDB_STRIP_QUOATES(currentToken);
+        // remove quotes from the name value
+        GDB_STRIP_QUOTES(currentToken);
 
         displayLine += currentToken;
 
@@ -177,15 +177,15 @@ void MakeTree()
             break;
         }
 
-        // remove the quoates from the value
-        GDB_STRIP_QUOATES(currentToken);
+        // remove the quotes from the value
+        GDB_STRIP_QUOTES(currentToken);
 
         if (currentToken.at(0) == '{') {
             if (displayLine.empty() == false) {
                 //open a new node for the tree
                 printNode(displayLine);
 
-                // since we dont want a dummy <unnamed> node, we remove the false
+                // since we don't want a dummy <unnamed> node, we remove the false
                 // open brace
                 std::string tmp(currentToken);
                 tmp = tmp.substr(1);

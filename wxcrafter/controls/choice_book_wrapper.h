@@ -1,19 +1,19 @@
 #ifndef CHOICEBOOKWRAPPER_H
 #define CHOICEBOOKWRAPPER_H
 
-#include "notebook_base_wrapper.h"
+#include "Containers/notebook_base_wrapper.h"
 
 class ChoiceBookWrapper : public NotebookBaseWrapper
 {
 public:
     ChoiceBookWrapper();
-    virtual ~ChoiceBookWrapper();
+    ~ChoiceBookWrapper() override = default;
 
 public:
-    virtual wxcWidget* Clone() const;
-    void GetIncludeFile(wxArrayString& headers) const;
-    wxString GetWxClassName() const;
-    wxString GetXRCPageClass() const;
+    wxcWidget* Clone() const override;
+    void GetIncludeFile(wxArrayString& headers) const override;
+    wxString GetWxClassName() const override;
+    wxString GetXRCPageClass() const override;
 };
 
 #endif // CHOICEBOOKWRAPPER_H

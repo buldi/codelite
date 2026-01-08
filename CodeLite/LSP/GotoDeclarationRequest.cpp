@@ -17,8 +17,6 @@ LSP::GotoDeclarationRequest::GotoDeclarationRequest(const wxString& filename, si
     m_params->As<TextDocumentPositionParams>()->SetPosition(Position(line, column));
 }
 
-LSP::GotoDeclarationRequest::~GotoDeclarationRequest() {}
-
 void LSP::GotoDeclarationRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner)
 {
     LOG_IF_TRACE { LSP_TRACE() << "GotoDeclarationRequest::OnResponse() is called" << endl; }
@@ -43,7 +41,7 @@ void LSP::GotoDeclarationRequest::OnResponse(const LSP::ResponseMessage& respons
             event.SetFileName(m_filename);
             EventNotifier::Get()->AddPendingEvent(event);
         } else {
-            // We send the same event for declaraion as we do for definition
+            // We send the same event for declaration as we do for definition
             LSPEvent event{ wxEVT_LSP_DEFINITION };
             event.SetLocation(loc);
             event.SetFileName(m_filename);

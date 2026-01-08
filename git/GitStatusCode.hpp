@@ -12,7 +12,7 @@ public:
         ERROR_HOOK,
         ERROR_REDIRECT,
         ERROR_WHO_ARE_YOU,
-        ERROR_AUTHENTICITIY,
+        ERROR_AUTHENTICITY,
         ERROR_OTHER,
     };
 
@@ -22,7 +22,7 @@ private:
 
 public:
     GitStatusCode(const wxString& message);
-    ~GitStatusCode();
+    ~GitStatusCode() = default;
 
     GitStatusCode::Code GetCode() const { return m_code; }
     const wxString& GetSubText() const { return m_subText; }

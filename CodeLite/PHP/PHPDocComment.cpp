@@ -1,9 +1,9 @@
 #include "PHPDocComment.h"
+
 #include "PHPDocParam.h"
 #include "PHPDocProperty.h"
 #include "PHPDocVar.h"
-#include "wxStringHash.h"
-#include <algorithm>
+
 #include <wx/regex.h>
 #include <wx/tokenzr.h>
 
@@ -76,30 +76,28 @@ PHPDocComment::PHPDocComment(PHPSourceFile& sourceFile, const wxString& comment)
     if(m_comment.Contains("@param")) {
         PHPDocParam params(sourceFile, m_comment);
         const PHPDocParam::Vec_t& paramsVec = params.Parse();
-        std::for_each(paramsVec.begin(), paramsVec.end(), [&](const std::pair<wxString, wxString>& p) {
+        for (const auto& p : paramsVec) {
             m_paramsArr.Add(p.second);
             m_params.insert(p);
-        });
+        }
     }
 
     // @property-read, @property-write, @property
     if(m_comment.Contains("@property")) {
         PHPDocProperty prop(sourceFile, m_comment);
         const PHPDocProperty::Tuple_t& properties = prop.ParseParams();
-        std::for_each(properties.begin(), properties.end(), [&](const PHPDocProperty::Tuple_t::value_type& vt) {
+        for (const auto& [type, name, desc] : properties) {
             PHPDocComment::Property property;
-            property.type = std::get<0>(vt);
-            property.name = std::get<1>(vt);
-            property.desc = std::get<2>(vt);
+            property.type = type;
+            property.name = name;
+            property.desc = desc;
             m_properties.insert(std::make_pair(property.name, property));
-        });
+        }
     }
 
     // Attempt to parse and resolve @method entries in the PHPDoc
     ProcessMethods();
 }
-
-PHPDocComment::~PHPDocComment() {}
 
 const wxString& PHPDocComment::GetParam(size_t n) const
 {
@@ -136,11 +134,7 @@ void PHPDocComment::ProcessMethods()
     // function [name] ([[type] [parameter]<, ...>]) [ : return_type ]
     PHPDocProperty property(m_sourceFile, m_comment);
     const PHPDocProperty::Tuple_t& methods = property.ParseMethods();
-    std::for_each(methods.begin(), methods.end(), [&](const PHPDocProperty::Tuple_t::value_type& vt) {
-        wxString returnType = std::get<0>(vt);
-        wxString methodName = std::get<1>(vt);
-        wxString signature = std::get<2>(vt);
-
+    for (const auto& [returnType, methodName, signature] : methods) {
         wxString strBuffer;
         strBuffer << "<?php function " << methodName << signature;
         if(!returnType.IsEmpty()) {
@@ -161,5 +155,5 @@ void PHPDocComment::ProcessMethods()
                 m_methods.push_back(func);
             }
         }
-    });
+    }
 }

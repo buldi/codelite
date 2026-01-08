@@ -29,8 +29,8 @@
 #include "codelite_exports.h"
 
 #include <list>
+#include <memory>
 #include <wx/regex.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 
 #define MARKUP_VOID 269
@@ -54,11 +54,11 @@ protected:
     wxString m_pattern;
     bool m_isRegex;
     int m_type;
-    wxSharedPtr<wxRegEx> m_regex;
+    std::shared_ptr<wxRegEx> m_regex;
     int m_matchIndex;
 
 public:
-    typedef std::list<MarkupSearchPattern> List_t;
+    using List_t = std::list<MarkupSearchPattern>;
 
 public:
     MarkupSearchPattern()
@@ -68,7 +68,7 @@ public:
     {
     }
     MarkupSearchPattern(const wxString& search, int type, bool isRegex = false, int matchIndex = 0);
-    virtual ~MarkupSearchPattern();
+    virtual ~MarkupSearchPattern() = default;
     bool Match(wxString& inString, int& type, wxString& matchString);
 };
 
@@ -84,7 +84,7 @@ protected:
 
 public:
     MarkupParser(const wxString& tip);
-    virtual ~MarkupParser() {}
+    virtual ~MarkupParser() = default;
     bool Next();
 
     const wxString& GetToken() const { return m_token; }

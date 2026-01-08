@@ -6,12 +6,14 @@
 
 #include <wx/dynlib.h>
 #include <wx/module.h>
+#include <wx/msw/wrapwin.h>
 #include <wx/string.h>
+#include <wx/window.h>
 
-typedef BOOL(WINAPI* AllowDarkModeForApp_t)(BOOL allow);                       // AllowDarkModeForApp
-typedef BOOL(WINAPI* AllowDarkModeForWindow_t)(HWND window, BOOL allow);       // AllowDarkModeForWindow
-typedef void(WINAPI* FlushMenuThemes_t)();                                     // FlushMenuThemes
-typedef HRESULT(WINAPI* DwmSetWindowAttribute_t)(HWND, DWORD, LPCVOID, DWORD); // DwmSetWindowAttribute
+using AllowDarkModeForApp_t = BOOL(WINAPI*)(BOOL allow);                       // AllowDarkModeForApp
+using AllowDarkModeForWindow_t = BOOL(WINAPI*)(HWND window, BOOL allow);       // AllowDarkModeForWindow
+using FlushMenuThemes_t = void(WINAPI*)();                                     // FlushMenuThemes
+using DwmSetWindowAttribute_t = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD); // DwmSetWindowAttribute
 
 class WXDLLIMPEXP_SDK MSWDarkMode
 {
@@ -26,7 +28,7 @@ class WXDLLIMPEXP_SDK MSWDarkMode
 
 private:
     MSWDarkMode();
-    ~MSWDarkMode();
+    ~MSWDarkMode() = default;
 
     void Initialise();
 

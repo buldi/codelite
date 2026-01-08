@@ -1,4 +1,3 @@
-#include <wx/init.h>
 #include "CTags.hpp"
 #include "CompletionHelper.hpp"
 #include "Cxx/CxxCodeCompletion.hpp"
@@ -10,20 +9,17 @@
 #include "Settings.hpp"
 #include "SimpleTokenizer.hpp"
 #include "clFilesCollector.h"
-#include "clTempFile.hpp"
-#include "clWildMatch.hpp"
 #include "ctags_manager.h"
 #include "database/tags_storage_sqlite3.h"
 #include "fileutils.h"
 #include "macros.h"
 #include "strings.hpp"
 #include "tester.hpp"
-#include "wxStringHash.h"
 
 #include <iostream>
-#include <stdio.h>
-#include <unordered_set>
+#include <wx/init.h>
 #include <wx/log.h>
+#include <wx/wxcrtvararg.h>
 
 using namespace std;
 namespace
@@ -773,12 +769,12 @@ TEST_FUNC(test_ctags_locals)
     TagEntryPtr tag_auto_var = find_tag("MyClass::Foo::auto_var", tags);
     CHECK_NOT_NULL(tag_auto_var);
     CHECK_BOOL(tag_auto_var->is_auto());
-    CHECK_STRING(tag_auto_var->get_assigment(), "V[0]");
+    CHECK_STRING(tag_auto_var->get_assignment(), "V[0]");
 
     TagEntryPtr tag_item = find_tag("MyClass::Foo::item", tags);
     CHECK_NOT_NULL(tag_item);
     CHECK_BOOL(tag_item->is_auto());
-    CHECK_STRING(tag_item->get_assigment(), "V.begin()");
+    CHECK_STRING(tag_item->get_assignment(), "V.begin()");
     return true;
 }
 #endif
@@ -1363,7 +1359,7 @@ TEST_FUNC(test_cxx_code_completion_template)
     }
     {
         // template inheritance in typedef
-        // typedef Singleton<Manager> ManagerST;
+        // using ManagerST = Singleton<Manager>;
         completer->reset();
         TagEntryPtr resolved = completer->code_complete("ManagerST::Get()->", {});
         CHECK_NOT_NULL(resolved);

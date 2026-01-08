@@ -159,6 +159,6 @@ void wxC2AC4InitBitmapResources()
     XRC_ADD_FILE(wxT("XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_resources_button-max.png"), xml_res_file_1, xml_res_size_1, wxT("image/png"));
     XRC_ADD_FILE(wxT("XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_resources_button-min.png"), xml_res_file_2, xml_res_size_2, wxT("image/png"));
     XRC_ADD_FILE(wxT("XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_resources_wxc-logo-16.png"), xml_res_file_3, xml_res_size_3, wxT("image/png"));
-    XRC_ADD_FILE(wxT("XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_gui_wxcrafter_bitmaps.xrc"), xml_res_file_4, xml_res_size_4, wxT("text/xml"));
-    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_gui_wxcrafter_bitmaps.xrc"));
+    XRC_ADD_FILE(wxT("XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_src_gui_wxcrafter_bitmaps.xrc"), xml_res_file_4, xml_res_size_4, wxT("text/xml"));
+    wxXmlResource::Get()->Load(wxT("memory:XRC_resource/gui_wxcrafter_bitmaps.cpp$C__msys64_home_eran_devl_codelite_wxcrafter_src_gui_wxcrafter_bitmaps.xrc"));
 }

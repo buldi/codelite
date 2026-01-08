@@ -1,14 +1,15 @@
 #include "designer_panel.h"
 
-#include "DirectoryChanger.h"
+#include "Preview/designer_container_panel.h"
+#include "Preview/menu_bar.h"
+#include "Preview/tool_bar.h"
+#include "UI/wxcTreeView.h"
 #include "allocator_mgr.h"
-#include "designer_container_panel.h"
+#include "clDirChanger.hpp"
 #include "drawingutils.h"
 #include "event_notifier.h"
 #include "gui.h"
-#include "menu_bar.h"
-#include "tool_bar.h"
-#include "wxcTreeView.h"
+#include "wxc_project_metadata.h"
 #include "wxgui_helpers.h"
 #include "wxguicraft_main_view.h"
 
@@ -81,7 +82,7 @@ public:
     {
         Hide();
     }
-    virtual ~HiddenFrame() {}
+    ~HiddenFrame() override = default;
 };
 
 const wxEventType wxEVT_PREVIEW_CTRL_SELECTED = wxNewEventType();
@@ -533,21 +534,13 @@ wxPoint DesignerPanel::GetOutlineOffset() const
         int x, y, px, py;
         m_hintedWin->GetScreenPosition(&x, &y);
         m_parentWin->GetScreenPosition(&px, &py);
-#if wxVERSION_NUMBER < 2905
-        // If a wxNotebook has top or left tabs, the page outline needs offsetting to avoid them
-        if(m_parentWin->GetWindowStyle() & wxNB_TOP) {
-            pt.y = y - py;
-        } else if(m_parentWin->GetWindowStyle() & wxNB_LEFT) {
-            pt.x = x - px;
-        }
-#else
-        // In 2.9.5 that's no longer true. However the small margin between the notebook and the page needs offsetting
+
+        // The small margin between the notebook and the page needs offsetting
         if(m_parentWin->GetWindowStyle() & wxNB_TOP) {
             pt.x = pt.y = px - x - 3; // The -3 is a kludge
         } else if(m_parentWin->GetWindowStyle() & wxNB_LEFT) {
             pt.x = pt.y = py - y - 3;
         }
-#endif
     }
     return pt;
 }
@@ -644,7 +637,7 @@ void DesignerPanel::DoLoadXRC(int topLeveWinType)
     wxFileName fn = wxCrafter::LoadXRC(m_xrcLoaded, wxT("DesignerPanel.xrc"), caption, styleString, bmpIcon);
 
     // We must be in the directory of the project to be able to load the bitmaps properly
-    DirectoryChanger dc(wxcProjectMetadata::Get().GetProjectPath());
+    clDirChanger dc(wxcProjectMetadata::Get().GetProjectPath());
     panel = wxXmlResource::Get()->LoadPanel(m_mainPanel, wxT("PreviewPanel"));
 
     if(panel) {

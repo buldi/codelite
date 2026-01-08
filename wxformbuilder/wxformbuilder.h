@@ -26,24 +26,20 @@
 #ifndef __wxFormBuilder__
 #define __wxFormBuilder__
 
-#include "wxfbitemdlg.h"
-#include "plugin.h"
 #include "cl_command_event.h"
+#include "plugin.h"
+#include "wxfbitemdlg.h"
 class wxMenuItem;
 
 class wxFormBuilder : public IPlugin
 {
     wxEvtHandler* m_topWin;
-    wxMenuItem* m_separatorItem;
-    wxMenuItem* m_openWithWxFbItem;
-    wxMenuItem* m_openWithWxFbSepItem;
 
 public:
     wxFormBuilder(IManager* manager);
-    ~wxFormBuilder();
+    ~wxFormBuilder() override = default;
 
 protected:
-
     void OnSettings(wxCommandEvent& e);
     void OnNewDialog(wxCommandEvent& e);
     void OnNewDialogWithButtons(wxCommandEvent& e);
@@ -52,8 +48,8 @@ protected:
     void OpenWithWxFb(wxCommandEvent& e);
     void OnOpenFile(clCommandEvent& e);
     void OnWxFBTerminated(clProcessEvent& e);
-    void OnShowFileContextMenu(clContextMenuEvent &event);
-    
+    void OnShowFileContextMenu(clContextMenuEvent& event);
+
     wxMenu* CreatePopupMenu();
     void DoCreateWxFormBuilderProject(const wxFBItemInfo& data);
     void DoLaunchWxFB(const wxString& file);
@@ -63,10 +59,10 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 };
 
 #endif // wxFormBuilder

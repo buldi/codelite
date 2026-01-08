@@ -56,8 +56,6 @@ static wxString __get_user_name()
 
 clStandardPaths::clStandardPaths() { IgnoreAppSubDir("bin"); }
 
-clStandardPaths::~clStandardPaths() {}
-
 clStandardPaths& clStandardPaths::Get()
 {
     static clStandardPaths codelitePaths;
@@ -149,7 +147,7 @@ wxString clStandardPaths::GetPluginsDirectory() const
 #ifdef __WXGTK__
     wxString pluginsDir = PLUGINS_DIR;
 #else
-#ifdef USE_POSIX_LAYOUT
+#ifdef __WXMSW__
     wxFileName path(GetInstallDir() + wxT(PLUGINS_DIR), "");
 #else
     wxFileName path(GetDataDir(), "");
@@ -166,7 +164,7 @@ wxString clStandardPaths::GetDataDir() const
         return m_dataDir;
     }
 
-#ifdef USE_POSIX_LAYOUT
+#ifdef __WXMSW__
     wxFileName path(wxStandardPaths::Get().GetDataDir() + wxT(INSTALL_DIR), "");
     return path.GetPath();
 #else
@@ -266,7 +264,7 @@ wxString clStandardPaths::GetInstallDir() const
 #ifdef __WXGTK__
     return GetBinFolder();
 #else
-#ifdef USE_POSIX_LAYOUT
+#ifdef __WXMSW__
     wxFileName path(wxStandardPaths::Get().GetDataDir(), "");
     return path.GetPath();
 #else
@@ -277,7 +275,7 @@ wxString clStandardPaths::GetInstallDir() const
 
 void clStandardPaths::IgnoreAppSubDir(const wxString& subdirPattern)
 {
-#ifdef USE_POSIX_LAYOUT
+#ifdef __WXMSW__
     wxStandardPaths::Get().IgnoreAppSubDir(subdirPattern);
 #endif
 }

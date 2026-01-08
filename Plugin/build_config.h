@@ -69,7 +69,7 @@ public:
         m_command.Trim().Trim(false);
     }
 
-    ~BuildCommand() {}
+    ~BuildCommand() = default;
 
     const wxString& GetCommand() const { return m_command; }
 
@@ -82,7 +82,7 @@ public:
     bool IsOk() const { return !m_command.empty(); }
 };
 
-typedef std::list<BuildCommand> BuildCommandList;
+using BuildCommandList = std::list<BuildCommand>;
 
 class WXDLLIMPEXP_SDK BuildConfig : public ConfObject
 {
@@ -90,7 +90,7 @@ public:
     static const wxString OVERWRITE_GLOBAL_SETTINGS;
     static const wxString APPEND_TO_GLOBAL_SETTINGS;
     static const wxString PREPEND_GLOBAL_SETTINGS;
-    typedef std::map<wxString, wxString> StringMap_t;
+    using StringMap_t = std::map<wxString, wxString>;
 
     enum ePCHPolicy {
         kPCHPolicyReplace = 0,
@@ -162,7 +162,7 @@ private:
 
 public:
     BuildConfig(wxXmlNode* node);
-    virtual ~BuildConfig();
+    virtual ~BuildConfig() = default;
     wxXmlNode* ToXml() const;
     BuildConfig* Clone() const;
 
@@ -200,8 +200,8 @@ public:
     void SetPchCompileFlags(const wxString& pchCompileFlags) { this->m_pchCompileFlags = pchCompileFlags; }
     const wxString& GetPchCompileFlags() const { return m_pchCompileFlags; }
 
-    const wxString& GetAssmeblerOptions() const { return m_commonConfig.GetAssemblerOptions(); }
-    void SetAssmeblerOptions(const wxString& options) { m_commonConfig.SetAssemblerOptions(options); }
+    const wxString& GetAssemblerOptions() const { return m_commonConfig.GetAssemblerOptions(); }
+    void SetAssemblerOptions(const wxString& options) { m_commonConfig.SetAssemblerOptions(options); }
 
     void SetPchInCommandLine(bool pchInCommandLine) { this->m_pchInCommandLine = pchInCommandLine; }
     bool GetPchInCommandLine() const { return m_pchInCommandLine; }
@@ -229,8 +229,8 @@ public:
     const wxString& GetLinkOptions() const { return m_commonConfig.GetLinkOptions(); }
     wxString GetLibraries() const;
     wxString GetLibPath() const;
-    void GetPreBuildCommands(BuildCommandList& cmds) { cmds = m_preBuildCommands; }
-    void GetPostBuildCommands(BuildCommandList& cmds) { cmds = m_postBuildCommands; }
+    const BuildCommandList& GetPreBuildCommands() const { return m_preBuildCommands; }
+    const BuildCommandList& GetPostBuildCommands() const { return m_postBuildCommands; }
     const wxString& GetName() const { return m_name; }
     bool IsCompilerRequired() const { return m_compilerRequired; }
     bool IsLinkerRequired() const { return m_linkerRequired; }
@@ -291,8 +291,8 @@ public:
     }
     const wxString& GetCustomBuildWorkingDir() const { return m_customBuildWorkingDir; }
 
-    void SetPauseWhenExecEnds(const bool& pauseWhenExecEnds) { this->m_pauseWhenExecEnds = pauseWhenExecEnds; }
-    const bool& GetPauseWhenExecEnds() const { return m_pauseWhenExecEnds; }
+    void SetPauseWhenExecEnds(bool pauseWhenExecEnds) { this->m_pauseWhenExecEnds = pauseWhenExecEnds; }
+    bool GetPauseWhenExecEnds() const { return m_pauseWhenExecEnds; }
 
     void SetMakeGenerationCommand(const wxString& makeGenerationCommand)
     {
@@ -324,8 +324,8 @@ public:
     }
     const wxString& GetDebuggerStartupCmds() const { return m_debuggerStartupCmds; }
 
-    void SetIsDbgRemoteTarget(const bool& isDbgRemoteTarget) { this->m_isDbgRemoteTarget = isDbgRemoteTarget; }
-    const bool& GetIsDbgRemoteTarget() const { return m_isDbgRemoteTarget; }
+    void SetIsDbgRemoteTarget(bool isDbgRemoteTarget) { this->m_isDbgRemoteTarget = isDbgRemoteTarget; }
+    bool GetIsDbgRemoteTarget() const { return m_isDbgRemoteTarget; }
 
     void SetDbgHostName(const wxString& dbgHostName) { this->m_dbgHostName = dbgHostName; }
     void SetDbgHostPort(const wxString& dbgHostPort) { this->m_dbgHostPort = dbgHostPort; }
@@ -333,8 +333,8 @@ public:
     const wxString& GetDbgHostName() const { return m_dbgHostName; }
     const wxString& GetDbgHostPort() const { return m_dbgHostPort; }
 
-    void SetIsDbgRemoteExtended(const bool& isDbgRemoteExtended) { this->m_isDbgRemoteExtended = isDbgRemoteExtended; }
-    const bool& GetIsDbgRemoteExtended() const { return m_isDbgRemoteExtended; }
+    void SetIsDbgRemoteExtended(bool isDbgRemoteExtended) { this->m_isDbgRemoteExtended = isDbgRemoteExtended; }
+    bool GetIsDbgRemoteExtended() const { return m_isDbgRemoteExtended; }
 
     void SetCustomTargets(const BuildConfig::StringMap_t& customTargets) { this->m_customTargets = customTargets; }
     const BuildConfig::StringMap_t& GetCustomTargets() const { return m_customTargets; }

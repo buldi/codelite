@@ -27,22 +27,17 @@
 
 #include "bitmap_loader.h"
 #include "clSystemSettings.h"
-#include "cl_defs.h"
-#include "editor_config.h"
+#include "drawingutils.h"
 #include "event_notifier.h"
 #include "fileextmanager.h"
 #include "frame.h"
-#include "globals.h"
 #include "imanager.h"
 #include "macros.h"
 #include "manager.h"
-#include "plugin.h"
-#include "pluginmanager.h"
-#include "window_locker.h"
-#include "wxStringHash.h"
 
 #include <wx/arrstr.h>
-#include <wx/clntdata.h>
+
+wxDEFINE_EVENT(wxEVT_WELCOMEPAGE_CLOSE_BUTTON_CLICKED, clCommandEvent);
 
 namespace
 {
@@ -51,20 +46,29 @@ void get_caption_colours(wxColour* bg_colour, wxColour* text_colour)
     *bg_colour = clSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
     *text_colour = clSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHTTEXT);
 }
+
+std::unordered_map<wxString, wxColour> colours;
+
+/// Return a random colour for account
+wxColour GetColourForAccount(const wxString& accountName)
+{
+    if (colours.count(accountName) == 0) {
+        colours.insert({accountName, DrawingUtils::GetRandomColour()});
+    }
+    return colours.find(accountName)->second;
+}
+
 } // namespace
 
 WelcomePage::WelcomePage(wxWindow* parent)
     : WelcomePageBase(parent)
 {
-#ifndef __WXMAC__
-    SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
-    GetMainPanel()->SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
-#endif
-
     GetSizer()->Fit(this);
     EventNotifier::Get()->Bind(wxEVT_BITMAPS_UPDATED, &WelcomePage::OnThemeChanged, this);
 
+    m_closeButton->SetBitmap(clGetManager()->GetStdIcons()->LoadBitmap("file_close", 24));
     m_dvTreeCtrlWorkspaces->AddHeader(_("Name"));
+    m_dvTreeCtrlWorkspaces->AddHeader(_("Account"));
     m_dvTreeCtrlWorkspaces->AddHeader(_("Type"));
     m_dvTreeCtrlWorkspaces->AddHeader(_("Path"));
 
@@ -81,14 +85,24 @@ WelcomePage::WelcomePage(wxWindow* parent)
     m_dvTreeCtrlWorkspaces->SetSortFunction(nullptr);
 
     // create the buttons
-    m_buttonOpenWorkspace = new wxCommandLinkButton(m_buttonsPage, wxID_ANY, _("Open"), _("Open an existing workspace"),
-                                                    wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
-    m_buttonNewWorkspace = new wxCommandLinkButton(m_buttonsPage, wxID_ANY, _("New"), _("Create a new workspace"),
-                                                   wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
-    m_buttonGithub = new wxCommandLinkButton(m_buttonsPage, wxID_ANY, _("GitHub"), _("Visit our GitHub project page"),
-                                             wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
-    m_buttonGitter = new wxCommandLinkButton(m_buttonsPage, wxID_ANY, _("Gitter"), _("Join the chat!"),
-                                             wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
+    m_buttonOpenWorkspace = new wxCommandLinkButton(m_buttonsPage,
+                                                    wxID_ANY,
+                                                    _("Open"),
+                                                    _("Open an existing workspace"),
+                                                    wxDefaultPosition,
+                                                    wxDefaultSize,
+                                                    wxBU_LEFT);
+    m_buttonNewWorkspace = new wxCommandLinkButton(
+        m_buttonsPage, wxID_ANY, _("New"), _("Create a new workspace"), wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
+    m_buttonGithub = new wxCommandLinkButton(m_buttonsPage,
+                                             wxID_ANY,
+                                             _("GitHub"),
+                                             _("Visit our GitHub project page"),
+                                             wxDefaultPosition,
+                                             wxDefaultSize,
+                                             wxBU_LEFT);
+    m_buttonGitter = new wxCommandLinkButton(
+        m_buttonsPage, wxID_ANY, _("Gitter"), _("Join the chat!"), wxDefaultPosition, wxDefaultSize, wxBU_LEFT);
 
     // events
     m_buttonOpenWorkspace->Bind(wxEVT_BUTTON, &WelcomePage::OnOpenWorkspace, this);
@@ -111,10 +125,6 @@ WelcomePage::WelcomePage(wxWindow* parent)
 
     wxColour bg_colour, text_colour;
     get_caption_colours(&bg_colour, &text_colour);
-
-    m_panelList->SetBackgroundColour(bg_colour);
-    m_panelList->SetForegroundColour(text_colour);
-    m_staticText0->SetForegroundColour(text_colour);
 }
 
 WelcomePage::~WelcomePage()
@@ -129,10 +139,6 @@ void WelcomePage::OnThemeChanged(clCommandEvent& e)
     e.Skip();
     wxColour bg_colour, text_colour;
     get_caption_colours(&bg_colour, &text_colour);
-
-    m_panelList->SetBackgroundColour(bg_colour);
-    m_panelList->SetForegroundColour(text_colour);
-    m_staticText0->SetForegroundColour(text_colour);
 
 #ifndef __WXMAC__
     SetBackgroundColour(clSystemSettings::GetDefaultPanelColour());
@@ -170,15 +176,19 @@ void WelcomePage::UpdateRecentWorkspaces()
     ManagerST::Get()->GetRecentlyOpenedWorkspaces(files);
 
     // request workspaces from the plugins
-    clRecentWorkspaceEvent other_workspaces_event{ wxEVT_RECENT_WORKSPACE };
+    clRecentWorkspaceEvent other_workspaces_event{wxEVT_RECENT_WORKSPACE};
     EventNotifier::Get()->ProcessEvent(other_workspaces_event);
+
+    wxColour local_workspace_colour{"GOLD"};
+    wxColour remote_workspace_colour{"CYAN"};
 
     // TODO: fire event here to collect other workspaces as well
     auto locals = m_dvTreeCtrlWorkspaces->AppendItem(m_dvTreeCtrlWorkspaces->GetRootItem(), _("Local workspaces"));
     int image_index = wxNOT_FOUND;
+
     for (const wxString& filepath : files) {
 
-        wxFileName fn{ filepath };
+        wxFileName fn{filepath};
         if (!fn.FileExists()) {
             // exclude non existing files
             continue;
@@ -212,18 +222,23 @@ void WelcomePage::UpdateRecentWorkspaces()
         auto cd = new WelcomePageItemData();
         cd->type = WorkspaceSource::BUILTIN;
         cd->path = fn.GetFullPath();
+
         auto workspaceItem = m_dvTreeCtrlWorkspaces->AppendItem(locals, fn.GetName(), image_index, image_index, cd);
-        m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, workspace_type, 1);
-        m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, filepath, 2);
+        m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, "localhost", 1);
+        m_dvTreeCtrlWorkspaces->SetItemTextColour(workspaceItem, GetColourForAccount("localhost"), 1);
+
+        m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, workspace_type, 2);
+        m_dvTreeCtrlWorkspaces->SetItemTextColour(workspaceItem, clSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT), 2);
+        m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, filepath, 3);
     }
     m_dvTreeCtrlWorkspaces->Expand(locals);
 
-    // add the plugin base workspaces
+    // Add the plugin base workspaces
     auto other_workspaces = other_workspaces_event.GetWorkspaces();
     std::unordered_map<wxString, std::vector<RecentWorkspace>> M;
     for (const auto& e : other_workspaces) {
         if (M.count(e.m_category) == 0) {
-            M.insert({ e.m_category, {} });
+            M.insert({e.m_category, {}});
         }
         M[e.m_category].push_back(e);
     }
@@ -242,9 +257,18 @@ void WelcomePage::UpdateRecentWorkspaces()
             name = name.AfterLast('/');
             name = name.BeforeLast('.');
 
+            if (colours.count(cd->account) == 0) {
+                colours.insert({cd->account, DrawingUtils::GetRandomColour()});
+            }
+
             auto workspaceItem = m_dvTreeCtrlWorkspaces->AppendItem(parent_item, name, image_index, image_index, cd);
-            m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, _("Other"), 1);
-            m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, w.path, 2);
+            m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, cd->account, 1);
+            m_dvTreeCtrlWorkspaces->SetItemTextColour(workspaceItem, GetColourForAccount(cd->account), 1);
+
+            m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, _("Other"), 2);
+            m_dvTreeCtrlWorkspaces->SetItemTextColour(
+                workspaceItem, clSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT), 2);
+            m_dvTreeCtrlWorkspaces->SetItemText(workspaceItem, w.path, 3);
         }
         m_dvTreeCtrlWorkspaces->Expand(parent_item);
     }
@@ -288,7 +312,7 @@ void WelcomePage::OpenBuiltinWorkspace(WelcomePageItemData* cd)
 
 void WelcomePage::OpenPluginWorkspace(WelcomePageItemData* cd)
 {
-    clWorkspaceEvent open_event{ wxEVT_WORKSPACE_PLUGIN_OPEN };
+    clWorkspaceEvent open_event{wxEVT_WORKSPACE_PLUGIN_OPEN};
     open_event.SetIsRemote(!cd->account.empty());
     open_event.SetFileName(cd->path);
     open_event.SetRemoteAccount(cd->account);
@@ -319,4 +343,12 @@ void WelcomePage::DoSomethingSomething()
 {
     // for now, select the "Open workspace" button
     m_buttonOpenWorkspace->SetFocus();
+}
+
+void WelcomePage::GrabFocus() { CallAfter(&WelcomePage::SetFocus); }
+
+void WelcomePage::OnCloseButtonClicked(wxCommandEvent& event)
+{
+    clCommandEvent event_close{wxEVT_WELCOMEPAGE_CLOSE_BUTTON_CLICKED};
+    GetEventHandler()->AddPendingEvent(event_close);
 }

@@ -1,16 +1,19 @@
 #include "dir_picker_ctrl_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/filepicker.h>
 
 DirPickerCtrlWrapper::DirPickerCtrlWrapper()
     : wxcWidget(ID_WXDIRPICKER)
 {
     SetPropertyString(_("Common Settings"), "wxDirPickerCtrl");
-    AddProperty(new StringProperty(PROP_VALUE, wxT(""), _("Value")));
-    AddProperty(new StringProperty(PROP_MESSAGE, _("Select a folder"), _("Message to show to the user")));
+    Add<StringProperty>(PROP_VALUE, wxT(""), _("Value"));
+    Add<StringProperty>(PROP_MESSAGE, _("Select a folder"), _("Message to show to the user"));
 
     PREPEND_STYLE(wxDIRP_CHANGE_DIR, false);
     PREPEND_STYLE(wxDIRP_DIR_MUST_EXIST, false);
@@ -25,8 +28,6 @@ DirPickerCtrlWrapper::DirPickerCtrlWrapper()
     m_namePattern = wxT("m_dirPicker");
     SetName(GenerateName());
 }
-
-DirPickerCtrlWrapper::~DirPickerCtrlWrapper() {}
 
 wxcWidget* DirPickerCtrlWrapper::Clone() const { return new DirPickerCtrlWrapper(); }
 

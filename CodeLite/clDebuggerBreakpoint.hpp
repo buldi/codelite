@@ -4,6 +4,7 @@
 #include "JSON.h"
 #include "codelite_exports.h"
 #include "serialized_object.h"
+
 #include <vector>
 #include <wx/string.h>
 
@@ -35,7 +36,7 @@ enum BreakpointOrigin { BO_Editor, BO_Other };
 class WXDLLIMPEXP_CL clDebuggerBreakpoint : public SerializedObject
 {
 public:
-    typedef std::vector<clDebuggerBreakpoint> Vec_t;
+    using Vec_t = std::vector<clDebuggerBreakpoint>;
 
 public:
     // Where the bp is: file/lineno, function name (e.g. main()) or the memory location
@@ -63,14 +64,11 @@ public:
     BreakpointOrigin origin = BO_Other;
 
     clDebuggerBreakpoint(const clDebuggerBreakpoint& BI);
-    clDebuggerBreakpoint();
+    clDebuggerBreakpoint() = default;
     clDebuggerBreakpoint& operator=(const clDebuggerBreakpoint& BI);
-    ~clDebuggerBreakpoint();
+    ~clDebuggerBreakpoint() = default;
 
-    bool IsConditional()
-    {
-        return !conditions.IsEmpty();
-    }
+    bool IsConditional() { return !conditions.IsEmpty(); }
     double GetId() const
     {
         int best_id = (this->debugger_id == -1 ? this->internal_id : this->debugger_id);
@@ -86,7 +84,7 @@ public:
         debugger_id = ext_id;
     }
 
-    bool operator==(const clDebuggerBreakpoint& BI)
+    bool operator==(const clDebuggerBreakpoint& BI) const
     {
         return ((origin == BI.origin) && (what == BI.what) && (at == BI.at) && (file == BI.file) &&
                 (lineno == BI.lineno) && (function_name == BI.function_name) && (memory_address == BI.memory_address) &&
@@ -97,10 +95,7 @@ public:
                 (!function_name.IsEmpty() ? (regex == BI.regex) : true));
     }
 
-    bool IsNull() const
-    {
-        return internal_id == wxNOT_FOUND && debugger_id == wxNOT_FOUND;
-    }
+    bool IsNull() const { return internal_id == wxNOT_FOUND && debugger_id == wxNOT_FOUND; }
 
     // JSON serialization
     JSONItem ToJSON() const;
@@ -111,5 +106,5 @@ protected:
     virtual void Serialize(Archive& arch);
     virtual void DeSerialize(Archive& arch);
 };
-typedef std::vector<clDebuggerBreakpoint> clDebuggerBreakpointVec_t;
+using clDebuggerBreakpointVec_t = std::vector<clDebuggerBreakpoint>;
 #endif // CLDEBUGGERBREAKPOINT_HPP

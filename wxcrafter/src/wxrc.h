@@ -47,7 +47,7 @@ struct ExtractedString {
     wxString filename;
     int lineNo;
 };
-typedef wxVector<ExtractedString> ExtractedStrings;
+using ExtractedStrings = wxVector<ExtractedString>;
 
 class XRCWndClassData
 {
@@ -135,8 +135,8 @@ public:
         } else {
             file.Write(m_className + wxT("(){\n") + wxT("  InitWidgetsFromXRC(NULL);\n") wxT(" }\n") wxT("};\n"));
 
-            for(StringSet::const_iterator it = m_ancestorClassNames.begin(); it != m_ancestorClassNames.end(); ++it) {
-                file.Write(m_className + wxT("(") + *it + wxT(" *parent){\n") +
+            for (const auto& ancestorClassName : m_ancestorClassNames) {
+                file.Write(m_className + wxT("(") + ancestorClassName + wxT(" *parent){\n") +
                            wxT("  InitWidgetsFromXRC((wxWindow *)parent);\n") wxT(" }\n") wxT("};\n"));
             }
         }
@@ -155,8 +155,8 @@ class wxcXmlResourceCmp
 
 public:
     // don't use builtin cmd line parsing:
-    virtual bool OnInit() { return true; }
-    virtual int Run(const wxString& inXrcFile, const wxString& outputCppFile, const wxString& functionName);
+    bool OnInit() { return true; }
+    int Run(const wxString& inXrcFile, const wxString& outputCppFile, const wxString& functionName);
 
 private:
     void CompileRes();

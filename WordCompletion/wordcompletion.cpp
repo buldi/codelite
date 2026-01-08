@@ -58,8 +58,6 @@ WordCompletionPlugin::WordCompletionPlugin(IManager* manager)
     m_completer = new WordCompleter(this);
 }
 
-WordCompletionPlugin::~WordCompletionPlugin() {}
-
 void WordCompletionPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void WordCompletionPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
@@ -91,7 +89,7 @@ void WordCompletionPlugin::OnWordComplete(clCodeCompletionEvent& event)
         return;
     }
 
-    // Build the suggetsion list
+    // Build the suggestion list
     static wxBitmap sBmp = wxNullBitmap;
     if(!sBmp.IsOk()) {
         sBmp = m_mgr->GetStdIcons()->LoadBitmap("word");
@@ -106,7 +104,7 @@ void WordCompletionPlugin::OnWordComplete(clCodeCompletionEvent& event)
     wxString filter = event.GetWord().Lower(); // stc->GetTextRange(start, curPos);
 
     wxStringSet_t words = m_dictionary->GetWords();
-    // Parse the current bufer (if modified), to include non saved words
+    // Parse the current buffer (if modified), to include non saved words
     if(activeEditor->IsEditorModified()) {
         // For performance (this parsing is done in the main thread)
         // only parse the visible area of the document
@@ -133,27 +131,26 @@ void WordCompletionPlugin::OnWordComplete(clCodeCompletionEvent& event)
         words.insert(langWords.begin(), langWords.end());
     }
 
-    wxStringSet_t filterdSet;
+    wxStringSet_t filteredSet;
     if(filter.IsEmpty()) {
-        filterdSet.swap(words);
+        filteredSet.swap(words);
     } else {
-        for(wxStringSet_t::iterator iter = words.begin(); iter != words.end(); ++iter) {
-            wxString word = *iter;
+        for (const auto& word : words) {
             wxString lcWord = word.Lower();
             if(settings.GetComparisonMethod() == WordCompletionSettings::kComparisonStartsWith) {
                 if(lcWord.StartsWith(filter) && filter != word) {
-                    filterdSet.insert(word);
+                    filteredSet.insert(word);
                 }
             } else {
                 if(lcWord.Contains(filter) && filter != word) {
-                    filterdSet.insert(word);
+                    filteredSet.insert(word);
                 }
             }
         }
     }
     wxCodeCompletionBoxEntry::Vec_t entries;
-    for(wxStringSet_t::iterator iter = filterdSet.begin(); iter != filterdSet.end(); ++iter) {
-        entries.push_back(wxCodeCompletionBoxEntry::New(*iter, sBmp));
+    for (const auto& text : filteredSet) {
+        entries.push_back(wxCodeCompletionBoxEntry::New(text, sBmp));
     }
     event.GetEntries().insert(event.GetEntries().end(), entries.begin(), entries.end());
 }

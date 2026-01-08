@@ -1,8 +1,9 @@
 #include "search_ctrl_wrapper.h"
+
+#include "Properties/bool_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
 #include "wxgui_defs.h"
-#include <wx/textctrl.h>
 
 SearchCtrlWrapper::SearchCtrlWrapper()
     : wxcWidget(ID_WXSEARCHCTRL)
@@ -16,9 +17,9 @@ SearchCtrlWrapper::SearchCtrlWrapper()
     PREPEND_STYLE(wxTE_CAPITALIZE, false);
 
     SetPropertyString(_("Common Settings"), "wxSearchCtrl");
-    AddProperty(new StringProperty(PROP_VALUE, wxT(""), _("Default text value.")));
-    AddProperty(new BoolProperty(PROP_SHOW_CANCEL_BTN, false, _("Show the 'Cancel' button")));
-    AddProperty(new BoolProperty(PROP_SHOW_SEARCH_BTN, true, _("Show the 'Search' button")));
+    Add<StringProperty>(PROP_VALUE, wxT(""), _("Default text value."));
+    Add<BoolProperty>(PROP_SHOW_CANCEL_BTN, false, _("Show the 'Cancel' button"));
+    Add<BoolProperty>(PROP_SHOW_SEARCH_BTN, true, _("Show the 'Search' button"));
 
     RegisterEventCommand(wxT("wxEVT_COMMAND_TEXT_UPDATED"),
                          _("Respond to a wxEVT_COMMAND_TEXT_UPDATED event, generated when the text changes.\nNotice "
@@ -38,8 +39,6 @@ SearchCtrlWrapper::SearchCtrlWrapper()
     m_namePattern = wxT("m_searchCtrl");
     SetName(GenerateName());
 }
-
-SearchCtrlWrapper::~SearchCtrlWrapper() {}
 
 wxcWidget* SearchCtrlWrapper::Clone() const { return new SearchCtrlWrapper(); }
 

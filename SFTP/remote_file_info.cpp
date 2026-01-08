@@ -31,11 +31,9 @@
 #include <wx/stdpaths.h>
 
 RemoteFileInfo::RemoteFileInfo()
-    : m_premissions(0)
+    : m_permissions(0)
 {
 }
-
-RemoteFileInfo::~RemoteFileInfo() {}
 
 void RemoteFileInfo::SetRemoteFile(const wxString& remoteFile)
 {

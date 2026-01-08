@@ -17,8 +17,8 @@ public:
     virtual ~CxxTokenizer();
 
     /**
-     * @brief get the next token from the toknizer
-     * @reutrn false when reached EOF
+     * @brief get the next token from the tokenizer
+     * @return false when reached EOF
      */
     bool NextToken(CxxLexerToken& token);
 
@@ -31,12 +31,6 @@ public:
      * @brief reset the lexer with a new text buffer
      */
     void Reset(const wxString& buffer);
-
-    /**
-     * @brief read until 'delim' is found. Return true if 'delim' found
-     * also, return the data read
-     */
-    bool ReadUntilClosingBracket(int delim, wxString& bufferRead);
 
     const CxxLexerToken& GetLastToken() const { return m_lastToken; }
     /**
@@ -63,11 +57,6 @@ public:
      *
      */
     wxString GetVisibleScope(const wxString& inputString);
-
-    /**
-     * @brief return true if the current scanner position is placed inside a PP section
-     */
-    bool IsInPreProcessorSection() const;
 
     /**
      * @brief read until we find `type_1` or `type_2`. Return the string consumed. This function

@@ -51,7 +51,7 @@ public:
         : m_selectionType(SvnTreeData::SvnNodeTypeInvalid)
     {
     }
-    virtual ~SvnPageSelectionInfo() {}
+    virtual ~SvnPageSelectionInfo() = default;
 
     void Clear()
     {
@@ -69,7 +69,6 @@ class SubversionView : public SubversionPageBase
     SvnCommand m_diffCommand;
     wxString m_curpath;
     SvnConsole* m_subversionConsole;
-    int m_fileExplorerLastBaseImgIdx;
     wxFileName m_workspaceFile;
 
 public:
@@ -95,7 +94,6 @@ protected:
     void ClearAll();
     void DoAddChangedFiles(const wxString& status, const wxArrayString& files);
     void DoAddUnVersionedFiles(const wxArrayString& files);
-    int DoGetIconIndex(const wxString& filename);
     void DoGetSelectedFiles(wxArrayString& paths, bool absPath = false);
     void DoGetAllFiles(wxArrayString& paths);
     void DoLinkEditor();
@@ -180,7 +178,6 @@ public:
                     const wxArrayString& ignoreFiles, bool fileExplorerOnly, const wxString& rootDir);
     void BuildTree();
     void BuildTree(const wxString& root);
-    void BuildExplorerTree(const wxString& root);
 
     wxString GetRootDir() const { return DoGetCurRepoPath(); }
     bool IsValid() const

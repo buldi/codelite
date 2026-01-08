@@ -2,180 +2,168 @@
 
 ## Windows
 ---
+We provide pre‑built 64‑bit binaries for Windows. Visit the [CodeLite downloads page][1] and select the version you need.
 
-We provide pre-built binaries for Windows for both 32 and 64 bit.
-visit [CodeLite downloads page][1] and pick the version you want.
+There are two variants available:
 
-Note that there are two variants to choose from:
-
-- Stable release: more stable releases, released 1-2 per year.
-- Weekly builds: more frequent releases.
-   If you wish to experiment with the latest features, pick this variant.
-  Note that despite their name, these releases are very stable.
+- **Stable release** – more stable, released 1‑2 times per year.
+- **Weekly builds** – released more frequently. Choose this if you want to try the latest features. Despite the name, these builds are very stable.
 
 ## macOS
 ---
+Since version `16.1.0`, CodeLite can be installed via **Homebrew**.
 
-Since version `16.1.0`, CodeLite installation method is by using [`brew`][9]
-
-- Install `brew` from [here][9]
-- Open `Terminal.app` and type:
+1. Install Homebrew (if you haven’t already) from [brew.sh][9].
+2. Open **Terminal.app** and run:
 
 ```bash
-# the below is only needed once
+# Run this only once
 brew tap eranif/codelite
 
-# update the cache
+# Refresh the formulae cache
 brew update
 
-# install CodeLite
+# Install or reinstall CodeLite
 brew reinstall --cask codelite-official
 
-# in order to avoid macOS errors about "damaged app can't be opened"...
+# Remove macOS security warning for a damaged app
 xattr -cr /Applications/codelite.app/
 ```
 
-- CodeLite should now be installed under `/Applications/CodeLite.app`
+CodeLite will be installed at `/Applications/CodeLite.app`.
 
 ## Linux
 ---
-
 ### Ubuntu / Debian
 ---
-
 #### Setup
 
-This page gives links to the available binary packages for CodeLite 17.0. Its RAD plugin wxCrafter, which is now Free Open-Source Software,
-is included in all the CodeLite packages.
+This page lists the binary packages for CodeLite 18.2.0. The RAD plugin **wxCrafter** (now free open‑source software) is included in all packages.
 
-Note that the CodeLite packages incorporate the required wxWidgets libraries (`wx3.2.0` or `wx3.2.1`), so there is no need to install wxWidgets too.
-Of course you can if you wish, and you'll need to do so to build apps against wxWidgets.
+The packages already contain the required wxWidgets libraries (`wx3.2.2` or `wx3.2.4`), so you do not need to install wxWidgets separately unless you want to build applications against them.
 
-Ubuntu `16.04` ( `xenial` ) and later have official CodeLite packages. Therefore, to avoid a name-clash, our CodeLite packages have `unofficial` appended to the name.
+Ubuntu 16.04 (xenial) and newer provide official CodeLite packages. To avoid a name clash, our packages have the suffix **unofficial** (except for Debian 12 bookworm, see below).
 
-To download CodeLite for Debian based systems (Debian / Mint / Ubuntu etc):
+#### Adding the repository key
 
-- Add the CodeLite public key to avoid warnings or worse from apt/aptitude
+*For Debian 12 (bookworm), Debian 13 (trixie), Mint 22.2 (Zara) and earlier:*
 
 ```bash
 wget -qO- http://repos.codelite.org/CodeLite.asc | sudo tee /etc/apt/trusted.gpg.d/CodeLite.asc
 ```
-  
-- Now let apt know that the repositories exist by adding the proper line from Table 1 or 2:
-    - If you use an `apt` front-end e.g. synaptic, tell it to Add a repository, using as data the appropriate entry from the tables below
-    - If you do things by hand, add the appropriate URLs from the tables to `/etc/apt/sources.list` (you need to become superuser) :
 
-For example, if you use Ubuntu jammy (22.04), either open `/etc/apt/sources.list` in an editor (as superuser) and append the proper line
-from Table 1, or else use `apt-add-repository` in a terminal:
+*For newer Ubuntu releases (24.04 noble, 24.10 oracular, 25.04 plucky, 25.10 questing ):*
 
 ```bash
- sudo apt-add-repository 'deb https://repos.codelite.org/ubuntu/ jammy universe'
+sudo mkdir -m 0755 -p /etc/apt/keyrings/
+wget -qO- http://repos.codelite.org/CodeLite.asc | sudo tee -a /etc/apt/keyrings/CodeLite.asc > /dev/null
+
+echo "Types: deb
+URIs: http://repos.codelite.org/ubuntu-18.2.0
+Suites: questing
+Components: universe
+Signed-By: /etc/apt/keyrings/CodeLite.asc" |
+    sudo tee /etc/apt/sources.list.d/CodeLite.sources > /dev/null
 ```
 
-*Table 1: CodeLite repositories (GTK+3):*
+#### Adding the repository source
 
-Distro/release 	| Lines to append
-----------------|---------------------------
-debian bullseye	| `deb https://repos.codelite.org/debian/ bullseye devel`
-ubuntu jammy |	`deb https://repos.codelite.org/ubuntu/ jammy universe`
-ubuntu kinetic |	`deb https://repos.codelite.org/ubuntu/ kinetic universe`
+Add the appropriate line from the table below:
 
-- You then need to update your repositories. In synaptic, click the `Reload` button. If you're doing things by hand, do:
+*If you use an APT front‑end (e.g. Synaptic), add the repository using the listed entry.
+*If you edit sources manually, append the line to `/etc/apt/sources.list` as root.
+
+**Example for Ubuntu questing (25.10):**
 
 ```bash
- sudo apt update
- sudo apt install codelite
+sudo apt-add-repository 'deb https://repos.codelite.org/ubuntu/ questing universe'
 ```
 
-!!! Tip
-    The Ubuntu packages should also work on other ubuntu flavours e.g. xubuntu, and on derivatives e.g. Mint.
+| Distro / Release | Repository line |
+|------------------|-----------------|
+| Debian bookworm  | `deb https://repos.codelite.org/debian/ bookworm devel` |
+| Debian trixie    | `deb https://repos.codelite.org/debian/ trixie devel` |
+| Ubuntu noble, oracular, plucky, questing | `deb https://repos.codelite.org/ubuntu/ questing universe` |
 
-#### Apt
-
-You can see which versions are available by doing:
+After adding the source, update the package list and install CodeLite:
 
 ```bash
- apt-cache madison codelite
+sudo apt update
+sudo apt install codelite
 ```
 
-Then you can select which version to install. For example, to prefer the official 14.0 package in debian bullseye, use the line:
+> **Tip:** The Ubuntu packages also work on other Ubuntu flavors (e.g. Xubuntu) and derivatives such as Mint.
+
+#### Using APT directly
+
+List available versions:
 
 ```bash
- sudo apt install codelite=14.0*
+apt-cache madison codelite
 ```
 
+Install a specific version (e.g. the official `17.0` package on Debian bookworm):
 
-#### Synaptic
+```bash
+sudo apt install codelite=17.0*
+```
 
-You can see which versions are available in the 'Versions' tab of Properties. Then use Package > Force Version followed by Apply.
-You may wish also to use Package > Lock Version.
+#### Using Synaptic
 
-#### Official versus unofficial CodeLite packages
----
+1. Open the package’s **Properties** and go to the **Versions** tab.
+2. Choose **Package → Force Version**, then **Apply**.
+3. (Optional) **Package → Lock Version** to prevent upgrades.
 
-For a long time the official debian and ubuntu repositories supplied only the ancient CodeLite 6.1. However since ubuntu `16.04` (xenial) it has been updated to
-CodeLite 9.1 or later, and debian stretch has 10.0. This is very welcome, but creates a name-clash with any packages we supply.
-Therefore, starting with CodeLite 9.2, our debian packages have `unofficial` added to the version e.g. `codelite_17.0-1unofficial.bullseye_amd64.deb`
+#### Official vs. unofficial packages
 
-This allows you to select which to install using apt (or aptitude or synaptic).
+Historically, the official Debian/Ubuntu repositories only offered the very old CodeLite 6.1. Since Ubuntu 16.04 (xenial), they provide CodeLite 9.1 or newer, and Debian stretch offers 10.0. This created a name clash with our packages, so we added the suffix **unofficial** to our package names (e.g., `codelite_17.0-1unofficial.bullseye_amd64.deb`).
 
+*Note:* Debian 12 bookworm cannot handle the `unofficial` suffix, so we removed it for that release. Debian 13 trixie works with the suffix again.
 
 ### CodeLite RPMs
 ---
+RPMs are available for Fedora 42 and 43 and openSUSE Leap 15.6:
 
-There are rpms available for fedora 37 & 38 and 39 & 40, and openSUSE Leap 15.4 15.5 & 15.6:
+| Distro | Version |
+|--------|---------|
+| Fedora | [`42 and 43`][12] |
+| openSUSE | [`15.6`][15] |
 
-Distro	| x86_64 GTK+3
---------|----------------
-fedora	| [`37 and 38`][10]  [`39 and 40`][11] 
-openSUSE | [`15.4`][12] [`15.5`][13] [`15.6`][14]
-
-
-First tell rpm about the CodeLite public key. As superuser run:
+Import the CodeLite public key as root:
 
 ```bash
- rpm --import https://repos.codelite.org/CodeLite.asc
+rpm --import https://repos.codelite.org/CodeLite.asc
 ```
 
-Then either download the required rpm and install it as usual, or download and install in one step; e.g.
+Install an RPM directly (example for Fedora 43):
 
 ```bash
-  rpm -Uvh https://repos.codelite.org/rpms-17.0/fedora/39/codelite-17.0-1.fc39.x86_64.rpm
+rpm -Uvh https://repos.codelite.org/rpms-18.2.0/fedora/43/codelite-18.2.0-1.fc43.x86_64.rpm
 ```
 
-There are also source rpms for [fedora][2] and [OpenSUSE][3]
+Source RPMs are also available for [Fedora 43][2] and [openSUSE][4].
 
-### ArchLinux
+### Arch Linux
 ---
-
-CodeLite is available on ArchLinux via their [AUR repository][4]
-To install CodeLite:
+CodeLite is in the Arch User Repository (AUR). Install it with:
 
 ```bash
 yaourt -S codelite
 ```
 
-
 ### Previous CodeLite releases
 ---
-
-See [this page](./oldDownloads/Repositories16.md) for links to Linux packages from previous CodeLite and wxCrafter releases.
+Links to older Linux packages are provided on [this page](./oldDownloads/Repositories18.1.md).
 
 ### wxCrafter binary packages
 ---
-
-As the above CodeLite 17.0 packages already contain wxCrafter, its gui-designer plugin, there is no need for a separate download. However if you wish to use wxCrafter with CodeLite 12.0 or older, please see [this page](./oldDownloads/Repositories12.md).
+wxCrafter is already included in the CodeLite packages above, so a separate download is unnecessary. If you need wxCrafter for CodeLite 12.0 or older, see [this page](./oldDownloads/Repositories12.md).
 
 [1]: https://downloads.codelite.org
-[2]: https://repos.codelite.org/rpms-17.0/fedora/codelite-17.0-1.fc.src.rpm
-[3]: https://repos.codelite.org/rpms-17.0/suse/codelite-17.0-2.suse.src.rpm
-[4]: https://aur.archlinux.org/packages/codelite/
-
-[10]: https://repos.codelite.org/rpms-17.0/fedora/37/codelite-17.0-1.fc37.x86_64.rpm
-[11]: https://repos.codelite.org/rpms-17.0/fedora/39/codelite-17.0-1.fc39.x86_64.rpm
-
-[12]: https://repos.codelite.org/rpms-17.0/suse/15.4/codelite-17.0-1.suse.x86_64.rpm
-[13]: https://repos.codelite.org/rpms-17.0/suse/15.5/codelite-17.0-1.suse.x86_64.rpm
-[14]: https://repos.codelite.org/rpms-17.0/suse/15.6/codelite-17.0-1.suse15.6.x86_64.rpm
-
+[2]: https://repos.codelite.org/rpms-18.2/fedora/codelite-18.2.0-1.fc.src.rpm
+[4]: https://repos.codelite.org/rpms-18.2/suse/codelite-18.2.0-1.suse.src.rpm
+[5]: https://aur.archlinux.org/packages/codelite/
 [9]: https://brew.sh
+[12]: https://repos.codelite.org/rpms-18.2/fedora/43/codelite-18.2.0-1.fc43.x86_64.rpm 
+[15]: https://repos.codelite.org/rpms-18.2/suse/15.6/codelite-18.2.0-1.suse15.6.x86_64.rpm
+[20]: https://askubuntu.com/questions/1286545/what-commands-exactly-should-replace-the-deprecated-apt-key/1307181#1307181

@@ -26,8 +26,8 @@
 #include "CompilerLocatorMSVC.h"
 
 #include "StdToWX.h"
+#include "StringUtils.h"
 #include "compiler.h"
-#include "globals.h"
 
 #include <wx/regex.h>
 
@@ -38,8 +38,6 @@ CompilerLocatorMSVC::CompilerLocatorMSVC()
 {
 }
 
-CompilerLocatorMSVC::~CompilerLocatorMSVC() {}
-
 bool CompilerLocatorMSVC::Locate()
 {
     m_compilers.clear();
@@ -47,18 +45,15 @@ bool CompilerLocatorMSVC::Locate()
     wxEnvVariableHashMap envvars;
     ::wxGetEnvMap(&envvars);
 
-    for(wxEnvVariableHashMap::const_iterator it = envvars.begin(); it != envvars.end(); ++it) {
-        wxString const& envvarName = it->first;
-        wxString const& envvarPath = it->second;
-
-        if(!envvarName.Matches("VS??*COMNTOOLS") || envvarPath.IsEmpty() || (envvarName.Find('C') < 3)) {
+    for (const auto& [envvarName, envvarPath] : envvars) {
+        if (!envvarName.Matches("VS??*COMNTOOLS") || envvarPath.IsEmpty() || (envvarName.Find('C') < 3)) {
             continue;
         }
 
         wxString vcVersion = envvarName.Mid(2, envvarName.Find('C') - 3);
-        for(size_t j = 0; j < m_vcPlatforms.GetCount(); ++j) {
-            wxString compilerName = "Visual C++ " + vcVersion + " (" + m_vcPlatforms[j] + ")";
-            AddToolsVC2005(envvarPath, compilerName, m_vcPlatforms[j]);
+        for (const auto& vcPlatform : m_vcPlatforms) {
+            wxString compilerName = "Visual C++ " + vcVersion + " (" + vcPlatform + ")";
+            AddToolsVC2005(envvarPath, compilerName, vcPlatform);
         }
     }
 
@@ -132,7 +127,6 @@ void CompilerLocatorMSVC::AddTools(const wxString& name, const wxString& platfor
     AddTool(fnVCvars.GetFullPath(), vcVarsArgs + " && nmake.exe /nologo", "MAKE", compiler);
 
     compiler->SetSwitch("ArchiveOutput", "/OUT:");
-    compiler->SetSwitch("Debug", "/Zi ");
     compiler->SetSwitch("Include", "/I");
     compiler->SetSwitch("Library", " ");
     compiler->SetSwitch("LibraryPath", "/LIBPATH:");
@@ -148,7 +142,7 @@ void CompilerLocatorMSVC::AddTools(const wxString& name, const wxString& platfor
 
     // include and lib path, check if cl.exe exists
     wxString vcVarsCmd = fnVCvars.GetFullPath();
-    WrapWithQuotes(vcVarsCmd);
+    StringUtils::WrapWithQuotes(vcVarsCmd);
     wxString command = "CMD.EXE /V:ON /C ";
     command << vcVarsCmd << " " << vcVarsArgs << " & echo !INCLUDE! & echo !LIB! & where cl.exe";
 
@@ -217,7 +211,7 @@ void CompilerLocatorMSVC::AddTool(const wxString& toolpath, const wxString& extr
                                   CompilerPtr compiler)
 {
     wxString tool = toolpath;
-    ::WrapWithQuotes(tool);
+    StringUtils::WrapWithQuotes(tool);
 
     if(!extraArgs.IsEmpty()) {
         tool << " " << extraArgs;

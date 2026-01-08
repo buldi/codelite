@@ -26,8 +26,8 @@
 #ifndef XDEBUGCOMMANDHANDLER_H
 #define XDEBUGCOMMANDHANDLER_H
 
+#include <memory>
 #include <map>
-#include <wx/sharedptr.h>
 
 /// Base class for XDebug command handlers
 class XDebugManager;
@@ -36,16 +36,16 @@ class wxSocketBase;
 class XDebugCommandHandler
 {
 public:
-    typedef wxSharedPtr<XDebugCommandHandler> Ptr_t;
-    typedef std::map<int, XDebugCommandHandler::Ptr_t> Map_t;
+    using Ptr_t = std::shared_ptr<XDebugCommandHandler>;
+    using Map_t = std::map<int, XDebugCommandHandler::Ptr_t>;
 
 protected:
     XDebugManager *m_mgr;
     int m_transactionId;
 
 public:
-    XDebugCommandHandler(XDebugManager* mgr, int transcationId);
-    virtual ~XDebugCommandHandler();
+    XDebugCommandHandler(XDebugManager* mgr, int transactionId);
+    virtual ~XDebugCommandHandler() = default;
 
     virtual void Process(const wxXmlNode* response) = 0;
     void SetTransactionId(int transactionId) {

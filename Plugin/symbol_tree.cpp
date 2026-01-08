@@ -92,8 +92,6 @@ SymbolTree::SymbolTree(wxWindow* parent, const wxWindowID id, const wxPoint& pos
     SetSortFunction(func);
 }
 
-SymbolTree::~SymbolTree() {}
-
 void SymbolTree::InitialiseSymbolMap()
 {
     //--------------------------------------------------------
@@ -177,10 +175,6 @@ void SymbolTree::BuildTree(const wxFileName& fileName, const TagEntryPtrVector_t
         // Load the new tags from the database
         db->SelectTagsByFile(fileName.GetFullPath(), newTags);
 
-        // Compare the new tags with the old ones
-        if(!forceBuild && TagsManagerST::Get()->AreTheSame(newTags, m_currentTags))
-            return;
-
         m_currentTags.clear();
         m_currentTags.insert(m_currentTags.end(), newTags.begin(), newTags.end());
 
@@ -206,7 +200,7 @@ void SymbolTree::BuildTree(const wxFileName& fileName, const TagEntryPtrVector_t
     TreeWalker<wxString, TagEntry> walker(m_tree->GetRoot());
 
     // add three items here:
-    // the globals node, the mcros and the prototype node
+    // the globals node, the macros and the prototype node
     int nodeImgIdx = clGetManager()->GetStdIcons()->GetImageIndex(BitmapLoader::kAngleBrackets);
     m_globalsNode = AppendItem(root, _("Global Functions and Variables"), nodeImgIdx, nodeImgIdx,
                                new MyTreeItemData(_("Global Functions and Variables"), wxEmptyString));
@@ -387,7 +381,7 @@ void SymbolTree::DeleteSymbols(const std::vector<std::pair<wxString, TagEntry>>&
         std::map<wxString, void*>::iterator iter = m_items.find(key);
         if(iter != m_items.end() && iter->second) {
             wxTreeItemId hti = iter->second;
-            // if this note was already deleted, dont delete it again
+            // if this note was already deleted, don't delete it again
             if(deletedMap.find(hti.m_pItem) == deletedMap.end()) {
                 GetItemChildrenRecursive(hti, deletedMap);
                 // remove just the parent

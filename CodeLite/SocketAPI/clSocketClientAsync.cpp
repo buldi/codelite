@@ -1,10 +1,11 @@
-#include "SocketAPI/clSocketClient.h"
 #include "clSocketClientAsync.h"
-#include <wx/utils.h>
-#include "fileutils.h"
-#include "SocketAPI/clConnectionString.h"
+
+#include "SocketAPI/clSocketClient.h"
 #include "SocketAPI/clSocketServer.h"
+#include "StringUtils.h"
 #include "fileutils.h"
+
+#include <wx/utils.h>
 
 wxDEFINE_EVENT(wxEVT_ASYNC_SOCKET_CONNECTED, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_ASYNC_SOCKET_CONNECT_ERROR, clCommandEvent);
@@ -41,7 +42,7 @@ void clAsyncSocket::Send(const std::string& buffer)
     }
 }
 
-void clAsyncSocket::Send(const wxString& buffer) { Send(FileUtils::ToStdString(buffer)); }
+void clAsyncSocket::Send(const wxString& buffer) { Send(StringUtils::ToStdString(buffer)); }
 
 //-----------------------------------------------------------------------------------------------
 // The helper thread
@@ -93,7 +94,7 @@ void* clSocketAsyncThread::ServerMain()
         } else {
             BufferLoop(conn);
         }
-    } catch(clSocketException& e) {
+    } catch (const clSocketException& e) {
         clCommandEvent event(wxEVT_ASYNC_SOCKET_CONNECT_ERROR);
         event.SetString(e.what());
         m_sink->AddPendingEvent(event);
@@ -175,7 +176,7 @@ void clSocketAsyncThread::MessageLoop(clSocketBase::Ptr_t socket)
             if(m_queue.ReceiveTimeout(100, req) == wxMSGQUEUE_NO_ERROR) {
                 // got something
                 if(req.m_command == kDisconnect) {
-                    socket.reset(NULL);
+                    socket.reset();
                     return;
 
                 } else if(req.m_command == kSend) {
@@ -201,7 +202,7 @@ void clSocketAsyncThread::MessageLoop(clSocketBase::Ptr_t socket)
             }
             ++counter;
         }
-    } catch(clSocketException& e) {
+    } catch (const clSocketException& e) {
         clCommandEvent event(wxEVT_ASYNC_SOCKET_ERROR);
         event.SetString(e.what());
         m_sink->AddPendingEvent(event);
@@ -226,7 +227,7 @@ void clSocketAsyncThread::BufferLoop(clSocketBase::Ptr_t socket)
             if(m_queue.ReceiveTimeout(1, req) == wxMSGQUEUE_NO_ERROR) {
                 // got something
                 if(req.m_command == kDisconnect) {
-                    socket.reset(NULL);
+                    socket.reset();
                     return;
 
                 } else if(req.m_command == kSend) {
@@ -253,7 +254,7 @@ void clSocketAsyncThread::BufferLoop(clSocketBase::Ptr_t socket)
                 }
             }
         }
-    } catch(clSocketException& e) {
+    } catch (const clSocketException& e) {
         clCommandEvent event(wxEVT_ASYNC_SOCKET_ERROR);
         event.SetString(e.what());
         m_sink->AddPendingEvent(event);

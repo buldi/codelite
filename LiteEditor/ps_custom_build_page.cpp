@@ -35,6 +35,7 @@
 
 #include <wx/dirdlg.h>
 #include <wx/log.h>
+#include <wx/msgdlg.h>
 
 PSCustomBuildPage::PSCustomBuildPage(wxWindow* parent, const wxString& projectName, ProjectSettingsDlg* dlg)
     : PSCustomBuildBasePage(parent)
@@ -89,7 +90,7 @@ void PSCustomBuildPage::OnNewTarget(wxCommandEvent& event)
     if (dlg.ShowModal() == wxID_OK) {
         GetDlg()->SetIsDirty(true);
         if (GetTargetCommand(dlg.GetName()).IsEmpty() == false) {
-            wxMessageBox(wxString::Format(_("Target '%s' already exist!"), dlg.GetName().c_str()), _("CodeLite"),
+            wxMessageBox(wxString::Format(_("Target '%s' already exist!"), dlg.GetName().c_str()), wxT("CodeLite"),
                          wxICON_WARNING | wxCENTER | wxOK, this);
             return;
         }
@@ -225,16 +226,14 @@ void PSCustomBuildPage::Load(BuildConfigPtr buildConf)
     m_dvListCtrlTargets->AppendItem(cols);
 
     // Initialize the custom build targets
-    std::map<wxString, wxString> targets = buildConf->GetCustomTargets();
-    std::map<wxString, wxString>::iterator titer = targets.begin();
-    for (; titer != targets.end(); ++titer) {
+    for (const auto& p : buildConf->GetCustomTargets()) {
 
-        if (ProjectCustomBuildTragetDlg::IsPredefinedTarget(titer->first))
+        if (ProjectCustomBuildTragetDlg::IsPredefinedTarget(p.first))
             continue;
 
         cols.clear();
-        cols.push_back(titer->first);
-        cols.push_back(titer->second);
+        cols.push_back(p.first);
+        cols.push_back(p.second);
         m_dvListCtrlTargets->AppendItem(cols);
     }
     m_dlg->SetCustomBuildEnabled(m_checkEnableCustomBuild->IsChecked());

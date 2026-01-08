@@ -38,12 +38,10 @@ PHPProjectSettingsDlg::PHPProjectSettingsDlg(wxWindow* parent, const wxString& p
         m_filePickerPhpIni->SetPath(data.GetPhpIniFile());
     }
 
-    const wxStringMap_t& mapping = data.GetFileMapping();
-    wxStringMap_t::const_iterator iter = mapping.begin();
-    for(; iter != mapping.end(); ++iter) {
+    for (const auto& p : data.GetFileMapping()) {
         wxVector<wxVariant> cols;
-        cols.push_back(iter->first);
-        cols.push_back(iter->second);
+        cols.push_back(p.first);
+        cols.push_back(p.second);
         m_dvListCtrlFileMapping->AppendItem(cols);
     }
 
@@ -114,8 +112,6 @@ void PHPProjectSettingsDlg::OnAddIncludePath(wxCommandEvent& event)
         m_textCtrlPHPIncludePath->SetValue(wxJoin(curIncPaths, '\n'));
     }
 }
-
-void PHPProjectSettingsDlg::OnArgumentsEntered(wxCommandEvent& event) { SetDirty(true); }
 
 void PHPProjectSettingsDlg::OnIndexFileSelected(wxFileDirPickerEvent& event) { SetDirty(true); }
 
@@ -248,7 +244,7 @@ void PHPProjectSettingsDlg::EditItem(const wxDataViewItem& item)
         SetDirty(true);
     }
 }
-void PHPProjectSettingsDlg::OnTextctrlviewfilterTextUpdated(wxCommandEvent& event) { SetDirty(true); }
+
 void PHPProjectSettingsDlg::OnPgmgrviewPgChanged(wxPropertyGridEvent& event)
 {
     event.Skip();

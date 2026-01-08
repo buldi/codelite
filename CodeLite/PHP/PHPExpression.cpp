@@ -28,8 +28,6 @@ PHPExpression::PHPExpression(const wxString& fulltext, const wxString& exprText,
     }
 }
 
-PHPExpression::~PHPExpression() {}
-
 phpLexerToken::Vet_t PHPExpression::CreateExpression(const wxString& text)
 {
     m_exprStartsWithOpenTag = false;
@@ -228,12 +226,10 @@ PHPEntityBase::Ptr_t PHPExpression::Resolve(PHPLookupTable& lookpTable, const wx
     }
 
     // Now, use the lookup table
-    std::list<PHPExpression::Part>::iterator iter = m_parts.begin();
     PHPEntityBase::Ptr_t currentToken(NULL);
     PHPEntityBase::Ptr_t parentToken(NULL);
-    for(; iter != m_parts.end(); ++iter) {
-        Part& part = *iter;
-        if(!currentToken) {
+    for (Part& part : m_parts) {
+        if (!currentToken) {
             // first token
             // Check locks first
             if(part.m_text.StartsWith("$") && m_sourceFile->CurrentScope()) {
@@ -276,7 +272,7 @@ PHPEntityBase::Ptr_t PHPExpression::Resolve(PHPLookupTable& lookpTable, const wx
 
         // If the current "part" of the expression ends with a scope resolving operator ("::") or
         // an object operator ("->") we need to resolve the operator to the actual type (
-        // incase of a functin it will be the return value, and in case of a variable it will be
+        // incase of a function it will be the return value, and in case of a variable it will be
         // the type hint)
         if(currentToken) {
             if(part.m_operator == kPHP_T_OBJECT_OPERATOR || part.m_operator == kPHP_T_PAAMAYIM_NEKUDOTAYIM) {
@@ -381,7 +377,7 @@ wxString PHPExpression::DoSimplifyExpression(int depth, PHPSourceFile::Ptr_t sou
                 // $this->getQuery()->fetchAll()->
                 // However, $this also need a replacement so eventually, it becomes like this:
                 // \MyClass->getQuery->fetchAll-> and this is something that we can evaluate easily using
-                // our lookup tables (note that the parenthessis are missing on purpose)
+                // our lookup tables (note that the parenthesis are missing on purpose)
                 PHPEntityBase::Ptr_t local = scope->FindChild(token.Text());
                 if(local && local->Cast<PHPEntityVariable>()) {
                     if(!local->Cast<PHPEntityVariable>()->GetTypeHint().IsEmpty()) {
@@ -448,7 +444,7 @@ wxString PHPExpression::DoSimplifyExpression(int depth, PHPSourceFile::Ptr_t sou
             if(!currentText.IsEmpty() && part.m_text.IsEmpty()) {
                 if(m_parts.empty() && token.type == kPHP_T_PAAMAYIM_NEKUDOTAYIM) {
                     // The first token in the "parts" list has a scope resolving operator ("::")
-                    // we need to make sure that the indetifier is provided in fullpath
+                    // we need to make sure that the identifier is provided in fullpath
                     part.m_text = sourceFile->MakeIdentifierAbsolute(currentText);
                 } else {
                     part.m_text = currentText;
@@ -456,7 +452,7 @@ wxString PHPExpression::DoSimplifyExpression(int depth, PHPSourceFile::Ptr_t sou
             }
 
             if(m_parts.empty()) {
-                // If the first token before the simplication was 'parent'
+                // If the first token before the simplification was 'parent'
                 // keyword, we need to carry this over
                 part.m_textType = firstTokenType;
             }
@@ -488,9 +484,8 @@ wxString PHPExpression::DoSimplifyExpression(int depth, PHPSourceFile::Ptr_t sou
     }
 
     wxString simplified;
-    List_t::iterator iter = m_parts.begin();
-    for(; iter != m_parts.end(); ++iter) {
-        simplified << iter->m_text << iter->m_operatorText;
+    for (const auto& part : m_parts) {
+        simplified << part.m_text << part.m_operatorText;
     }
     return simplified.Trim().Trim(false);
 }
@@ -551,11 +546,8 @@ void PHPExpression::Suggest(PHPEntityBase::Ptr_t resolved, PHPLookupTable& looku
         if(currentScope && (currentScope->Is(kEntityTypeFunction) || currentScope->Is(kEntityTypeNamespace))) {
             // If the current scope is a function
             // add the local variables + function arguments to the current list of matches
-            const PHPEntityBase::List_t& children = currentScope->GetChildren();
-            PHPEntityBase::List_t::const_iterator iter = children.begin();
-            for(; iter != children.end(); ++iter) {
-                PHPEntityBase::Ptr_t child = *iter;
-                if(child->Is(kEntityTypeVariable) && child->GetShortName().Contains(GetFilter()) &&
+            for (const auto& child : currentScope->GetChildren()) {
+                if (child->Is(kEntityTypeVariable) && child->GetShortName().Contains(GetFilter()) &&
                    child->GetShortName() != GetFilter()) {
                     matches.push_back(child);
                 }
@@ -564,11 +556,9 @@ void PHPExpression::Suggest(PHPEntityBase::Ptr_t resolved, PHPLookupTable& looku
 
         {
             // Add aliases
-            PHPEntityBase::List_t aliases = GetSourceFile()->GetAliases();
-            PHPEntityBase::List_t::iterator iter = aliases.begin();
-            for(; iter != aliases.end(); ++iter) {
-                if((*iter)->GetShortName().Contains(GetFilter())) {
-                    matches.push_back(*iter);
+            for (const auto& alias : GetSourceFile()->GetAliases()) {
+                if (alias->GetShortName().Contains(GetFilter())) {
+                    matches.push_back(alias);
                 }
             }
         }
@@ -612,10 +602,10 @@ void PHPExpression::DoMakeUnique(PHPEntityBase::List_t& matches)
 {
     std::set<wxString> uniqueNames;
     PHPEntityBase::List_t uniqueList;
-    for(PHPEntityBase::List_t::iterator iter = matches.begin(); iter != matches.end(); ++iter) {
-        if(uniqueNames.count((*iter)->GetFullName()) == 0) {
-            uniqueNames.insert((*iter)->GetFullName());
-            uniqueList.push_back(*iter);
+    for (const auto& match : matches) {
+        if (uniqueNames.count(match->GetFullName()) == 0) {
+            uniqueNames.insert(match->GetFullName());
+            uniqueList.push_back(match);
         }
     }
     matches.swap(uniqueList);

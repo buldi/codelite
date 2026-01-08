@@ -33,30 +33,27 @@
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
-#include "macros.h"
 #include "newunittestdlg.h"
-#include "pipedprocess.h"
-#include "procutils.h"
 #include "project.h"
 #include "testclassdlg.h"
 #include "unittestcppoutputparser.h"
-#include "unittestdata.h"
 #include "unittestspage.h"
 #include "workspace.h"
 
 #include <wx/app.h>
 #include <wx/ffile.h>
 #include <wx/menu.h>
-#include <wx/menuitem.h>
 #include <wx/msgdlg.h>
 #include <wx/tokenzr.h>
 #include <wx/xrc/xmlres.h>
 
-#ifdef __WXMSW__
-#include "envvarlist.h"
-
-#include <wx/msw/registry.h>
-#endif
+namespace
+{
+bool IsSourceFile(const wxString& ext)
+{
+    return ext == wxT("cpp") || ext == wxT("cxx") || ext == wxT("c") || ext == wxT("c++") || ext == wxT("cc");
+}
+}
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
@@ -107,8 +104,6 @@ UnitTestPP::UnitTestPP(IManager* manager)
                                                { "run_unit_tests", _("Run Project as UnitTest++ and report") } });
 }
 
-UnitTestPP::~UnitTestPP() {}
-
 void UnitTestPP::CreateToolBar(clToolBarGeneric* toolbar)
 {
     int size = m_mgr->GetToolbarIconSize();
@@ -121,7 +116,7 @@ void UnitTestPP::CreateToolBar(clToolBarGeneric* toolbar)
 void UnitTestPP::CreatePluginMenu(wxMenu* pluginsMenu)
 {
     // Create the popup menu for the file explorer
-    // The only menu that we are interseted is the file explorer menu
+    // The only menu that we are interested is the file explorer menu
     wxMenu* menu = new wxMenu();
     wxMenuItem* item(NULL);
 
@@ -156,7 +151,7 @@ void UnitTestPP::CreatePluginMenu(wxMenu* pluginsMenu)
 
 void UnitTestPP::UnPlug()
 {
-    m_tabHelper.reset(NULL);
+    m_tabHelper.reset();
 
     // Connect the events to us
     wxTheApp->Disconnect(XRCID("run_unit_tests"), wxEVT_COMMAND_MENU_SELECTED,
@@ -176,7 +171,7 @@ void UnitTestPP::UnPlug()
 wxMenu* UnitTestPP::CreateEditorPopMenu()
 {
     // Create the popup menu for the file explorer
-    // The only menu that we are interseted is the file explorer menu
+    // The only menu that we are interested is the file explorer menu
     wxMenu* menu = new wxMenu();
     wxMenuItem* item(NULL);
 
@@ -199,7 +194,7 @@ void UnitTestPP::OnNewClassTest(wxCommandEvent& e)
         if(wxMessageBox(
                wxString::Format(
                    _("There are currently no UnitTest project in your workspace\nWould you like to create one now?")),
-               _("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
+               wxT("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
             // add new UnitTest project
             wxCommandEvent event(wxEVT_COMMAND_MENU_SELECTED, XRCID("new_project"));
             m_mgr->GetTheApp()->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
@@ -267,7 +262,7 @@ void UnitTestPP::OnNewSimpleTest(wxCommandEvent& e)
         if(wxMessageBox(
                wxString::Format(
                    _("There are currently no UnitTest project in your workspace\nWould you like to create one now?")),
-               _("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
+               wxT("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
             // add new UnitTest project
             wxCommandEvent event(wxEVT_COMMAND_MENU_SELECTED, XRCID("new_project"));
             m_mgr->GetTheApp()->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
@@ -321,7 +316,7 @@ void UnitTestPP::DoCreateSimpleTest(const wxString& name, const wxString& projec
     ProjectPtr proj = m_mgr->GetWorkspace()->FindProjectByName(projectName, errMsg);
     if(!proj) {
         // no such project!
-        wxMessageBox(_("Could not find the target project"), _("CodeLite"), wxOK | wxICON_ERROR);
+        wxMessageBox(_("Could not find the target project"), wxT("CodeLite"), wxOK | wxICON_ERROR);
         return;
     }
 
@@ -389,7 +384,7 @@ IEditor* UnitTestPP::DoAddTestFile(const wxString& filename, const wxString& pro
         // the file does not exist!
         wxFFile file(filename, "wb");
         if(!file.IsOpened()) {
-            wxMessageBox(wxString::Format(_("Could not create target file '%s'"), filename.c_str()), _("CodeLite"),
+            wxMessageBox(wxString::Format(_("Could not create target file '%s'"), filename.c_str()), wxT("CodeLite"),
                          wxICON_WARNING | wxOK);
             return NULL;
         }
@@ -410,8 +405,8 @@ IEditor* UnitTestPP::DoAddTestFile(const wxString& filename, const wxString& pro
 
         // Search the target file, if it is already exist in the project, open the file
         // and return
-        for(size_t i = 0; i < files.size(); i++) {
-            if(files.at(i) == fn) {
+        for (const auto& file : files) {
+            if (file == fn) {
                 m_mgr->OpenFile(fn.GetFullPath());
                 editor = m_mgr->GetActiveEditor();
                 if(editor && editor->GetFileName() == fn) {
@@ -447,15 +442,14 @@ wxFileName UnitTestPP::FindBestSourceFile(ProjectPtr proj, const wxFileName& fil
 
         // Search the target file, if it is already exist in the project, open the file
         // and return
-        for(size_t i = 0; i < files.size(); i++) {
-            wxFileName fn = files.at(i);
-            if(IsSourceFile(fn.GetExt())) {
+        for (const auto& fn : files) {
+            if (IsSourceFile(fn.GetExt())) {
                 return fn;
             }
         }
         // no source file were found in the project
         // create a path name of the file which will be located
-        // under the selected project path (we dont create it here)
+        // under the selected project path (we don't create it here)
         wxFileName fn(proj->GetFileName());
         fn.SetFullName("unit_tests.cpp");
         return fn;

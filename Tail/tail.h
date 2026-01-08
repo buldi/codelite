@@ -23,8 +23,8 @@ protected:
     
 public:
     Tail(IManager* manager);
-    ~Tail();
-    
+    ~Tail() override = default;
+
     /**
      * @brief detach the tail window from the output notebook
      */
@@ -38,16 +38,16 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
     /**
      * @brief Add plugin menu to the "Plugins" menu item in the menu bar
      */
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
 
     /**
      * @brief Unplug the plugin. Perform here any cleanup needed (e.g. unbind events, destroy allocated windows)
      */
-    virtual void UnPlug();
+    void UnPlug() override;
     
     TailPanel* GetView() const { return m_view; }
 };

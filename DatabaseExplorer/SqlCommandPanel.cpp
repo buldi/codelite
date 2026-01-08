@@ -251,12 +251,12 @@ void SQLCommandPanel::ExecuteSql()
                 }
                 m_pDbLayer->CloseResultSet(pResultSet);
 
-                // Popuplate the data
+                // Populate the data
                 m_table->SetData(data);
                 GetSizer()->Layout();
                 Layout();
 
-            } catch(DatabaseLayerException& e) {
+            } catch (const DatabaseLayerException& e) {
                 // for some reason an exception is thrown even if the error code is 0...
                 if(e.GetErrorCode() != 0) {
                     wxString errorMessage =
@@ -265,7 +265,7 @@ void SQLCommandPanel::ExecuteSql()
                     dlg.ShowModal();
                 }
 
-            } catch(...) {
+            } catch (...) {
                 wxMessageDialog dlg(this, _("Unknown error."), _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
                 dlg.ShowModal();
             }
@@ -307,7 +307,6 @@ void SQLCommandPanel::OnSaveClick(wxCommandEvent& event)
     }
 }
 
-void SQLCommandPanel::OnTeplatesLeftDown(wxMouseEvent& event) {}
 void SQLCommandPanel::OnTemplatesBtnClick(wxAuiToolBarEvent& event)
 {
     wxMenu menu;

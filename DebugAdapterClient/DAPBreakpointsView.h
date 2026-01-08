@@ -10,12 +10,12 @@
 class DebugAdapterClient;
 
 struct BreakpointClientData {
-    dap::Breakpoint m_breapoint;
+    dap::Breakpoint m_breakpoint;
     BreakpointClientData(const dap::Breakpoint& breakpoint)
-        : m_breapoint(breakpoint)
+        : m_breakpoint(breakpoint)
     {
     }
-    ~BreakpointClientData() {}
+    ~BreakpointClientData() = default;
 };
 
 class DAPBreakpointsView : public DAPBreakpointsViewBase
@@ -42,6 +42,8 @@ public:
      * @brief initialise the view by syncing the data with the store
      */
     void RefreshView(const SessionBreakpoints& breakpoints);
+
+    void Clear();
 };
 
 #endif // DAPBREAKPOINTSVIEW_H

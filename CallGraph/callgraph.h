@@ -46,10 +46,6 @@
 #include "dotwriter.h"
 #include "static.h"
 
-// forward references
-class wxFileOutputStream;
-class wxTextOutputStream;
-
 /**
  * @class CallGraph
  * @brief Class define structure for plugin interface.
@@ -58,14 +54,14 @@ class CallGraph : public IPlugin
 {
 public:
     /**
-     * @brief Defautl constructor.
+     * @brief Default constructor.
      * @param manager
      */
     CallGraph(IManager* manager);
     /**
-     * @brief Defautl destructor.
+     * @brief Default destructor.
      */
-    ~CallGraph();
+    ~CallGraph() override;
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
@@ -74,19 +70,19 @@ public:
      * @param parent
      * @return
      */
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
     /**
-     * @brief Function create plugin menu for Call graph used in menu Plugins of Codelite.
+     * @brief Function create plugin menu for Call graph used in menu Plugins of CodeLite.
      * @param pluginsMenu
      */
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
 
     /**
      * @brief Function unplug the plugin from CodeLite IDE.
      */
-    virtual void UnPlug();
+    void UnPlug() override;
 
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
 
     /**
      * @brief Return string with value path for external application gprof which is stored in configuration data.
@@ -98,10 +94,6 @@ public:
      * @return Path to 'dot' tool
      */
     wxString GetDotPath();
-
-    wxFileOutputStream* m_LogFile;
-
-    void LogFn(wxString s);
 
 protected:
     void MessageBox(const wxString& msg, unsigned long icon_mask);
@@ -132,16 +124,10 @@ protected:
      * @brief Pointer cgWnd type wxScrolledWindow used in tab page for display call graph picture.
      */
     wxScrolledWindow* cgWnd; // pointer cgWnd type wxScrolledWindow used in tab page for display call graph picture
-                             /**
-                              * @brief Pointer m_pInputStream type wxInputStream returned from gprof application.
-                              */
-    // wxInputStream *m_pInputStream; // pointer m_pInputStream type wxInputStream returned from gprof application
     /**
      * @brief Object confData type ConfCallGraph with stored configuration data.
      */
     ConfCallGraph confData; // object confData type ConfCallGraph with stored configuration data
-
-    // wxString        m_ProfiledBinFullName;
 };
 
 #endif // CallGraph

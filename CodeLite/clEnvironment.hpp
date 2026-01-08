@@ -2,14 +2,12 @@
 #define CLENVIRONMENT_HPP
 
 #include "codelite_exports.h"
-#include "macros.h"
-#include "wxStringHash.h"
 
 #include <vector>
 #include <wx/any.h>
 #include <wx/string.h>
 
-typedef std::vector<std::pair<wxString, wxString>> clEnvList_t;
+using clEnvList_t = std::vector<std::pair<wxString, wxString>>;
 
 class WXDLLIMPEXP_CL clEnvironment
 {

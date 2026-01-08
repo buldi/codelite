@@ -24,6 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "context_base.h"
 
+#include "LSP/LSPManager.hpp"
 #include "cl_command_event.h"
 #include "cl_editor.h"
 #include "cl_editor_tip_window.h"
@@ -36,6 +37,7 @@
 #include "frame.h"
 #include "macros.h"
 #include "plugin.h"
+#include "resources/clXmlResource.hpp"
 
 #include <vector>
 #include <wx/regex.h>
@@ -52,8 +54,6 @@ ContextBase::ContextBase(const wxString& name)
     : m_name(name)
 {
 }
-
-ContextBase::~ContextBase() {}
 
 // provide basic indentation
 void ContextBase::AutoIndent(const wxChar& ch)
@@ -111,7 +111,7 @@ bool ContextBase::GetHyperlinkRange(int& start, int& end)
     return false;
 }
 
-wxMenu* ContextBase::GetMenu() { return wxXmlResource::Get()->LoadMenu(wxT("editor_right_click_default")); }
+wxMenu* ContextBase::GetMenu() { return clXmlResource::Get().LoadMenu(wxT("editor_right_click_default")); }
 
 void ContextBase::PrependMenuItem(wxMenu* menu, const wxString& text, wxObjectEventFunction func, int eventId)
 {
@@ -188,27 +188,8 @@ int ContextBase::DoGetCalltipParamterIndex()
 
 void ContextBase::OnUserTypedXChars(int pos)
 {
-    // user typed more than X chars
-    // trigger code complete event (as if the user typed ctrl-space)
-    // if no one handles this event, fire a word completion event
-    if (IsCommentOrString(pos)) {
-        return;
-    }
-
-    // Try to call code completion
-    clCodeCompletionEvent ccEvt(wxEVT_CC_CODE_COMPLETE);
-    ccEvt.SetInsideCommentOrString(IsCommentOrString(pos));
-    ccEvt.SetTriggerKind(LSP::CompletionItem::kTriggerKindInvoked);
-    ccEvt.SetFileName(GetCtrl().GetFileName().GetFullPath());
-    ccEvt.SetWord(GetCtrl().GetWordAtPosition(pos));
-
-    if (!EventNotifier::Get()->ProcessEvent(ccEvt)) {
-        // This is ugly, since CodeLite should not be calling
-        // the plugins... we take comfort in the fact that it
-        // merely fires an event and not calling it directly
-        wxCommandEvent wordCompleteEvent(wxEVT_MENU, XRCID("simple_word_completion"));
-        EventNotifier::Get()->TopFrame()->GetEventHandler()->ProcessEvent(wordCompleteEvent);
-    }
+    wxUnusedVar(pos);
+    LSP::Manager::GetInstance().CodeComplete(&GetCtrl(), LSP::CompletionItem::kTriggerKindInvoked);
 }
 
 void ContextBase::AutoAddComment()
@@ -270,7 +251,7 @@ void ContextBase::AutoAddComment()
                     }
 
                     // Join the lines back
-                    wxString doxyBlock = ::clJoinLinesWithEOL(lines, rCtrl.GetEOL());
+                    wxString doxyBlock = StringUtils::clJoinLinesWithEOL(lines, rCtrl.GetEOL());
 
                     rCtrl.SetSelection(startPos, curpos);
                     rCtrl.ReplaceSelection(doxyBlock);

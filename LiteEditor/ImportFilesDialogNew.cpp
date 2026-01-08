@@ -53,7 +53,7 @@ public:
     {
     }
 
-    virtual ~ImportFilesDlgData() {}
+    virtual ~ImportFilesDlgData() = default;
 
     void SetIsChecked(bool isChecked) { this->m_isChecked = isChecked; }
     void SetPath(const wxString& path) { this->m_path = path; }
@@ -124,7 +124,7 @@ void ImportFilesDialogNew::DoBuildTree(const wxDataViewItem& parent, const wxDir
     std::sort(D.begin(), D.end());
 
     // Now build the tree
-    std::for_each(D.begin(), D.end(), [&](const wxString& path) {
+    for (const wxString& path : D) {
         wxDir childDir(path);
         wxVector<wxVariant> cols;
         cols.push_back(initialState);
@@ -139,7 +139,7 @@ void ImportFilesDialogNew::DoBuildTree(const wxDataViewItem& parent, const wxDir
             dummyCols.push_back(MakeIconText("dummy", folderBmp));
             m_dataviewModel->AppendItem(child, dummyCols, new ImportFilesDlgData("", false, true));
         }
-    });
+    }
 }
 
 void ImportFilesDialogNew::OnDirChanged(wxCommandEvent& event)
@@ -244,7 +244,12 @@ void ImportFilesDialogNew::OnItemExpanding(wxDataViewEvent& event)
     }
 }
 
-void ImportFilesDialogNew::GetDirectories(wxStringBoolMap_t& dirs) { DoGetCheckedDirs(m_root, dirs); }
+wxStringBoolMap_t ImportFilesDialogNew::GetDirectories()
+{
+    wxStringBoolMap_t dirs;
+    DoGetCheckedDirs(m_root, dirs);
+    return dirs;
+}
 
 void ImportFilesDialogNew::DoGetCheckedDirs(const wxDataViewItem& parent, wxStringBoolMap_t& dirs)
 {

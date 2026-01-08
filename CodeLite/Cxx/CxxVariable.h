@@ -4,11 +4,8 @@
 #include "CxxLexerAPI.h"
 #include "codelite_exports.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
-#include <map>
 #include <memory>
-#include <set>
 #include <unordered_map>
 #include <vector>
 #include <wx/string.h>
@@ -41,7 +38,7 @@ public:
             this->comment = token.GetWXComment();
             this->text = token.GetWXString();
         }
-        typedef std::vector<CxxVariable::LexerToken> Vec_t;
+        using Vec_t = std::vector<CxxVariable::LexerToken>;
     };
 
     enum eFlags {
@@ -51,8 +48,6 @@ public:
         // Include the default value
         kToString_DefaultValue = (1 << 1),
         kToString_Default = kToString_Name,
-        // Revert back type->macro (e.g. wxWindowMSW -> wxWindow)
-        kToString_ReverseMacros = (1 << 2),
     };
 
 protected:
@@ -77,7 +72,7 @@ public:
     {
     }
 
-    virtual ~CxxVariable();
+    virtual ~CxxVariable() = default;
 
     void SetName(const wxString& name) { this->m_name = name; }
     void SetType(const CxxVariable::LexerToken::Vec_t& type) { this->m_type = type; }
@@ -114,11 +109,8 @@ public:
     /**
      * @brief return a string representation for this variable
      * @param flags see values in eFlags
-     * @param table macros table - reversed. i.e. the actual type is the key and the value is the macro name
-     * this table is used when the flag kToString_ReverseMacros is passed
      */
-    wxString ToString(size_t flags = CxxVariable::kToString_Default,
-                      const wxStringTable_t& table = wxStringTable_t()) const;
+    wxString ToString(size_t flags = CxxVariable::kToString_Default) const;
 
     void SetDefaultValue(const wxString& defaultValue) { this->m_defaultValue = defaultValue; }
     const wxString& GetDefaultValue() const { return m_defaultValue; }

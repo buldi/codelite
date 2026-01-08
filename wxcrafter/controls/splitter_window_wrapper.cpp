@@ -1,10 +1,12 @@
 #include "splitter_window_wrapper.h"
+
+#include "Properties/choice_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "choice_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
-#include <wx/menu.h>
+
 #include <wx/splitter.h>
 
 SplitterWindowWrapper::SplitterWindowWrapper()
@@ -15,7 +17,7 @@ SplitterWindowWrapper::SplitterWindowWrapper()
     options.Add(wxT("wxSPLIT_HORIZONTAL"));
 
     SetPropertyString(_("Common Settings"), "wxSplitterWindow");
-    AddProperty(new ChoiceProperty(PROP_SPLIT_MODE, options, 0, _("Sets the split mode")));
+    Add<ChoiceProperty>(PROP_SPLIT_MODE, options, 0, _("Sets the split mode"));
 
     wxString tip;
     tip << _("Gravity is real factor which controls position of sash while resizing wxSplitterWindow. \n")
@@ -24,9 +26,9 @@ SplitterWindowWrapper::SplitterWindowWrapper()
         << _("0.5 - both windows grow by equal size\n") << _("1.0 - only left/top window grows\n")
         << _("(Gravity should be a real value between 0.0 and 1.0)");
 
-    AddProperty(new StringProperty(PROP_SASH_GRAVITY, wxT("0.5"), tip));
-    AddProperty(new StringProperty(PROP_MIN_PANE_SIZE, wxT("10"), _("Sets the minimum pane size")));
-    AddProperty(new StringProperty(PROP_SASH_POS, wxT("0"), _("Sets the sash initial position")));
+    Add<StringProperty>(PROP_SASH_GRAVITY, wxT("0.5"), tip);
+    Add<StringProperty>(PROP_MIN_PANE_SIZE, wxT("10"), _("Sets the minimum pane size"));
+    Add<StringProperty>(PROP_SASH_POS, wxT("0"), _("Sets the sash initial position"));
 
     PREPEND_STYLE_TRUE(wxSP_3D);
     PREPEND_STYLE_FALSE(wxSP_3DSASH);
@@ -50,8 +52,6 @@ SplitterWindowWrapper::SplitterWindowWrapper()
     m_namePattern = wxT("m_splitter");
     SetName(GenerateName());
 }
-
-SplitterWindowWrapper::~SplitterWindowWrapper() {}
 
 wxcWidget* SplitterWindowWrapper::Clone() const { return new SplitterWindowWrapper(); }
 

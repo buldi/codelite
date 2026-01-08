@@ -28,9 +28,9 @@
 
 #include "CxxLexerAPI.h"
 #include "codelite_exports.h"
-#include <list>
+
+#include <memory>
 #include <unordered_set>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 
 class CxxPreProcessor;
@@ -43,7 +43,7 @@ protected:
     std::unordered_set<wxString>& m_visitedFiles;
 
 public:
-    typedef wxSharedPtr<CxxPreProcessorScanner> Ptr_t;
+    using Ptr_t = std::shared_ptr<CxxPreProcessorScanner>;
 
 private:
     /**
@@ -66,8 +66,7 @@ private:
      */
     void ReadUntilMatch(int type, CxxLexerToken& token);
 
-    void GetRestOfPPLine(wxString& rest, bool collectNumberOnly = false);
-    bool CheckIfDefined(const CxxPreProcessorToken::Map_t& table);
+    wxString GetRestOfPPLine(bool collectNumberOnly = false);
     bool CheckIf(const CxxPreProcessorToken::Map_t& table);
     bool IsTokenExists(const CxxPreProcessorToken::Map_t& table, const CxxLexerToken& token);
 

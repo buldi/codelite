@@ -47,17 +47,16 @@ void ValgrindMemcheckProcessor::GetExecutionCommand(const wxString& originalComm
                     wxFileName(clStandardPaths::Get().GetTempDir(), "valgrind.memcheck.log.xml").GetFullPath();
         }
 
-    wxArrayString suppFiles = GetSuppressionFiles();
-    wxString suppresions;
-    for(wxArrayString::iterator it = suppFiles.begin(); it != suppFiles.end(); ++it)
-        suppresions.Append(
-            wxString::Format(" %s=%s", m_settings->GetValgrindSettings().GetSuppressionFileOption(), *it));
+    wxString suppressions;
+    for (const auto& suppressionFile : GetSuppressionFiles())
+        suppressions.Append(
+            wxString::Format(" %s=%s", m_settings->GetValgrindSettings().GetSuppressionFileOption(), suppressionFile));
 
     command = m_settings->GetValgrindSettings().GetBinary();
     command_args = wxString::Format(
         "%s %s %s %s %s", m_settings->GetValgrindSettings().GetMandatoryOptions(),
         wxString::Format("%s=%s", m_settings->GetValgrindSettings().GetOutputFileOption(), m_outputLogFileName),
-        suppresions, m_settings->GetValgrindSettings().GetOptions(), originalCommand);
+        suppressions, m_settings->GetValgrindSettings().GetOptions(), originalCommand);
 }
 
 bool ValgrindMemcheckProcessor::Process(const wxString& outputLogFileName)
@@ -146,13 +145,13 @@ MemCheckError ValgrindMemcheckProcessor::ProcessError(wxXmlDocument& doc, wxXmlN
     }
 
     if(!result.suppression)
-        result.suppression = wxT("#Suppresion pattern not present in output log.\n#This plugin requires Valgrind to be "
+        result.suppression = wxT("#Suppression pattern not present in output log.\n#This plugin requires Valgrind to be "
                                  "run with '--gen-suppressions=all' option");
 
     if(auxiliary)
         result.nestedErrors.push_back(auxiliaryResult);
 
-    // TODO ? add checout ?
+    // TODO ? add checkout ?
     // add check for empty locationArrays
     //  CL_DEBUG1(PLUGIN_PREFIX("\t equal #0 and #1 = %s", (errorArray.Item(0) == errorArray.Item(1)?"true":"false") ));
     //  CL_DEBUG1(PLUGIN_PREFIX("\t equal #1 and #2 = %s", (*(errorArray.Item(2)) ==

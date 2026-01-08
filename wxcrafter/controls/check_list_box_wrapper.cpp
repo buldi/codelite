@@ -1,7 +1,8 @@
 #include "check_list_box_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Properties/multi_strings_property.h"
 #include "allocator_mgr.h"
-#include "import_from_wxFB.h"
-#include "multi_strings_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
@@ -28,13 +29,11 @@ CheckListBoxWrapper::CheckListBoxWrapper()
                            "is checked or unchecked."));
 
     SetPropertyString(_("Common Settings"), "wxCheckListBox");
-    AddProperty(new MultiStringsProperty(PROP_OPTIONS, _("The List Box Items. A semi-colon list of strings")));
+    Add<MultiStringsProperty>(PROP_OPTIONS, _("The List Box Items. A semi-colon list of strings"));
 
     m_namePattern = wxT("m_checkListBox");
     SetName(GenerateName());
 }
-
-CheckListBoxWrapper::~CheckListBoxWrapper() {}
 
 wxcWidget* CheckListBoxWrapper::Clone() const { return new CheckListBoxWrapper(); }
 

@@ -25,18 +25,12 @@
 
 #include "CompilerLocatorCrossGCC.h"
 
+#include "StringUtils.h"
 #include "clFilesCollector.h"
 #include "file_logger.h"
-#include "globals.h"
-#include "procutils.h"
 
-#include <wx/dir.h>
 #include <wx/filefn.h>
 #include <wx/tokenzr.h>
-
-CompilerLocatorCrossGCC::CompilerLocatorCrossGCC() {}
-
-CompilerLocatorCrossGCC::~CompilerLocatorCrossGCC() {}
 
 CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder) { return Locate(folder, true); }
 
@@ -74,16 +68,16 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
         matches.Add(entry.fullpath);
     }
 
-    for(int i = 0; i < count; ++i) {
+    for (auto& match : matches) {
 #ifndef __WXMSW__
         // Check if this is a script
         char sha[2];
-        wxFile(matches[i]).Read(sha, 2);
+        wxFile(match).Read(sha, 2);
         if(strncmp(sha, "#!", 2) == 0) {
             continue;
         }
 #endif
-        wxFileName filename(matches.Item(i));
+        wxFileName filename(match);
         if(!IsCrossGCC(filename.GetName())) {
             continue;
         }
@@ -93,7 +87,7 @@ CompilerPtr CompilerLocatorCrossGCC::Locate(const wxString& folder, bool clear)
 
         // get the compiler version
         compiler->SetName(filename.GetName());
-        compiler->SetGenerateDependeciesFile(true);
+        compiler->SetGenerateDependenciesFile(true);
         m_compilers.push_back(compiler);
 
         // we path the bin folder
@@ -214,7 +208,7 @@ void CompilerLocatorCrossGCC::AddTool(CompilerPtr compiler, const wxString& tool
                                       const wxString& extraArgs)
 {
     wxString tool = toolpath;
-    ::WrapWithQuotes(tool);
+    StringUtils::WrapWithQuotes(tool);
     if(!extraArgs.IsEmpty()) {
         tool << " " << extraArgs;
     }

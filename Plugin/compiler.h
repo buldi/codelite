@@ -67,7 +67,7 @@ public:
         wxString name;
         wxString help;
     };
-    typedef std::map<wxString, CmpCmdLineOption> CmpCmdLineOptions;
+    using CmpCmdLineOptions = std::map<wxString, CmpCmdLineOption>;
 
     struct CmpInfoPattern {
         wxString pattern;
@@ -92,7 +92,7 @@ public:
     };
 
     enum eRegexType { kRegexVC = 0, kRegexGNU };
-    typedef std::list<CmpInfoPattern> CmpListInfoPattern;
+    using CmpListInfoPattern = std::list<CmpInfoPattern>;
 
 private:
     void AddPattern(int type, const wxString& pattern, int fileNameIndex, int lineNumberIndex,
@@ -116,27 +116,23 @@ protected:
     wxString m_globalIncludePath;
     wxString m_globalLibPath;
     wxString m_pathVariable;
-    bool m_generateDependeciesFile;
+    bool m_generateDependenciesFile;
     bool m_readObjectFilesFromList;
     bool m_objectNameIdenticalToFileName;
     wxString m_compilerFamily;
     bool m_isDefault;
     wxString m_installationPath;
-    wxArrayString m_compilerBuiltinDefinitions;
     std::map<wxString, LinkLine> m_linkerLines;
 
 private:
-    wxString GetGCCVersion() const;
-    wxString GetIncludePath(const wxString& pathSuffix) const;
-    wxArrayString POSIXGetIncludePaths() const;
     bool IsMatchesPattern(CmpInfoPattern& pattern, eSeverity severity, const wxString& line,
                           PatternMatch* match_result) const;
 
 public:
-    typedef std::map<wxString, wxString>::const_iterator ConstIterator;
+    using ConstIterator = std::map<wxString, wxString>::const_iterator;
 
     Compiler(wxXmlNode* node, Compiler::eRegexType regexType = Compiler::kRegexGNU);
-    virtual ~Compiler();
+    virtual ~Compiler() = default;
 
     /**
      * @brief attempt to parse line and provide details about the parsed data
@@ -147,11 +143,6 @@ public:
      * @brief return { "PATH", "/compiler/bin:$PATH"} pair
      */
     void CreatePathEnv(clEnvList_t* env_list);
-
-    /**
-     * @brief check if this compiler is a 64 bit compiler
-     */
-    bool Is64BitCompiler();
 
     /**
      * @brief return the compiler default include paths
@@ -183,12 +174,6 @@ public:
 
     wxString GetLinkLine(const wxString& type, bool inputFromFile) const;
     void SetLinkLine(const wxString& type, const wxString& line, bool inputFromFile);
-
-    /**
-     * @brief return list of builtin macros for this compiler instance
-     * @return
-     */
-    const wxArrayString& GetBuiltinMacros();
 
     //---------------------------------------------------
     // setters/getters
@@ -237,11 +222,11 @@ public:
 
     void SetLinkerOptions(const CmpCmdLineOptions& cmpOptions) { m_linkerOptions = cmpOptions; }
 
-    void SetGenerateDependeciesFile(bool generateDependeciesFile)
+    void SetGenerateDependenciesFile(bool generateDependenciesFile)
     {
-        this->m_generateDependeciesFile = generateDependeciesFile;
+        this->m_generateDependenciesFile = generateDependenciesFile;
     }
-    bool GetGenerateDependeciesFile() const { return IsGnuCompatibleCompiler() && m_generateDependeciesFile; }
+    bool GetGenerateDependenciesFile() const { return IsGnuCompatibleCompiler() && m_generateDependenciesFile; }
     void SetReadObjectFilesFromList(bool readObjectFilesFromList)
     {
         this->m_readObjectFilesFromList = readObjectFilesFromList;

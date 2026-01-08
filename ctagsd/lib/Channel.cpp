@@ -2,9 +2,7 @@
 
 #include "LSP/Message.h"
 #include "file_logger.h"
-#include "macros.h"
 
-#include <array>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -14,8 +12,6 @@ ChannelSocket::ChannelSocket(const wxString& ip, int port)
     , m_port(port)
 {
 }
-
-ChannelSocket::~ChannelSocket() {}
 
 eReadSome ChannelSocket::read_some()
 {

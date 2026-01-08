@@ -13,8 +13,6 @@ EOSProjectWizard::EOSProjectWizard(wxWindow* parent)
     m_dirPickerToolchainPath->SetPath(GetToolchainPath());
 }
 
-EOSProjectWizard::~EOSProjectWizard() {}
-
 void EOSProjectWizard::OnOKUI(wxUpdateUIEvent& event) { event.Enable(!GetName().IsEmpty() && !GetPath().IsEmpty()); }
 
 wxString EOSProjectWizard::GetName() const
@@ -67,7 +65,7 @@ wxString EOSProjectWizard::GetToolchainPath()
 
     if(!compiler) { return ""; }
     wxFileName cxx = compiler->GetTool("CXX");
-    cxx = wxReadLink(cxx);
+    cxx = FileUtils::wxReadLink(cxx);
     if (cxx.GetDirCount()) { cxx.RemoveLastDir(); } // remove the "bin" folder
     return cxx.GetPath();
 }

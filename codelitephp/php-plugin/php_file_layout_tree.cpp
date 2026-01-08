@@ -31,8 +31,6 @@ PHPFileLayoutTree::PHPFileLayoutTree(wxWindow* parent)
     MSWSetNativeTheme(this);
 }
 
-PHPFileLayoutTree::~PHPFileLayoutTree() {}
-
 void PHPFileLayoutTree::Construct()
 {
     // Sanity
@@ -90,7 +88,7 @@ int PHPFileLayoutTree::GetImageId(PHPEntityBase::Ptr_t entry)
     } else if(entry->Is(kEntityTypeVariable)) {
         PHPEntityVariable* var = entry->Cast<PHPEntityVariable>();
         if(!var->IsMember() && !var->IsConst()) {
-            // A global variale
+            // A global variable
             return 6;
 
         } else if(var->IsMember()) {
@@ -119,27 +117,6 @@ int PHPFileLayoutTree::GetImageId(PHPEntityBase::Ptr_t entry)
     return -1; // Unknown
 }
 
-wxTreeItemId PHPFileLayoutTree::FindItemIdByName(const wxTreeItemId& parent, const wxString& name)
-{
-    if(parent.IsOk() == false) return wxTreeItemId();
-
-    if(!ItemHasChildren(parent)) {
-        return AppendItem(parent, name, 7, 7, NULL);
-    }
-
-    wxTreeItemIdValue cookie;
-    wxTreeItemId child = GetFirstChild(parent, cookie);
-    while(child.IsOk()) {
-        if(GetItemText(child) == name) {
-            return child;
-        }
-        child = GetNextChild(parent, cookie);
-    }
-
-    // No match? add it
-    return AppendItem(parent, name, 7, 7, NULL);
-}
-
 wxTreeItemId PHPFileLayoutTree::RecurseSearch(const wxTreeItemId& item, const wxString& word)
 {
     if(!item.IsOk()) return wxTreeItemId();
@@ -162,41 +139,6 @@ wxTreeItemId PHPFileLayoutTree::RecurseSearch(const wxTreeItemId& item, const wx
         }
     }
     return wxTreeItemId();
-}
-
-void PHPFileLayoutTree::FindWord(const wxString& word)
-{
-    wxString lcword = word;
-    lcword.MakeLower();
-
-    wxTreeItemId item = RecurseSearch(GetRootItem(), lcword);
-    if(item.IsOk()) {
-        SelectItem(item);
-        EnsureVisible(item);
-        ScrollTo(item);
-    }
-}
-
-void PHPFileLayoutTree::AdvanceSelection(bool forward)
-{
-    wxTreeItemId item = GetSelection();
-    if(!item.IsOk()) {
-        return;
-    }
-
-    wxTreeItemId nextItem;
-    if(forward) {
-        // Item is visible, scroll to it to make sure GetNextVisible() wont
-        // fail
-        ScrollTo(item);
-        nextItem = GetNextVisible(item);
-    } else {
-        nextItem = TryGetPrevItem(item);
-    }
-
-    if(nextItem.IsOk()) {
-        SelectItem(nextItem);
-    }
 }
 
 wxTreeItemId PHPFileLayoutTree::TryGetPrevItem(wxTreeItemId item)
@@ -234,13 +176,10 @@ void PHPFileLayoutTree::BuildTree(wxTreeItemId parentTreeItem, PHPEntityBase::Pt
 {
     int imgID = GetImageId(entity);
     wxTreeItemId parent = AppendItem(parentTreeItem, entity->GetDisplayName(), imgID, imgID, new QItemData(entity));
-    // dont add the children of the function (i.e. function arguments)
-    if(entity->Is(kEntityTypeFunction)) return;
-    const PHPEntityBase::List_t& children = entity->GetChildren();
-    if(!children.empty()) {
-        PHPEntityBase::List_t::const_iterator iter = children.begin();
-        for(; iter != children.end(); ++iter) {
-            BuildTree(parent, *iter);
-        }
+    // don't add the children of the function (i.e. function arguments)
+    if (entity->Is(kEntityTypeFunction)) return;
+
+    for (const auto& child : entity->GetChildren()) {
+        BuildTree(parent, child);
     }
 }

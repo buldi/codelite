@@ -14,8 +14,8 @@ class WXDLLIMPEXP_CL clFileName : public wxFileName
 public:
     clFileName(const wxString& fullpath);
     clFileName(const wxString& dir, const wxString& name);
-    clFileName();
-    virtual ~clFileName();
+    clFileName() = default;
+    virtual ~clFileName() = default;
 
     /**
      * @brief attempt to convert cygwin path to Windows native path
@@ -34,15 +34,14 @@ public:
     static wxString ToMSYS2(const wxFileName& fullpath);
     static wxString FromMSYS2(const wxString& fullpath);
 
-    inline const wxString& GetAccount() const { return m_account; }
-    inline void SetRemote(const wxString& account)
+    const wxString& GetAccount() const { return m_account; }
+    void SetRemote(const wxString& account)
     {
         m_isRemote = true;
         m_account = account;
     }
 
-    inline bool IsRemote() const { return m_isRemote; }
-    const wxString& GetRemoteFullPath() const;
+    bool IsRemote() const { return m_isRemote; }
 };
 
 #endif // CLFILENAME_HPP

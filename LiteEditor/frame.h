@@ -29,16 +29,18 @@
 #include "EnvironmentVariablesDlg.h"
 #include "Notebook.h"
 #include "SecondarySideBar.hpp"
+#include "ai/ChatAI.hpp"
 #include "clCaptionBar.hpp"
 #include "clDockingManager.h"
 #include "clInfoBar.h"
-#include "clMainFrameHelper.h"
 #include "clStatusBar.h"
 #include "clToolBar.h"
+#include "cl_aui_tool_stickness.h"
 #include "cl_command_event.h"
 #include "cl_editor.h"
 #include "cl_process.h"
 #include "debuggerpane.h"
+#include "event_notifier.h"
 #include "generalinfo.h"
 #include "macros.h"
 #include "mainbook.h"
@@ -105,43 +107,37 @@ class clMainFrame : public wxFrame
     std::map<int, wxString> m_viewAsMap;
     TagsOptionsData m_tagsOptionsData;
     DebuggerPane* m_debuggerPane;
-    ePostBuildEndAction m_postBuildEndAction;
+    ePostBuildEndAction m_postBuildEndAction{ePostBuildEndAction::kNone};
     GeneralInfo m_frameGeneralInfo;
     std::map<int, wxString> m_panes;
-    wxMenu* m_cppMenu;
-    bool m_highlightWord;
+    bool m_highlightWord{false};
     DockablePaneMenuManager* m_DPmenuMgr;
     wxPanel* m_mainPanel;
     wxString m_codeliteDownloadPageURL;
     wxString m_defaultLayout;
-    bool m_workspaceRetagIsRequired;
+    bool m_workspaceRetagIsRequired{false};
     bool m_loadLastSession;
     wxMenuBar* m_mainMenuBar;
-    wxMenu* m_bookmarksDropDownMenu;
-    bool m_noSavePerspectivePrompt;
 
 #ifndef __WXMSW__
     ZombieReaperPOSIX m_zombieReaper;
-#else
-    HMENU hMenu = nullptr; // Menu bar
 #endif
 
 #ifdef __WXGTK__
-    bool m_isWaylandSession = false;
+    bool m_isWaylandSession{false};
 #endif
 
     // Maintain a set of core toolbars (i.e. toolbars not owned by any plugin)
     wxStringSet_t m_coreToolbars;
     clStatusBar* m_statusBar;
-    clSingleInstanceThread* m_singleInstanceThread;
-    bool m_toggleToolBar;
+    clSingleInstanceThread* m_singleInstanceThread{nullptr};
 
     // Printing
     wxPrintDialogData m_printDlgData;
-    clMainFrameHelper::Ptr_t m_frameHelper;
-    WebUpdateJob* m_webUpdate;
-    wxToolBar* m_mainToolbar;
-    clToolBarGeneric* m_pluginsToolbar;
+    size_t m_debuggerFeatures = clDebugEvent::kAllFeatures;
+    WebUpdateJob* m_webUpdate{nullptr};
+    wxToolBar* m_mainToolbar{nullptr};
+    clToolBarGeneric* m_pluginsToolbar{nullptr};
     DebuggerToolBar* m_debuggerToolbar = nullptr;
     clInfoBar* m_infoBar = nullptr;
 #if !wxUSE_NATIVE_CAPTION
@@ -150,6 +146,7 @@ class clMainFrame : public wxFrame
     // the main tool default style
     int m_mainToolbarStyle = wxTB_FLAT | wxTB_NODIVIDER /* toolbar is hidden by default */;
     wxString m_mainFrameTitleTemplate;
+    std::unique_ptr<ChatAI> m_chatAI{nullptr};
 
 public:
     static bool m_initCompleted;
@@ -213,7 +210,7 @@ public:
     void UpdateParserSearchPathsFromDefaultCompiler();
 
     DockablePaneMenuManager* GetDockablePaneMenuManager() { return m_DPmenuMgr; }
-    //--------------------- debuger---------------------------------
+    //--------------------- debugger --------------------------------
     //---------------------------------------------------------------
 
     /**
@@ -232,7 +229,7 @@ public:
      */
     void SelectBestEnvSet();
 
-    virtual ~clMainFrame(void);
+    virtual ~clMainFrame();
     /**
      * @brief set frame option flag
      * @param set
@@ -365,12 +362,14 @@ public:
 
 private:
     // make our frame's constructor private
-    clMainFrame(wxWindow* pParent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size,
+    clMainFrame(wxWindow* pParent,
+                wxWindowID id,
+                const wxString& title,
+                const wxPoint& pos,
+                const wxSize& size,
                 long style = wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxCLOSE_BOX | wxCAPTION | wxSYSTEM_MENU |
                              wxRESIZE_BORDER | wxCLIP_CHILDREN);
     void AddKeyboardAccelerators();
-    wxString CreateWorkspaceTable();
-    wxString CreateFilesTable();
     void StartTimer();
 
 private:
@@ -389,11 +388,6 @@ private:
     void PostConstruct();
 
     /**
-     * \brief update the path & name of the build tool
-     * on windows, try to locate make, followed by mingw32-make
-     */
-    void UpdateBuildTools();
-    /**
      * Helper function that prompt user with a simple wxTextEntry dialog
      * @param msg message to display to user
      * @return user's string or wxEmptyString if 'Cancel' pressed.
@@ -411,28 +405,11 @@ private:
     void CreateRecentlyOpenedFilesMenu();
     void CreateWelcomePage();
     bool ReloadExternallyModifiedProjectFiles();
-    void DoEnableWorkspaceViewFlag(bool enable, int flag);
-    bool IsWorkspaceViewFlagEnabled(int flag);
     /**
      * @brief show the startup wizard
      * @return true if a restart is needed
      */
     bool StartSetupWizard(bool firstTime);
-
-    /**
-     * @brief see if the wizard changed developer profile
-     * @return true if the 'Save Perspective' dialog should not be shown
-     */
-    bool GetAndResetNoSavePerspectivePrompt()
-    {
-        bool ans = m_noSavePerspectivePrompt;
-        m_noSavePerspectivePrompt = false;
-        return ans;
-    }
-    /**
-     * @brief mark not to show the 'Save Perspective' dialog on next close
-     */
-    void SetNoSavePerspectivePrompt(bool devProfileChanged) { m_noSavePerspectivePrompt = devProfileChanged; }
 
     void DoShowCaptions(bool show);
 
@@ -440,7 +417,38 @@ public:
     void ViewPane(const wxString& paneName, bool checked);
     void ShowOrHideCaptions();
     clToolBarGeneric* GetPluginsToolBar() const { return m_pluginsToolbar; }
-    void ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonID);
+
+    template <typename ToolBar>
+    void ShowBuildMenu(ToolBar* toolbar, wxWindowID buttonID)
+    {
+        CHECK_PTR_RET(toolbar);
+        wxMenu menu;
+
+        // let the plugins build a different menu
+        clContextMenuEvent evt{wxEVT_BUILD_CUSTOM_TARGETS_MENU_SHOWING};
+        evt.SetEventObject(toolbar);
+        evt.SetMenu(&menu);
+        if (!EventNotifier::Get()->ProcessEvent(evt)) {
+            DoCreateBuildDropDownMenu(&menu);
+        }
+
+        // show the menu
+        if constexpr (std::is_same_v<ToolBar, clToolBar>) {
+            toolbar->ShowMenuForButton(buttonID, &menu);
+        } else if constexpr (std::is_same_v<ToolBar, wxAuiToolBar>) {
+            auto tb = static_cast<wxAuiToolBar*>(toolbar);
+            clAuiToolStickness stickness{tb, buttonID};
+            // line up our menu with the button
+            wxRect rect = tb->GetToolRect(buttonID);
+            wxPoint pt = tb->ClientToScreen(rect.GetBottomLeft());
+            pt = ScreenToClient(pt);
+
+            PopupMenu(&menu, pt);
+        } else {
+            // assume wxToolBar
+            PopupMenu(&menu);
+        }
+    }
 
 protected:
     //----------------------------------------------------
@@ -499,6 +507,8 @@ protected:
     void OnToggleMinimalViewUI(wxUpdateUIEvent& event);
     void OnShowStatusBar(wxCommandEvent& event);
     void OnShowStatusBarUI(wxUpdateUIEvent& event);
+    void OnShowMiniMap(wxCommandEvent& event);
+    void OnShowMiniMapUI(wxUpdateUIEvent& event);
     void OnShowToolbar(wxCommandEvent& event);
     void OnShowToolbarUI(wxUpdateUIEvent& event);
     void OnShowMenuBar(wxCommandEvent& event);
@@ -521,6 +531,7 @@ protected:
     void OnAddEnvironmentVariable(wxCommandEvent& event);
     void OnAdvanceSettings(wxCommandEvent& event);
     void OnCtagsOptions(wxCommandEvent& event);
+    void OnEditLuaScript(wxCommandEvent& event);
     void OnBuildProject(wxCommandEvent& event);
     void OnBuildProjectOnly(wxCommandEvent& event);
     void OnShowBuildMenu(wxCommandEvent& e);
@@ -614,7 +625,6 @@ protected:
     void OnCloseAllButThis(wxCommandEvent& e);
     void OnCloseTabsToTheRight(wxCommandEvent& e);
     void OnWorkspaceMenuUI(wxUpdateUIEvent& e);
-    void OnUpdateBuildRefactorIndexBar(wxCommandEvent& e);
     void OnBuildWorkspace(wxCommandEvent& e);
     void OnBuildWorkspaceUI(wxUpdateUIEvent& e);
     void OnCleanWorkspace(wxCommandEvent& e);
@@ -643,6 +653,13 @@ protected:
     void OnManagePlugins(wxCommandEvent& e);
     void OnCppContextMenu(wxCommandEvent& e);
 
+    void OnAiPromptEditor(wxCommandEvent& e);
+    void OnAiSettings(wxCommandEvent& e);
+    void OnAiShowChatBox(wxCommandEvent& e);
+    void OnAiConfigureEndpoint(wxCommandEvent& e);
+    void OnAiChooseEndpoint(wxCommandEvent& e);
+    void OnAiAvailableUI(wxUpdateUIEvent& e);
+
     void OnConfigureAccelerators(wxCommandEvent& e);
     void OnStartPageEvent(wxCommandEvent& e);
     void OnNewVersionAvailable(wxCommandEvent& e);
@@ -666,10 +683,6 @@ protected:
     void OnSetActivePoject(wxCommandEvent& e);
     void OnSetActivePojectUI(wxUpdateUIEvent& e);
 
-    // Clang
-    void OnPchCacheStarted(wxCommandEvent& e);
-    void OnPchCacheEnded(wxCommandEvent& e);
-
     void OnMainToolBarHide(wxCommandEvent& event);
     void OnMainToolBarHideUI(wxUpdateUIEvent& event);
     void OnMainToolBarPlaceTop(wxCommandEvent& event);
@@ -686,17 +699,15 @@ protected:
     void OnActiveEditorChanged(wxCommandEvent& e);
     void OnWorkspaceLoaded(clWorkspaceEvent& e);
     void OnWorkspaceClosed(clWorkspaceEvent& e);
-    void OnRefactoringCacheStatus(wxCommandEvent& e);
     void OnChangeActiveBookmarkType(wxCommandEvent& e);
     void OnSettingsChanged(wxCommandEvent& e);
     void OnEditMenuOpened(wxMenuEvent& e);
     void OnProjectRenamed(clCommandEvent& event);
 
     // Search handlers
-    void OnFindSelection(wxCommandEvent& event);
-    void OnFindSelectionPrev(wxCommandEvent& event);
-    void OnFindWordAtCaret(wxCommandEvent& event);
-    void OnFindWordAtCaretPrev(wxCommandEvent& event);
+    void OnFindNext(wxCommandEvent& event);
+    void OnFindPrevious(wxCommandEvent& event);
+
     DECLARE_EVENT_TABLE()
 };
 

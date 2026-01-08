@@ -19,17 +19,15 @@ clAnsiEscapeCodeColourBuilder::clAnsiEscapeCodeColourBuilder(wxString* string)
 {
 }
 
-clAnsiEscapeCodeColourBuilder::~clAnsiEscapeCodeColourBuilder() {}
-
 clAnsiEscapeCodeColourBuilder& clAnsiEscapeCodeColourBuilder::Add(const wxString& text, int textColour, bool bold)
 {
     DoAddTextToBuffer(m_string, text, textColour, bold);
     return *this;
 }
-clAnsiEscapeCodeColourBuilder& clAnsiEscapeCodeColourBuilder::Add(const wxString& text, const wxColour& colour,
-                                                                  bool bold)
+clAnsiEscapeCodeColourBuilder&
+clAnsiEscapeCodeColourBuilder::Add(const wxString& text, const wxColour& colour, bool bold)
 {
-    if(!colour.IsOk()) {
+    if (!colour.IsOk()) {
         return Add(text, AnsiColours::NormalText(), bold);
     }
 
@@ -48,28 +46,28 @@ clAnsiEscapeCodeColourBuilder& clAnsiEscapeCodeColourBuilder::Add(const wxString
     return *this;
 }
 
+clAnsiEscapeCodeColourBuilder& clAnsiEscapeCodeColourBuilder::SetDarkTheme(bool dark_theme)
+{
+    AnsiColours::SetDarkTheme(dark_theme);
+    return *this;
+}
+
 clAnsiEscapeCodeColourBuilder& clAnsiEscapeCodeColourBuilder::SetTheme(eColourTheme theme)
 {
     AnsiColours::SetDarkTheme(theme == eColourTheme::DARK);
     return *this;
 }
 
-wxString& clAnsiEscapeCodeColourBuilder::WrapWithColour(wxString& line, int colour, bool bold_font) const
-{
-    wxString buffer;
-    DoAddTextToBuffer(&buffer, line, colour, bold_font);
-    line.swap(buffer);
-    return line;
-}
-
-void clAnsiEscapeCodeColourBuilder::DoAddTextToBuffer(wxString* buffer, const wxString& text, int textColour,
+void clAnsiEscapeCodeColourBuilder::DoAddTextToBuffer(wxString* buffer,
+                                                      const wxString& text,
+                                                      int textColour,
                                                       bool bold) const
 {
     wxString prefix;
     wxString suffix;
 
     prefix << ESC << wxT("[");
-    if(bold) {
+    if (bold) {
         prefix << wxT("1;");
     }
     prefix << wxT("38;5;") << textColour << wxT("m");

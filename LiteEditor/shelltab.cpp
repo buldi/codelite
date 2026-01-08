@@ -90,8 +90,6 @@ ShellTab::ShellTab(wxWindow* parent, wxWindowID id, const wxString& name)
     InitStyle(m_sci);
 }
 
-ShellTab::~ShellTab() {}
-
 void ShellTab::InitStyle(wxStyledTextCtrl* sci)
 {
     LexerConf::Ptr_t text = EditorConfigST::Get()->GetLexer("text");
@@ -307,7 +305,7 @@ void DebugTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
         return;
     }
 
-    if(EditorConfigST::Get()->GetOptions()->GetHideOutpuPaneOnUserClick()) {
+    if (EditorConfigST::Get()->GetOptions()->GetHideOutputPaneOnUserClick()) {
         e.Enable(true);
         e.Check(EditorConfigST::Get()->GetOptions()->GetHideOutputPaneNotIfDebug());
 
@@ -348,7 +346,7 @@ void ShellTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
         return;
     }
 
-    if(EditorConfigST::Get()->GetOptions()->GetHideOutpuPaneOnUserClick()) {
+    if (EditorConfigST::Get()->GetOptions()->GetHideOutputPaneOnUserClick()) {
         e.Enable(true);
         e.Check(EditorConfigST::Get()->GetOptions()->GetHideOutputPaneNotIfOutput());
 

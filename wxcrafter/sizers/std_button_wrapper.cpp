@@ -1,17 +1,19 @@
 #include "std_button_wrapper.h"
 
+#include "Properties/bool_property.h"
+#include "Properties/category_property.h"
+#include "Properties/choice_property.h"
+#include "Properties/multi_strings_property.h"
+#include "Properties/string_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "choice_property.h"
-#include "multi_strings_property.h"
 #include "wxgui_defs.h"
 #include "xmlutils.h"
 
 StdButtonWrapper::StdButtonWrapper()
     : wxcWidget(ID_WXSTDBUTTON)
 {
-    m_properties.DeleteValues();
+    m_properties.Clear();
     const wxArrayString ids = StdToWX::ToArrayString({ "wxID_OK", "wxID_YES", "wxID_SAVE", "wxID_APPLY", "wxID_CLOSE",
                                                        "wxID_NO", "wxID_CANCEL", "wxID_HELP", "wxID_CONTEXT_HELP" });
 
@@ -19,16 +21,14 @@ StdButtonWrapper::StdButtonWrapper()
                   _("Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked."),
                   wxT("wxCommandEventHandler"));
 
-    AddProperty(new CategoryProperty(_("Standard wxButton")));
-    AddProperty(new ChoiceProperty(PROP_WINDOW_ID, ids, 0, _("Button ID")));
-    AddProperty(new StringProperty(PROP_NAME, wxT(""), _("C++ member name")));
-    AddProperty(new MultiStringsProperty(PROP_TOOLTIP, _("Tooltip"), wxT("\\n"), _("Tooltip text:")));
-    AddProperty(new BoolProperty(PROP_DEFAULT_BUTTON, false, wxT("Make this button the default button")));
+    Add<CategoryProperty>(_("Standard wxButton"));
+    Add<ChoiceProperty>(PROP_WINDOW_ID, ids, 0, _("Button ID"));
+    Add<StringProperty>(PROP_NAME, wxT(""), _("C++ member name"));
+    Add<MultiStringsProperty>(PROP_TOOLTIP, _("Tooltip"), wxT("\\n"), _("Tooltip text:"));
+    Add<BoolProperty>(PROP_DEFAULT_BUTTON, false, wxT("Make this button the default button"));
     m_namePattern = "m_button";
     SetName(GenerateName());
 }
-
-StdButtonWrapper::~StdButtonWrapper() {}
 
 wxcWidget* StdButtonWrapper::Clone() const { return new StdButtonWrapper(); }
 

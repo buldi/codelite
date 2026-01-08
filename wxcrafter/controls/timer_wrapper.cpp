@@ -1,33 +1,32 @@
 #include "timer_wrapper.h"
 
+#include "Properties/bool_property.h"
+#include "Properties/category_property.h"
+#include "Properties/int_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "category_property.h"
-#include "int_property.h"
 #include "wxgui_helpers.h"
 
 TimerWrapper::TimerWrapper()
     : wxcWidget(ID_WXTIMER)
 {
     m_styles.Clear();
-    m_properties.DeleteValues();
+    m_properties.Clear();
     m_sizerFlags.Clear();
 
     SetPropertyString(_("Common Settings"), "wxTimer");
-    AddProperty(new CategoryProperty(_("wxTimer")));
-    AddProperty(new StringProperty(PROP_NAME, "", _("Control name")));
-    AddProperty(new IntProperty(PROP_INTERVAL, 1000, _("Sets the current interval for the timer (in milliseconds)")));
-    AddProperty(new BoolProperty(PROP_START_TIMER, true, _("Start the timer")));
-    AddProperty(
-        new BoolProperty(PROP_ONE_SHOT_TIMER, false,
-                         _("A one shot timer - sets whether the timer event is called repeatedly or only once")));
+    Add<CategoryProperty>(_("wxTimer"));
+    Add<StringProperty>(PROP_NAME, "", _("Control name"));
+    Add<IntProperty>(PROP_INTERVAL, 1000, _("Sets the current interval for the timer (in milliseconds)"));
+    Add<BoolProperty>(PROP_START_TIMER, true, _("Start the timer"));
+    Add<BoolProperty>(PROP_ONE_SHOT_TIMER,
+                      false,
+                      _("A one shot timer - sets whether the timer event is called repeatedly or only once"));
     RegisterEvent("wxEVT_TIMER", "wxTimerEvent", _("Process a timer event"));
 
     m_namePattern = "m_timer";
     SetName(GenerateName());
 }
-
-TimerWrapper::~TimerWrapper() {}
 
 wxcWidget* TimerWrapper::Clone() const { return new TimerWrapper(); }
 

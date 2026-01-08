@@ -181,7 +181,7 @@ void SFTPTreeView::OnAddBookmark(wxCommandEvent& event)
         settings.UpdateAccount(m_account);
         settings.Save();
 
-    } catch (clException& e) {
+    } catch (const clException& e) {
         ::wxMessageBox(e.What(), "SFTP", wxICON_ERROR | wxOK | wxCENTER);
     }
 }
@@ -356,7 +356,7 @@ bool SFTPTreeView::GetAccountFromUser(SSHAccountInfo& account)
 //            // we have a session for this account, load it
 //            // Load the files
 //            const std::vector<wxString>& files = sess.GetFiles();
-//            std::for_each(files.begin(), files.end(), [&](const wxString& path) { DoOpenFile(path); });
+//            for (const wxString& path : files) { DoOpenFile(path); }
 //
 //            const wxString& rootFolder = sess.GetRootFolder();
 //            if(!rootFolder.IsEmpty()) {
@@ -408,7 +408,7 @@ bool SFTPTreeView::GetAccountFromUser(SSHAccountInfo& account)
 //        m_plugin->GetOutputPane()->AddSearchText(wxString() << "Running command: " << command);
 //        m_channel->Execute(command);
 //
-//    } catch(clException& e) {
+//    } catch (const clException& e) {
 //        ::wxMessageBox(e.What(), "SFTP", wxICON_ERROR | wxOK | wxCENTER);
 //    }
 //}
@@ -421,7 +421,7 @@ void SFTPTreeView::OnKeepAliveTimer(wxTimerEvent& event)
     //        try {
     //            m_sftp->Stat(".");
     //            clDEBUG1() << "SFTP: Heartbeat successfully sent!";
-    //        } catch(clException& e) {
+    //        } catch (const clException& e) {
     //            clGetManager()->SetStatusMessage(_("SFTP: session closed by the server"));
     //        }
     //    }

@@ -26,8 +26,10 @@
 
 #include "ColoursAndFontsManager.h"
 #include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
+#include "LSP/LSPManager.hpp"
 #include "bitmap_loader.h"
 #include "clWorkspaceManager.h"
+#include "codelite_events.h"
 #include "ctags_manager.h"
 #include "editor_config.h"
 #include "event_notifier.h"
@@ -41,7 +43,6 @@
 #include "window_locker.h"
 #include "windowattrmanager.h"
 #include "workspace.h"
-#include "codelite_events.h"
 
 #include <algorithm>
 #include <vector>
@@ -102,16 +103,16 @@ OpenResourceDialog::OpenResourceDialog(wxWindow* parent, IManager* manager, cons
                 if (p) {
                     const Project::FilesMap_t& files = p->GetFiles();
                     // convert std::vector to wxArrayString
-                    std::for_each(files.begin(), files.end(), [&](const Project::FilesMap_t::value_type& vt) {
-                        wxFileName fn(vt.second->GetFilename());
+                    for (const auto& p : files) {
+                        wxFileName fn(p.second->GetFilename());
                         m_files.insert(std::make_pair(fn.GetFullName(), fn.GetFullPath()));
-                    });
+                    }
                 }
             }
         } else if (clFileSystemWorkspace::Get().IsOpen()) {
             const std::vector<wxFileName>& files = clFileSystemWorkspace::Get().GetFiles();
             for (const wxFileName& fn : files) {
-                m_files.insert({ fn.GetFullName(), fn.GetFullPath() });
+                m_files.insert({fn.GetFullName(), fn.GetFullPath()});
             }
         }
     } else if (clWorkspaceManager::Get().IsWorkspaceOpened()) {
@@ -127,7 +128,7 @@ OpenResourceDialog::OpenResourceDialog(wxWindow* parent, IManager* manager, cons
                 // keep the file as-is do not "format" it by calling
                 // fn.GetFullPath() since we might be on Windows and we display
                 // Linux path style files
-                m_files.insert({ fn.GetFullName(), file });
+                m_files.insert({fn.GetFullName(), file});
             }
         }
     }
@@ -135,12 +136,21 @@ OpenResourceDialog::OpenResourceDialog(wxWindow* parent, IManager* manager, cons
     wxString lastStringTyped = clConfig::Get().Read("OpenResourceDialog/SearchString", wxString());
     // Set the initial selection
     // We use here 'SetValue' so an event will get fired and update the control
+    bool filter_results{false};
     if (!initialSelection.IsEmpty()) {
-        m_textCtrlResourceName->SetValue(initialSelection);
+        m_textCtrlResourceName->ChangeValue(initialSelection);
         CallAfter(&OpenResourceDialog::OnSelectAllText);
+        filter_results = true;
     } else if (!lastStringTyped.IsEmpty()) {
-        m_textCtrlResourceName->SetValue(lastStringTyped);
+        m_textCtrlResourceName->ChangeValue(lastStringTyped);
         CallAfter(&OpenResourceDialog::OnSelectAllText);
+        filter_results = true;
+    }
+
+    if (filter_results) {
+        // Trigger list filtering
+        wxTimerEvent dummy_event{*m_timer};
+        OnTimer(dummy_event);
     }
 
     bool showFiles = clConfig::Get().Read("OpenResourceDialog/ShowFiles", true);
@@ -226,9 +236,7 @@ void OpenResourceDialog::DoPopulateList()
     }
 
     if (m_checkBoxShowSymbols->IsChecked() && (nLineNumber == -1)) {
-        clCodeCompletionEvent workspace_symbols_event{ wxEVT_CC_WORKSPACE_SYMBOLS };
-        workspace_symbols_event.SetString(name);
-        EventNotifier::Get()->ProcessEvent(workspace_symbols_event);
+        LSP::Manager::GetInstance().WorkspaceSymbols(name);
     }
 }
 
@@ -247,17 +255,23 @@ void OpenResourceDialog::DoPopulateTags(const std::vector<LSP::SymbolInformation
         }
 
         // keep the fullpath
-        DoAppendLine(symbol.GetName(), symbol.GetContainerName(), false,
+        DoAppendLine(symbol.GetName(),
+                     symbol.GetContainerName(),
+                     false,
                      new OpenResourceDialogItemData(symbol.GetLocation().GetPath(),
                                                     symbol.GetLocation().GetRange().GetEnd().GetLine() + 1,
-                                                    wxEmptyString, symbol.GetName(), symbol.GetContainerName()),
+                                                    wxEmptyString,
+                                                    symbol.GetName(),
+                                                    symbol.GetContainerName()),
                      DoGetTagImg(symbol));
     }
 
     wxString filter = (m_userFilters.GetCount() == 1) ? m_userFilters.Item(0) : "";
     if (!filter.IsEmpty()) {
         wxDataViewItem matchedItem =
-            m_dataview->FindNext(wxDataViewItem(nullptr), filter, 0,
+            m_dataview->FindNext(wxDataViewItem(nullptr),
+                                 filter,
+                                 0,
                                  wxDV_SEARCH_ICASE | wxDV_SEARCH_METHOD_EXACT | wxDV_SEARCH_INCLUDE_CURRENT_ITEM);
         if (matchedItem.IsOk()) {
             DoSelectItem(matchedItem);
@@ -285,8 +299,11 @@ void OpenResourceDialog::DoPopulateWorkspaceFile()
 
             wxFileName fn(iter->second);
             int imgId = clGetManager()->GetStdIcons()->GetMimeImageId(fn.GetFullName());
-            DoAppendLine(fn.GetFullName(), iter->second, false,
-                         new OpenResourceDialogItemData(iter->second, -1, "", fn.GetFullName(), ""), imgId);
+            DoAppendLine(fn.GetFullName(),
+                         iter->second,
+                         false,
+                         new OpenResourceDialogItemData(iter->second, -1, "", fn.GetFullName(), ""),
+                         imgId);
             ++counter;
         }
     }
@@ -376,8 +393,8 @@ void OpenResourceDialog::DoSelectItem(const wxDataViewItem& item)
     GetDataview()->Refresh();
 }
 
-void OpenResourceDialog::DoAppendLine(const wxString& name, const wxString& fullname, bool boldFont,
-                                      OpenResourceDialogItemData* clientData, int imgid)
+void OpenResourceDialog::DoAppendLine(
+    const wxString& name, const wxString& fullname, bool boldFont, OpenResourceDialogItemData* clientData, int imgid)
 {
     wxString prefix;
     clientData->m_impl = boldFont;
@@ -388,7 +405,7 @@ void OpenResourceDialog::DoAppendLine(const wxString& name, const wxString& full
     m_dataview->AppendItem(cols, (wxUIntPtr)clientData);
 }
 
-void OpenResourceDialog::OnTimer(wxTimerEvent& event)
+void OpenResourceDialog::OnTimer([[maybe_unused]] wxTimerEvent& event)
 {
     if (m_needRefresh) {
         DoPopulateList();
@@ -453,7 +470,9 @@ std::vector<OpenResourceDialogItemData*> OpenResourceDialog::GetSelections() con
     return selections;
 }
 
-void OpenResourceDialog::GetLineAndColumnFromFilter(const wxString& filter, wxString& modFilter, long& lineNumber,
+void OpenResourceDialog::GetLineAndColumnFromFilter(const wxString& filter,
+                                                    wxString& modFilter,
+                                                    long& lineNumber,
                                                     long& column)
 {
     modFilter = filter;
@@ -463,9 +482,9 @@ void OpenResourceDialog::GetLineAndColumnFromFilter(const wxString& filter, wxSt
     wxString tmpstr = filter;
     tmpstr.Replace("\\", "/");
 
-    const size_t sep_last = tmpstr.Find('/', true);
-    const size_t col_first = tmpstr.find(':', (sep_last == wxNOT_FOUND ? 0 : sep_last));
-    if (col_first == wxNOT_FOUND) {
+    const int sep_last = tmpstr.Find('/', true);
+    const std::size_t col_first = tmpstr.find(':', (sep_last == wxNOT_FOUND ? 0 : sep_last));
+    if (col_first == wxString::npos) {
         return;
     }
 

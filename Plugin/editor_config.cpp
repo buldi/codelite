@@ -26,33 +26,21 @@
 
 #include "ColoursAndFontsManager.h"
 #include "cl_standard_paths.h"
-#include "dirsaver.h"
-#include "dirtraverser.h"
-#include "drawingutils.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "globals.h"
 #include "precompiled_header.h"
 #include "workspace.h"
 #include "xmlutils.h"
 
-#include <wx/ffile.h>
-#include <wx/stdpaths.h>
 #include <wx/xml/xml.h>
 
 //-------------------------------------------------------------------------------------------
-SimpleLongValue::SimpleLongValue() {}
-
-SimpleLongValue::~SimpleLongValue() {}
 
 void SimpleLongValue::Serialize(Archive& arch) { arch.Write(wxT("m_value"), m_value); }
 
 void SimpleLongValue::DeSerialize(Archive& arch) { arch.Read(wxT("m_value"), m_value); }
 
 //-------------------------------------------------------------------------------------------
-SimpleStringValue::SimpleStringValue() {}
-
-SimpleStringValue::~SimpleStringValue() {}
 
 void SimpleStringValue::Serialize(Archive& arch) { arch.Write(wxT("m_value"), m_value); }
 
@@ -61,7 +49,6 @@ void SimpleStringValue::DeSerialize(Archive& arch) { arch.Read(wxT("m_value"), m
 //-------------------------------------------------------------------------------------------
 
 EditorConfig::EditorConfig()
-    : m_transcation(false)
 {
     m_doc = new wxXmlDocument();
 }
@@ -119,7 +106,7 @@ bool EditorConfig::Load()
         return false;
     }
 
-    // Check the codelite-version for this file
+    // Check the CodeLite's version for this file
     wxString version;
     bool found = m_doc->GetRoot()->GetAttribute(wxT("Version"), &version);
     if(userSettingsLoaded) {
@@ -138,17 +125,6 @@ bool EditorConfig::Load()
     return true;
 }
 
-void EditorConfig::SaveLexers() { ColoursAndFontsManager::Get().Save(); }
-
-wxXmlNode* EditorConfig::GetLexerNode(const wxString& lexerName)
-{
-    wxXmlNode* lexersNode = XmlUtils::FindFirstByTagName(m_doc->GetRoot(), wxT("Lexers"));
-    if(lexersNode) {
-        return XmlUtils::FindNodeByName(lexersNode, wxT("Lexer"), lexerName);
-    }
-    return NULL;
-}
-
 LexerConf::Ptr_t EditorConfig::GetLexerForFile(const wxString& filename)
 {
     return ColoursAndFontsManager::Get().GetLexerForFile(filename);
@@ -158,16 +134,6 @@ LexerConf::Ptr_t EditorConfig::GetLexer(const wxString& lexerName)
 {
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer(lexerName);
     return lexer;
-}
-
-wxString EditorConfig::GetCurrentOutputviewFgColour() const
-{
-    return DrawingUtils::GetOutputPaneFgColour().GetAsString(wxC2S_HTML_SYNTAX | wxC2S_CSS_SYNTAX);
-}
-
-wxString EditorConfig::GetCurrentOutputviewBgColour() const
-{
-    return DrawingUtils::GetOutputPaneBgColour().GetAsString(wxC2S_HTML_SYNTAX | wxC2S_CSS_SYNTAX);
 }
 
 OptionsConfigPtr EditorConfig::GetOptions() const
@@ -212,35 +178,6 @@ void EditorConfig::SetOptions(OptionsConfigPtr opts)
     wxCommandEvent evt(wxEVT_EDITOR_CONFIG_CHANGED);
     evt.SetString(nodeName);
     EventNotifier::Get()->AddPendingEvent(evt);
-}
-
-void EditorConfig::SetTagsDatabase(const wxString& dbName)
-{
-    wxString nodeName = wxT("TagsDatabase");
-    wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc->GetRoot(), nodeName);
-    if(node) {
-        XmlUtils::UpdateProperty(node, wxT("Path"), dbName);
-    } else {
-        // create new node
-        node = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, nodeName);
-        node->AddAttribute(wxT("Path"), dbName);
-        m_doc->GetRoot()->AddChild(node);
-    }
-
-    DoSave();
-    wxCommandEvent evt(wxEVT_EDITOR_CONFIG_CHANGED);
-    evt.SetString(nodeName);
-    EventNotifier::Get()->AddPendingEvent(evt);
-}
-
-wxString EditorConfig::GetTagsDatabase() const
-{
-    wxXmlNode* node = XmlUtils::FindFirstByTagName(m_doc->GetRoot(), wxT("TagsDatabase"));
-    if(node) {
-        return XmlUtils::ReadString(node, wxT("Path"));
-    } else {
-        return wxEmptyString;
-    }
 }
 
 int clSortStringsFunc(const wxString& first, const wxString& second)
@@ -333,22 +270,6 @@ bool EditorConfig::ReadObject(const wxString& name, SerializedObject* obj)
     return XmlUtils::StaticReadObject(m_doc->GetRoot(), name, obj);
 }
 
-wxString EditorConfig::GetRevision() const
-{
-    return XmlUtils::ReadString(m_doc->GetRoot(), wxT("Revision"), wxEmptyString);
-}
-
-void EditorConfig::SetRevision(const wxString& rev)
-{
-    wxXmlNode* root = m_doc->GetRoot();
-    if(!root) {
-        return;
-    }
-
-    XmlUtils::UpdateProperty(root, wxT("Revision"), rev);
-    DoSave();
-}
-
 void EditorConfig::SetInteger(const wxString& name, long value)
 {
     SimpleLongValue data;
@@ -399,32 +320,29 @@ void EditorConfig::SetString(const wxString& key, const wxString& value)
     m_cacheStringValues[key] = value;
 }
 
-void EditorConfig::Begin() { m_transcation = true; }
+void EditorConfig::Begin() { m_transaction = true; }
 
 void EditorConfig::Save()
 {
-    m_transcation = false;
+    m_transaction = false;
     DoSave();
 }
 
 bool EditorConfig::DoSave() const
 {
-    if(m_transcation) {
+    if (m_transaction) {
         return true;
     }
 
     // Notify that the editor configuration was modified
     wxCommandEvent event(wxEVT_EDITOR_CONFIG_CHANGED);
     EventNotifier::Get()->AddPendingEvent(event);
-    return ::SaveXmlToFile(m_doc, m_fileName.GetFullPath());
+    return XmlUtils::SaveXmlToFile(m_doc, m_fileName.GetFullPath());
 }
 
 //--------------------------------------------------
 // Simple rectangle class wrapper
 //--------------------------------------------------
-SimpleRectValue::SimpleRectValue() {}
-
-SimpleRectValue::~SimpleRectValue() {}
 
 void SimpleRectValue::DeSerialize(Archive& arch)
 {

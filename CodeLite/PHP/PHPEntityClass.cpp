@@ -1,11 +1,9 @@
 #include "PHPEntityClass.h"
-#include <wx/tokenzr.h>
-#include <algorithm>
+
 #include "PHPLookupTable.h"
 
-PHPEntityClass::PHPEntityClass() {}
-
-PHPEntityClass::~PHPEntityClass() {}
+#include <wx/tokenzr.h>
+#include <wx/wxcrtvararg.h>
 
 void PHPEntityClass::PrintStdout(int indent) const
 {
@@ -22,9 +20,8 @@ void PHPEntityClass::PrintStdout(int indent) const
     }
 
     wxPrintf("\n");
-    PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-    for(; iter != m_children.end(); ++iter) {
-        (*iter)->PrintStdout(indent + 4);
+    for (const auto& child : m_children) {
+        child->PrintStdout(indent + 4);
     }
 }
 
@@ -52,10 +49,11 @@ void PHPEntityClass::Store(PHPLookupTable* lookup)
         SetDbId(db.GetLastRowId());
 
         // Now that we got the class saved, store any PHPDocVar
-        std::for_each(
-            m_varPhpDocs.begin(), m_varPhpDocs.end(), [&](PHPDocVar::Ptr_t doc) { doc->Store(db, GetDbId()); });
+        for (auto& doc : m_varPhpDocs) {
+            doc->Store(db, GetDbId());
+        }
         lookup->UpdateClassCache(GetFullName());
-    } catch(wxSQLite3Exception& exc) {
+    } catch (const wxSQLite3Exception& exc) {
         wxUnusedVar(exc);
     }
 }

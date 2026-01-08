@@ -51,49 +51,34 @@
 // Declaration
 #include "CMakePlugin.h"
 
+// CodeLite
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
 #include "CMakeBuilder.h"
 #include "ICompilerLocator.h"
 #include "StdToWX.h"
+#include "StringUtils.h"
+#include "build_config.h"
+#include "environmentconfig.h"
+#include "event_notifier.h"
+#include "globals.h"
+#include "macromanager.h"
+#include "project.h"
+#include "workspace.h"
 
 // wxWidgets
 #include <wx/app.h>
-#include <wx/busyinfo.h>
-#include <wx/dir.h>
 #include <wx/event.h>
 #include <wx/menu.h>
-#include <wx/mimetype.h>
 #include <wx/msgdlg.h>
-#include <wx/stdpaths.h>
+#include <wx/textdlg.h>
 #include <wx/xrc/xmlres.h>
-
-// CodeLite
-#include "async_executable_cmd.h"
-#include "build_config.h"
-#include "build_settings_config.h"
-#include "build_system.h"
-#include "detachedpanesinfo.h"
-#include "dirsaver.h"
-#include "dockablepane.h"
-#include "environmentconfig.h"
-#include "event_notifier.h"
-#include "file_logger.h"
-#include "globals.h"
-#include "macromanager.h"
-#include "procutils.h"
-#include "project.h"
-#include "workspace.h"
 
 // CMakePlugin
 #include "CMake.h"
 #include "CMakeGenerator.h"
 #include "CMakeHelpTab.h"
-#include "CMakeProjectSettings.h"
 #include "CMakeSettingsDialog.h"
-#include "CMakeSettingsManager.h"
-
-#include <wx/textdlg.h>
 
 /* ************************************************************************ */
 /* VARIABLES                                                                */
@@ -118,10 +103,7 @@ static const wxString HELP_TAB_NAME = _("CMake");
  *
  * @return CMake plugin instance.
  */
-CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
-{
-    return new CMakePlugin(manager);
-}
+CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager) { return new CMakePlugin(manager); }
 
 /* ************************************************************************ */
 
@@ -145,7 +127,7 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
 /* ************************************************************************ */
 
 /**
- * @brief Returns required Codelite interface version.
+ * @brief Returns required CodeLite interface version.
  *
  * @return Interface version.
  */
@@ -187,67 +169,11 @@ CMakePlugin::CMakePlugin(IManager* manager)
 
 /* ************************************************************************ */
 
-CMakePlugin::~CMakePlugin()
-{
-    // Nothing to do
-}
-
-/* ************************************************************************ */
-
-wxFileName CMakePlugin::GetWorkspaceDirectory() const
-{
-    const clCxxWorkspace* workspace = m_mgr->GetWorkspace();
-    wxASSERT(workspace);
-
-    return wxFileName::DirName(workspace->GetWorkspaceFileName().GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME));
-}
-
-/* ************************************************************************ */
-
-wxFileName CMakePlugin::GetProjectDirectory(const wxString& projectName) const
-{
-    const clCxxWorkspace* workspace = m_mgr->GetWorkspace();
-    wxASSERT(workspace);
-
-    wxString errMsg;
-    const ProjectPtr proj = workspace->FindProjectByName(projectName, errMsg);
-    wxASSERT(proj);
-
-    return wxFileName::DirName(proj->GetFileName().GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME));
-}
-
-/* ************************************************************************ */
-
-wxString CMakePlugin::GetSelectedProjectConfig() const
-{
-    BuildConfigPtr configPtr = GetSelectedBuildConfig();
-
-    if (configPtr)
-        return configPtr->GetName();
-
-    return wxEmptyString;
-}
-
-/* ************************************************************************ */
-
-BuildConfigPtr CMakePlugin::GetSelectedBuildConfig() const
-{
-    const clCxxWorkspace* workspace = m_mgr->GetWorkspace();
-    wxASSERT(workspace);
-
-    const ProjectPtr projectPtr = GetSelectedProject();
-    wxASSERT(projectPtr);
-
-    return workspace->GetProjBuildConf(projectPtr->GetName(), wxEmptyString);
-}
-
-/* ************************************************************************ */
-
 wxArrayString CMakePlugin::GetSupportedGenerators() const
 {
 #ifdef __WXMSW__
     // Windows supported generators
-    return StdToWX::ToArrayString({ "MinGW Makefiles" });
+    return StdToWX::ToArrayString({"MinGW Makefiles"});
 #else
     // Linux / Mac supported generators
     return StdToWX::ToArrayString({
@@ -305,27 +231,6 @@ void CMakePlugin::UnPlug()
 
 /* ************************************************************************ */
 
-bool CMakePlugin::ExistsCMakeLists(wxFileName directory) const
-{
-    // Add CMakeLists.txt
-    directory.SetFullName(CMAKELISTS_FILE);
-
-    return directory.Exists();
-}
-
-/* ************************************************************************ */
-
-void CMakePlugin::OpenCMakeLists(wxFileName filename) const
-{
-    filename.SetFullName(CMAKELISTS_FILE);
-
-    if (!m_mgr->OpenFile(filename.GetFullPath()))
-        wxMessageBox("Unable to open \"" + filename.GetFullPath() + "\"", wxMessageBoxCaptionStr,
-                     wxOK | wxCENTER | wxICON_ERROR);
-}
-
-/* ************************************************************************ */
-
 void CMakePlugin::OnSettings(wxCommandEvent& event)
 {
     CMakeSettingsDialog dlg(NULL, this);
@@ -367,12 +272,11 @@ void CMakePlugin::OnProjectContextMenu(clContextMenuEvent& event)
     size_t buildPos = 0;
     size_t settingsPos = 0;
     size_t curpos = 0;
-    wxMenuItemList::const_iterator iter = items.begin();
-    for (; iter != items.end(); ++iter) {
-        if ((*iter)->GetId() == XRCID("build_project")) {
+    for (const auto item : items) {
+        if (item->GetId() == XRCID("build_project")) {
             buildPos = curpos;
         }
-        if ((*iter)->GetId() == XRCID("project_properties")) {
+        if (item->GetId() == XRCID("project_properties")) {
             settingsPos = curpos;
         }
         ++curpos;
@@ -560,12 +464,12 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
 
     // Ensure that the build directory exists
     fnWorkingDirectory.Mkdir(wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
-    ::WrapWithQuotes(cmakeExe);
+    StringUtils::WrapWithQuotes(cmakeExe);
 
     // We run the cmake
     wxString command;
     wxString projectFolder = p->GetFileName().GetPath();
-    ::WrapWithQuotes(projectFolder);
+    StringUtils::WrapWithQuotes(projectFolder);
 
     command << cmakeExe << " " << projectFolder << " " << args;
 
@@ -586,7 +490,9 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
     IProcess* proc =
         ::CreateAsyncProcess(this, command, IProcessCreateDefault | IProcessWrapInShell, fnWorkingDirectory.GetPath());
     if (!proc) {
-        ::wxMessageBox(_("Failed to execute:\n") + command, "CodeLite", wxICON_ERROR | wxOK | wxCENTER,
+        ::wxMessageBox(_("Failed to execute:\n") + command,
+                       "CodeLite",
+                       wxICON_ERROR | wxOK | wxCENTER,
                        EventNotifier::Get()->TopFrame());
         return;
     }
@@ -599,10 +505,10 @@ void CMakePlugin::DoRunCMake(ProjectPtr p)
 
 bool CMakePlugin::IsCMakeListsExists() const
 {
-    wxFileName cmakelists_txt{ ::wxGetCwd(), "CMakeLists.txt" };
+    wxFileName cmakelists_txt{::wxGetCwd(), "CMakeLists.txt"};
     if (cmakelists_txt.FileExists()) {
-        ::wxMessageBox(_("This folder already contains a CMakeLists.txt file"), "CodeLite",
-                       wxICON_WARNING | wxOK | wxCENTER);
+        ::wxMessageBox(
+            _("This folder already contains a CMakeLists.txt file"), "CodeLite", wxICON_WARNING | wxOK | wxCENTER);
         return true;
     }
     return false;
@@ -610,18 +516,18 @@ bool CMakePlugin::IsCMakeListsExists() const
 
 wxString CMakePlugin::WriteCMakeListsAndOpenIt(const std::vector<wxString>& lines) const
 {
-    wxFileName cmakelists_txt{ ::wxGetCwd(), "CMakeLists.txt" };
+    wxFileName cmakelists_txt{::wxGetCwd(), "CMakeLists.txt"};
     const wxArrayString wx_lines = StdToWX::ToArrayString(lines);
     FileUtils::WriteFileContent(cmakelists_txt, wxJoin(wx_lines, '\n'));
     clGetManager()->OpenFile(cmakelists_txt.GetFullPath());
     return cmakelists_txt.GetFullPath();
 }
 
-clResultString CMakePlugin::CreateCMakeListsFile(CMakePlugin::TargetType type) const
+clStatusOr<wxString> CMakePlugin::CreateCMakeListsFile(CMakePlugin::TargetType type) const
 {
     // Check for an already existing CMakeLists.txt in this folder
     if (IsCMakeListsExists()) {
-        return clResultString::make_error(wxEmptyString);
+        return StatusAlreadyExists();
     }
 
     wxString name;
@@ -642,7 +548,7 @@ clResultString CMakePlugin::CreateCMakeListsFile(CMakePlugin::TargetType type) c
     }
 
     if (name.empty()) {
-        return clResultString::make_error(std::move(wxString("User cancelled")));
+        return StatusOther("User cancelled");
     }
 
     wxString cmakelists_txt = WriteCMakeListsAndOpenIt({
@@ -675,7 +581,7 @@ void CMakePlugin::OnCreateCMakeListsExe(wxCommandEvent& event)
     wxUnusedVar(event);
     auto res = CreateCMakeListsFile(CMakePlugin::TargetType::EXECUTABLE);
     CHECK_COND_RET(res);
-    FireCMakeListsFileCreatedEvent(res.success());
+    FireCMakeListsFileCreatedEvent(res.value());
 }
 
 void CMakePlugin::OnCreateCMakeListsDll(wxCommandEvent& event)
@@ -683,7 +589,7 @@ void CMakePlugin::OnCreateCMakeListsDll(wxCommandEvent& event)
     wxUnusedVar(event);
     auto res = CreateCMakeListsFile(CMakePlugin::TargetType::SHARED_LIB);
     CHECK_COND_RET(res);
-    FireCMakeListsFileCreatedEvent(res.success());
+    FireCMakeListsFileCreatedEvent(res.value());
 }
 
 void CMakePlugin::OnCreateCMakeListsLib(wxCommandEvent& event)
@@ -691,7 +597,7 @@ void CMakePlugin::OnCreateCMakeListsLib(wxCommandEvent& event)
     wxUnusedVar(event);
     auto res = CreateCMakeListsFile(CMakePlugin::TargetType::STATIC_LIB);
     CHECK_COND_RET(res);
-    FireCMakeListsFileCreatedEvent(res.success());
+    FireCMakeListsFileCreatedEvent(res.value());
 }
 
 void CMakePlugin::FireCMakeListsFileCreatedEvent(const wxString& cmakelists_txt) const

@@ -42,12 +42,12 @@ bool alacritty_read_colour(const YAML::Node& node, const std::string& prop_name,
         wxString str = node[prop_name].as<std::string>();
         str.Replace("0x", "#");
 
-        wxColour c{ str };
+        wxColour c{str};
         if (c.IsOk()) {
             *value = str;
             return true;
         }
-    } catch (YAML::Exception& e) {
+    } catch (const YAML::Exception& e) {
         clDEBUG() << "exception thrown while searching for node[" << prop_name << "]." << e.msg << endl;
     } catch (...) {
         clDEBUG() << "exception thrown while searching for node[" << prop_name << "]" << endl;
@@ -69,13 +69,11 @@ wxString adjust_colour(const wxString& col, bool is_dark)
         return col;
     }
 }
+
 } // namespace
 
-ThemeImporterBase::ThemeImporterBase() {}
-
-ThemeImporterBase::~ThemeImporterBase() {}
-
-void ThemeImporterBase::GetEclipseXmlProperty(const wxString& bg_prop, const wxString& fg_prop,
+void ThemeImporterBase::GetEclipseXmlProperty(const wxString& bg_prop,
+                                              const wxString& fg_prop,
                                               ThemeImporterBase::Property& prop) const
 {
     prop = m_editor;
@@ -139,8 +137,13 @@ wxString ThemeImporterBase::GetOutputFile(const wxString& language) const
     return xmlFileName;
 }
 
-void ThemeImporterBase::AddProperty(LexerConf::Ptr_t lexer, const wxString& id, const wxString& name,
-                                    const wxString& colour, const wxString& bgColour, bool bold, bool italic,
+void ThemeImporterBase::AddProperty(LexerConf::Ptr_t lexer,
+                                    const wxString& id,
+                                    const wxString& name,
+                                    const wxString& colour,
+                                    const wxString& bgColour,
+                                    bool bold,
+                                    bool italic,
                                     bool isEOLFilled)
 {
     wxASSERT(!colour.IsEmpty());
@@ -191,15 +194,15 @@ void ThemeImporterBase::AddCommonProperties(LexerConf::Ptr_t lexer)
     wxString whitespaceColour;
     if (IsDarkTheme()) {
         // dark theme
-        // Whitespace should be a bit lighether
-        whitespaceColour = wxColour(m_editor.bg_colour).ChangeLightness(150).GetAsString(wxC2S_HTML_SYNTAX);
+        // White-space should be a bit lighter
+        whitespaceColour = wxColour(m_editor.bg_colour).ChangeLightness(120).GetAsString(wxC2S_HTML_SYNTAX);
         AddProperty(lexer, "34", "Brace match", "yellow", m_editor.bg_colour, true);
         AddProperty(lexer, "35", "Brace bad match", "red", m_editor.bg_colour, true);
         AddProperty(lexer, "37", "Indent Guide", m_editor.bg_colour, m_editor.bg_colour);
 
     } else {
         // light theme
-        whitespaceColour = wxColour(m_editor.bg_colour).ChangeLightness(50).GetAsString(wxC2S_HTML_SYNTAX);
+        whitespaceColour = wxColour(m_editor.bg_colour).ChangeLightness(80).GetAsString(wxC2S_HTML_SYNTAX);
         AddProperty(lexer, "34", "Brace match", "black", "cyan", true);
         AddProperty(lexer, "35", "Brace bad match", "black", "red", true);
         AddProperty(lexer, "37", "Indent Guide", m_editor.bg_colour, m_editor.bg_colour);
@@ -210,7 +213,17 @@ void ThemeImporterBase::AddCommonProperties(LexerConf::Ptr_t lexer)
     AddProperty(lexer, "-3", "Caret Colour", m_caret);
     AddProperty(lexer, "-4", "Whitespace", whitespaceColour, m_editor.bg_colour);
     AddProperty(lexer, "38", "Calltip", m_editor);
-    AddProperty(lexer, "33", "Line Numbers", m_lineNumber);
+
+    // Define the line numbers.
+    int lightness{60}; // Assumes light theme
+    if (IsDarkTheme()) {
+        lightness = 120;
+    }
+    AddProperty(lexer,
+                "33",
+                "Line Numbers",
+                wxColour(m_editor.bg_colour).ChangeLightness(lightness).GetAsString(),
+                m_editor.bg_colour);
 }
 
 void ThemeImporterBase::DoSetKeywords(wxString& wordset, const wxString& words)
@@ -242,7 +255,7 @@ LexerConf::Ptr_t ThemeImporterBase::ImportEclipseXML(const wxFileName& theme_fil
         property.color = child->GetAttribute("color");
         property.isBold = child->GetAttribute("bold", "false") == "true";
         property.isItalic = child->GetAttribute("italic", "false") == "true";
-        m_xmlProperties.insert({ child->GetName(), property });
+        m_xmlProperties.insert({child->GetName(), property});
         child = child->GetNext();
     }
 
@@ -284,7 +297,9 @@ LexerConf::Ptr_t ThemeImporterBase::ImportEclipseXML(const wxFileName& theme_fil
 }
 
 void ThemeImporterBase::GetEditorVSCodeColour(const std::unordered_map<std::string_view, JSONItem>& colours,
-                                              const wxString& bg_prop, const wxString& fg_prop, Property& colour)
+                                              const wxString& bg_prop,
+                                              const wxString& fg_prop,
+                                              Property& colour)
 {
     colour = m_editor;
 
@@ -303,7 +318,8 @@ void ThemeImporterBase::GetEditorVSCodeColour(const std::unordered_map<std::stri
 }
 
 void ThemeImporterBase::GetVSCodeColour(const std::unordered_map<wxString, VSCodeScope>& lookup,
-                                        const std::vector<wxString>& scopes, Property& colour)
+                                        const std::vector<wxString>& scopes,
+                                        Property& colour)
 {
     // default use editor settings
     colour = m_editor;
@@ -315,8 +331,8 @@ void ThemeImporterBase::GetVSCodeColour(const std::unordered_map<wxString, VSCod
     }
 }
 
-LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeBase(AlacrittyColours& colours, const wxString& langName,
-                                                             int langId)
+LexerConf::Ptr_t
+ThemeImporterBase::ImportAlacrittyThemeBase(AlacrittyColours& colours, const wxString& langName, int langId)
 {
     m_editor.bg_colour = colours.bg;
     m_editor.fg_colour = colours.fg;
@@ -372,8 +388,8 @@ LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeBase(AlacrittyColours& c
     return lexer;
 }
 
-LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeToml(const wxFileName& theme_file, const wxString& langName,
-                                                             int langId)
+LexerConf::Ptr_t
+ThemeImporterBase::ImportAlacrittyThemeToml(const wxFileName& theme_file, const wxString& langName, int langId)
 {
     clDEBUG() << "   > Importing Alacritty Theme (TOML) file:" << theme_file << ". Language:" << langName << endl;
     std::string filename = StringUtils::ToStdString(theme_file.GetFullPath());
@@ -424,8 +440,8 @@ LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeToml(const wxFileName& t
     return ImportAlacrittyThemeBase(colours, langName, langId);
 }
 
-LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeYAML(const wxFileName& theme_file, const wxString& langName,
-                                                             int langId)
+LexerConf::Ptr_t
+ThemeImporterBase::ImportAlacrittyThemeYAML(const wxFileName& theme_file, const wxString& langName, int langId)
 {
     clDEBUG() << "   > Importing Alacritty Theme (YAML) file:" << theme_file << ". Language:" << langName << endl;
 
@@ -435,7 +451,7 @@ LexerConf::Ptr_t ThemeImporterBase::ImportAlacrittyThemeYAML(const wxFileName& t
     YAML::Node config;
     try {
         config = YAML::LoadFile(filename);
-    } catch (YAML::Exception& e) {
+    } catch (const YAML::Exception& e) {
         clERROR() << "failed loading file:" << filename << "." << e.msg << endl;
         return nullptr;
     } catch (...) {
@@ -549,18 +565,18 @@ LexerConf::Ptr_t ThemeImporterBase::ImportVSCodeJSON(const wxFileName& theme_fil
 
         // Read the "scope" property. Notice that it can be either a string or an array
         // we cover both cases here
-        auto scope = token["scope"];
+        auto scopeItem = token["scope"];
         wxArrayString outer_scopes;
-        if (scope.isArray()) {
+        if (scopeItem.isArray()) {
             // if `scope` is array, collect only
             // complete entries
-            int scope_count = scope.arraySize();
+            int scope_count = scopeItem.arraySize();
             for (int j = 0; j < scope_count; ++j) {
-                outer_scopes.Add(scope[j].toString());
+                outer_scopes.Add(scopeItem[j].toString());
             }
         } else {
             // scopes is a string, split it by space|,|; and add them all
-            wxString scopes_str = scope.toString();
+            wxString scopes_str = scopeItem.toString();
             wxArrayString tmparr = ::wxStringTokenize(scopes_str, " ;,", wxTOKEN_STRTOK);
             outer_scopes.insert(outer_scopes.end(), tmparr.begin(), tmparr.end());
         }
@@ -579,7 +595,7 @@ LexerConf::Ptr_t ThemeImporterBase::ImportVSCodeJSON(const wxFileName& theme_fil
             if (fg_colour.empty()) {
                 fg_colour = m_editor.fg_colour;
             }
-            lookup.insert({ scope.Lower(), VSCodeScope(m_editor, fg_colour) });
+            lookup.insert({scope.Lower(), VSCodeScope(m_editor, fg_colour)});
         }
     }
 
@@ -602,29 +618,41 @@ LexerConf::Ptr_t ThemeImporterBase::ImportVSCodeJSON(const wxFileName& theme_fil
     GetEditorVSCodeColour(colours_map, "editor.lineHighlightBackground", "editor.foreground", m_lineNumberActive);
 
     // token colours
-    GetVSCodeColour(lookup, { "comment", "comments" }, m_singleLineComment);
-    GetVSCodeColour(lookup, { "comments", "comment" }, m_multiLineComment);
-    GetVSCodeColour(lookup, { "constant.numeric" }, m_number);
-    GetVSCodeColour(lookup, { "string" }, m_string);
-    GetVSCodeColour(lookup, { "punctuation" }, m_oper);
+    GetVSCodeColour(lookup, {"comment", "comments"}, m_singleLineComment);
+    GetVSCodeColour(lookup, {"comments", "comment"}, m_multiLineComment);
+    GetVSCodeColour(lookup, {"constant.numeric"}, m_number);
+    GetVSCodeColour(lookup, {"string"}, m_string);
+    GetVSCodeColour(lookup, {"punctuation"}, m_oper);
     GetVSCodeColour(
         lookup,
-        { "keyword.operator.expression.delete", "keyword.operator.expression.void", "keyword", "keyword.control" },
+        {"keyword.operator.expression.delete", "keyword.operator.expression.void", "keyword", "keyword.control"},
         m_keyword);
 
     // search for class names
     GetVSCodeColour(lookup,
-                    { "storage.type", "storage", "storage.type.class", "entity.name.type.class",
-                      "entity.name.type.class.cpp", "entity.name.type.class.php", "meta.block.class.cpp",
-                      "entity.name.type.namespace", "entity.name.type", "entity.name.class", "entity.name.type",
-                      "class", "entity.name", "entity.name.scope-resolution" },
+                    {"storage.type",
+                     "storage",
+                     "storage.type.class",
+                     "entity.name.type.class",
+                     "entity.name.type.class.cpp",
+                     "entity.name.type.class.php",
+                     "meta.block.class.cpp",
+                     "entity.name.type.namespace",
+                     "entity.name.type",
+                     "entity.name.class",
+                     "entity.name.type",
+                     "class",
+                     "entity.name",
+                     "entity.name.scope-resolution"},
                     m_klass);
     GetVSCodeColour(lookup,
-                    { "entity.name.function", "meta.function-call", "entity.name.function.call.cpp",
-                      "entity.name.function.call.php" },
+                    {"entity.name.function",
+                     "meta.function-call",
+                     "entity.name.function.call.cpp",
+                     "entity.name.function.call.php"},
                     m_function);
 
-    GetVSCodeColour(lookup, { "variable", "variable.member", "meta.parameter", "variable.parameter" }, m_variable);
+    GetVSCodeColour(lookup, {"variable", "variable.member", "meta.parameter", "variable.parameter"}, m_variable);
 
     m_field = m_variable;
     m_enum = m_klass;

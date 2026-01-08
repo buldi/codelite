@@ -1,9 +1,10 @@
 #include "scroll_bar_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
-#include <wx/scrolbar.h>
 
 ScrollBarWrapper::ScrollBarWrapper()
     : wxcWidget(ID_WXSCROLLBAR)
@@ -30,20 +31,18 @@ ScrollBarWrapper::ScrollBarWrapper()
                   _("Process wxEVT_SCROLL_CHANGED end of scrolling events (MSW only)."));
 
     SetPropertyString(_("Common Settings"), "wxScrollBar");
-    AddProperty(new StringProperty(PROP_VALUE, wxT("0"), _("The position of the scrollbar in scroll units.")));
-    AddProperty(new StringProperty(PROP_THUMBSIZE, wxT("1"),
-                                   _("The size of the thumb, or visible portion of the scrollbar, in scroll units.")));
-    AddProperty(new StringProperty(PROP_RANGE, wxT("10"), _("The maximum position of the scrollbar.")));
-    AddProperty(
-        new StringProperty(PROP_PAGESIZE, wxT("1"),
-                           _("The size of the page size in scroll units. This is the number of units the scrollbar "
-                             "will scroll when it is paged up or down.\nOften it is the same as the thumb size.")));
+    Add<StringProperty>(PROP_VALUE, wxT("0"), _("The position of the scrollbar in scroll units."));
+    Add<StringProperty>(
+        PROP_THUMBSIZE, wxT("1"), _("The size of the thumb, or visible portion of the scrollbar, in scroll units."));
+    Add<StringProperty>(PROP_RANGE, wxT("10"), _("The maximum position of the scrollbar."));
+    Add<StringProperty>(PROP_PAGESIZE,
+                        wxT("1"),
+                        _("The size of the page size in scroll units. This is the number of units the scrollbar "
+                          "will scroll when it is paged up or down.\nOften it is the same as the thumb size."));
 
     m_namePattern = wxT("m_scrollBar");
     SetName(GenerateName());
 }
-
-ScrollBarWrapper::~ScrollBarWrapper() {}
 
 wxcWidget* ScrollBarWrapper::Clone() const { return new ScrollBarWrapper(); }
 

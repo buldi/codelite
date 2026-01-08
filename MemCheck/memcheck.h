@@ -47,23 +47,23 @@ class MemCheckPlugin : public IPlugin
 {
 public:
     MemCheckPlugin(IManager* manager);
-    virtual ~MemCheckPlugin();
+    ~MemCheckPlugin() override;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
 
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 
     MemCheckSettings* const GetSettings() { return m_settings; };
 
     virtual IMemCheckProcessor* GetProcessor() { return m_memcheckProcessor; }
 
     /**
-     * @brief true if test is not runnging and GUI can respond, otherwise if test is runnign user can't listing errors
+     * @brief true if test is not running and GUI can respond, otherwise if test is running user can't listing errors
      * and managing supp file
      * @param event
      * @return Plugin status.
@@ -111,7 +111,7 @@ protected:
      * @brief User wants test active project.
      * @param event
      */
-    void OnCheckAtiveProject(wxCommandEvent& event);
+    void OnCheckActiveProject(wxCommandEvent& event);
 
     /**
      * @brief stop the currently running process

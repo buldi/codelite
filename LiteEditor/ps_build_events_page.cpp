@@ -23,11 +23,9 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#include "free_text_dialog.h"
-#include "globals.h"
-#include "macros.h"
 #include "ps_build_events_page.h"
-#include <wx/tokenzr.h>
+
+#include "StringUtils.h"
 
 PSBuildEventsPage::PSBuildEventsPage(wxWindow* parent, bool preEvents, ProjectSettingsDlg* dlg)
     : PSBuildEventsBasePage(parent)
@@ -49,21 +47,22 @@ void PSBuildEventsPage::Load(BuildConfigPtr buildConf)
     BuildCommandList buildCmds;
     wxString text;
     if(m_isPreEvents) {
-        buildConf->GetPreBuildCommands(buildCmds);
+        buildCmds = buildConf->GetPreBuildCommands();
         text = _("Set the commands to run in the pre build stage");
 
     } else {
-        buildConf->GetPostBuildCommands(buildCmds);
+        buildCmds = buildConf->GetPostBuildCommands();
         text = _("Set the commands to run in the post build stage");
     }
     text << _("\nCommands starting with the hash sign ('#'), will not be executed");
     m_staticText11->SetLabel(text);
-    BuildCommandList::const_iterator iter = buildCmds.begin();
     m_textCtrlBuildEvents->ClearAll();
-    for(; iter != buildCmds.end(); iter++) {
-        wxString cmdText = iter->GetCommand();
+    for (const auto& buildCommand : buildCmds) {
+        wxString cmdText = buildCommand.GetCommand();
         cmdText.Trim().Trim(false);
-        if(iter->GetEnabled() == false && !cmdText.StartsWith(wxT("#"))) { cmdText.Prepend(wxT("#")); }
+        if (buildCommand.GetEnabled() == false && !cmdText.StartsWith(wxT("#"))) {
+            cmdText.Prepend(wxT("#"));
+        }
         cmdText.Append(wxT("\n"));
         m_textCtrlBuildEvents->AppendText(cmdText);
     }
@@ -72,7 +71,7 @@ void PSBuildEventsPage::Load(BuildConfigPtr buildConf)
 void PSBuildEventsPage::Save(BuildConfigPtr buildConf, ProjectSettingsPtr projSettingsPtr)
 {
     BuildCommandList cmds;
-    wxArrayString commands = ::SplitString(m_textCtrlBuildEvents->GetValue(), true);
+    wxArrayString commands = StringUtils::SplitString(m_textCtrlBuildEvents->GetValue(), true);
     for(size_t i = 0; i < commands.GetCount(); i++) {
         wxString command = commands.Item(i).Trim().Trim(false);
         bool enabled = !command.StartsWith(wxT("#"));

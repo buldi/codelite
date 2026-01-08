@@ -2,7 +2,7 @@
 #define CLANAGRAM_H
 
 #include "codelite_exports.h"
-#include "wxStringHash.h"
+
 #include <wx/string.h>
 
 enum class eAnagramFlag {
@@ -25,18 +25,13 @@ public:
     {
     }
     clAnagram(const wxString& needle, size_t flags = 0);
-    virtual ~clAnagram();
+    virtual ~clAnagram() = default;
 
     /**
      * @brief reset the anagram with a new pattern
      * See eAnagramFlag for possible flags
      */
     void Reset(const wxString& needle, size_t flags = 0);
-
-    /**
-     * @brief check haystack contains this anagram
-     */
-    bool Matches(const wxString& haystack) const;
 
     /**
      * @brief search for needle in haystack in order

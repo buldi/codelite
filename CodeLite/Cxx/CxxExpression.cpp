@@ -4,10 +4,6 @@
 #include "CxxScannerTokens.h"
 #include "CxxTokenizer.h"
 
-CxxExpression::CxxExpression() {}
-
-CxxExpression::~CxxExpression() {}
-
 std::vector<CxxExpression> CxxExpression::from_expression(const wxString& expression, CxxRemainder* remainder)
 {
     CxxTokenizer tokenizer;
@@ -187,7 +183,7 @@ bool CxxExpression::handle_cxx_casting(CxxTokenizer& tokenizer, wxString* cast_t
         break;
     }
 
-    // did not find cast epxression
+    // did not find cast expression
     if(state == STATE_NORMAL) {
         tokenizer.UngetToken();
         return false;
@@ -246,29 +242,6 @@ bool CxxExpression::handle_cxx_casting(CxxTokenizer& tokenizer, wxString* cast_t
         cast_type->Append(t.GetWXString() + " ");
     }
     return true;
-}
-
-wxString CxxExpression::template_placeholder_to_type(const wxString& placeholder) const
-{
-    if(m_template_placeholder_list.empty()) {
-        return wxEmptyString;
-    }
-
-    size_t index = 0;
-    for(; index < m_template_placeholder_list.size(); ++index) {
-        if(m_template_placeholder_list[index] == placeholder) {
-            break;
-        }
-    }
-
-    if(index == m_template_placeholder_list.size()) {
-        return wxEmptyString;
-    }
-
-    if(index >= m_template_init_list.size()) {
-        return wxEmptyString;
-    }
-    return m_template_init_list[index];
 }
 
 void CxxExpression::parse_template_placeholders(const wxString& expr)

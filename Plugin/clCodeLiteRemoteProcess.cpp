@@ -2,21 +2,20 @@
 
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
-#include "JSON.h"
 #include "Platform/Platform.hpp"
 #include "StringUtils.h"
-#include "cJSON.h"
-#include "clSFTPManager.hpp"
 #include "cl_command_event.h"
 #include "environmentconfig.h"
-#include "file_logger.h"
-#include "fileutils.h"
-#include "globals.h"
 
+#include <assistant/common/json.hpp> // <nlohmann/json.hpp>
 #include <functional>
-#include <unordered_map>
+#include <vector>
 #include <wx/event.h>
 #include <wx/tokenzr.h>
+
+#if USE_SFTP
+#include "clSFTPManager.hpp"
+#endif
 
 wxDEFINE_EVENT(wxEVT_CODELITE_REMOTE_RESTARTED, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_CODELITE_REMOTE_LIST_FILES, clCommandEvent);
@@ -110,7 +109,7 @@ public:
     void Cleanup() override {}
 
     // Terminate the process. It is recommended to use this method
-    // so it will invoke the 'Cleaup' procedure and the process
+    // so it will invoke the 'Cleanup' procedure and the process
     // termination event will be sent out
     void Terminate() override {}
 
@@ -156,10 +155,10 @@ clCodeLiteRemoteProcess::~clCodeLiteRemoteProcess()
 {
     Unbind(wxEVT_ASYNC_PROCESS_TERMINATED, &clCodeLiteRemoteProcess::OnProcessTerminated, this);
     Unbind(wxEVT_ASYNC_PROCESS_OUTPUT, &clCodeLiteRemoteProcess::OnProcessOutput, this);
-    wxDELETE(m_process);
 }
 
-void clCodeLiteRemoteProcess::StartInteractive(const wxString& account, const wxString& scriptPath,
+void clCodeLiteRemoteProcess::StartInteractive(const wxString& account,
+                                               const wxString& scriptPath,
                                                const wxString& contextString)
 {
     auto ssh_account = SSHAccountInfo::LoadAccount(account);
@@ -177,13 +176,13 @@ void clCodeLiteRemoteProcess::StartIfNotRunning()
     }
 
     // wrap the command in ssh
-    wxString ssh_exe;
+    const auto ssh_exe = ThePlatform->Which("ssh");
     EnvSetter setter;
-    if (!ThePlatform->Which("ssh", &ssh_exe)) {
+    if (!ssh_exe) {
         clERROR() << "Could not locate ssh executable in your PATH!" << endl;
         return;
     }
-    std::vector<wxString> command = { ssh_exe, "-o", "ServerAliveInterval=10", "-o", "StrictHostKeyChecking=no" };
+    std::vector<wxString> command = { *ssh_exe, "-o", "ServerAliveInterval=10", "-o", "StrictHostKeyChecking=no" };
 
     // If this account has custom key files, use it instead
     if (!m_account.GetKeyFiles().empty()) {
@@ -200,10 +199,11 @@ void clCodeLiteRemoteProcess::StartIfNotRunning()
 
     clDEBUG() << "Starting codelite-remote:" << command << endl;
     // start the process
-    m_process = ::CreateAsyncProcess(this, command, IProcessCreateDefault | IProcessRawOutput);
+    m_process.reset(::CreateAsyncProcess(this, command, IProcessCreateDefault | IProcessRawOutput));
 }
 
-void clCodeLiteRemoteProcess::StartInteractive(const SSHAccountInfo& account, const wxString& scriptPath,
+void clCodeLiteRemoteProcess::StartInteractive(const SSHAccountInfo& account,
+                                               const wxString& scriptPath,
                                                const wxString& contextString)
 {
     if (m_process) {
@@ -258,7 +258,7 @@ void clCodeLiteRemoteProcess::Stop()
     if (m_process) {
         m_process->Write(wxString("exit\n"));
     }
-    wxDELETE(m_process);
+    m_process.reset();
     Cleanup();
 }
 
@@ -267,7 +267,7 @@ void clCodeLiteRemoteProcess::Cleanup()
     while (!m_completionCallbacks.empty()) {
         m_completionCallbacks.pop_back();
     }
-    wxDELETE(m_process);
+    m_process.reset();
 }
 
 bool clCodeLiteRemoteProcess::GetNextBuffer(wxString& raw_input_buffer, wxString& buffer, bool& is_completed)
@@ -306,7 +306,12 @@ void clCodeLiteRemoteProcess::ProcessOutput()
         }
 
         auto p = m_completionCallbacks.front();
-        if (p.handler) {
+        if (p.user_callback != nullptr) {
+            p.aggregated_output << buffer;
+            if (is_completed) {
+                p.user_callback(p.aggregated_output);
+            }
+        } else if (p.handler) {
             auto handler = static_cast<CodeLiteRemoteProcess*>(p.handler);
             handler->PostOutputEvent(buffer);
             if (is_completed) {
@@ -328,67 +333,62 @@ void clCodeLiteRemoteProcess::ProcessOutput()
     }
 }
 
-void clCodeLiteRemoteProcess::ListLSPs()
+void clCodeLiteRemoteProcess::ListFiles(const wxString& root_dir,
+                                        const wxString& extensions,
+                                        const wxString& exclude_extensions,
+                                        const wxString& exclude_patterns)
 {
     if (!m_process) {
         return;
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "list_lsps");
-    m_process->Write(item.format(false) + "\n");
+    const nlohmann::json json = {
+        {"command", "ls"},
+        {"root_dir", StringUtils::ToStdString(root_dir)},
+        {"file_extensions", StringUtils::ToStdStrings(::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK))},
+        {"exclude_extensions", StringUtils::ToStdStrings(::wxStringTokenize(exclude_extensions, ",; |", wxTOKEN_STRTOK))},
+        {"exclude_patterns", StringUtils::ToStdStrings(::wxStringTokenize(exclude_patterns, ",; |", wxTOKEN_STRTOK))}
+    };
+    const auto command = json.dump();
+    LOG_IF_TRACE { clDEBUG1() << "ListFiles: sending command:" << command << endl; }
+    m_process->Write(command + "\n");
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnListLSPsOutput, nullptr });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnListFilesOutput, nullptr, nullptr });
 }
 
-void clCodeLiteRemoteProcess::ListFiles(const wxString& root_dir, const wxString& extensions)
+void clCodeLiteRemoteProcess::Search(const wxString& root_dir,
+                                     const wxString& extensions,
+                                     const wxString& exclude_patterns,
+                                     const wxString& find_what,
+                                     bool whole_word,
+                                     bool icase)
 {
     if (!m_process) {
         return;
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "ls");
-    item.addProperty("root_dir", root_dir);
-    item.addProperty("file_extensions", ::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK));
-    LOG_IF_TRACE { clDEBUG1() << "ListFiles: sending command:" << item.format(false) << endl; }
-    m_process->Write(item.format(false) + "\n");
-
-    // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnListFilesOutput, nullptr });
-}
-
-void clCodeLiteRemoteProcess::Search(const wxString& root_dir, const wxString& extensions, const wxString& find_what,
-                                     bool whole_word, bool icase)
-{
-    if (!m_process) {
-        return;
-    }
-
-    // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "find");
-    item.addProperty("root_dir", root_dir);
-    item.addProperty("find_what", find_what);
-    item.addProperty("file_extensions", ::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK));
-    item.addProperty("icase", icase);
-    item.addProperty("whole_word", whole_word);
-
-    wxString command = item.format(false);
+    const nlohmann::json json = {{"command", "find"},
+                      {"root_dir", StringUtils::ToStdString(root_dir)},
+                      {"find_what", StringUtils::ToStdString(find_what)},
+                      {"file_extensions", StringUtils::ToStdStrings(::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK))},
+                      {"exclude_patterns", StringUtils::ToStdStrings(::wxStringTokenize(exclude_patterns, ",; |", wxTOKEN_STRTOK))},
+                      {"icase", icase},
+                      {"whole_word", whole_word}
+    };
+    const auto command = json.dump();
     m_process->Write(command + "\n");
     LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindOutput, nullptr });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindOutput, nullptr, nullptr });
 }
 
-void clCodeLiteRemoteProcess::Locate(const wxString& path, const wxString& name, const wxString& ext,
+void clCodeLiteRemoteProcess::Locate(const wxString& path,
+                                     const wxString& name,
+                                     const wxString& ext,
                                      const std::vector<wxString>& versions)
 {
     if (!m_process) {
@@ -396,29 +396,18 @@ void clCodeLiteRemoteProcess::Locate(const wxString& path, const wxString& name,
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "locate");
-    item.addProperty("path", path);
-    item.addProperty("name", name);
-    item.addProperty("ext", ext);
+    const nlohmann::json json = {{"command", "locate"},
+                                 {"path", StringUtils::ToStdString(path)},
+                                 {"name", StringUtils::ToStdString(name)},
+                                 {"ext", StringUtils::ToStdString(ext)},
+                                 {"versions", StringUtils::ToStdStrings(versions)}};
 
-    // convert std::vector to wxArrayString
-    wxArrayString v;
-    v.reserve(versions.size());
-
-    for (const auto& s : versions) {
-        v.Add(s);
-    }
-
-    item.addProperty("versions", v);
-
-    wxString command = item.format(false);
+    const auto command = json.dump();
     m_process->Write(command + "\n");
     LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnLocateOutput, nullptr });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnLocateOutput, nullptr, nullptr });
 }
 
 void clCodeLiteRemoteProcess::FindPath(const wxString& path)
@@ -428,17 +417,13 @@ void clCodeLiteRemoteProcess::FindPath(const wxString& path)
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "find_path");
-    item.addProperty("path", path);
-
-    wxString command = item.format(false);
+    const nlohmann::json json = {{"command", "find_path"}, {"path", StringUtils::ToStdString(path)}};
+    const auto command = json.dump();
     m_process->Write(command + "\n");
     LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindPathOutput, nullptr });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnFindPathOutput, nullptr, nullptr });
 }
 
 void clCodeLiteRemoteProcess::ResetStates()
@@ -447,32 +432,27 @@ void clCodeLiteRemoteProcess::ResetStates()
     m_fif_files_scanned = 0;
 }
 
-bool clCodeLiteRemoteProcess::DoExec(const wxString& cmd, const wxString& working_directory, const clEnvList_t& env,
-                                     IProcess* handler)
+bool clCodeLiteRemoteProcess::DoExec(
+    const wxString& cmd, const wxString& working_directory, const clEnvList_t& env, IProcess* handler, UserCallback cb)
 {
     if (!m_process) {
         return false;
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "exec");
-    item.addProperty("wd", working_directory);
-    item.addProperty("cmd", cmd);
+    nlohmann::json json = {{"command", "exec"}, {"wd", StringUtils::ToStdString(working_directory)}, {"cmd", cmd}};
 
-    auto envarr = item.AddArray("env");
-    for (const auto& p : env) {
-        auto entry = envarr.AddObject(wxEmptyString);
-        entry.addProperty("name", p.first);
-        entry.addProperty("value", p.second);
+    auto& envarr = json["env"];
+    envarr = nlohmann::json::array();
+    for (const auto& [name, value] : env) {
+        envarr.push_back({{"name", StringUtils::ToStdString(name)}, {"value", StringUtils::ToStdString(value)}});
     }
 
-    wxString command = item.format(false);
+    wxString command = json.dump();
     m_process->Write(command + "\n");
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnExecOutput, handler });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnExecOutput, handler, cb });
     return true;
 }
 
@@ -483,6 +463,18 @@ void clCodeLiteRemoteProcess::Exec(const wxArrayString& args, const wxString& wo
         return;
     }
     DoExec(cmdstr, working_directory, env);
+}
+
+void clCodeLiteRemoteProcess::ExecWithCallback(const wxArrayString& args,
+                                               UserCallback cb,
+                                               const wxString& working_directory,
+                                               const clEnvList_t& env)
+{
+    wxString cmdstr = GetCmdString(args);
+    if (cmdstr.empty()) {
+        return;
+    }
+    DoExec(cmdstr, working_directory, env, nullptr, std::move(cb));
 }
 
 void clCodeLiteRemoteProcess::Exec(const wxString& cmd, const wxString& working_directory, const clEnvList_t& env)
@@ -502,8 +494,10 @@ void clCodeLiteRemoteProcess::Write(const wxString& str)
     }
 }
 
-IProcess* clCodeLiteRemoteProcess::CreateAsyncProcess(wxEvtHandler* handler, const wxString& cmd,
-                                                      const wxString& working_directory, const clEnvList_t& env)
+IProcess* clCodeLiteRemoteProcess::CreateAsyncProcess(wxEvtHandler* handler,
+                                                      const wxString& cmd,
+                                                      const wxString& working_directory,
+                                                      const clEnvList_t& env)
 {
     CodeLiteRemoteProcess* p = new CodeLiteRemoteProcess(handler, this);
     if (DoExec(cmd, working_directory, env, p)) {
@@ -513,8 +507,10 @@ IProcess* clCodeLiteRemoteProcess::CreateAsyncProcess(wxEvtHandler* handler, con
     return nullptr;
 }
 
-void clCodeLiteRemoteProcess::CreateAsyncProcessCB(const wxString& cmd, std::function<void(const wxString&)> callback,
-                                                   const wxString& working_directory, const clEnvList_t& env)
+void clCodeLiteRemoteProcess::CreateAsyncProcessCB(const wxString& cmd,
+                                                   std::function<void(const wxString&)> callback,
+                                                   const wxString& working_directory,
+                                                   const clEnvList_t& env)
 {
     CodeLiteRemoteProcess* p = new CodeLiteRemoteProcess(nullptr, this);
     p->SetCallback(std::move(callback));
@@ -694,7 +690,9 @@ void clCodeLiteRemoteProcess::OnExecOutput(const wxString& buffer, bool is_compl
     }
 }
 
-bool clCodeLiteRemoteProcess::SyncExec(const wxString& cmd, const wxString& working_directory, const clEnvList_t& env,
+bool clCodeLiteRemoteProcess::SyncExec(const wxString& cmd,
+                                       const wxString& working_directory,
+                                       const clEnvList_t& env,
                                        wxString* output)
 {
     if (!m_completionCallbacks.empty()) {
@@ -713,7 +711,7 @@ bool clCodeLiteRemoteProcess::SyncExec(const wxString& cmd, const wxString& work
     }
 
     // DoExec pushes a callback to the queue - pop it
-    // as we dont really need it
+    // as we don't really need it
     m_completionCallbacks.pop_back();
 
     // read
@@ -745,28 +743,32 @@ bool clCodeLiteRemoteProcess::SyncExec(const wxString& cmd, const wxString& work
     return false;
 }
 
-void clCodeLiteRemoteProcess::Replace(const wxString& root_dir, const wxString& extensions, const wxString& find_what,
-                                      const wxString& replace_with, bool whole_word, bool icase)
+void clCodeLiteRemoteProcess::Replace(const wxString& root_dir,
+                                      const wxString& extensions,
+                                      const wxString& exclude_patterns,
+                                      const wxString& find_what,
+                                      const wxString& replace_with,
+                                      bool whole_word,
+                                      bool icase)
 {
     if (!m_process) {
         return;
     }
 
     // build the command and send it
-    JSON root(cJSON_Object);
-    auto item = root.toElement();
-    item.addProperty("command", "replace");
-    item.addProperty("root_dir", root_dir);
-    item.addProperty("find_what", find_what);
-    item.addProperty("replace_with", replace_with);
-    item.addProperty("file_extensions", ::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK));
-    item.addProperty("icase", icase);
-    item.addProperty("whole_word", whole_word);
-
-    wxString command = item.format(false);
+    const nlohmann::json json = {
+        {"command", "replace"},
+        {"root_dir", StringUtils::ToStdString(root_dir)},
+        {"find_what", StringUtils::ToStdString(find_what)},
+        {"replace_with", StringUtils::ToStdString(replace_with)},
+        {"file_extensions", StringUtils::ToStdStrings(::wxStringTokenize(extensions, ",; |", wxTOKEN_STRTOK))},
+        {"exclude_patterns", StringUtils::ToStdStrings(::wxStringTokenize(exclude_patterns, ",; |", wxTOKEN_STRTOK))},
+        {"icase", icase},
+        {"whole_word", whole_word}};
+    const auto command = json.dump();
     m_process->Write(command + "\n");
     LOG_IF_TRACE { clDEBUG1() << command << endl; }
 
     // push a callback
-    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnReplaceOutput, nullptr });
+    m_completionCallbacks.push_back({ &clCodeLiteRemoteProcess::OnReplaceOutput, nullptr, nullptr });
 }

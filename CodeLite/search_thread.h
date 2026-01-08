@@ -28,16 +28,10 @@
 #include "JSON.h"
 #include "clFilesCollector.h"
 #include "codelite_exports.h"
-#include "singleton.h"
 #include "worker_thread.h"
-#include "wxStringHash.h"
 
-#include <deque>
-#include <list>
-#include <map>
 #include <vector>
 #include <wx/event.h>
-#include <wx/filename.h>
 #include <wx/regex.h>
 #include <wx/stopwatch.h>
 #include <wx/string.h>
@@ -69,11 +63,11 @@ class WXDLLIMPEXP_CL SearchData : public ThreadRequest
     wxArrayString m_rootDirs;
     wxString m_findString;
     wxString m_replaceWith;
-    size_t m_flags;
+    size_t m_flags{0};
     wxString m_validExt;
     wxArrayString m_files;
-    bool m_newTab;
-    wxEvtHandler* m_owner;
+    bool m_newTab{false};
+    wxEvtHandler* m_owner{nullptr};
     wxString m_encoding;
     wxArrayString m_excludePatterns;
     size_t m_file_scanner_flags = clFilesScanner::SF_DONT_FOLLOW_SYMLINKS | clFilesScanner::SF_EXCLUDE_HIDDEN_DIRS;
@@ -92,19 +86,12 @@ private:
 
 public:
     // Ctor-Dtor
-    SearchData()
-        : ThreadRequest()
-        , m_findString(wxEmptyString)
-        , m_flags(0)
-        , m_newTab(false)
-        , m_owner(NULL)
-    {
-    }
+    SearchData() = default;
 
     SearchData(const SearchData& rhs) { Copy(rhs); }
     SearchData& operator=(const SearchData& rhs);
 
-    virtual ~SearchData() {}
+    ~SearchData() override = default;
     SearchData& Copy(const SearchData& other);
 
 public:
@@ -174,9 +161,9 @@ class WXDLLIMPEXP_CL SearchResult : public wxObject
 
 public:
     // ctor-dtor, copy constructor and assignment operator
-    SearchResult() {}
+    SearchResult() = default;
 
-    virtual ~SearchResult() {}
+    virtual ~SearchResult() = default;
 
     SearchResult(const SearchResult& rhs) { *this = rhs; }
 
@@ -205,35 +192,35 @@ public:
     //------------------------------------------------------
     // Setters/getters
 
-    void SetFlags(const size_t& flags) { this->m_flags = flags; }
+    void SetFlags(size_t flags) { this->m_flags = flags; }
 
-    const size_t& GetFlags() const { return m_flags; }
+    size_t GetFlags() const { return m_flags; }
 
     void SetPattern(const wxString& pat) { m_pattern = pat.c_str(); }
-    void SetPosition(const int& position) { m_position = position; }
-    void SetLineNumber(const int& line) { m_lineNumber = line; }
-    void SetColumn(const int& col) { m_column = col; }
+    void SetPosition(int position) { m_position = position; }
+    void SetLineNumber(int line) { m_lineNumber = line; }
+    void SetColumn(int col) { m_column = col; }
     void SetFileName(const wxString& fileName) { m_fileName = fileName.c_str(); }
 
-    const int& GetPosition() const { return m_position; }
-    const int& GetLineNumber() const { return m_lineNumber; }
-    const int& GetColumn() const { return m_column; }
+    int GetPosition() const { return m_position; }
+    int GetLineNumber() const { return m_lineNumber; }
+    int GetColumn() const { return m_column; }
     const wxString& GetPattern() const { return m_pattern; }
     const wxString& GetFileName() const { return m_fileName; }
 
-    void SetLen(const int& len) { this->m_len = len; }
-    const int& GetLen() const { return m_len; }
+    void SetLen(int len) { this->m_len = len; }
+    int GetLen() const { return m_len; }
 
     // Setters
     void SetFindWhat(const wxString& findWhat) { this->m_findWhat = findWhat.c_str(); }
     // Getters
     const wxString& GetFindWhat() const { return m_findWhat; }
 
-    void SetColumnInChars(const int& col) { this->m_columnInChars = col; }
-    const int& GetColumnInChars() const { return m_columnInChars; }
+    void SetColumnInChars(int col) { this->m_columnInChars = col; }
+    int GetColumnInChars() const { return m_columnInChars; }
 
-    void SetLenInChars(const int& len) { this->m_lenInChars = len; }
-    const int& GetLenInChars() const { return m_lenInChars; }
+    void SetLenInChars(int len) { this->m_lenInChars = len; }
+    int GetLenInChars() const { return m_lenInChars; }
 
     void SetScope(const wxString& scope) { this->m_scope = scope.c_str(); }
     const wxString& GetScope() const { return m_scope; }
@@ -249,7 +236,7 @@ public:
         }
     }
 
-    // return a foramtted message
+    // return a formatted message
     wxString GetMessage() const
     {
         wxString msg;
@@ -259,42 +246,23 @@ public:
     }
 };
 
-typedef std::vector<SearchResult> SearchResultList;
+using SearchResultList = std::vector<SearchResult>;
 
 class WXDLLIMPEXP_CL SearchSummary : public wxObject
 {
-    int m_fileScanned;
-    int m_matchesFound;
-    int m_elapsed;
+    int m_fileScanned{0};
+    int m_matchesFound{0};
+    int m_elapsed{0};
     wxArrayString m_failedFiles;
     wxString m_findWhat;
     wxString m_replaceWith;
 
 public:
-    SearchSummary()
-        : m_fileScanned(0)
-        , m_matchesFound(0)
-        , m_elapsed(0)
-    {
-    }
+    SearchSummary() = default;
+    ~SearchSummary() override = default;
 
-    virtual ~SearchSummary() {}
-
-    SearchSummary(const SearchSummary& rhs) { *this = rhs; }
-
-    SearchSummary& operator=(const SearchSummary& rhs)
-    {
-        if(this == &rhs)
-            return *this;
-
-        m_fileScanned = rhs.m_fileScanned;
-        m_matchesFound = rhs.m_matchesFound;
-        m_elapsed = rhs.m_elapsed;
-        m_failedFiles = rhs.m_failedFiles;
-        m_findWhat = rhs.m_findWhat;
-        m_replaceWith = rhs.m_replaceWith;
-        return *this;
-    }
+    SearchSummary(const SearchSummary&) = default;
+    SearchSummary& operator=(const SearchSummary&) = default;
 
     JSONItem ToJSON() const;
     void FromJSON(const JSONItem& json);
@@ -309,8 +277,8 @@ public:
     int GetNumFileScanned() const { return m_fileScanned; }
     int GetNumMatchesFound() const { return m_matchesFound; }
 
-    void SetNumFileScanned(const int& num) { m_fileScanned = num; }
-    void SetNumMatchesFound(const int& num) { m_matchesFound = num; }
+    void SetNumFileScanned(int num) { m_fileScanned = num; }
+    void SetNumMatchesFound(int num) { m_matchesFound = num; }
     void SetElapsedTime(long elapsed) { m_elapsed = elapsed; }
     wxString GetMessage() const
     {
@@ -352,7 +320,6 @@ class WXDLLIMPEXP_CL SearchThread : public WorkerThread
     bool m_matchCase;
     wxCriticalSection m_cs;
     wxStopWatch m_stopWatch;
-    long m_msPassed = 0;
 
 public:
     /**
@@ -363,7 +330,7 @@ public:
     /**
      * Destructor.
      */
-    virtual ~SearchThread();
+    virtual ~SearchThread() = default;
 
     /**
      * Process request from caller
@@ -395,7 +362,7 @@ private:
 
     /**
      * Do the actual search operation
-     * \param data inpunt contains information about the search
+     * \param data input contains information about the search
      */
     void DoSearchFiles(ThreadRequest* data);
 

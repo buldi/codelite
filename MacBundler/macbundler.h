@@ -33,12 +33,11 @@ class wxCommandEvent;
 
 class MacBundler : public IPlugin
 {
-    int m_popup_id;
     void showSettingsDialogFor(ProjectPtr project);
 
 public:
     MacBundler(IManager* manager);
-    ~MacBundler();
+    ~MacBundler() override = default;
 
     void onBundleInvoked_active(wxCommandEvent& evt);
     void onBundleInvoked_selected(wxCommandEvent& evt);
@@ -46,10 +45,10 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 };
 
 #endif // MacBundler

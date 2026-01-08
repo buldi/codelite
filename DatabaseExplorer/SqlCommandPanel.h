@@ -32,6 +32,7 @@
 #include "clToolBar.h"
 
 #include <map>
+#include <wx/aui/auibar.h>
 #include <wx/dblayer/include/DatabaseErrorCodes.h>
 #include <wx/dblayer/include/DatabaseLayer.h>
 #include <wx/dblayer/include/DatabaseLayerException.h>
@@ -44,7 +45,7 @@ class ColumnInfo
     wxString m_name;
 
 public:
-    typedef std::vector<ColumnInfo> Vector_t;
+    using Vector_t = std::vector<ColumnInfo>;
 
 public:
     ColumnInfo()
@@ -58,7 +59,7 @@ public:
     {
     }
 
-    virtual ~ColumnInfo() {}
+    virtual ~ColumnInfo() = default;
 
     void SetName(const wxString& name) { this->m_name = name; }
     void SetType(int type) { this->m_type = type; }
@@ -97,7 +98,6 @@ public:
 
     virtual void OnLoadClick(wxCommandEvent& event);
     virtual void OnSaveClick(wxCommandEvent& event);
-    virtual void OnTeplatesLeftDown(wxMouseEvent& event);
     virtual void OnTemplatesBtnClick(wxAuiToolBarEvent& event);
 
     void OnPopupClick(wxCommandEvent& evt);

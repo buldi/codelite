@@ -1,7 +1,9 @@
 #include "list_box_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Properties/multi_strings_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "import_from_wxFB.h"
-#include "multi_strings_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
@@ -25,16 +27,15 @@ ListBoxWrapper::ListBoxWrapper()
         _("Process a wxEVT_COMMAND_LISTBOX_DOUBLECLICKED event, when the listbox is double-clicked."));
 
     SetPropertyString(_("Common Settings"), "wxListBox");
-    AddProperty(new MultiStringsProperty(PROP_OPTIONS, _("The List Box Items. A semi-colon list of strings")));
-    AddProperty(new StringProperty(
-        PROP_SELECTION, wxT("-1"),
-        _("The zero-based position of any initially selected string, or -1 if none are to be selected")));
+    Add<MultiStringsProperty>(PROP_OPTIONS, _("The List Box Items. A semi-colon list of strings"));
+    Add<StringProperty>(
+        PROP_SELECTION,
+        wxT("-1"),
+        _("The zero-based position of any initially selected string, or -1 if none are to be selected"));
 
     m_namePattern = wxT("m_listBox");
     SetName(GenerateName());
 }
-
-ListBoxWrapper::~ListBoxWrapper() {}
 
 wxcWidget* ListBoxWrapper::Clone() const { return new ListBoxWrapper(); }
 

@@ -6,9 +6,8 @@
 #include "codelite_exports.h"
 #include "macros.h"
 
+#include <memory>
 #include <wx/event.h>
-#include <wx/filename.h>
-#include <wx/process.h>
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_COMPILE_COMMANDS_JSON_GENERATED, clCommandEvent);
 
@@ -18,11 +17,11 @@ class WXDLLIMPEXP_SDK CompileCommandsGenerator : public wxEvtHandler
     wxString m_capturedOutput;
 
 protected:
-    void OnProcessTeraminated(clProcessEvent& event);
+    void OnProcessTerminated(clProcessEvent& event);
     void OnProcessOutput(clProcessEvent& event);
 
 public:
-    typedef wxSharedPtr<CompileCommandsGenerator> Ptr_t;
+    using Ptr_t = std::shared_ptr<CompileCommandsGenerator>;
     CompileCommandsGenerator();
     virtual ~CompileCommandsGenerator();
 

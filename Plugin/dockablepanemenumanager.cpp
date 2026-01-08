@@ -62,8 +62,6 @@ DockablePaneMenuManager::DockablePaneMenuManager(wxAuiManager* aui)
 {
 }
 
-DockablePaneMenuManager::~DockablePaneMenuManager() {}
-
 void DockablePaneMenuManager::RemoveMenu(const wxString& name)
 {
     int itemId = wxXmlResource::GetXRCID(name.c_str());
@@ -114,21 +112,19 @@ void DockablePaneMenuManager::OnDockpaneMenuItemUI(wxUpdateUIEvent& e)
     }
 }
 
-wxArrayString DockablePaneMenuManager::GetDeatchedPanesList()
+wxArrayString DockablePaneMenuManager::GetDetachedPanesList()
 {
     wxArrayString arr;
-    std::map<int, wxString>::iterator iter = m_id2nameMap.begin();
-    for (; iter != m_id2nameMap.end(); ++iter) {
-        arr.Add(iter->second);
+    for (const auto& [_, name] : m_id2nameMap) {
+        arr.Add(name);
     }
     return arr;
 }
 
 bool DockablePaneMenuManager::IsPaneDetached(const wxString& name)
 {
-    auto iter = m_id2nameMap.begin();
-    for (; iter != m_id2nameMap.end(); ++iter) {
-        if (iter->second == name) {
+    for (const auto& [_, idName] : m_id2nameMap) {
+        if (idName == name) {
             return true;
         }
     }

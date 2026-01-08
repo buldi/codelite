@@ -35,12 +35,9 @@ EnvironmentVariablesDlg::EnvironmentVariablesDlg(wxWindow* parent)
     }
 
     SetName("EnvVarsTableDlg");
-    wxStringMap_t::iterator iter = envSets.begin();
-    for(; iter != envSets.end(); iter++) {
-        wxString name = iter->first;
-        wxString content = iter->second;
 
-        if(name == wxT("Default")) {
+    for (const auto& [name, content] : envSets) {
+        if (name == wxT("Default")) {
             m_textCtrlDefault->SetText(content);
             m_textCtrlDefault->SetSavePoint();
             m_textCtrlDefault->EmptyUndoBuffer();
@@ -84,22 +81,15 @@ void EnvironmentVariablesDlg::OnButtonOk(wxCommandEvent& event)
     EnvVarList vars;
 
     wxStringMap_t envSets;
-
-    wxString content = m_textCtrlDefault->GetText();
-    wxString name = wxT("Default");
-    content.Trim().Trim(false);
-    envSets[name] = content;
+    envSets[wxT("Default")] = m_textCtrlDefault->GetText().Trim().Trim(false);
 
     for(size_t i = 1; i < m_book->GetPageCount(); i++) {
         if(i == (size_t)m_book->GetSelection()) {
             vars.SetActiveSet(m_book->GetPageText(i));
         }
 
-        wxStyledTextCtrl* page = (wxStyledTextCtrl*)m_book->GetPage(i);
-        wxString content = page->GetText();
-        wxString name = m_book->GetPageText(i);
-        content.Trim().Trim(false);
-        envSets[name] = content;
+        const wxStyledTextCtrl* page = (wxStyledTextCtrl*)m_book->GetPage(i);
+        envSets[m_book->GetPageText(i)] = page->GetText().Trim().Trim(false);
     }
     vars.SetEnvVarSets(envSets);
     EnvironmentConfig::Instance()->WriteObject(wxT("Variables"), &vars);
@@ -182,8 +172,8 @@ void EnvironmentVariablesDlg::OnExport(wxCommandEvent& event)
         if(isWindows) {
             while(reVarPattern.Matches(sLine)) {
                 wxString varName = reVarPattern.GetMatch(sLine, 2);
-                wxString text = reVarPattern.GetMatch(sLine);
-                sLine.Replace(text, wxString::Format(wxT("%%%s%%"), varName.c_str()));
+                wxString match = reVarPattern.GetMatch(sLine);
+                sLine.Replace(match, wxString::Format(wxT("%%%s%%"), varName.c_str()));
             }
             sLine.Prepend(wxT("set "));
             sLine.Append(wxT("\r\n"));
@@ -191,8 +181,8 @@ void EnvironmentVariablesDlg::OnExport(wxCommandEvent& event)
         } else {
             while(reVarPattern.Matches(sLine)) {
                 wxString varName = reVarPattern.GetMatch(sLine, 2);
-                wxString text = reVarPattern.GetMatch(sLine);
-                sLine.Replace(text, wxString::Format(wxT("$%s"), varName.c_str()));
+                wxString match = reVarPattern.GetMatch(sLine);
+                sLine.Replace(match, wxString::Format(wxT("$%s"), varName.c_str()));
             }
             sLine.Prepend(wxT("export "));
             sLine.Append(wxT("\n"));

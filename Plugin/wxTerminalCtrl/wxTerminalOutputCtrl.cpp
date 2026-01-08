@@ -5,9 +5,9 @@
 #include "Platform/Platform.hpp"
 #include "StringUtils.h"
 #include "clIdleEventThrottler.hpp"
-#include "clModuleLogger.hpp"
 #include "clSystemSettings.h"
 #include "clWorkspaceManager.h"
+#include "codelite_events.h"
 #include "dirsaver.h"
 #include "event_notifier.h"
 #include "globals.h"
@@ -17,12 +17,32 @@
 #include "wxTerminalInputCtrl.hpp"
 
 #include <wx/menu.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/uiaction.h>
 #include <wx/wupdlock.h>
 
 namespace
 {
+/// given range, [start, end), return the string in this range without any ANSI escape codes
+wxString GetSelectedRange(wxStyledTextCtrl* ctrl, int start_pos, int end_pos)
+{
+    if (start_pos >= end_pos) {
+        return wxEmptyString;
+    }
+
+    // Make sure we only pick visible chars (embedded ANSI colour can break the selected word)
+    wxString res;
+    res.reserve(end_pos - start_pos + 1);
+    for (; start_pos < end_pos; start_pos++) {
+        if (ctrl->StyleGetVisible(ctrl->GetStyleAt(start_pos))) {
+            res << (wxChar)ctrl->GetCharAt(start_pos);
+        }
+    }
+
+    return res;
+}
+
 class MyEventsHandler : public clEditEventsHandler
 {
     wxTerminalInputCtrl* m_input_ctrl = nullptr;
@@ -39,6 +59,21 @@ public:
         CHECK_FOCUS_WINDOW();
         CHECK_PTR_RET(m_input_ctrl);
         m_input_ctrl->Paste();
+    }
+
+    void OnCopy(wxCommandEvent& event) override
+    {
+        CHECK_FOCUS_WINDOW();
+        CHECK_PTR_RET(m_stc);
+        if (!m_stc->CanCopy()) {
+            return;
+        }
+
+        auto text = GetSelectedRange(m_stc, m_stc->GetSelectionStart(), m_stc->GetSelectionEnd());
+        if (text.empty()) {
+            return;
+        }
+        ::CopyToClipboard(text);
     }
 };
 
@@ -61,8 +96,11 @@ wxTerminalOutputCtrl::wxTerminalOutputCtrl(wxWindow* parent, wxWindowID winid)
     m_editEvents = std::make_unique<MyEventsHandler>(nullptr, m_ctrl);
 }
 
-wxTerminalOutputCtrl::wxTerminalOutputCtrl(wxTerminalCtrl* parent, wxWindowID winid, const wxFont& font,
-                                           const wxColour& bg_colour, const wxColour& text_colour)
+wxTerminalOutputCtrl::wxTerminalOutputCtrl(wxTerminalCtrl* parent,
+                                           wxWindowID winid,
+                                           const wxFont& font,
+                                           const wxColour& bg_colour,
+                                           const wxColour& text_colour)
     : wxWindow(parent, winid)
     , m_terminal(parent)
 {
@@ -77,7 +115,7 @@ void wxTerminalOutputCtrl::SetInputCtrl(wxTerminalInputCtrl* input_ctrl)
 
 void wxTerminalOutputCtrl::Initialise(const wxFont& font, const wxColour& bg_colour, const wxColour& text_colour)
 {
-    m_textFont = font.IsOk() ? font : FontUtils::GetDefaultMonospacedFont();
+    m_textFont = wxNullFont;
     m_textColour = text_colour;
     m_bgColour = bg_colour;
     SetSizer(new wxBoxSizer(wxVERTICAL));
@@ -86,37 +124,56 @@ void wxTerminalOutputCtrl::Initialise(const wxFont& font, const wxColour& bg_col
         m_ctrl->SetMarginWidth(i, 0);
     }
 
-    m_ctrl->UsePopUp(1);
+    m_ctrl->UsePopUp(0);
+    m_ctrl->Bind(wxEVT_CONTEXT_MENU, &wxTerminalOutputCtrl::OnMenu, this);
     m_ctrl->SetLexer(wxSTC_LEX_CONTAINER);
-    m_ctrl->StartStyling(0);
     m_ctrl->SetWrapMode(wxSTC_WRAP_CHAR);
     m_ctrl->SetEditable(false);
-    m_ctrl->SetWordChars(R"#(\:~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$/.-)#");
-    m_ctrl->IndicatorSetStyle(INDICATOR_HYPERLINK, wxSTC_INDIC_PLAIN);
+    m_ctrl->SetWordChars(R"#(\:~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$/.-+@)#");
+    m_ctrl->IndicatorSetStyle(INDICATOR_HYPERLINK, wxSTC_INDIC_COMPOSITIONTHICK);
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("terminal");
+    if (lexer) {
+        lexer->Apply(m_ctrl);
+        m_ctrl->IndicatorSetForeground(INDICATOR_HYPERLINK, clColours::Blue(lexer->IsDark()));
+    }
+
+    // If font was provided, use it.
+    if (font.IsOk()) {
+        m_textFont = font;
+        for (int style = 0; style < wxSTC_STYLE_MAX; ++style) {
+            m_ctrl->StyleSetFont(style, m_textFont);
+        }
+    }
+
     GetSizer()->Add(m_ctrl, 1, wxEXPAND);
     GetSizer()->Fit(this);
     CallAfter(&wxTerminalOutputCtrl::ReloadSettings);
 
     EventNotifier::Get()->Bind(wxEVT_SYS_COLOURS_CHANGED, &wxTerminalOutputCtrl::OnThemeChanged, this);
     m_ctrl->Bind(wxEVT_CHAR_HOOK, &wxTerminalOutputCtrl::OnKeyDown, this);
-    m_ctrl->Bind(wxEVT_IDLE, &wxTerminalOutputCtrl::OnIdle, this);
     m_ctrl->Bind(wxEVT_LEFT_UP, &wxTerminalOutputCtrl::OnLeftUp, this);
-    m_stcRenderer = new wxTerminalAnsiRendererSTC(m_ctrl);
+
+    m_ctrl->Bind(wxEVT_KILL_FOCUS, &wxTerminalOutputCtrl::OnFocusLost, this);
+    m_ctrl->Bind(wxEVT_SET_FOCUS, &wxTerminalOutputCtrl::OnFocus, this);
 }
 
 wxTerminalOutputCtrl::~wxTerminalOutputCtrl()
 {
     wxDELETE(m_stcRenderer);
     m_ctrl->Unbind(wxEVT_CHAR_HOOK, &wxTerminalOutputCtrl::OnKeyDown, this);
-    m_ctrl->Unbind(wxEVT_IDLE, &wxTerminalOutputCtrl::OnIdle, this);
     m_ctrl->Unbind(wxEVT_LEFT_UP, &wxTerminalOutputCtrl::OnLeftUp, this);
+
     EventNotifier::Get()->Unbind(wxEVT_SYS_COLOURS_CHANGED, &wxTerminalOutputCtrl::OnThemeChanged, this);
+    m_ctrl->Unbind(wxEVT_KILL_FOCUS, &wxTerminalOutputCtrl::OnFocusLost, this);
+    m_ctrl->Unbind(wxEVT_SET_FOCUS, &wxTerminalOutputCtrl::OnFocus, this);
 }
 
 void wxTerminalOutputCtrl::AppendText(const wxString& buffer)
 {
-    EditorEnabler d{ m_ctrl };
-    m_ctrl->AppendText(buffer);
+    EditorEnabler d{m_ctrl};
+
+    // Remove unwanted ANSI OSC escape sequences
+    m_ctrl->AppendText(StringUtils::StripTerminalOSC(buffer));
     RequestScrollToEnd();
 }
 
@@ -153,12 +210,11 @@ wxString wxTerminalOutputCtrl::GetLineText(int lineNumber) const { return m_ctrl
 
 void wxTerminalOutputCtrl::ReloadSettings() { ApplyTheme(); }
 
-void wxTerminalOutputCtrl::StyleAndAppend(wxStringView buffer, wxString* window_title)
+void wxTerminalOutputCtrl::StyleAndAppend(wxStringView buffer, [[maybe_unused]] wxString* window_title)
 {
-    size_t consumed = m_outputHandler.ProcessBuffer(buffer, m_stcRenderer);
-    if (window_title) {
-        *window_title = m_stcRenderer->GetWindowTitle();
-    }
+    EditorEnabler enabler{m_ctrl};
+    m_ctrl->AppendText(StringUtils::StripTerminalOSC(buffer));
+    RequestScrollToEnd();
 }
 
 void wxTerminalOutputCtrl::ShowCommandLine()
@@ -194,8 +250,7 @@ int wxTerminalOutputCtrl::GetCurrentStyle() { return 0; }
 
 void wxTerminalOutputCtrl::Clear()
 {
-    m_stcRenderer->Clear();
-    EditorEnabler d{ m_ctrl };
+    EditorEnabler d{m_ctrl};
     m_ctrl->ClearAll();
 }
 
@@ -222,15 +277,19 @@ void wxTerminalOutputCtrl::OnThemeChanged(clCommandEvent& event)
 
 void wxTerminalOutputCtrl::ApplyTheme()
 {
-    auto lexer = ColoursAndFontsManager::Get().GetLexer("text");
-    lexer->Apply(m_ctrl);
+    auto lexer = ColoursAndFontsManager::Get().GetLexer("terminal");
+    if (lexer) {
+        lexer->Apply(m_ctrl);
+    }
 
-    auto style = lexer->GetProperty(0);
-    wxTextAttr defaultAttr = wxTextAttr(style.GetFgColour(), style.GetBgColour(), lexer->GetFontForStyle(0, m_ctrl));
-    SetDefaultStyle(defaultAttr);
-    m_stcRenderer->SetDefaultAttributes(defaultAttr);
-    m_stcRenderer->SetUseDarkThemeColours(lexer->IsDark());
-    m_ctrl->IndicatorSetForeground(INDICATOR_HYPERLINK, lexer->IsDark() ? wxColour("WHITE") : wxColour("BLUE"));
+    // If font was provided, use it.
+    if (m_textFont.IsOk()) {
+        for (int style = 0; style < wxSTC_STYLE_MAX; ++style) {
+            m_ctrl->StyleSetFont(style, m_textFont);
+        }
+    }
+
+    m_ctrl->SetEOLMode(wxSTC_EOL_LF);
     m_ctrl->Refresh();
 }
 
@@ -247,10 +306,9 @@ void wxTerminalOutputCtrl::OnKeyDown(wxKeyEvent& event)
     }
 }
 
-void wxTerminalOutputCtrl::OnIdle(wxIdleEvent& event)
+void wxTerminalOutputCtrl::ProcessIdle()
 {
-    event.Skip();
-    static clIdleEventThrottler event_throttler{ 200 };
+    static clIdleEventThrottler event_throttler{200};
     if (!event_throttler.CanHandle()) {
         return;
     }
@@ -272,9 +330,13 @@ void wxTerminalOutputCtrl::OnIdle(wxIdleEvent& event)
     }
 
     int pos = m_ctrl->PositionFromPoint(client_pt);
-    int word_start_pos = m_ctrl->WordStartPosition(pos, true);
-    int word_end_pos = m_ctrl->WordEndPosition(pos, true);
-    IndicatorRange range{ word_start_pos, word_end_pos };
+    int start_pos = m_ctrl->WordStartPosition(pos, true);
+    int end_pos = m_ctrl->WordEndPosition(pos, true);
+    if (start_pos == end_pos) {
+        return;
+    }
+
+    IndicatorRange range{start_pos, end_pos};
     if (m_indicatorHyperlink.ok() && m_indicatorHyperlink == range) {
         // already marked
         return;
@@ -308,7 +370,7 @@ void wxTerminalOutputCtrl::OnLeftUp(wxMouseEvent& event)
     }
 
     // fire an event
-    wxString pattern = m_ctrl->GetTextRange(m_indicatorHyperlink.start(), m_indicatorHyperlink.end());
+    auto pattern = GetSelectedRange(m_ctrl, m_indicatorHyperlink.start(), m_indicatorHyperlink.end());
     CallAfter(&wxTerminalOutputCtrl::DoPatternClicked, pattern);
 }
 
@@ -384,10 +446,9 @@ void wxTerminalOutputCtrl::DoPatternClicked(const wxString& pattern)
         // if we are running under Windows and the file path is POSIX (e.g. MSYS2)
         // convert it into Windows native path
         if (file.StartsWith("/")) {
-            wxString cygpath;
-            if (ThePlatform->Which("cygpath", &cygpath)) {
+            if (const auto cygpath = ThePlatform->Which("cygpath")) {
                 wxString command;
-                command << StringUtils::WrapWithDoubleQuotes(cygpath) << " -w "
+                command << StringUtils::WrapWithDoubleQuotes(*cygpath) << " -w "
                         << StringUtils::WrapWithDoubleQuotes(file);
                 wxString winpath = ProcUtils::SafeExecuteCommand(command);
                 winpath.Trim().Trim(false);
@@ -418,4 +479,69 @@ void wxTerminalOutputCtrl::DoPatternClicked(const wxString& pattern)
         editor->SetActive();
     };
     clGetManager()->OpenFileAndAsyncExecute(file, std::move(cb));
+}
+
+void wxTerminalOutputCtrl::OnMenu(wxContextMenuEvent& event)
+{
+    wxUnusedVar(event);
+    wxMenu menu;
+    menu.Append(wxID_COPY);
+    menu.Append(XRCID("copy-with-ansi-colors"), _("Copy with Terminal Colours"));
+    menu.AppendSeparator();
+    menu.Append(wxID_SELECTALL);
+    menu.AppendSeparator();
+    menu.Append(wxID_CLEAR);
+
+    menu.Bind(
+        wxEVT_MENU,
+        [this](wxCommandEvent& event) {
+            wxUnusedVar(event);
+            wxString text = GetSelectedRange(m_ctrl, m_ctrl->GetSelectionStart(), m_ctrl->GetSelectionEnd());
+            if (text.empty()) {
+                return;
+            }
+
+            wxString modbuffer;
+            StringUtils::StripTerminalColouring(text, modbuffer);
+            ::CopyToClipboard(modbuffer);
+        },
+        wxID_COPY);
+    menu.Bind(
+        wxEVT_MENU,
+        [this](wxCommandEvent& event) {
+            wxUnusedVar(event);
+            wxString text = m_ctrl->GetSelectedText();
+            if (text.empty()) {
+                return;
+            }
+            ::CopyToClipboard(text);
+        },
+        XRCID("copy-with-ansi-colors"));
+    menu.Bind(
+        wxEVT_MENU,
+        [this](wxCommandEvent& event) {
+            wxUnusedVar(event);
+            m_ctrl->SelectAll();
+        },
+        wxID_SELECTALL);
+    menu.Bind(
+        wxEVT_MENU,
+        [this](wxCommandEvent& event) {
+            wxUnusedVar(event);
+            Clear();
+        },
+        wxID_CLEAR);
+    PopupMenu(&menu);
+}
+
+void wxTerminalOutputCtrl::OnFocusLost(wxFocusEvent& event)
+{
+    clCommandEvent focus_event{wxEVT_STC_LOST_FOCUS};
+    EventNotifier::Get()->AddPendingEvent(focus_event);
+}
+
+void wxTerminalOutputCtrl::OnFocus(wxFocusEvent& event)
+{
+    clCommandEvent focus_event{wxEVT_STC_GOT_FOCUS};
+    EventNotifier::Get()->AddPendingEvent(focus_event);
 }

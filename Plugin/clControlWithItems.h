@@ -6,7 +6,6 @@
 #include "clRowEntry.h"
 #include "clScrolledPanel.h"
 
-#include <array>
 #include <memory>
 #include <wx/imaglist.h>
 
@@ -37,8 +36,8 @@ class WXDLLIMPEXP_SDK clSearchText
 public:
     static bool Matches(const wxString& findWhat, size_t col, const wxString& text,
                         size_t searchFlags = wxTR_SEARCH_DEFAULT, clMatchResult* matches = nullptr);
-    clSearchText();
-    virtual ~clSearchText();
+    clSearchText() = default;
+    virtual ~clSearchText() = default;
     void SetEnabled(bool enabled) { this->m_enabled = enabled; }
     bool IsEnabled() const { return m_enabled; }
 };
@@ -47,8 +46,8 @@ public:
 class WXDLLIMPEXP_SDK clControlWithItemsRowRenderer
 {
 public:
-    clControlWithItemsRowRenderer() {}
-    virtual ~clControlWithItemsRowRenderer() {}
+    clControlWithItemsRowRenderer() = default;
+    virtual ~clControlWithItemsRowRenderer() = default;
 
     /**
      * @brief override this method to provide a custom row drawing.
@@ -72,7 +71,7 @@ public:
 class WXDLLIMPEXP_SDK clControlWithItems : public clScrolledPanel
 {
 public:
-    typedef std::vector<wxBitmap> BitmapVec_t;
+    using BitmapVec_t = std::vector<wxBitmap>;
 
 protected:
     clHeaderBar* m_viewHeader = nullptr;
@@ -82,7 +81,7 @@ protected:
     int m_lineHeight = 0;
     int m_indent = 0;
     BitmapVec_t* m_bitmaps = nullptr;
-    BitmapVec_t* m_bitmapsInternal = nullptr;
+    std::unique_ptr<BitmapVec_t> m_bitmapsInternal;
     int m_scrollTick = SCROLL_TICK;
     clSearchText m_search;
     clSearchControl* m_searchControl = nullptr;
@@ -116,7 +115,7 @@ public:
     clControlWithItems(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                        const wxSize& size = wxDefaultSize, long style = 0);
     virtual ~clControlWithItems();
-    clControlWithItems();
+    clControlWithItems() = default;
 
     virtual void SetDefaultFont(const wxFont& font);
     virtual wxFont GetDefaultFont() const;
@@ -180,7 +179,7 @@ public:
 
     /**
      * @brief sets a column width. If the width is less than 0, this function does nothing. If the column is out of
-     * bound this function does nothing. Two sepcial values are allowed here: wxCOL_WIDTH_DEFAULT and
+     * bound this function does nothing. Two special values are allowed here: wxCOL_WIDTH_DEFAULT and
      * wxCOL_WIDTH_AUTOSIZE
      * @param col the column index
      * @param width the width. Can contain one of the special values: wxCOL_WIDTH_DEFAULT and wxCOL_WIDTH_AUTOSIZE
@@ -192,13 +191,13 @@ public:
      */
     void SetShowHeader(bool b);
     /**
-     * @brief is the heaer bar visible?
+     * @brief is the header bar visible?
      */
     bool IsHeaderVisible() const;
 
     /**
      * @brief update the scrollbar with the current view status
-     * subclass should call this method whenver the view changes (re-sized, items are expanding, collapsing etc)
+     * subclass should call this method whenever the view changes (re-sized, items are expanding, collapsing etc)
      */
     virtual void UpdateScrollBar();
 
@@ -220,7 +219,7 @@ public:
     virtual bool IsEmpty() const = 0;
     /**
      * @brief return the total of numbers of items we can scroll
-     * If the view has collpased items, the range _excludes_ them
+     * If the view has collapsed items, the range _excludes_ them
      */
     virtual int GetRange() const = 0;
 

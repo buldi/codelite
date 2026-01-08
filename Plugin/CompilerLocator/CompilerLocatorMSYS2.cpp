@@ -1,11 +1,10 @@
 #include "CompilerLocatorMSYS2.hpp"
 
-#include "GCCMetadata.hpp"
-#include "Platform/Platform.hpp"
 #include "compiler.h"
 #include "file_logger.h"
 
 #include <wx/filename.h>
+#include <wx/tokenzr.h>
 
 // --------------------------------------------------
 // --------------------------------------------------
@@ -36,47 +35,50 @@ std::vector<std::unordered_map<wxString, wxString>> TOOLCHAINS = {
 };
 }
 
-CompilerLocatorMSYS2Usr::CompilerLocatorMSYS2Usr()
-{
-    m_repository = "";
-    m_msys2.SetChroot("\\usr");
-}
-CompilerLocatorMSYS2Usr::~CompilerLocatorMSYS2Usr() {}
+CompilerLocatorMSYS2Usr::CompilerLocatorMSYS2Usr() { m_msys2.SetChroot("\\usr"); }
 
-CompilerLocatorMSYS2Mingw64::CompilerLocatorMSYS2Mingw64()
-{
-    m_repository = "mingw64";
-    m_msys2.SetChroot("\\mingw64");
-}
+CompilerLocatorMSYS2Mingw64::CompilerLocatorMSYS2Mingw64() { m_msys2.SetChroot("\\mingw64"); }
 
-CompilerLocatorMSYS2Mingw64::~CompilerLocatorMSYS2Mingw64() {}
+CompilerLocatorMSYS2Clang64::CompilerLocatorMSYS2Clang64() { m_msys2.SetChroot("\\clang64"); }
 
-CompilerLocatorMSYS2Clang64::CompilerLocatorMSYS2Clang64()
+CompilerLocatorMSYS2Env::CompilerLocatorMSYS2Env() { m_cmdShell = true; }
+
+bool CompilerLocatorMSYS2Env::Locate()
 {
-    m_repository = "clang64";
-    m_msys2.SetChroot("\\clang64");
+    clDEBUG() << "Locating compiler based on PATH environment variable" << endl;
+    m_compilers.clear();
+    wxString path_env;
+    if (!::wxGetEnv("PATH", &path_env)) {
+        return false;
+    }
+
+    wxArrayString paths_to_try = ::wxStringTokenize(path_env, ";", wxTOKEN_STRTOK);
+    for (const auto& path : paths_to_try) {
+        clDEBUG() << "Trying to locate compiler at:" << path << endl;
+        auto cmp = CompilerLocatorMSYS2::Locate(path);
+        if (cmp) {
+            clDEBUG() << "Found compiler:" << cmp->GetName() << endl;
+            m_compilers.push_back(cmp);
+        }
+    }
+    return !m_compilers.empty();
 }
-CompilerLocatorMSYS2Clang64::~CompilerLocatorMSYS2Clang64() {}
 
 // --------------------------------------------------
 // --------------------------------------------------
-
-CompilerLocatorMSYS2::CompilerLocatorMSYS2() {}
-
-CompilerLocatorMSYS2::~CompilerLocatorMSYS2() {}
 
 bool CompilerLocatorMSYS2::Locate()
 {
     m_compilers.clear();
 
     // try some defaults
-    wxString gcc_exe;
-    if(!m_msys2.Which("gcc", &gcc_exe)) {
+    const auto gcc_exe = m_msys2.Which("gcc");
+    if (!gcc_exe) {
         return false;
     }
 
-    auto compiler = Locate(wxFileName(gcc_exe).GetPath());
-    if(compiler) {
+    auto compiler = Locate(wxFileName(*gcc_exe).GetPath());
+    if (compiler) {
         m_compilers.push_back(compiler);
     }
     return !m_compilers.empty();
@@ -98,23 +100,13 @@ CompilerPtr CompilerLocatorMSYS2::TryToolchain(const wxString& folder,
     wxFileName gdb = GetFileName(folder, toolchain.at("DEBUGGER"));
 
     // make sure that both gcc & g++ exist
-    if(!(gcc.FileExists() && gxx.FileExists())) {
+    if (!(gcc.FileExists() && gxx.FileExists())) {
         return nullptr;
     }
 
-    // define the toolchain name
-    wxString basename = m_repository;
-    if(!basename.empty()) {
-        basename << "/";
-    }
-    basename << "gcc";
-    GCCMetadata cmd(basename);
-
-    cmd.Load(gcc.GetFullPath(), folder);
-
     // create new compiler
     CompilerPtr compiler(new Compiler(nullptr));
-    compiler->SetName(cmd.GetName());
+    compiler->SetName(gxx.GetFullPath());
     compiler->SetCompilerFamily(COMPILER_FAMILY_MSYS2);
     compiler->SetInstallationPath(folder);
 
@@ -127,7 +119,13 @@ CompilerPtr CompilerLocatorMSYS2::TryToolchain(const wxString& folder,
     compiler->SetTool("AS", as.GetFullPath());
 
     size_t cpu_count = wxThread::GetCPUCount();
-    compiler->SetTool("MAKE", wxString() << make.GetFullPath() << " -j" << cpu_count);
+    wxString make_extra_args;
+    make_extra_args << "-j" << cpu_count;
+    if (m_cmdShell) {
+        make_extra_args << " SHELL=cmd.exe";
+    }
+
+    compiler->SetTool("MAKE", wxString() << make.GetFullPath() << " " << make_extra_args);
     compiler->SetTool("ResourceCompiler", windres.GetFullPath());
     compiler->SetTool("Debugger", gdb.GetFullPath());
     return compiler;
@@ -135,17 +133,15 @@ CompilerPtr CompilerLocatorMSYS2::TryToolchain(const wxString& folder,
 
 CompilerPtr CompilerLocatorMSYS2::Locate(const wxString& folder)
 {
-    // check for g++
-    for(const auto& toolchain : TOOLCHAINS) {
+    // check for g++/clang++
+    for (const auto& toolchain : TOOLCHAINS) {
         auto cmp = TryToolchain(folder, toolchain);
-        if(cmp) {
+        if (cmp) {
             return cmp;
         }
     }
     return nullptr;
 }
-
-void CompilerLocatorMSYS2::AddTool(const wxString& tool_name, const wxString& value) {}
 
 wxFileName CompilerLocatorMSYS2::GetFileName(const wxString& bin_dir, const wxString& fullname) const
 {

@@ -20,7 +20,7 @@ protected:
 
 public:
     CustomControlTemplate();
-    ~CustomControlTemplate();
+    ~CustomControlTemplate() = default;
 
     JSONElement ToJSON() const;
     void FromJSON(const JSONElement& json);
@@ -39,7 +39,7 @@ public:
     void SetXrcPreviewClass(const wxString& xrcPreviewClass) { this->m_xrcPreviewClass = xrcPreviewClass; }
     const wxString& GetXrcPreviewClass() const { return m_xrcPreviewClass; }
 };
-typedef std::map<wxString, CustomControlTemplate> CustomControlTemplateMap_t;
+using CustomControlTemplateMap_t = std::map<wxString, CustomControlTemplate>;
 
 // ----------------------------------------------------------------------
 // wxcSettings
@@ -76,7 +76,7 @@ public:
 
 private:
     wxcSettings();
-    ~wxcSettings();
+    ~wxcSettings() = default;
 
 public:
     void Load();
@@ -91,7 +91,6 @@ public:
         }
     }
 
-    void ShowNagDialogIfNeeded();
     void SetInitCompleted(bool initCompleted) { this->m_initCompleted = initCompleted; }
     bool IsInitCompleted() const { return m_initCompleted; }
 

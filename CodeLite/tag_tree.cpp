@@ -26,19 +26,9 @@
 
 #include "tag_tree.h"
 #include "tokenizer.h"
-#ifdef __VISUALC__
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-#endif 
-
 
 TagTree::TagTree(const wxString& key, const TagEntry& data)
 : Tree<wxString, TagEntry>(key, data)
-{
-}
-
-TagTree::~TagTree()
 {
 }
 

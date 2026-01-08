@@ -1,7 +1,6 @@
 #ifndef CLDOCKERCONTAINER_H
 #define CLDOCKERCONTAINER_H
 
-#include "wxStringHash.h"
 #include <vector>
 #include <wx/clntdata.h>
 #include <wx/string.h>
@@ -22,8 +21,8 @@ protected:
     int m_state = kStateUnknown;
 
 public:
-    clDockerContainer();
-    virtual ~clDockerContainer();
+    clDockerContainer() = default;
+    virtual ~clDockerContainer() = default;
 
     void SetCommand(const wxString& command) { this->m_command = command; }
     void SetCreated(const wxString& created) { this->m_created = created; }
@@ -45,8 +44,8 @@ public:
     int GetState() const { return m_state; }
     
     bool Parse(const wxString& line);
-    typedef std::vector<clDockerContainer> Vect_t;
-    typedef std::unordered_map<wxString, clDockerContainer> Map_t;
+    using Vect_t = std::vector<clDockerContainer>;
+    using Map_t = std::unordered_map<wxString, clDockerContainer>;
 };
 
 #endif // CLDOCKERCONTAINER_H

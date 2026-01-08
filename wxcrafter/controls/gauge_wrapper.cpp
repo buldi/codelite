@@ -1,8 +1,11 @@
 #include "gauge_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/gauge.h>
 
 GaugeWrapper::GaugeWrapper()
@@ -12,16 +15,15 @@ GaugeWrapper::GaugeWrapper()
     PREPEND_STYLE(wxGA_VERTICAL, false);
     PREPEND_STYLE(wxGA_SMOOTH, false);
 
-    AddProperty(new StringProperty(
-        PROP_RANGE, wxT("100"),
-        _("Integer range (maximum value) of the gauge. It is ignored when the gauge is used in indeterminate mode.")));
-    AddProperty(new StringProperty(PROP_VALUE, wxT("10"), _("Sets the position of the gauge")));
+    Add<StringProperty>(
+        PROP_RANGE,
+        wxT("100"),
+        _("Integer range (maximum value) of the gauge. It is ignored when the gauge is used in indeterminate mode."));
+    Add<StringProperty>(PROP_VALUE, wxT("10"), _("Sets the position of the gauge"));
 
     m_namePattern = wxT("m_gauge");
     SetName(GenerateName());
 }
-
-GaugeWrapper::~GaugeWrapper() {}
 
 wxcWidget* GaugeWrapper::Clone() const { return new GaugeWrapper(); }
 

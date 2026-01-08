@@ -24,6 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "outputtabwindow.h"
 
+#include "StringUtils.h"
 #include "clSTCHelper.hpp"
 #include "clToolBar.h"
 #include "cl_config.h"
@@ -35,8 +36,6 @@
 #include "macros.h"
 #include "manager.h"
 #include "output_pane.h"
-#include "pluginmanager.h"
-#include "quickfindbar.h"
 
 #include <wx/xrc/xmlres.h>
 
@@ -81,7 +80,7 @@ OutputTabWindow::OutputTabWindow(wxWindow* parent, wxWindowID id, const wxString
 
 OutputTabWindow::~OutputTabWindow()
 {
-    m_styler.reset(nullptr);
+    m_styler.reset();
     EventNotifier::Get()->Disconnect(wxEVT_CL_THEME_CHANGED, wxCommandEventHandler(OutputTabWindow::OnThemeChanged),
                                      NULL, this);
     wxTheApp->Disconnect(wxID_COPY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(OutputTabWindow::OnEdit), NULL,
@@ -120,8 +119,8 @@ void OutputTabWindow::InitStyle(wxStyledTextCtrl* sci, int lexer, bool folding)
 #else
     int facttor = 5;
 #endif
-    sci->IndicatorSetForeground(1, MakeColourLighter(wxT("GOLD"), facttor));
-    sci->IndicatorSetForeground(2, MakeColourLighter(wxT("RED"), 4));
+    sci->IndicatorSetForeground(1, DrawingUtils::LightColour(wxT("GOLD"), facttor));
+    sci->IndicatorSetForeground(2, DrawingUtils::LightColour(wxT("RED"), 4));
     sci->IndicatorSetStyle(1, wxSTC_INDIC_ROUNDBOX);
     sci->IndicatorSetStyle(2, wxSTC_INDIC_ROUNDBOX);
     sci->IndicatorSetUnder(1, true);
@@ -182,7 +181,7 @@ void OutputTabWindow::CreateGUIControls()
     m_sci->SetTechnology(useDirect2D ? wxSTC_TECHNOLOGY_DIRECTWRITE : wxSTC_TECHNOLOGY_DEFAULT);
 #endif
 
-    // We dont really want to collect undo in the output tabs...
+    // We don't really want to collect undo in the output tabs...
     m_sci->SetUndoCollection(false);
     m_sci->EmptyUndoBuffer();
 
@@ -239,7 +238,7 @@ void OutputTabWindow::AppendText(const wxString& text, bool toggle_view)
 
     // Strip any terminal escape chars from the buffer
     wxString modText;
-    ::clStripTerminalColouring(text, modText);
+    StringUtils::StripTerminalColouring(text, modText);
 
     // add the text
     m_sci->InsertText(m_sci->GetLength(), modText);

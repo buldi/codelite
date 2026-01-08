@@ -1,12 +1,10 @@
 #include "media_ctrl_wrapper.h"
 
+#include "Properties/choice_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "choice_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
-
-#include <wx/mediactrl.h>
 
 MediaCtrlWrapper::MediaCtrlWrapper()
     : wxcWidget(ID_WXMEDIACTRL)
@@ -22,12 +20,12 @@ MediaCtrlWrapper::MediaCtrlWrapper()
     });
 
     SetPropertyString(_("Common Settings"), "wxMediaCtrl");
-    AddProperty(new ChoiceProperty(PROP_MC_BACKENDNAME, backendList, 0,
-                                   _("Select the media control backend, leave empty for the default")));
+    Add<ChoiceProperty>(
+        PROP_MC_BACKENDNAME, backendList, 0, _("Select the media control backend, leave empty for the default"));
     wxArrayString controls;
     controls.Add(PROP_MC_NO_CONTROLS);
     controls.Add(PROP_MC_DEFAULT_CONTROLS);
-    AddProperty(new ChoiceProperty(PROP_MC_CONTROLS, controls, 0, _("Show the player controls")));
+    Add<ChoiceProperty>(PROP_MC_CONTROLS, controls, 0, _("Show the player controls"));
 
     RegisterEvent("wxEVT_MEDIA_LOADED", "wxMediaEvent",
                   _("Sent when a media has loaded enough data that it can start playing"));
@@ -48,8 +46,6 @@ MediaCtrlWrapper::MediaCtrlWrapper()
     m_namePattern = "m_mediaCtrl";
     SetName(GenerateName());
 }
-
-MediaCtrlWrapper::~MediaCtrlWrapper() {}
 
 wxcWidget* MediaCtrlWrapper::Clone() const { return new MediaCtrlWrapper(); }
 

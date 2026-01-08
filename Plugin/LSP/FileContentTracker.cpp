@@ -8,10 +8,6 @@ namespace
 const wxString EMPTY_STRING;
 }
 
-FileContentTracker::FileContentTracker() {}
-
-FileContentTracker::~FileContentTracker() {}
-
 bool FileContentTracker::exists(const wxString& filepath)
 {
     FileState* dummy = nullptr;
@@ -96,9 +92,9 @@ bool FileContentTracker::find(const wxString& filepath, FileState** state)
 
 void FileContentTracker::update_content(const wxString& filepath, const wxString& content)
 {
-    FileState* state = nullptr;
-    if(find(filepath, &state)) {
-        state->content = content;
+    FileState* statePtr = nullptr;
+    if(find(filepath, &statePtr)) {
+        statePtr->content = content;
     } else {
         FileState state;
         state.content = content;
@@ -115,20 +111,4 @@ bool FileContentTracker::get_last_content(const wxString& filepath, wxString* co
         return true;
     }
     return false;
-}
-
-void FileContentTracker::add_flag(const wxString& filepath, size_t flag)
-{
-    FileState* state = nullptr;
-    if(find(filepath, &state)) {
-        state->flags |= flag;
-    }
-}
-
-void FileContentTracker::remove_flag(const wxString& filepath, size_t flag)
-{
-    FileState* state = nullptr;
-    if(find(filepath, &state)) {
-        state->flags &= ~flag;
-    }
 }

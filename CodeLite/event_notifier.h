@@ -27,16 +27,18 @@
 #define EVENTNOTIFIER_H
 
 #include <wx/event.h>
+
 #if wxUSE_GUI
 #include <wx/frame.h>
 #endif
+
 #include "codelite_exports.h"
 
 class WXDLLIMPEXP_CL EventNotifier : public wxEvtHandler
 {
 private:
-    EventNotifier();
-    virtual ~EventNotifier();
+    EventNotifier() = default;
+    virtual ~EventNotifier() = default;
 
 public:
     static EventNotifier* Get();
@@ -55,7 +57,7 @@ public:
     // --------------------------------------------------------
     // About the following functions:
     // the below functions are meant to provide an easy
-    // way to fire codelite's plugins events without the need
+    // way to fire CodeLite's plugins events without the need
     // to create the event on the stack.
     // Post* are meant as Async event ("AddPendingEvent")
     // While Notify* are synchronous event ("ProcessEvent")
@@ -71,11 +73,6 @@ public:
      * @param prompt
      */
     void PostReloadExternallyModifiedEvent(bool prompt = true);
-
-    /**
-     * @brief post a wxEVT_PROJ_FILE_REMOVED event
-     */
-    void PostFileRemovedEvent(const wxArrayString& files);
 
     /**
      * @brief send a wxEVT_WORKSPACE_RELOAD_STARTED event (sync event)

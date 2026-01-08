@@ -65,8 +65,6 @@ ThemeImporterSCSS::ThemeImporterSCSS()
     SetFileExtensions("*.scss");
 }
 
-ThemeImporterSCSS::~ThemeImporterSCSS() {}
-
 LexerConf::Ptr_t ThemeImporterSCSS::Import(const wxFileName& theme_file)
 {
     LexerConf::Ptr_t lexer = InitializeImport(theme_file, "scss", wxSTC_LEX_CSS);
@@ -75,10 +73,6 @@ LexerConf::Ptr_t ThemeImporterSCSS::Import(const wxFileName& theme_file)
     // Set error colour
     wxColour defaultBg(m_editor.bg_colour);
     bool isDark = DrawingUtils::IsDark(defaultBg);
-    wxString errorColour = "RED";
-    if(isDark) {
-        errorColour = "PINK";
-    }
     wxString operatorColour = isDark ? "WHITE" : "BLACK";
 
     /// Lexical states for SCLEX_CSS

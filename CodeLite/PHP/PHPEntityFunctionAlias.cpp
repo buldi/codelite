@@ -4,10 +4,6 @@
 #include "PHPLookupTable.h"
 #include "file_logger.h"
 
-PHPEntityFunctionAlias::PHPEntityFunctionAlias() {}
-
-PHPEntityFunctionAlias::~PHPEntityFunctionAlias() {}
-
 bool PHPEntityFunctionAlias::Is(eEntityType type) const { return type == kEntityTypeFunctionAlias; }
 
 void PHPEntityFunctionAlias::FromResultSet(wxSQLite3ResultSet& res)
@@ -38,7 +34,7 @@ void PHPEntityFunctionAlias::Store(PHPLookupTable* lookup)
         statement.ExecuteUpdate();
         SetDbId(db.GetLastRowId());
 
-    } catch(wxSQLite3Exception& exc) {
+    } catch (const wxSQLite3Exception& exc) {
         clWARNING() << "PHPEntityFunctionAlias::Store:" << exc.GetMessage() << endl;
     }
 }

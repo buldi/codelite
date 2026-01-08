@@ -44,7 +44,7 @@ class WXDLLIMPEXP_SDK DiffSideBySidePanel : public DiffSideBySidePanelBase
         ID_COPY_RIGHT_TO_LEFT_AND_MOVE,
     };
 
-    typedef std::vector<int> Markers_t;
+    using Markers_t = std::vector<int>;
 
 public:
     struct FileInfo {
@@ -75,8 +75,8 @@ public:
         {
         }
 
-        inline bool is_remote() const { return !remoteAccount.empty() && !remotePath.empty(); }
-        inline void clear() { *this = {}; }
+        bool is_remote() const { return !remoteAccount.empty() && !remotePath.empty(); }
+        void clear() { *this = {}; }
     };
 
     enum {

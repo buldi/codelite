@@ -38,6 +38,7 @@
 #include <vector>
 #include <wx/dirdlg.h>
 #include <wx/filedlg.h>
+#include <wx/msgdlg.h>
 #include <wx/regex.h>
 
 PSGeneralPage::PSGeneralPage(wxWindow* parent, const wxString& projectName, const wxString& conf,
@@ -85,7 +86,9 @@ void PSGeneralPage::Load(BuildConfigPtr buildConf)
     wxPGChoices builders;
     std::list<wxString> buildersList;
     BuildManagerST::Get()->GetBuilders(buildersList);
-    std::for_each(buildersList.begin(), buildersList.end(), [&](const wxString& builder) { builders.Add(builder); });
+    for (const wxString& builder : buildersList) {
+        builders.Add(builder);
+    }
     m_pgPropMakeGenerator->SetChoices(builders);
     m_pgPropMakeGeneratorArgs->SetValue(buildConf->GetBuildSystemArguments());
     m_pgPropMakeGenerator->SetExpanded(false);

@@ -44,8 +44,6 @@ EOSWiki::EOSWiki(IManager* manager)
     wxTheApp->Bind(wxEVT_MENU, &EOSWiki::OnNewProject, this, XRCID("eosio_new_project"));
 }
 
-EOSWiki::~EOSWiki() {}
-
 void EOSWiki::CreateToolBar(clToolBarGeneric* toolbar)
 {
     // You can add items to the main toolbar here
@@ -206,7 +204,9 @@ wxString EOSWiki::ReadResource(const wxString& filename) const
 
 void EOSWiki::ReplacePlaceHolders(wxString& text, const wxStringMap_t& m)
 {
-    std::for_each(m.begin(), m.end(), [&](const wxStringMap_t::value_type& vt) { text.Replace(vt.first, vt.second); });
+    for (const auto& [placeholder, value] : m) {
+        text.Replace(placeholder, value);
+    }
 }
 
 void EOSWiki::CreateCMakeListsFile(ProjectPtr proj, const EOSProjectData& d)

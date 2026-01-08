@@ -9,7 +9,7 @@
 
 /// A small logger designed to be used by small subsystem of CodeLite
 class clModuleLogger;
-typedef clModuleLogger& (*clModuleLoggerFunction)(clModuleLogger&);
+using clModuleLoggerFunction = clModuleLogger& (*)(clModuleLogger&);
 
 class WXDLLIMPEXP_CL clModuleLogger
 {
@@ -19,7 +19,7 @@ class WXDLLIMPEXP_CL clModuleLogger
     wxString m_module;
 
 public:
-    clModuleLogger();
+    clModuleLogger() = default;
     ~clModuleLogger();
 
     clModuleLogger(clModuleLogger&&) = default;
@@ -45,14 +45,14 @@ public:
      */
     void Open(const wxFileName& filepath);
 
-    inline clModuleLogger& operator<<(clModuleLoggerFunction f)
+    clModuleLogger& operator<<(clModuleLoggerFunction f)
     {
         Flush();
         return *this;
     }
 
     // special types printing
-    inline clModuleLogger& operator<<(const std::vector<wxString>& arr)
+    clModuleLogger& operator<<(const std::vector<wxString>& arr)
     {
         if(!CanLog()) {
             return *this;
@@ -63,9 +63,9 @@ public:
         }
 
         m_buffer << "[";
-        if(!arr.empty()) {
-            for(size_t i = 0; i < arr.size(); ++i) {
-                m_buffer << arr[i] << ", ";
+        if (!arr.empty()) {
+            for (const auto& s : arr) {
+                m_buffer << s << ", ";
             }
             m_buffer.RemoveLast(2);
         }
@@ -73,7 +73,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxStringSet_t& S)
+    clModuleLogger& operator<<(const wxStringSet_t& S)
     {
         if(!CanLog()) {
             return *this;
@@ -92,7 +92,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxStringMap_t& M)
+    clModuleLogger& operator<<(const wxStringMap_t& M)
     {
         if(!CanLog()) {
             return *this;
@@ -111,7 +111,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxArrayString& arr)
+    clModuleLogger& operator<<(const wxArrayString& arr)
     {
         if(!CanLog()) {
             return *this;
@@ -121,7 +121,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxColour& colour)
+    clModuleLogger& operator<<(const wxColour& colour)
     {
         if(!CanLog()) {
             return *this;
@@ -131,7 +131,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxPoint& point)
+    clModuleLogger& operator<<(const wxPoint& point)
     {
         if(!CanLog()) {
             return *this;
@@ -143,7 +143,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxSize& size)
+    clModuleLogger& operator<<(const wxSize& size)
     {
         if(!CanLog()) {
             return *this;
@@ -155,7 +155,7 @@ public:
         return *this;
     }
 
-    inline clModuleLogger& operator<<(const wxRect& rect)
+    clModuleLogger& operator<<(const wxRect& rect)
     {
         if(!CanLog()) {
             return *this;
@@ -170,7 +170,7 @@ public:
      * Without this overload operator, on some compilers, the "clDEBUG()<< wxString" might be "going" to the one
      * that handles wxFileName...
      */
-    inline clModuleLogger& operator<<(const wxString& str)
+    clModuleLogger& operator<<(const wxString& str)
     {
         if(!CanLog()) {
             return *this;
@@ -184,7 +184,7 @@ public:
     /**
      * @brief handle char*
      */
-    inline clModuleLogger& operator<<(const char* str)
+    clModuleLogger& operator<<(const char* str)
     {
         if(!CanLog()) {
             return *this;
@@ -196,7 +196,7 @@ public:
     /**
      * @brief special wxFileName printing
      */
-    inline clModuleLogger& operator<<(const wxFileName& fn)
+    clModuleLogger& operator<<(const wxFileName& fn)
     {
         if(!CanLog()) {
             return *this;

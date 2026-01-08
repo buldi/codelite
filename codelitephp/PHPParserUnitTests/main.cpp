@@ -17,9 +17,8 @@
 void PrintMatches(const PHPEntityBase::List_t& matches)
 {
 #if 0
-    PHPEntityBase::List_t::const_iterator iter = matches.begin();
-    for(; iter != matches.end(); ++iter) {
-        (*iter)->PrintStdout(2);
+    for (const auto& match : matches) {
+        match->PrintStdout(2);
     }
 #endif
 }
@@ -487,9 +486,9 @@ TEST_FUNC(test_define_with_namespace)
 }
 
 // test code completion for local variables
-TEST_FUNC(test_word_completion_local_variale_1)
+TEST_FUNC(test_word_completion_local_variable_1)
 {
-    PHPSourceFile sourceFile(wxFileName("../Tests/test_word_completion_local_variale_1.php"), &lookup);
+    PHPSourceFile sourceFile(wxFileName("../Tests/test_word_completion_local_variable_1.php"), &lookup);
     sourceFile.SetParseFunctionBody(true);
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
@@ -706,7 +705,7 @@ TEST_FUNC(test_constants)
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
 
-    // Use this epxression and check
+    // Use this expression and check
     PHPExpression expr(sourceFile.GetText());
     PHPEntityBase::Ptr_t resolved = expr.Resolve(lookup, sourceFile.GetFilename().GetFullPath());
     CHECK_BOOL(resolved);
@@ -728,7 +727,7 @@ TEST_FUNC(test_phpdoc_var_in_class)
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
 
-    // Use this epxression and check
+    // Use this expression and check
     PHPExpression expr(sourceFile.GetText());
     PHPEntityBase::Ptr_t resolved = expr.Resolve(lookup, sourceFile.GetFilename().GetFullPath());
     CHECK_BOOL(resolved);
@@ -750,7 +749,7 @@ TEST_FUNC(test_phpdoc_property)
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
 
-    // Use this epxression and check
+    // Use this expression and check
     PHPExpression expr(sourceFile.GetText());
     PHPEntityBase::Ptr_t resolved = expr.Resolve(lookup, sourceFile.GetFilename().GetFullPath());
     CHECK_BOOL(resolved);
@@ -771,7 +770,7 @@ TEST_FUNC(test_phpdoc_method)
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
 
-    // Use this epxression and check
+    // Use this expression and check
     PHPExpression expr(sourceFile.GetText());
     PHPEntityBase::Ptr_t resolved = expr.Resolve(lookup, sourceFile.GetFilename().GetFullPath());
     CHECK_BOOL(resolved);
@@ -792,7 +791,7 @@ TEST_FUNC(test_function_phpdoc)
     sourceFile.Parse();
     lookup.UpdateSourceFile(sourceFile);
 
-    // Use this epxression and check
+    // Use this expression and check
     PHPExpression expr(sourceFile.GetText());
     PHPEntityBase::Ptr_t resolved = expr.Resolve(lookup, sourceFile.GetFilename().GetFullPath());
     CHECK_BOOL(resolved);

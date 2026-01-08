@@ -26,7 +26,6 @@
 #include "compilation_database.h"
 
 #include "JSON.h"
-#include "cl_standard_paths.h"
 #include "compiler_command_line_parser.h"
 #include "file_logger.h"
 #include "fileextmanager.h"
@@ -35,6 +34,7 @@
 #include "workspace.h"
 
 #include <algorithm>
+#include <queue>
 #include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/filename.h>
@@ -78,7 +78,7 @@ void CompilationDatabase::Open()
         m_db->Open(dbfile.GetFullPath());
         CreateDatabase();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception&) {
 
         delete m_db;
         m_db = NULL;
@@ -134,7 +134,7 @@ void CompilationDatabase::CompilationLine(const wxString& filename, wxString& co
             }
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
 }
@@ -147,7 +147,7 @@ void CompilationDatabase::Close()
             m_db->Close();
             delete m_db;
 
-        } catch(wxSQLite3Exception& e) {
+        } catch (const wxSQLite3Exception& e) {
             wxUnusedVar(e);
         }
     }
@@ -163,7 +163,7 @@ void CompilationDatabase::Initialize()
     // get list of files created by cmake
     FileNameVector_t files = GetCompileCommandsFiles();
 
-    // pick codelite's compilation database created by codelite-cc
+    // pick CodeLite's compilation database created by codelite-cc
     // - convert it to compile_commands.json
     // - append it the list of files
     wxFileName clCustomCompileFile = GetFileName();
@@ -206,7 +206,7 @@ void CompilationDatabase::CreateDatabase()
                    << "')";
         m_db->ExecuteUpdate(versionSql);
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
 }
@@ -222,7 +222,7 @@ void CompilationDatabase::DropTables()
         m_db->ExecuteUpdate("DROP TABLE COMPILATION_TABLE");
         m_db->ExecuteUpdate("DROP TABLE SCHEMA_VERSION");
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
 }
@@ -245,7 +245,7 @@ wxString CompilationDatabase::GetDbVersion()
             return schemaVersion;
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
     return wxT("");
@@ -266,7 +266,7 @@ bool CompilationDatabase::IsDbVersionUpToDate(const wxFileName& fn)
         }
         return false;
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
     return false;
@@ -363,7 +363,7 @@ void CompilationDatabase::ProcessCMakeCompilationDatabase(const wxFileName& comp
 
         m_db->ExecuteUpdate("COMMIT");
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
 }
@@ -444,13 +444,14 @@ wxArrayString CompilationDatabase::FindIncludePaths(const wxString& rootFolder, 
             wxString cwd = element.namedObject("directory").toString();
             CompilerCommandLineParser cclp(cmd, cwd);
             const wxArrayString& includes = cclp.GetIncludes();
-            std::for_each(includes.begin(), includes.end(),
-                          [&](const wxString& includePath) { paths.insert(includePath); });
+            paths.insert(includes.begin(), includes.end());
         }
     }
     // Convert the set back to array
     wxArrayString includePaths;
-    std::for_each(paths.begin(), paths.end(), [&](const wxString& path) { includePaths.Add(path); });
+    for (const wxString& path : paths) {
+        includePaths.Add(path);
+    }
     return includePaths;
 }
 

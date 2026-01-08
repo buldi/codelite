@@ -34,12 +34,10 @@
     }
 
 CppCommentCreator::CppCommentCreator(TagEntryPtr tag, wxChar keyPrefix)
-    : CommentCreator(keyPrefix)
+    : m_keyPrefix(keyPrefix)
     , m_tag(tag)
 {
 }
-
-CppCommentCreator::~CppCommentCreator() {}
 
 wxString CppCommentCreator::CreateComment()
 {
@@ -57,25 +55,14 @@ wxString CppCommentCreator::FunctionComment()
     wxString comment;
 
     // parse the function signature
-    std::vector<TagEntryPtr> tags;
     Language* lang = LanguageST::Get();
-    lang->GetLocalVariables(m_tag->GetSignature(), tags, true);
+    const std::vector<TagEntryPtr> tags = lang->GetLocalVariables(m_tag->GetSignature());
 
     comment << wxT("$(FunctionPattern)\n");
-    for(size_t i = 0; i < tags.size(); i++)
-        comment << wxT(" * ") << m_keyPrefix << wxT("param ") << tags.at(i)->GetName() << wxT("\n");
+    for (const auto& tag : tags)
+        comment << wxT(" * ") << m_keyPrefix << wxT("param ") << tag->GetName() << wxT("\n");
 
-    if(m_tag->GetKind() == wxT("function")) {
-        clFunction f;
-        if(lang->FunctionFromPattern(m_tag, f)) {
-            wxString type = _U(f.m_returnValue.m_type.c_str());
-            trimMe(type);
-            if(type != wxT("void")) { // void has no return value
-                comment << wxT(" * ") << m_keyPrefix << wxT("return \n");
-            }
-        }
-
-    } else {
+    if (m_tag->GetKind() != wxT("function")) {
         Variable var;
         lang->VariableFromPattern(m_tag->GetPattern(), m_tag->GetName(), var);
         wxString type = _U(var.m_type.c_str());

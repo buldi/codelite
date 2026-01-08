@@ -7,14 +7,10 @@
 
 #include <wx/xml/xml.h>
 
-XDebugEvalCmdHandler::XDebugEvalCmdHandler(const wxString& expression, int evalReason, XDebugManager* mgr, int transcationId)
-    : XDebugCommandHandler(mgr, transcationId)
+XDebugEvalCmdHandler::XDebugEvalCmdHandler(const wxString& expression, int evalReason, XDebugManager* mgr, int transactionId)
+    : XDebugCommandHandler(mgr, transactionId)
     , m_expression(expression)
     , m_evalReason(evalReason)
-{
-}
-
-XDebugEvalCmdHandler::~XDebugEvalCmdHandler()
 {
 }
 

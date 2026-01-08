@@ -78,9 +78,8 @@ bool MarkupParser::Next()
 
 bool MarkupParser::IsMatchPattern(wxString& match, int& type)
 {
-    MarkupSearchPattern::List_t::iterator iter = m_patterns.begin();
-    for(; iter != m_patterns.end(); ++iter) {
-        if(iter->Match(m_tip, type, match)) {
+    for (auto& pattern : m_patterns) {
+        if (pattern.Match(m_tip, type, match)) {
             return true;
         }
     }
@@ -115,12 +114,10 @@ MarkupSearchPattern::MarkupSearchPattern(const wxString& search, int type, bool 
     , m_type(type)
     , m_matchIndex(matchIndex)
 {
-    if(isRegex) {
-        m_regex = new wxRegEx(search);
+    if (isRegex) {
+        m_regex = std::make_unique<wxRegEx>(search);
 
     } else {
         m_pattern = search;
     }
 }
-
-MarkupSearchPattern::~MarkupSearchPattern() {}

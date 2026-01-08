@@ -14,6 +14,10 @@
 #include <wx/textctrl.h>
 #include <wx/window.h>
 
+#ifdef __WXMSW__
+#include <wx/msw/wrapwin.h> // <windows.h> defines ResetDC :-(, so do it consistently
+#endif
+
 enum class eColourHandlerState {
     kNormal = 0,
     kInEscape,          // found ESC char
@@ -42,7 +46,7 @@ public:
     int GetStyle(const wxColour& fg, const wxColour& bg);
     wxTextAttr GetDefaultStyle() const;
     wxSTCStyleProvider(wxStyledTextCtrl* ctrl);
-    virtual ~wxSTCStyleProvider();
+    virtual ~wxSTCStyleProvider() = default;
     void Clear();
     void OnIdle(wxIdleEvent& event);
 };
@@ -58,7 +62,7 @@ struct WXDLLIMPEXP_SDK Chunk {
     bool is_title = false;
 
     bool is_empty() const { return is_text && d.empty(); }
-    typedef std::vector<Chunk> Vec_t;
+    using Vec_t = std::vector<Chunk>;
 };
 
 struct WXDLLIMPEXP_SDK clRenderDefaultStyle {
@@ -76,7 +80,7 @@ struct WXDLLIMPEXP_SDK clRenderDefaultStyle {
 
 class WXDLLIMPEXP_SDK clAnsiEscapeCodeHandler
 {
-    typedef std::map<int, wxColour> ColoursMap_t;
+    using ColoursMap_t = std::map<int, wxColour>;
     ColoursMap_t m_8_bit_colours_normal;
     ColoursMap_t m_8_bit_colours_for_dark_theme;
     ColoursMap_t m_colours_normal;
@@ -96,7 +100,7 @@ private:
 
 public:
     clAnsiEscapeCodeHandler();
-    ~clAnsiEscapeCodeHandler();
+    ~clAnsiEscapeCodeHandler() = default;
 
     void Parse(const wxString& buffer);
     void Reset();
@@ -118,8 +122,8 @@ public:
     /**
      * @brief render line without style
      */
-    void RenderNoStyle(wxDC& dc, const clRenderDefaultStyle& defaultStyle, int line, const wxRect& rect,
-                       bool isLightTheme);
+    void
+    RenderNoStyle(wxDC& dc, const clRenderDefaultStyle& defaultStyle, int line, const wxRect& rect, bool isLightTheme);
 
     size_t GetLineCount() const { return m_chunks.size(); }
 

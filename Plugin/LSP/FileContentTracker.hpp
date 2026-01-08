@@ -27,8 +27,8 @@ private:
     bool find(const wxString& filepath, FileState** state);
 
 public:
-    FileContentTracker();
-    virtual ~FileContentTracker();
+    FileContentTracker() = default;
+    virtual ~FileContentTracker() = default;
 
     /**
      * @brief do we track `filepath`?
@@ -41,7 +41,7 @@ public:
     void erase(const wxString& filepath);
 
     /**
-     * @brief return the changes needed in otder to change `before` into `after`
+     * @brief return the changes needed in order to change `before` into `after`
      */
     std::vector<LSP::TextDocumentContentChangeEvent> changes_from(const wxString& before, const wxString& after);
 
@@ -55,9 +55,6 @@ public:
      */
     bool get_last_content(const wxString& filepath, wxString* content);
     void clear() { m_files.clear(); }
-
-    void add_flag(const wxString& filepath, size_t flag);
-    void remove_flag(const wxString& filepath, size_t flag);
 };
 
 #endif // FILECONTENTTRACKER_HPP

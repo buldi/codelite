@@ -22,12 +22,10 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-#ifndef DRAWINGUTILS_H
-#define DRAWINGUTILS_H
+#pragma once
 
 #include "clColours.h"
 #include "codelite_exports.h"
-#include "ieditor.h"
 
 #include <wx/colour.h>
 #include <wx/dc.h>
@@ -50,6 +48,8 @@ class WXDLLIMPEXP_SDK DrawingUtils
 public:
     static wxColour LightColour(const wxColour& color, float percent);
     static wxColour DarkColour(const wxColour& color, float percent);
+    /// Return a random colour suited for the current theme
+    static wxColour GetRandomColour();
     static wxColour GetPanelBgColour();
     static wxColour GetPanelTextColour();
     static wxColour GetButtonBgColour();
@@ -73,10 +73,9 @@ public:
     static void DrawTabBackgroundArea(wxDC& dc, wxWindow* wnd, const wxRect& rect);
 
     /**
-     * @brief return the height of tab control
-     * @param requestedHeight - the value from `ptions->GetNotebookTabHeight()`
+     * @brief return the height of the tab control
      */
-    static int GetTabHeight(wxDC& dc, wxWindow* win, int requestedHeight);
+    static int GetTabHeight(wxDC& dc, wxWindow* win);
 
     /**
      * @brief return a fallback fixed font incase we could not locate one in the
@@ -136,7 +135,7 @@ public:
     /// -------------------------------------------------------------
 
     /**
-     * @brief draw a standard codelite background colour
+     * @brief draw a standard CodeLite background colour
      * @param rect
      * @param dc
      */
@@ -190,5 +189,3 @@ public:
     /// return GCDC, this function never fails
     static wxDC& GetGCDC(wxDC& dc, wxGCDC& gdc);
 };
-
-#endif // DRAWINGUTILS_H

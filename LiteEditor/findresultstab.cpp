@@ -47,6 +47,7 @@
 #include "search_thread.h"
 
 #include <algorithm>
+#include <wx/msgdlg.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
 #include <wx/xrc/xmlres.h>
@@ -118,7 +119,7 @@ void FindResultsTab::OnFindInFiles(wxCommandEvent& e)
 {
     wxUnusedVar(e);
     if(m_searchInProgress) {
-        ::wxMessageBox(_("Another search is currently running, try again later"), _("CodeLite"),
+        ::wxMessageBox(_("Another search is currently running, try again later"), wxT("CodeLite"),
                        wxICON_WARNING | wxOK | wxOK_DEFAULT);
         return;
     }
@@ -163,23 +164,22 @@ void FindResultsTab::OnSearchMatch(wxCommandEvent& e)
     wxWindowUpdateLocker locker{ m_sci };
     m_indicators.reserve(m_indicators.size() + res->size());
 
-    auto iter = res->begin();
-    for(; iter != res->end(); ++iter) {
-        if(m_matchInfo.empty() || m_matchInfo.rbegin()->second.GetFileName() != iter->GetFileName()) {
+    for (const auto& searchResult : *res) {
+        if (m_matchInfo.empty() || m_matchInfo.rbegin()->second.GetFileName() != searchResult.GetFileName()) {
             if(!m_matchInfo.empty()) {
                 AppendLine("\n", false);
             }
-            AppendLine(iter->GetFileName() + wxT("\n"), false);
+            AppendLine(searchResult.GetFileName() + wxT("\n"), false);
         }
 
         int lineno = m_sci->GetLineCount() - 1;
-        m_matchInfo.insert(std::make_pair(lineno, *iter));
-        wxString text = iter->GetPattern();
+        m_matchInfo.insert(std::make_pair(lineno, searchResult));
+        wxString text = searchResult.GetPattern();
 
-        wxString linenum = wxString::Format(wxT(" %5u: "), iter->GetLineNumber());
+        wxString linenum = wxString::Format(wxT(" %5u: "), searchResult.GetLineNumber());
         AppendLine(linenum + text + wxT("\n"), false);
-        int indicatorStartPos = m_sci->PositionFromLine(lineno) + iter->GetColumn() + linenum.Length();
-        int indicatorLen = iter->GetLen();
+        int indicatorStartPos = m_sci->PositionFromLine(lineno) + searchResult.GetColumn() + linenum.Length();
+        int indicatorLen = searchResult.GetLen();
         m_indicators.emplace_back(indicatorStartPos);
         m_sci->IndicatorFillRange(indicatorStartPos, indicatorLen);
     }
@@ -220,8 +220,7 @@ void FindResultsTab::OnSearchEnded(wxCommandEvent& e)
     // We need to tell all editors that there's been a (new) search
     // This lets them clear any already-saved line-changes,
     // which a new save will have taken into account
-    clEditor::Vec_t editors;
-    clMainFrame::Get()->GetMainBook()->GetAllEditors(editors, MainBook::kGetAll_IncludeDetached);
+    auto editors = clMainFrame::Get()->GetMainBook()->GetAllEditors();
     for(size_t n = 0; n < editors.size(); ++n) {
         clEditor* editor = dynamic_cast<clEditor*>(*(editors.begin() + n));
         if(editor) {
@@ -346,8 +345,7 @@ void FindResultsTab::DoOpenSearchResult(const SearchResult& result, wxStyledText
         if(editor && result.GetLen() >= 0) {
             // Update the destination position if there have been subsequent changes in the editor
             int position = editor->PositionFromLine(result.GetLineNumber() - 1) + result.GetColumn();
-            std::vector<int> changes;
-            editor->GetChanges(changes);
+            const std::vector<int> changes = editor->GetChanges();
             unsigned int changesTotal = changes.size();
             int changePosition = 0;
             int changeLength = 0;
@@ -414,7 +412,7 @@ void FindResultsTab::OnHoldOpenUpdateUI(wxUpdateUIEvent& e)
         return;
     }
 
-    if(EditorConfigST::Get()->GetOptions()->GetHideOutpuPaneOnUserClick()) {
+    if (EditorConfigST::Get()->GetOptions()->GetHideOutputPaneOnUserClick()) {
         e.Enable(true);
         e.Check(EditorConfigST::Get()->GetOptions()->GetHideOutputPaneNotIfSearch());
 
@@ -450,11 +448,11 @@ void FindResultsTab::OnRecentSearches(wxCommandEvent& e)
     const int firstID = 8000;
     int counter = 0;
     std::map<int, History> entries;
-    std::for_each(m_history.Begin(), m_history.End(), [&](const std::pair<wxString, History>& p) {
+    for (const auto& p : m_history) {
         menu.Prepend(firstID + counter, p.first, "", wxITEM_CHECK)->Check(m_searchTitle == p.first);
         entries.insert(std::make_pair(firstID + counter, p.second));
         ++counter;
-    });
+    }
 
     auto button = m_tb->FindById(e.GetId());
     CHECK_PTR_RET(button);
@@ -503,8 +501,9 @@ void FindResultsTab::LoadSearch(const History& h)
     m_sci->SetText(h.text);
 
     // restore the indicators
-    std::for_each(h.indicators.begin(), h.indicators.end(),
-                  [&](int pos) { m_sci->IndicatorFillRange(pos, h.title.length()); });
+    for (int pos : h.indicators) {
+        m_sci->IndicatorFillRange(pos, h.title.length());
+    }
     m_sci->SetFirstVisibleLine(0);
     m_sci->SetEditable(false);
 }
@@ -541,7 +540,7 @@ void FindResultsTab::BindSearchEvents(wxEvtHandler* binder)
 
 /////////////////////////////////////////////////////////////////////////////////
 
-void EditorDeltasHolder::GetChanges(std::vector<int>& changes)
+std::vector<int> EditorDeltasHolder::GetChanges()
 {
     // There may have been net +ve or -ve position changes (i.e. undos) subsequent to a last save
     // and some of these may have then been overwritten by different ones. So we need to add both the originals and
@@ -551,10 +550,11 @@ void EditorDeltasHolder::GetChanges(std::vector<int>& changes)
     // none since the last save,
     // but it may also mean that there have been n undos, followed by n different alterations. So we have to treat all
     // array sizes the same
-    changes.clear();
+    std::vector<int> changes;
     for(int index = m_changesForCurrentMatches.size() - 2; index >= 0; index -= 2) {
         changes.push_back(m_changesForCurrentMatches.at(index));      // position
         changes.push_back(-m_changesForCurrentMatches.at(index + 1)); // length
     }
     changes.insert(changes.end(), m_changes.begin(), m_changes.end());
+    return changes;
 }

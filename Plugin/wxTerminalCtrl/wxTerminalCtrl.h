@@ -32,39 +32,8 @@ enum {
 
 class WXDLLIMPEXP_SDK wxTerminalCtrl : public wxPanel
 {
-protected:
-    long m_style = 0;
-    IProcess* m_shell = nullptr;
-    wxTerminalOutputCtrl* m_outputView = nullptr;
-    wxTerminalInputCtrl* m_inputCtrl = nullptr;
-    std::unordered_set<long> m_initialProcesses;
-    wxTextAttr m_preEchoOffAttr;
-    bool m_pauseOnExit = false;
-    bool m_printTTY = false;
-    wxString m_startupCommand;
-    wxString m_logfile;
-    wxString m_ttyfile;
-    bool m_terminating = false;
-    wxString m_processOutput;
-    wxString m_startingDirectory;
-    wxString m_shellCommand;
-
-protected:
-    void StartShell();
-    void AppendText(wxStringView text);
-    void OnProcessOutput(clProcessEvent& event);
-    void OnProcessError(clProcessEvent& event);
-    void OnProcessTerminated(clProcessEvent& event);
-    bool PromptForPasswordIfNeeded(const wxString& line_lowercase);
-    void OnWorkspaceLoaded(clWorkspaceEvent& event);
-    void ProcessOutputBuffer();
-    wxStringView GetNextLine();
-
-protected:
-    void DoProcessTerminated();
-
 public:
-    wxTerminalCtrl();
+    wxTerminalCtrl() = default;
     wxTerminalCtrl(wxWindow* parent, wxWindowID winid, const wxString& working_directory,
                    const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
                    long style = wxTAB_TRAVERSAL | wxNO_BORDER | wxTERMINAL_CTRL_USE_EVENTS,
@@ -91,7 +60,7 @@ public:
     const wxString& GetShellCommand() const { return m_shellCommand; }
 
     /**
-     * @brief execute a command in the temrinal
+     * @brief execute a command in the terminal
      * @param command
      */
     void Run(const wxString& command);
@@ -100,11 +69,6 @@ public:
      * @brief generate Ctrl-C like. By default this will send SIGTERM (Ctrl-C)
      */
     void GenerateCtrlC();
-
-    /**
-     * @brief send TAB char to the terminal
-     */
-    void SendTab();
 
     /**
      * @brief clear the display (Ctrl-L)
@@ -118,6 +82,37 @@ public:
 
     void SetLogfile(const wxString& logfile) { this->m_logfile = logfile; }
     const wxString& GetLogfile() const { return m_logfile; }
+
+protected:
+    void StartShell();
+    void AppendText(wxStringView text);
+    void OnProcessOutput(clProcessEvent& event);
+    void OnProcessError(clProcessEvent& event);
+    void OnProcessTerminated(clProcessEvent& event);
+    bool PromptForPasswordIfNeeded(const wxString& line_lowercase);
+    void OnWorkspaceLoaded(clWorkspaceEvent& event);
+    void ProcessOutputBuffer();
+    wxStringView GetNextLine();
+    void DoProcessTerminated();
+    void ProcessIdle();
+
+protected:
+    long m_style = 0;
+    IProcess* m_shell = nullptr;
+    wxTerminalOutputCtrl* m_outputView = nullptr;
+    wxTerminalInputCtrl* m_inputCtrl = nullptr;
+    std::unordered_set<long> m_initialProcesses;
+    wxTextAttr m_preEchoOffAttr;
+    bool m_pauseOnExit = false;
+    bool m_printTTY = false;
+    wxString m_startupCommand;
+    wxString m_logfile;
+    wxString m_ttyfile;
+    bool m_terminating = false;
+    wxString m_processOutput;
+    wxString m_startingDirectory;
+    wxString m_shellCommand;
+    friend class clBuiltinTerminalPane;
 };
 
 #endif // WXTERMINALCTRL_H

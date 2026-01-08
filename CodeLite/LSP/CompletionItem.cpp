@@ -1,10 +1,6 @@
 #include "CompletionItem.h"
 #include "JSON.h"
 
-LSP::CompletionItem::CompletionItem() {}
-
-LSP::CompletionItem::~CompletionItem() {}
-
 JSONItem LSP::CompletionItem::ToJSON(const wxString& name) const { return JSONItem(NULL); }
 
 void LSP::CompletionItem::FromJSON(const JSONItem& json)
@@ -34,7 +30,7 @@ void LSP::CompletionItem::FromJSON(const JSONItem& json)
         JSONItem additionalTextEdits = json.namedObject("additionalTextEdits");
         int count = additionalTextEdits.arraySize();
         for(int i = 0; i < count; ++i) {
-            wxSharedPtr<TextEdit> edit(new TextEdit());
+            auto edit = std::make_shared<TextEdit>();
             edit->FromJSON(additionalTextEdits.arrayItem(i));
             m_vAdditionalText.push_back(edit);
         }

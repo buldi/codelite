@@ -25,7 +25,7 @@ PhpOptions::PhpOptions()
         m_phpExe = oldJson.namedObject("m_phpExe").toString();
         if(m_phpExe.empty()) {
             wxFileName fnPHP;
-            if(::clFindExecutable("php", fnPHP)) {
+            if (::FileUtils::FindExe("php", fnPHP)) {
                 m_phpExe = fnPHP.GetFullPath();
             }
         }
@@ -53,14 +53,12 @@ PhpOptions::PhpOptions()
     }
 }
 
-PhpOptions::~PhpOptions() {}
-
 void PhpOptions::FromJSON(const JSONItem& json)
 {
     m_phpExe = json.namedObject("m_phpExe").toString(m_phpExe);
     if(m_phpExe.IsEmpty()) {
         wxFileName phpExe;
-        clFindExecutable("php", phpExe);
+        FileUtils::FindExe("php", phpExe);
         m_phpExe = phpExe.GetFullPath();
     }
 

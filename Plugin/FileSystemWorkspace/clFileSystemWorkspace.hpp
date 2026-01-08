@@ -2,7 +2,6 @@
 #define CLFILESYSTEMWORKSPACE_HPP
 
 #include "AsyncProcess/asyncprocess.h"
-#include "IWorkspace.h"
 #include "builder/clRemoteBuilder.hpp"
 #include "clBacktickCache.hpp"
 #include "clDebuggerTerminal.h"
@@ -10,19 +9,19 @@
 #include "clFileSystemEvent.h"
 #include "clFileSystemWorkspaceConfig.hpp"
 #include "clShellHelper.hpp"
+#include "clWorkspaceManager.h"
 #include "cl_command_event.h"
 #include "codelite_exports.h"
 #include "compiler.h"
-#include "macros.h"
 
+#include <optional>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include <wx/arrstr.h>
 
 class clFileSystemWorkspaceView;
 
-class WXDLLIMPEXP_SDK clFileSystemWorkspace : public IWorkspace
+class WXDLLIMPEXP_SDK clFileSystemWorkspace : public LocalWorkspaceCommon
 {
     clFileCache m_files;
     wxFileName m_filename;
@@ -39,16 +38,16 @@ class WXDLLIMPEXP_SDK clFileSystemWorkspace : public IWorkspace
     int m_execPID = wxNOT_FOUND;
     clBacktickCache::ptr_t m_backtickCache;
     clShellHelper m_shell_helper;
+    std::optional<int> m_indentWidth{std::nullopt};
 
 protected:
     void CacheFiles(bool force = false);
-    wxString CompileFlagsAsString(const wxArrayString& arr) const;
     wxString GetTargetCommand(const wxString& target) const;
     void DoPrintBuildMessage(const wxString& message);
     clEnvList_t GetEnvList();
     CompilerPtr GetCompiler();
     void CheckForCMakeLists();
-    
+
     //===--------------------------
     // Event handlers
     //===--------------------------
@@ -84,10 +83,9 @@ protected:
     void DoOpen();
     void DoClose();
     void DoClear();
-    void DoCreate(const wxString& name, const wxString& path, bool loadIfExists);
+    void DoCreate(const wxString& path, const wxString& name, bool loadIfExists);
     void RestoreSession();
     void DoBuild(const wxString& target);
-    void TriggerQuickParse();
     clFileSystemWorkspaceConfig::Ptr_t GetConfig() const;
 
 public:
@@ -108,6 +106,7 @@ public:
     void SetProjectActive(const wxString& project) override;
     wxString GetDebuggerName() const override;
     clEnvList_t GetEnvironment() const override;
+    int GetIndentWidth() override;
 
     /**
      * @brief return the executable to run + args + working directory

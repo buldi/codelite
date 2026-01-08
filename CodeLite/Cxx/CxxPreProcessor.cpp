@@ -6,12 +6,8 @@
 
 CxxPreProcessor::CxxPreProcessor()
     : m_options(0)
-    , m_maxDepth(-1)
-    , m_currentDepth(0)
 {
 }
-
-CxxPreProcessor::~CxxPreProcessor() {}
 
 void CxxPreProcessor::Parse(const wxFileName& filename, size_t options)
 {
@@ -25,7 +21,7 @@ void CxxPreProcessor::Parse(const wxFileName& filename, size_t options)
         if(!scanner.IsNull()) {
             scanner.Parse(this);
         }
-    } catch(CxxLexerException& e) {
+    } catch (const CxxLexerException& e) {
         wxUnusedVar(e);
     }
 
@@ -89,80 +85,17 @@ bool CxxPreProcessor::ExpandInclude(const wxFileName& currentFile, const wxStrin
     return false;
 }
 
-void CxxPreProcessor::AddIncludePath(const wxString& path) { m_includePaths.Add(path); }
-
-void CxxPreProcessor::AddDefinition(const wxString& def)
-{
-    wxString macroName = def.BeforeFirst('=');
-    wxString macroValue = def.AfterFirst('=');
-
-    CxxPreProcessorToken token;
-    token.name = macroName;
-    token.value = macroValue;
-    m_tokens.insert(std::make_pair(macroName, token));
-}
-
 wxArrayString CxxPreProcessor::GetDefinitions() const
 {
     wxArrayString defs;
-    CxxPreProcessorToken::Map_t::const_iterator iter = m_tokens.begin();
-    for(; iter != m_tokens.end(); ++iter) {
+
+    for (const auto& p : m_tokens) {
         wxString macro;
-        macro = iter->second.name;
-        if(!iter->second.value.IsEmpty()) {
-            macro << "=" << iter->second.value;
+        macro = p.second.name;
+        if (!p.second.value.IsEmpty()) {
+            macro << "=" << p.second.value;
         }
         defs.Add(macro);
     }
     return defs;
 }
-
-wxString CxxPreProcessor::GetGxxCommand(const wxString& gxx, const wxString& filename) const
-{
-    wxString command;
-    command << gxx << " -dM -E -D__WXMSW__ -D__cplusplus -fsyntax-only ";
-    for(size_t i = 0; i < m_includePaths.GetCount(); ++i) {
-        command << "-I" << m_includePaths.Item(i) << " ";
-    }
-    command << " - < " << filename;
-    return command;
-}
-
-void CxxPreProcessor::SetIncludePaths(const wxArrayString& includePaths)
-{
-    m_includePaths.Clear();
-    m_includePaths.reserve(includePaths.size());
-
-    std::unordered_set<wxString> S;
-    S.reserve(includePaths.size());
-
-    for(size_t i = 0; i < includePaths.GetCount(); ++i) {
-        wxString path = includePaths.Item(i);
-        path.Trim().Trim(false);
-        if(path.IsEmpty()) {
-            continue;
-        }
-
-        if(S.count(path) == 0) {
-            m_includePaths.Add(path);
-            S.insert(path);
-        }
-    }
-}
-
-bool CxxPreProcessor::CanGoDeeper() const
-{
-    if(m_maxDepth == -1)
-        return true;
-    return m_currentDepth < m_maxDepth;
-}
-
-void CxxPreProcessor::DecDepth()
-{
-    m_currentDepth--;
-    if(m_currentDepth < 0) {
-        m_currentDepth = 0;
-    }
-}
-
-void CxxPreProcessor::IncDepth() { m_currentDepth++; }

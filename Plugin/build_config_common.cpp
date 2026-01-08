@@ -25,8 +25,7 @@
 
 #include "build_config_common.h"
 
-#include "globals.h"
-#include "macros.h"
+#include "StringUtils.h"
 #include "xmlutils.h"
 
 #include <wx/tokenzr.h>
@@ -90,8 +89,6 @@ BuildConfigCommon::BuildConfigCommon(wxXmlNode* node, wxString confType)
     }
 }
 
-BuildConfigCommon::~BuildConfigCommon() {}
-
 wxXmlNode* BuildConfigCommon::ToXml() const
 {
     wxXmlNode* node = new wxXmlNode(NULL, wxXML_ELEMENT_NODE, m_confType);
@@ -147,13 +144,13 @@ wxXmlNode* BuildConfigCommon::ToXml() const
     return node;
 }
 
-void BuildConfigCommon::SetPreprocessor(const wxString& pre) { FillFromSemiColonString(m_preprocessor, pre); }
+void BuildConfigCommon::SetPreprocessor(const wxString& pre) { m_preprocessor = StringUtils::BuildArgv(pre); }
 
-void BuildConfigCommon::SetIncludePath(const wxString& path) { FillFromSemiColonString(m_includePath, path); }
+void BuildConfigCommon::SetIncludePath(const wxString& path) { m_includePath = StringUtils::BuildArgv(path); }
 
-void BuildConfigCommon::SetLibraries(const wxString& libs) { FillFromSemiColonString(m_libs, libs); }
+void BuildConfigCommon::SetLibraries(const wxString& libs) { m_libs = StringUtils::BuildArgv(libs); }
 
-void BuildConfigCommon::SetLibPath(const wxString& paths) { FillFromSemiColonString(m_libPath, paths); }
+void BuildConfigCommon::SetLibPath(const wxString& paths) { m_libPath = StringUtils::BuildArgv(paths); }
 
 static wxString ConvertToSemiColonString(const wxArrayString& array)
 {

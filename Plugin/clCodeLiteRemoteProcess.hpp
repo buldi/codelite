@@ -8,7 +8,7 @@
 
 #include <deque>
 #include <functional>
-#include <queue>
+#include <memory>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/event.h>
@@ -17,20 +17,27 @@
 class WXDLLIMPEXP_SDK clCodeLiteRemoteProcess : public wxEvtHandler
 {
 protected:
-    typedef void (clCodeLiteRemoteProcess::*CallbackFunc)(const wxString&, bool);
-    struct callback_pair {
+    using CallbackFunc = void (clCodeLiteRemoteProcess::*)(const wxString&, bool);
+    using UserCallback = std::function<void(const wxString&)>;
+    struct CallbackOptions {
         CallbackFunc func = nullptr;
         IProcess* handler = nullptr;
-        callback_pair(CallbackFunc func, IProcess* handler)
+        UserCallback user_callback = nullptr;
+
+        // When user_callback is used, we aggregate the output here until "is_completed"
+        // is true, only then we call the user_callback
+        wxString aggregated_output;
+        CallbackOptions(CallbackFunc func, IProcess* handler, UserCallback user_callback)
         {
             this->func = func;
             this->handler = handler;
+            this->user_callback = user_callback;
         }
     };
 
 protected:
-    IProcess* m_process = nullptr;
-    std::deque<callback_pair> m_completionCallbacks;
+    std::unique_ptr<IProcess> m_process;
+    std::deque<CallbackOptions> m_completionCallbacks;
     wxString m_outputRead;
     size_t m_fif_matches_count = 0;
     size_t m_fif_files_scanned = 0;
@@ -55,18 +62,22 @@ protected:
     void OnLocateOutput(const wxString& buffer, bool is_completed);
     void OnFindPathOutput(const wxString& buffer, bool is_completed);
     void OnExecOutput(const wxString& buffer, bool is_completed);
-    bool DoExec(const wxString& cmd, const wxString& working_directory, const clEnvList_t& env,
-                IProcess* handler = nullptr);
+    bool DoExec(const wxString& cmd,
+                const wxString& working_directory,
+                const clEnvList_t& env,
+                IProcess* handler = nullptr,
+                UserCallback cb = nullptr);
 
-    template <typename Container> wxString GetCmdString(const Container& args) const
+    template <typename Container>
+    wxString GetCmdString(const Container& args) const
     {
-        if(args.empty()) {
+        if (args.empty()) {
             return wxEmptyString;
         }
 
         wxString cmdstr;
-        for(auto arg : args) {
-            if(arg.Contains(" ")) {
+        for (auto arg : args) {
+            if (arg.Contains(" ")) {
                 // escape any " before we start escaping
                 arg.Replace("\"", "\\\"");
                 // now wrap with double quotes
@@ -102,33 +113,51 @@ public:
     bool IsRunning() const { return m_process != nullptr; }
 
     // API
-    /**
-     * @brief find all files on a remote machine from a given directory that matches the extensions list
-     */
-    void ListFiles(const wxString& root_dir, const wxString& extensions);
 
     /**
-     * @brief list all configured LSPs on the remote machine
-     * the configuration is read from `codelite-remote.json` config file
+     * @brief find all files on a remote machine from a given directory that matches the extensions list
+     * @extensions a comma/semi colon separate list of patterns to include from the file list (e.g. "*.cpp")
+     * @exclude_extensions a comma/semi colon separate list of patterns to exclude from the file list (e.g. "*.pyc")
+     * @exclude_patterns a comma/semi colon separate list of patterns to exclude from the file list (e.g. "build-debug")
      */
-    void ListLSPs();
+    void ListFiles(const wxString& root_dir,
+                   const wxString& extensions,
+                   const wxString& exclude_extensions,
+                   const wxString& exclude_patterns);
 
     /**
      * @brief find in files on a remote machine
      */
-    void Search(const wxString& root_dir, const wxString& extensions, const wxString& find_what, bool whole_word,
+    void Search(const wxString& root_dir,
+                const wxString& extensions,
+                const wxString& exclude_patterns,
+                const wxString& find_what,
+                bool whole_word,
                 bool icase);
 
     /**
      * @brief replace in file on a remote machine
      */
-    void Replace(const wxString& root_dir, const wxString& extensions, const wxString& find_what,
-                 const wxString& replace_with, bool whole_word, bool icase);
+    void Replace(const wxString& root_dir,
+                 const wxString& extensions,
+                 const wxString& exclude_patterns,
+                 const wxString& find_what,
+                 const wxString& replace_with,
+                 bool whole_word,
+                 bool icase);
 
     /**
      * @brief execute a command on the remote machine
      */
     void Exec(const wxArrayString& args, const wxString& working_directory, const clEnvList_t& env);
+
+    /**
+     * @brief execute a command on the remote machine trigger "cb" when output arrives
+     */
+    void ExecWithCallback(const wxArrayString& args,
+                          UserCallback cb,
+                          const wxString& working_directory = wxEmptyString,
+                          const clEnvList_t& env = {});
 
     /**
      * @brief attempt to locate a file on the remote machine with possible version number
@@ -147,24 +176,30 @@ public:
     void FindPath(const wxString& path);
 
     /**
-     * @brief call 'exec' and return an instance of IProcess. This method is for compatability with the
+     * @brief call 'exec' and return an instance of IProcess. This method is for compatibility with the
      * CreateAsyncProcess family of functions
      * @note it is up to the caller to delete the return process object
      */
-    IProcess* CreateAsyncProcess(wxEvtHandler* handler, const wxString& cmd, const wxString& working_directory,
+    IProcess* CreateAsyncProcess(wxEvtHandler* handler,
+                                 const wxString& cmd,
+                                 const wxString& working_directory,
                                  const clEnvList_t& env);
     /**
      * @brief call 'exec' with callback
      */
-    void CreateAsyncProcessCB(const wxString& cmd, std::function<void(const wxString&)> callback,
-                              const wxString& working_directory, const clEnvList_t& env);
+    void CreateAsyncProcessCB(const wxString& cmd,
+                              std::function<void(const wxString&)> callback,
+                              const wxString& working_directory,
+                              const clEnvList_t& env);
     /**
-     * @brief call 'exec' and return an instance of IProcess. This method is for compatability with the
+     * @brief call 'exec' and return an instance of IProcess. This method is for compatibility with the
      * CreateAsyncProcess family of functions
      * @note it is up to the caller to delete the return process object
      */
     template <typename Container>
-    IProcess* CreateAsyncProcess(wxEvtHandler* handler, const Container& cmd, const wxString& working_directory,
+    IProcess* CreateAsyncProcess(wxEvtHandler* handler,
+                                 const Container& cmd,
+                                 const wxString& working_directory,
                                  const clEnvList_t& env)
     {
         wxString cmdstr = GetCmdString(cmd);

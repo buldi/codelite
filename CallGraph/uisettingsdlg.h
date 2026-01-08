@@ -25,7 +25,7 @@
 
 /***************************************************************
  * Name:      uisettingsdlg.h
- * Purpose:   Header to create settings dialor for plugin.
+ * Purpose:   Header to create settings dialog for plugin.
  * Author:    Václav Špruček
  * Created:   2012-03-04
  * Copyright: Václav Špruček 
@@ -64,7 +64,7 @@ protected:
 public:
 	/** Constructor */
 	uisettingsdlg( wxWindow* parent, IManager *mgr);//, CallGraph *plugin );
-	virtual ~uisettingsdlg();
+    virtual ~uisettingsdlg() = default;
 };
 
 #endif

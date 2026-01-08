@@ -12,11 +12,6 @@ bool is_source_breakpoint(const clDebuggerBreakpoint& bp)
     return bp.bp_type == BreakpointType::BP_type_break && !bp.file.empty() && bp.lineno > 0;
 }
 
-bool is_function_breakpoint(const clDebuggerBreakpoint& bp)
-{
-    return bp.bp_type == BreakpointType::BP_type_break && !bp.function_name.empty();
-}
-
 dap::SourceBreakpoint to_dap_source_bp(const clDebuggerBreakpoint& bp)
 {
     dap::SourceBreakpoint d;
@@ -142,7 +137,7 @@ void BreakpointsHelper::ApplyBreakpoints(const wxString& path)
         }
     }
 
-    // dont pass empty array, it will tell dap to clear all breakpoints
+    // don't pass empty array, it will tell dap to clear all breakpoints
     for(const auto& vt : dap_source_breakpoints) {
         wxFileName filepath(vt.first);
         LOG_DEBUG(LOG) << "Applying breakpoints for file:" << filepath << endl;

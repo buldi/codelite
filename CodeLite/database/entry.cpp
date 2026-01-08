@@ -28,16 +28,12 @@
 #include "CompletionHelper.hpp"
 #include "Cxx/CxxScannerTokens.h"
 #include "Cxx/CxxTokenizer.h"
-#include "code_completion_api.h"
 #include "ctags_manager.h"
-#include "language.h"
 #include "macros.h"
 #include "pptable.h"
 #include "precompiled_header.h"
 #include "tokenizer.h"
-#include "wxStringHash.h"
 
-#include <wx/regex.h>
 #include <wx/tokenzr.h>
 
 TagEntry::TagEntry()
@@ -53,8 +49,6 @@ TagEntry::TagEntry()
     , m_flags(0)
 {
 }
-
-TagEntry::~TagEntry() {}
 
 TagEntry::TagEntry(const TagEntry& rhs) { *this = rhs; }
 
@@ -78,15 +72,14 @@ TagEntry& TagEntry::operator=(const TagEntry& rhs)
     // we use the c_str() method to force our own copy of the string and to avoid
     // ref counting which may cause crash when sharing wxString among threads
     m_extFields.clear();
-    wxStringMap_t::const_iterator iter = rhs.m_extFields.begin();
-    for(; iter != rhs.m_extFields.end(); iter++) {
-        m_extFields[iter->first.c_str()] = iter->second.c_str();
+    for (const auto& p : rhs.m_extFields) {
+        m_extFields[p.first.c_str()] = p.second.c_str();
     }
     m_comment = rhs.m_comment;
     return *this;
 }
 
-bool TagEntry::operator==(const TagEntry& rhs)
+bool TagEntry::operator==(const TagEntry& rhs) const
 {
     // Note: tree item id is not used in this function!
     bool res = m_scope == rhs.m_scope && m_file == rhs.m_file && m_kind == rhs.m_kind && m_parent == rhs.m_parent &&
@@ -129,7 +122,7 @@ void TagEntry::Create(const wxString& fileName, const wxString& name, int lineNu
             if(!tmpname.StartsWith("__anon")) {
                 UpdatePath(path);
             } else {
-                // anonymouse union, remove the anonymous part from its name
+                // anonymous union, remove the anonymous part from its name
                 path = path.BeforeLast(':');
                 path = path.BeforeLast(':');
                 UpdatePath(path);
@@ -178,9 +171,8 @@ void TagEntry::Print()
     std::cout << "Parent:\t\t" << GetParent() << std::endl;
 
     std::cout << " ---- Ext fields: ---- " << std::endl;
-    wxStringMap_t::const_iterator iter = m_extFields.begin();
-    for(; iter != m_extFields.end(); iter++) {
-        std::cout << iter->first << ":\t\t" << iter->second << std::endl;
+    for (const auto& p : m_extFields) {
+        std::cout << p.first << ":\t\t" << p.second << std::endl;
     }
     std::cout << "======================================" << std::endl;
 }
@@ -270,7 +262,7 @@ wxString TagEntry::GetPattern() const
 void TagEntry::FromLine(const wxString& line)
 {
     // label	C:\src\wxCustomControls\clTreeCtrl\clChoice.cpp	/^        const wxString& label = m_choices[i];$/;"
-    // local line:116	type:constwxString
+    // local line:116	type:const wxString
     wxString pattern, kind;
     wxString strLine = line;
     long lineNumber = wxNOT_FOUND;
@@ -552,8 +544,7 @@ wxString TagEntry::GetLocalType() const { return GetExtField("type"); }
 
 namespace
 {
-inline void enable_function_flag_if_exists(const wxStringSet_t& S, const wxString& propname, const size_t flag,
-                                           size_t& flags)
+void enable_function_flag_if_exists(const wxStringSet_t& S, const wxString& propname, const size_t flag, size_t& flags)
 {
     if(S.count(propname)) {
         flags |= flag;

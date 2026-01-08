@@ -31,10 +31,8 @@
 #include "cl_command_event.h"
 #include "php_event.h"
 #include "plugin.h"
-#include "plugin_settings.h"
 
 #include <wx/filename.h>
-#include <wx/sharedptr.h>
 
 class EvalPane;
 class LocalsView;
@@ -47,7 +45,6 @@ class PhpPlugin : public IPlugin
 {
 protected:
     PHPWorkspaceView* m_workspaceView;
-    bool m_clangOldFlag;
     BrowserPanel* m_browser;
     wxString m_savedPerspective;
 
@@ -71,7 +68,7 @@ public:
 
 public:
     PhpPlugin(IManager* manager);
-    ~PhpPlugin();
+    ~PhpPlugin() override = default;
     void SafelyDetachAndDestroyPane(wxWindow* pane, const wxString& name);
     void EnsureAuiPaneIsVisible(const wxString& paneName, bool update = false);
     void FinalizeStartup();
@@ -79,7 +76,6 @@ public:
     PHPDebugPane* GetDebuggerPane() { return m_debuggerPane; }
 
 protected:
-    bool IsWorkspaceViewDetached();
     void DoOpenWorkspace(const wxString& filename, bool createIfMissing = false, bool createProjectFromSources = false);
     void DoPlaceMenuBar(wxMenuBar* menuBar);
     void DoEnsureXDebugPanesVisible(const wxString& selectWindow = "");
@@ -88,10 +84,10 @@ public:
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
     void RunXDebugDiagnostics();
 
     IManager* GetManager() { return m_mgr; }
@@ -105,7 +101,7 @@ public:
     void OnShowQuickOutline(clCodeCompletionEvent& e);
 
     //////////////////////////////////////////////
-    // Other common codelite events
+    // Other common CodeLite events
     //////////////////////////////////////////////
     void OnNewWorkspace(clCommandEvent& e);
     void OnIsWorkspaceOpen(clCommandEvent& e);
@@ -120,15 +116,13 @@ public:
     void OnNewProjectFinish(clNewProjectEvent& e);
     void OnRunXDebugDiagnostics(wxCommandEvent& e);
     void OnMenuCommand(wxCommandEvent& e);
-    void OnXDebugShowBreakpointsWindow(wxCommandEvent& e);
     void OnXDebugDeleteAllBreakpoints(clDebugEvent& e);
-    void OnXDebugSettings(wxCommandEvent& e);
     void OnLoadURL(PHPEvent& e);
     void OnAllEditorsClosed(wxCommandEvent& e);
     void OnGoingDown(clCommandEvent& event);
     void OnDebugStarted(XDebugEvent& e);
     void OnDebugEnded(XDebugEvent& e);
-    void OnFileSysetmUpdated(clFileSystemEvent& event);
+    void OnFileSystemUpdated(clFileSystemEvent& event);
     void OnSaveSession(clCommandEvent& event);
 };
 

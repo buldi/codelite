@@ -102,8 +102,6 @@ Cscope::Cscope(IManager* manager)
     EventNotifier::Get()->Bind(wxEVT_CONTEXT_MENU_EDITOR, &Cscope::OnEditorContentMenu, this);
 }
 
-Cscope::~Cscope() {}
-
 void Cscope::CreateToolBar(clToolBarGeneric* toolbar)
 {
     // support both toolbars icon size
@@ -205,7 +203,7 @@ void Cscope::CreatePluginMenu(wxMenu* pluginsMenu)
 
 void Cscope::UnPlug()
 {
-    m_tabHelper.reset(NULL);
+    m_tabHelper.reset();
     m_topWindow->Disconnect(XRCID("cscope_functions_called_by_this_function"), wxEVT_UPDATE_UI,
                             wxUpdateUIEventHandler(Cscope::OnCscopeUI), NULL, (wxEvtHandler*)this);
     m_topWindow->Disconnect(XRCID("cscope_files_including_this_filename"), wxEVT_UPDATE_UI,
@@ -249,7 +247,7 @@ void Cscope::UnPlug()
 wxMenu* Cscope::CreateEditorPopMenu()
 {
     // Create the popup menu for the file explorer
-    // The only menu that we are interseted is the file explorer menu
+    // The only menu that we are interested is the file explorer menu
     wxMenu* menu = new wxMenu();
     wxMenuItem* item(NULL);
 
@@ -484,7 +482,7 @@ void Cscope::OnFindFilesIncludingThisFname(wxCommandEvent& e)
     if(word.IsEmpty()) {
         // If there's no selection, try for the caret word
         // That'll either be (rubbish, or) a filename
-        // or it'll be the 'h'of filename.h
+        // or it'll be the 'h' of filename.h
         // Cscope can cope with just a filename
         word = m_mgr->GetActiveEditor()->GetWordAtCaret();
         if(word == "h") {

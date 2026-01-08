@@ -51,7 +51,7 @@ public:
 
 public:
     DbConnectionInfo();
-    virtual ~DbConnectionInfo();
+    virtual ~DbConnectionInfo() = default;
 
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON() const;
@@ -107,7 +107,7 @@ public:
     }
 };
 
-typedef std::vector<DbConnectionInfo> DbConnectionInfoVec;
+using DbConnectionInfoVec = std::vector<DbConnectionInfo>;
 
 class DbExplorerSettings : public clConfigItem
 {
@@ -118,7 +118,7 @@ protected:
 
 public:
     DbExplorerSettings();
-    virtual ~DbExplorerSettings();
+    virtual ~DbExplorerSettings() = default;
 
     void SetRecentFiles(const wxArrayString& recentFiles);
     const wxArrayString& GetRecentFiles() const {

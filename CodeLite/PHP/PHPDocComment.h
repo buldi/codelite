@@ -30,9 +30,6 @@
 #include <wx/string.h>
 #include <wx/arrstr.h>
 #include "PHPSourceFile.h"
-#include "macros.h"
-#include "wxStringHash.h"
-#include "PHPDocParam.h"
 
 class WXDLLIMPEXP_CL PHPDocComment
 {
@@ -42,7 +39,7 @@ public:
         wxString name;
         wxString type;
         wxString desc;
-        typedef std::unordered_map<wxString, PHPDocComment::Property> Map_t;
+        using Map_t = std::unordered_map<wxString, PHPDocComment::Property>;
     };
 
 protected:
@@ -64,7 +61,7 @@ protected:
 
 public:
     PHPDocComment(PHPSourceFile& sourceFile, const wxString& comment);
-    virtual ~PHPDocComment();
+    virtual ~PHPDocComment() = default;
 
     void SetComment(const wxString& comment) { this->m_comment = comment; }
 

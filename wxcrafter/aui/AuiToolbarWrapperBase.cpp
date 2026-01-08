@@ -1,20 +1,15 @@
 #include "AuiToolbarWrapperBase.h"
 
+#include "controls/menu_toolbar/tool_bar_item_wrapper.h"
 #include "macros.h"
-#include "tool_bar_item_wrapper.h"
 #include "top_level_win_wrapper.h"
 #include "wxc_widget.h"
 #include "wxgui_helpers.h"
 
-AuiToolbarWrapperBase::AuiToolbarWrapperBase() {}
-
-AuiToolbarWrapperBase::~AuiToolbarWrapperBase() {}
-
 bool AuiToolbarWrapperBase::HasDropdownWithMenu(const wxcWidget* widget) const
 {
-    wxcWidget::List_t::const_iterator child_iter = widget->GetChildren().begin();
-    for(; child_iter != widget->GetChildren().end(); ++child_iter) {
-        ToolBarItemWrapper* item = dynamic_cast<ToolBarItemWrapper*>(*child_iter);
+    for (auto child : widget->GetChildren()) {
+        ToolBarItemWrapper* item = dynamic_cast<ToolBarItemWrapper*>(child);
         if(item && wxCrafter::GetToolType(item->PropertyString(PROP_KIND)) == wxCrafter::TOOL_TYPE_DROPDOWN &&
            item->PropertyString(PROP_DROPDOWN_MENU) == "1") {
             return true;

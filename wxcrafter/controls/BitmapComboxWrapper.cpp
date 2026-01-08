@@ -1,7 +1,8 @@
 #include "BitmapComboxWrapper.h"
 
-#include "BitmapTextArrayProperty.h"
-#include "BmpTextSelectorDlg.h"
+#include "Properties/BitmapTextArrayProperty.h"
+#include "Properties/string_property.h"
+#include "UI/PropertiesView/BmpTextSelectorDlg.h"
 #include "allocator_mgr.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxgui_defs.h"
@@ -11,19 +12,20 @@ BitmapComboxWrapper::BitmapComboxWrapper()
     : wxcWidget(ID_WXBITMAPCOMBOBOX)
 {
     SetPropertyString(_("Common Settings"), "wxBitmapComboBox");
-    AddProperty(new BitmapTextArrayProperty(PROP_CB_CHOICES, "", _("Combobox drop down choices")));
-    AddProperty(new StringProperty(
-        PROP_SELECTION, "-1",
-        _("The zero-based position of any initially selected string, or -1 if none are to be selected")));
-    AddProperty(new StringProperty(PROP_VALUE, "", _("The combobox initial value")));
+    Add<BitmapTextArrayProperty>(PROP_CB_CHOICES, "", _("ComboBox drop down choices"));
+    Add<StringProperty>(
+        PROP_SELECTION,
+        "-1",
+        _("The zero-based position of any initially selected string, or -1 if none are to be selected"));
+    Add<StringProperty>(PROP_VALUE, "", _("The comboBox initial value"));
 
     RegisterEventCommand("wxEVT_COMMAND_COMBOBOX_SELECTED",
                          _("Process a wxEVT_COMMAND_COMBOBOX_SELECTED event, when an item on the list is selected. "
                            "Note that calling GetValue returns the new value of selection."));
     RegisterEventCommand("wxEVT_COMMAND_TEXT_UPDATED",
-                         _("Process a wxEVT_COMMAND_TEXT_UPDATED event, when the combobox text changes."));
+                         _("Process a wxEVT_COMMAND_TEXT_UPDATED event, when the comboBox text changes."));
     RegisterEventCommand("wxEVT_COMMAND_TEXT_ENTER",
-                         _("Process a wxEVT_COMMAND_TEXT_ENTER event, when <RETURN> is pressed in the combobox."));
+                         _("Process a wxEVT_COMMAND_TEXT_ENTER event, when <RETURN> is pressed in the comboBox."));
 
     PREPEND_STYLE(wxCB_READONLY, false);
     PREPEND_STYLE(wxCB_SORT, false);
@@ -32,8 +34,6 @@ BitmapComboxWrapper::BitmapComboxWrapper()
     m_namePattern = "m_bmpComboBox";
     SetName(GenerateName());
 }
-
-BitmapComboxWrapper::~BitmapComboxWrapper() {}
 
 wxcWidget* BitmapComboxWrapper::Clone() const { return new BitmapComboxWrapper(); }
 
@@ -76,10 +76,10 @@ void BitmapComboxWrapper::ToXRC(wxString& text, XRC_TYPE type) const
     wxString options = PropertyString(PROP_CB_CHOICES);
     text << XRCPrefix() << XRCStyle() << XRCSize() << XRCCommonAttributes();
     BmpTextVec_t arr = BmpTextSelectorDlg::FromString(options);
-    for(size_t i = 0; i < arr.size(); ++i) {
+    for (const auto& [bmp, label] : arr) {
         text << "<object class=\"ownerdrawnitem\">";
-        text << "<text>" << wxCrafter::CDATA(arr.at(i).second) << "</text>";
-        text << XRCBitmap("bitmap", arr.at(i).first);
+        text << "<text>" << wxCrafter::CDATA(label) << "</text>";
+        text << XRCBitmap("bitmap", bmp);
         text << "</object>";
     }
 

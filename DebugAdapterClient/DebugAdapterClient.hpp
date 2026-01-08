@@ -22,26 +22,24 @@
 //
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-
-#ifndef DAP_DEBUGGER_CLIENT_HPP
-#define DAP_DEBUGGER_CLIENT_HPP
+#pragma once
 
 #include "AsyncProcess/asyncprocess.h"
 #include "BreakpointsHelper.hpp"
+#include "DAPDebuggerPane.h"
 #include "DAPOutputPane.hpp"
 #include "DAPTextView.h"
 #include "DebugSession.hpp"
 #include "RunInTerminalHelper.hpp"
 #include "SessionBreakpoints.hpp"
 #include "clDapSettingsStore.hpp"
-#include "clModuleLogger.hpp"
 #include "cl_command_event.h"
 #include "dap/Client.hpp"
+#include "dap/DAPEvent.hpp"
 #include "plugin.h"
-#include "ssh/ssh_account_info.h"
 
-#include <vector>
-#include <wx/stc/stc.h>
+#include <memory>
+#include <wx/msgqueue.h>
 
 class DAPMainView;
 class DAPTooltip;
@@ -51,39 +49,68 @@ class DAPBreakpointsView;
 class IProcess;
 class DAPWatchesView;
 
+struct DapProcess {
+    DapProcess(IProcess* process)
+    {
+        m_process.reset(process);
+        if (m_process) {
+            m_process->SetHardKill(true);
+        }
+    }
+
+    bool IsOk() const { return m_process != nullptr; }
+
+    void Terminate()
+    {
+        if (m_process) {
+            m_process->Terminate();
+        }
+    }
+
+    bool Write(const std::string& buffer)
+    {
+        if (m_process) {
+            return m_process->WriteRaw(buffer);
+        }
+        return false;
+    }
+
+    bool IsRedirect() const { return m_process && m_process->IsRedirect(); }
+    wxMessageQueue<std::string>& Queue() { return m_readQueue; }
+    using Ptr_t = std::shared_ptr<DapProcess>;
+
+private:
+    IProcess::Ptr_t m_process = nullptr;
+    wxMessageQueue<std::string> m_readQueue;
+};
+
 class DebugAdapterClient : public IPlugin
 {
     dap::Client m_client;
     wxString m_defaultPerspective;
     DebugSession m_session;
     clDapSettingsStore m_dap_store;
-    IProcess::Ptr_t m_dap_server = nullptr;
     RunInTerminalHelper m_terminal_helper;
     wxFileName m_breakpointsFile;
-    BreakpointsHelper* m_breakpointsHelper = nullptr;
+    std::unique_ptr<BreakpointsHelper> m_breakpointsHelper;
     SessionBreakpoints m_sessionBreakpoints;
+    DapProcess::Ptr_t m_dap_server;
 
     /// ------------------------------------
     /// UI elements
     /// ------------------------------------
-    DAPMainView* m_threadsView = nullptr;
-    DAPBreakpointsView* m_breakpointsView = nullptr;
     DAPTextView* m_textView = nullptr;
-    DAPOutputPane* m_outputView = nullptr;
     DAPTooltip* m_tooltip = nullptr;
-    DAPWatchesView* m_watchesView = nullptr;
-
-    bool m_raisOnBpHit;
-    bool m_isPerspectiveLoaded;
-    bool m_showThreadNames;
-    bool m_showFileNamesOnly;
+    DAPDebuggerPane* m_debuggerPane = nullptr;
+    bool m_raisOnBpHit = true;
+    bool m_isPerspectiveLoaded = false;
 
     friend class LLDBTooltip;
 
 private:
     wxString ReplacePlaceholders(const wxString& str) const;
     void UpdateWatches();
-    void DestroyUI();
+    void HideDebuggerUI();
     void InitializeUI();
     void LoadPerspective();
     void ShowPane(const wxString& paneName, bool show);
@@ -91,6 +118,7 @@ private:
     void DoCleanup();
     void StartAndConnectToDapServer();
     bool StartSocketDap();
+    dap::Transport* StartStdioDap();
     void RefreshBreakpointsView();
     bool InitialiseSession(const DapEntry& dap_server, const wxString& exepath, const wxString& args,
                            const wxString& working_directory, const wxString& ssh_account, const clEnvList_t& env);
@@ -101,8 +129,6 @@ private:
     void StopProcess();
     void RestoreUI();
 
-    /// Place breakpoint markers for a given editor
-    void RefreshBreakpointsMarkersForEditor(IEditor* editor);
     wxString NormaliseReceivedPath(const wxString& path) const;
     void RegisterDebuggers();
     /**
@@ -112,25 +138,19 @@ private:
     bool IsDebuggerOwnedByPlugin(const wxString& name) const;
 
     void DestroyTooltip();
+    DAPMainView* GetThreadsView() const { return m_debuggerPane->GetMainView(); }
+    DAPBreakpointsView* GetBreakpointsView() const { return m_debuggerPane->GetBreakpointsView(); }
+    DAPWatchesView* GetWatchesView() const { return m_debuggerPane->GetWatchesView(); }
+    DAPOutputPane* GetOutputView() const { return m_debuggerPane->GetOutputView(); }
 
 public:
     DebugAdapterClient(IManager* manager);
-    ~DebugAdapterClient();
+    ~DebugAdapterClient() override = default;
 
     IManager* GetManager() { return m_mgr; }
 
-    /**
-     * @brief Should thread name column be shown in thread pane?
-     */
-    bool ShowThreadNames() const;
-
-    /**
-     * @brief Maybe convert a path to filename only for display.
-     */
-    wxString GetFilenameForDisplay(const wxString& fileName) const;
-
 protected:
-    // Other codelite events
+    // Other CodeLite events
     void OnWorkspaceLoaded(clWorkspaceEvent& event);
     void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnSettings(wxCommandEvent& event);
@@ -199,5 +219,3 @@ public:
     int GetCurrentFrameId() const;
     void LoadFile(const dap::Source& sourceId, int line_number);
 };
-
-#endif // LLDBDebuggerPlugin

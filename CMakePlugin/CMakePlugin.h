@@ -120,7 +120,7 @@ public:
     /**
      * @brief Destructor.
      */
-    virtual ~CMakePlugin();
+    ~CMakePlugin() override = default;
 
     // Public Accessors
 public:
@@ -146,41 +146,11 @@ public:
     CMakeConfiguration* GetConfiguration() const { return m_configuration.get(); }
 
     /**
-     * @brief Returns directory where is workspace project stored.
-     *
-     * @return Path to workspace
-     */
-    wxFileName GetWorkspaceDirectory() const;
-
-    /**
-     * @brief Returns directory where is the given project stored.
-     *
-     * @param projectName
-     *
-     * @return Project directory.
-     */
-    wxFileName GetProjectDirectory(const wxString& projectName) const;
-
-    /**
-     * @brief Returns seleted project.
+     * @brief Returns selected project.
      *
      * @return Pointer to project.
      */
     ProjectPtr GetSelectedProject() const { return m_mgr->GetSelectedProject(); }
-
-    /**
-     * @brief Returns currently selected config for seleted project.
-     *
-     * @return
-     */
-    wxString GetSelectedProjectConfig() const;
-
-    /**
-     * @brief Returns currently selected build config.
-     *
-     * @return
-     */
-    BuildConfigPtr GetSelectedBuildConfig() const;
 
     /**
      * @brief Returns a list of supported generators.
@@ -199,37 +169,21 @@ public:
      *
      * @param parent Parent window.
      *
-     * @return Codelite tool bar or NULL.
+     * @return CodeLite tool bar or NULL.
      */
-    void CreateToolBar(clToolBarGeneric* toolbar);
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
 
     /**
      * @brief Creates a menu for plugin.
      *
      * @param pluginsMenu
      */
-    void CreatePluginMenu(wxMenu* pluginsMenu);
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
 
     /**
      * @brief Unplug plugin.
      */
-    void UnPlug();
-
-    /**
-     * @brief Check if CMakeLists.txt exists in given directory.
-     *
-     * @param directory Directory where CMakeLists.txt should be located.
-     *
-     * @return If CMakeLists.txt exists in directory.
-     */
-    bool ExistsCMakeLists(wxFileName directory) const;
-
-    /**
-     * @brief Open CMakeLists.txt in given directory.
-     *
-     * @param directory Directory where CMakeLists.txt should be located.
-     */
-    void OpenCMakeLists(wxFileName directory) const;
+    void UnPlug() override;
 
     // Public Events
 public:
@@ -296,7 +250,7 @@ protected:
     void OnCreateCMakeListsLib(wxCommandEvent& event);
     bool IsCMakeListsExists() const;
     wxString WriteCMakeListsAndOpenIt(const std::vector<wxString>& lines) const;
-    clResultString CreateCMakeListsFile(TargetType type) const;
+    clStatusOr<wxString> CreateCMakeListsFile(TargetType type) const;
     void FireCMakeListsFileCreatedEvent(const wxString& cmakelists_txt) const;
 
 private:

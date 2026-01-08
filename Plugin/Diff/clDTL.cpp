@@ -32,10 +32,6 @@
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
 
-clDTL::clDTL() {}
-
-clDTL::~clDTL() {}
-
 void clDTL::Diff(const wxFileName& fnLeft, const wxFileName& fnRight, DiffMode mode)
 {
     wxString leftFile, rightFile;
@@ -50,8 +46,8 @@ void clDTL::DiffStrings(const wxString& before, const wxString& after, DiffMode 
     m_resultRight.clear();
     m_sequences.clear();
 
-    typedef wxString elem;
-    typedef std::pair<elem, dtl::elemInfo> sesElem;
+    using elem = wxString;
+    using sesElem = std::pair<elem, dtl::elemInfo>;
 
     wxArrayString leftLines = wxStringTokenize(before, "\n", wxTOKEN_RET_DELIMS);
     wxArrayString rightLines = wxStringTokenize(after, "\n", wxTOKEN_RET_DELIMS);
@@ -211,8 +207,8 @@ void clDTL::DiffStrings(const wxString& before, const wxString& after, DiffMode 
 
 std::vector<PatchStep> clDTL::CreatePatch(const wxString& before, const wxString& after) const
 {
-    typedef wxString elem;
-    typedef std::pair<elem, dtl::elemInfo> sesElem;
+    using elem = wxString;
+    using sesElem = std::pair<elem, dtl::elemInfo>;
 
     wxArrayString leftLines = wxStringTokenize(before, "\n", wxTOKEN_RET_DELIMS);
     wxArrayString rightLines = wxStringTokenize(after, "\n", wxTOKEN_RET_DELIMS);

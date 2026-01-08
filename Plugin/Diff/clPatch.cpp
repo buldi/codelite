@@ -1,8 +1,8 @@
 #include "clPatch.h"
 
+#include "StringUtils.h"
 #include "cl_standard_paths.h"
 #include "dirsaver.h"
-#include "globals.h"
 #include "procutils.h"
 
 clPatch::clPatch()
@@ -12,10 +12,8 @@ clPatch::clPatch()
 #ifdef __WXMSW__
     hints.Add(clStandardPaths::Get().GetExecutablePath());
 #endif
-    ::clFindExecutable("patch", m_patch, hints);
+    ::FileUtils::FindExe("patch", m_patch, hints);
 }
-
-clPatch::~clPatch() {}
 
 void clPatch::Patch(const wxFileName& patchFile, const wxString& workingDirectory, const wxString& args)
 {
@@ -32,7 +30,7 @@ void clPatch::Patch(const wxFileName& patchFile, const wxString& workingDirector
     wxString command;
     command << m_patch.GetFullPath();
 
-    ::WrapWithQuotes(command);
+    StringUtils::WrapWithQuotes(command);
 
     if(!args.IsEmpty()) {
         command << " " << args;
@@ -44,8 +42,8 @@ void clPatch::Patch(const wxFileName& patchFile, const wxString& workingDirector
 
     wxString patch = patchFile.GetFullPath();
 
-    command << " " << ::WrapWithQuotes(patch);
-    ::WrapInShell(command);
+    command << " " << StringUtils::WrapWithQuotes(patch);
+    ProcUtils::WrapInShell(command);
 
     ProcUtils::SafeExecuteCommand(command);
 }

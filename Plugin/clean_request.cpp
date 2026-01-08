@@ -25,23 +25,16 @@
 #include "clean_request.h"
 
 #include "AsyncProcess/asyncprocess.h"
-#include "ICompilerLocator.h"
 #include "build_settings_config.h"
-#include "buildmanager.h"
 #include "cl_command_event.h"
 #include "compiler.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
-#include "globals.h"
+#include "macromanager.h"
 #include "imanager.h"
 #include "macros.h"
-#include "plugin.h"
 #include "workspace.h"
-
-#include <wx/app.h>
-#include <wx/log.h>
-#include <wx/process.h>
 
 CleanRequest::CleanRequest(const QueueCommand& info)
     : ShellCommand(info)
@@ -86,27 +79,24 @@ void CleanRequest::Process(IManager* manager)
         }
 
         wxString cmpType = bldConf->GetCompilerType();
-        if(bldConf) {
-            wxString cmpType = bldConf->GetCompilerType();
-            CompilerPtr cmp = bsc->GetCompiler(cmpType);
-            if(cmp) {
-                // Add the 'bin' folder of the compiler to the PATH environment variable
-                wxString scxx = cmp->GetTool("CXX");
-                scxx.Trim().Trim(false);
-                scxx.StartsWith("\"", &scxx);
-                scxx.EndsWith("\"", &scxx);
-                // Strip the double quotes
-                wxFileName cxx(scxx);
-                wxString pathvar;
-                pathvar << cxx.GetPath() << clPATH_SEPARATOR;
+        CompilerPtr cmp = bsc->GetCompiler(cmpType);
+        if (cmp) {
+            // Add the 'bin' folder of the compiler to the PATH environment variable
+            wxString scxx = cmp->GetTool("CXX");
+            scxx.Trim().Trim(false);
+            scxx.StartsWith("\"", &scxx);
+            scxx.EndsWith("\"", &scxx);
+            // Strip the double quotes
+            wxFileName cxx(scxx);
+            wxString pathvar;
+            pathvar << cxx.GetPath() << clPATH_SEPARATOR;
 
-                // If we have an additional path, add it as well
-                if(!cmp->GetPathVariable().IsEmpty()) {
-                    pathvar << cmp->GetPathVariable() << clPATH_SEPARATOR;
-                }
-                pathvar << "$PATH";
-                om["PATH"] = pathvar;
+            // If we have an additional path, add it as well
+            if (!cmp->GetPathVariable().IsEmpty()) {
+                pathvar << cmp->GetPathVariable() << clPATH_SEPARATOR;
             }
+            pathvar << "$PATH";
+            om["PATH"] = pathvar;
         }
     } else {
         AppendLine(_("Sorry, couldn't find the Build configuration\n"));

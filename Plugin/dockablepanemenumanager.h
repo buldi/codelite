@@ -39,7 +39,6 @@ class wxAuiManager;
 //
 class WXDLLIMPEXP_SDK DockablePaneMenuManager : public wxEvtHandler
 {
-    wxMenuBar* m_mb;
     std::map<int, wxString> m_id2nameMap;
     wxAuiManager* m_aui;
 
@@ -48,13 +47,13 @@ class WXDLLIMPEXP_SDK DockablePaneMenuManager : public wxEvtHandler
 
 public:
     DockablePaneMenuManager(wxAuiManager* aui);
-    virtual ~DockablePaneMenuManager();
+    virtual ~DockablePaneMenuManager() = default;
 
     void AddMenu(const wxString& name);
     void RemoveMenu(const wxString& name);
 
     wxString NameById(int id);
-    wxArrayString GetDeatchedPanesList();
+    wxArrayString GetDetachedPanesList();
     bool IsPaneDetached(const wxString& name);
 
     static void HackShowPane(wxAuiPaneInfo& pane_info, wxAuiManager* pAui);

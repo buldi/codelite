@@ -53,8 +53,6 @@ QMakeProFileGenerator::QMakeProFileGenerator(IManager* manager, const wxString& 
 {
 }
 
-QMakeProFileGenerator::~QMakeProFileGenerator() {}
-
 bool QMakeProFileGenerator::Generate()
 {
     wxString errMsg;
@@ -69,7 +67,7 @@ bool QMakeProFileGenerator::Generate()
     QmakePluginData pd(rawData);
     if(!pd.GetDataForBuildConf(m_configuration, bcpd)) { return false; }
 
-    // Get codelite's build configuration
+    // Get CodeLite's build configuration
     ProjectSettingsPtr settings = p->GetSettings();
     BuildConfigPtr bldConf = settings->GetBuildConfiguration(m_configuration);
     if(!bldConf) { return false; }
@@ -280,9 +278,7 @@ void QMakeProFileGenerator::SetFiles(wxString& pro_file, ProjectPtr proj)
     qresources << wxT("RESOURCES   = \\\n");
     wxString BUFF(wxT("             "));
 
-    for(size_t i = 0; i < files.size(); i++) {
-        wxFileName fn = files.at(i);
-
+    for (wxFileName fn : files) {
         switch(FileExtManager::GetType(fn.GetFullName())) {
         case FileExtManager::TypeSourceC:
         case FileExtManager::TypeSourceCpp:

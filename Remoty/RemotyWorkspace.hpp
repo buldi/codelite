@@ -11,12 +11,14 @@
 #include "clRemoteFinderHelper.hpp"
 #include "clRemoteTerminal.hpp"
 #include "clSFTPEvent.h"
+#include "clWorkspaceEvent.hpp"
 #include "cl_command_event.h"
 #include "ieditor.h"
 #include "ssh/ssh_account_info.h"
 
 #include <deque>
 #include <functional>
+#include <optional>
 #include <wx/arrstr.h>
 #include <wx/event.h>
 
@@ -57,11 +59,101 @@ private:
     wxArrayString m_installedLSPs;
     wxString m_listLspOutput;
     wxStringSet_t m_replaceInFilesModifiedFiles;
+    std::optional<int> m_indentWidth{std::nullopt};
 
 public:
     RemotyWorkspace();
     RemotyWorkspace(bool dummy);
     virtual ~RemotyWorkspace();
+
+    // IWorkspace
+    wxString GetActiveProjectName() const override { return wxEmptyString; }
+    wxString GetFileName() const override;
+    wxString GetDir() const override;
+    wxString GetFilesMask() const override;
+    wxFileName GetProjectFileName(const wxString& projectName) const override;
+    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
+    wxString GetProjectFromFile(const wxFileName& filename) const override;
+    void GetWorkspaceFiles(wxArrayString& files) const override;
+    wxArrayString GetWorkspaceProjects() const override;
+    bool IsBuildSupported() const override;
+    bool IsProjectSupported() const override;
+    wxString GetDebuggerName() const override;
+    bool IsRemote() const override { return true; }
+    wxString GetSshAccount() const override;
+
+    bool CreateNew(wxString path, const wxString& name, const wxString& account);
+
+    /**
+     * @brief return the remote workspace directory (on the remote machine)
+     */
+    wxString GetRemoteWorkingDir() const;
+    wxString GetName() const override;
+    void SetProjectActive(const wxString& name) override;
+    /**
+     * @brief open workspace with at a given path (remote) and ssh account
+     * @param path workspace file path (on the remote machine)
+     * @param account ssh account defined in CodeLite
+     */
+    void OpenWorkspace(const wxString& path, const wxString& account);
+    /**
+     * @brief close the current workspace. Do nothing if there is no workspace opened
+     */
+    void CloseWorkspace();
+
+    /**
+     * @brief Attempt to open a remote file and open it in the editor
+     */
+    IEditor* OpenFile(const wxString& remote_file_path);
+
+    /**
+     * @brief attempt to load and edit codelite-remote.json file for this workspace
+     */
+    void OpenAndEditCodeLiteRemoteJson();
+
+    // API
+    bool IsOpened() const;
+    const SSHAccountInfo& GetAccount() const { return m_account; }
+    const wxString& GetLocalWorkspaceFile() const { return m_localWorkspaceFile; }
+    const wxString& GetRemoteWorkspaceFile() const { return m_remoteWorkspaceFile; }
+    const clFileSystemWorkspaceSettings& GetSettings() const { return m_settings; }
+    clFileSystemWorkspaceSettings& GetSettings() { return m_settings; }
+    void BuildTarget(const wxString& kind);
+
+    /// Open a file, create if missing (configurable). Load the file into an editor
+    IEditor* OpenFileInEditor(const wxString& filepath, bool createIfMissing = true) override;
+    IEditor* CreateOrOpenSettingFile(const wxString& filename) override;
+
+    /**
+     * @brief save the settings to the remote machine
+     */
+    void SaveSettings();
+    /**
+     * @brief refresh the workspace files list (by scanning them on the remote machine)
+     */
+    void ScanForWorkspaceFiles();
+
+    /**
+     * @brief perform find in files
+     */
+    void FindInFiles(const wxString& root_dir,
+                     const wxString& file_extensions,
+                     const wxString& exclude_patterns,
+                     const wxString& find_what,
+                     bool whole_word,
+                     bool icase);
+    /**
+     * @brief perform replace in files
+     */
+    void ReplaceInFiles(const wxString& root_dir,
+                        const wxString& file_extensions,
+                        const wxString& exclude_patterns,
+                        const wxString& find_what,
+                        const wxString& replace_with,
+                        bool whole_word,
+                        bool icase);
+
+    int GetIndentWidth() override;
 
 protected:
     void BindEvents();
@@ -85,6 +177,8 @@ protected:
 
     void OnSftpSaveError(clCommandEvent& event);
     void OnSftpSaveSuccess(clCommandEvent& event);
+    void OnFrameTitle(clCommandEvent& event);
+    void OnCreateNew(clWorkspaceEvent& event);
 
     /// codelite-remote exec handlers
     void DoProcessBuildOutput(const wxString& output, bool is_completed);
@@ -129,79 +223,6 @@ protected:
 
     void RestoreSession();
     void SetFocusToActiveEditor();
-
-public:
-    // IWorkspace
-    wxString GetActiveProjectName() const override { return wxEmptyString; }
-    wxString GetFileName() const override;
-    wxString GetDir() const override;
-    wxString GetFilesMask() const override;
-    wxFileName GetProjectFileName(const wxString& projectName) const override;
-    void GetProjectFiles(const wxString& projectName, wxArrayString& files) const override;
-    wxString GetProjectFromFile(const wxFileName& filename) const override;
-    void GetWorkspaceFiles(wxArrayString& files) const override;
-    wxArrayString GetWorkspaceProjects() const override;
-    bool IsBuildSupported() const override;
-    bool IsProjectSupported() const override;
-    wxString GetDebuggerName() const override;
-    bool IsRemote() const override { return true; }
-    wxString GetSshAccount() const override;
-
-    /**
-     * @brief return the remote workspace directory (on the remote machine)
-     */
-    wxString GetRemoteWorkingDir() const;
-    wxString GetName() const override;
-    void SetProjectActive(const wxString& name) override;
-    /**
-     * @brief open workspace with at a given path (remote) and ssh account
-     * @param path workspace file path (on the remote machine)
-     * @param account ssh account defined in CodeLite
-     */
-    void OpenWorkspace(const wxString& path, const wxString& account);
-    /**
-     * @brief close the current workspace. Do nothing if there is no workspace opened
-     */
-    void CloseWorkspace();
-
-    /**
-     * @brief Attempt to open a remote file and open it in the editor
-     */
-    IEditor* OpenFile(const wxString& remote_file_path);
-
-    /**
-     * @brief attempt to load and edit codelite-remote.json file for this workspace
-     */
-    void OpenAndEditCodeLiteRemoteJson();
-
-    // API
-    bool IsOpened() const;
-    const SSHAccountInfo& GetAccount() const { return m_account; }
-    const wxString& GetLocalWorkspaceFile() const { return m_localWorkspaceFile; }
-    const wxString& GetRemoteWorkspaceFile() const { return m_remoteWorkspaceFile; }
-    const clFileSystemWorkspaceSettings& GetSettings() const { return m_settings; }
-    clFileSystemWorkspaceSettings& GetSettings() { return m_settings; }
-    void BuildTarget(const wxString& kind);
-
-    /**
-     * @brief save the settings to the remote machine
-     */
-    void SaveSettings();
-    /**
-     * @brief refresh the workspace files list (by scanning them on the remote machine)
-     */
-    void ScanForWorkspaceFiles();
-
-    /**
-     * @brief perform find in files
-     */
-    void FindInFiles(const wxString& root_dir, const wxString& file_extensions, const wxString& find_what,
-                     bool whole_word, bool icase);
-    /**
-     * @brief perform replace in files
-     */
-    void ReplaceInFiles(const wxString& root_dir, const wxString& file_extensions, const wxString& find_what,
-                        const wxString& replace_with, bool whole_word, bool icase);
 };
 
 #endif // RemoteWorkspace_HPP

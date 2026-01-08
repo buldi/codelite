@@ -26,25 +26,27 @@
 #ifndef CLSOCKETBASE_H
 #define CLSOCKETBASE_H
 
+#include "codelite_exports.h"
+
+#include <memory>
 #include <string>
 #include <wx/msgqueue.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
+
 #if defined(__WXOSX__) || defined(BSD)
 #include <sys/errno.h>
 #endif
-#include "codelite_exports.h"
-
-#include <wx/defs.h>
 #ifdef __WINDOWS__ // __WINDOWS__ defined by wx/defs.h
 // includes windows.h and if wxUSE_WINSOCK2 is true includes winsock2.h
 #include <wx/msw/wrapwin.h>
 
-typedef SOCKET socket_t;
-typedef int socklen_t;
+using socket_t = SOCKET;
+using socklen_t = int;
 #else
-typedef int socket_t;
-#define INVALID_SOCKET -1
+using socket_t = int;
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET (-1)
+#endif
 #endif
 
 class WXDLLIMPEXP_CL clSocketException
@@ -60,7 +62,7 @@ public:
         m_what.erase(0, m_what.find_first_not_of(trimString));
         m_what.erase(m_what.find_last_not_of(trimString) + 1);
     }
-    ~clSocketException() {}
+    ~clSocketException() = default;
     const std::string& what() const { return m_what; }
 };
 
@@ -71,8 +73,8 @@ protected:
     bool m_closeOnExit = true;
 
 public:
-    typedef wxSharedPtr<clSocketBase> Ptr_t;
-    typedef wxMessageQueue<clSocketBase::Ptr_t> Queue_t;
+    using Ptr_t = std::shared_ptr<clSocketBase>;
+    using Queue_t = wxMessageQueue<clSocketBase::Ptr_t>;
 
     enum {
         kSuccess = 1,

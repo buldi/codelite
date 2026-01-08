@@ -27,7 +27,7 @@ public:
 	clTypedef()  {}
 	~clTypedef() {}
 	
-	void print() {
+	void print() const {
 		printf("Name: %s\n", m_name.c_str());
 		m_realType.Print();
 	}
@@ -38,5 +38,5 @@ public:
 	}
 };
 
-typedef std::list<clTypedef> clTypedefList;
+using clTypedefList = std::list<clTypedef>;
 #endif // TYPEDEF_H

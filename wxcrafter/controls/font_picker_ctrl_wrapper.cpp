@@ -1,9 +1,11 @@
 #include "font_picker_ctrl_wrapper.h"
+
+#include "Properties/font_property.h"
 #include "allocator_mgr.h"
-#include "font_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/fontpicker.h>
 
 FontPickerCtrlWrapper::FontPickerCtrlWrapper()
@@ -19,12 +21,10 @@ FontPickerCtrlWrapper::FontPickerCtrlWrapper()
 
     RegisterEvent(wxT("wxEVT_COMMAND_FONTPICKER_CHANGED"), wxT("wxFontPickerEvent"),
                   _("Generated whenever the selected font changes."));
-    AddProperty(new FontProperty(PROP_VALUE, wxEmptyString, _("Initial font")));
+    Add<FontProperty>(PROP_VALUE, wxEmptyString, _("Initial font"));
     m_namePattern = wxT("m_fontPicker");
     SetName(GenerateName());
 }
-
-FontPickerCtrlWrapper::~FontPickerCtrlWrapper() {}
 
 wxcWidget* FontPickerCtrlWrapper::Clone() const { return new FontPickerCtrlWrapper(); }
 

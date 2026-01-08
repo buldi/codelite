@@ -31,7 +31,6 @@
 #include "imanager.h"
 #include "pluginmanager.h"
 #include "project.h"
-#include "wxStringHash.h"
 
 #include <map>
 #include <wx/treectrl.h>
@@ -63,7 +62,6 @@ protected:
                                    const ProjectItem& projectItem);
 
     void ExcludeFileFromBuildUI(const wxTreeItemId& item, bool exclude);
-    bool IsItemExcludedFromBuild(const wxTreeItemId& item, const wxString& configName) const;
 
 public:
     /**

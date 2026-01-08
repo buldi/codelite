@@ -25,6 +25,7 @@
 
 #include "abbreviation.h"
 
+
 #include "Keyboard/clKeyboardManager.h"
 #include "abbreviationentry.h"
 #include "abbreviationssettingsdlg.h"
@@ -46,10 +47,7 @@
 #include <wx/xrc/xmlres.h>
 
 // Define the plugin entry point
-CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
-{
-    return new AbbreviationPlugin(manager);
-}
+CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager) { return new AbbreviationPlugin(manager); }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
 {
@@ -65,34 +63,26 @@ CL_PLUGIN_API int GetPluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION;
 
 class AbbreviationClientData : public wxClientData
 {
-public:
-    AbbreviationClientData() {}
-    virtual ~AbbreviationClientData() {}
 };
 
 AbbreviationPlugin::AbbreviationPlugin(IManager* manager)
     : IPlugin(manager)
-    , m_topWindow(NULL)
     , m_config("abbreviations.conf")
 {
     m_longName = _("Abbreviation plugin");
     m_shortName = "Abbreviation";
     m_topWindow = m_mgr->GetTheApp();
     EventNotifier::Get()->Bind(wxEVT_CCBOX_SELECTION_MADE, &AbbreviationPlugin::OnAbbrevSelected, this);
-
     EventNotifier::Get()->Bind(wxEVT_CCBOX_SHOWING, &AbbreviationPlugin::OnCompletionBoxShowing, this);
-    // m_helper = new AbbreviationServiceProvider(this);
     InitDefaults();
 }
-
-AbbreviationPlugin::~AbbreviationPlugin() {}
 
 void AbbreviationPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void AbbreviationPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 {
     wxMenu* menu = new wxMenu();
-    wxMenuItem* item(NULL);
+    wxMenuItem* item(nullptr);
 
     item = new wxMenuItem(menu, XRCID("abbrev_insert"), _("Show abbreviations completion box"),
                           _("Show abbreviations completion box"), wxITEM_NORMAL);
@@ -103,7 +93,7 @@ void AbbreviationPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
 
     pluginsMenu->Append(XRCID("abbreviations_plugin_menu"), _("Abbreviation"), menu);
     m_topWindow->Bind(wxEVT_MENU, &AbbreviationPlugin::OnSettings, this, XRCID("abbrev_settings"));
-    m_topWindow->Bind(wxEVT_MENU, &AbbreviationPlugin::OnShowAbbvreviations, this, XRCID("abbrev_insert"));
+    m_topWindow->Bind(wxEVT_MENU, &AbbreviationPlugin::OnShowAbbreviations, this, XRCID("abbrev_insert"));
 }
 
 void AbbreviationPlugin::HookPopupMenu(wxMenu* menu, MenuType type)
@@ -116,7 +106,7 @@ void AbbreviationPlugin::UnPlug()
 {
     DeletePluginMenu(XRCID("abbreviations_plugin_menu"));
     m_topWindow->Unbind(wxEVT_MENU, &AbbreviationPlugin::OnSettings, this, XRCID("abbrev_settings"));
-    m_topWindow->Unbind(wxEVT_MENU, &AbbreviationPlugin::OnShowAbbvreviations, this, XRCID("abbrev_insert"));
+    m_topWindow->Unbind(wxEVT_MENU, &AbbreviationPlugin::OnShowAbbreviations, this, XRCID("abbrev_insert"));
     EventNotifier::Get()->Unbind(wxEVT_CCBOX_SELECTION_MADE, &AbbreviationPlugin::OnAbbrevSelected, this);
     EventNotifier::Get()->Unbind(wxEVT_CCBOX_SHOWING, &AbbreviationPlugin::OnCompletionBoxShowing, this);
 }
@@ -128,7 +118,7 @@ void AbbreviationPlugin::OnSettings(wxCommandEvent& e)
     m_config.Reload();
 }
 
-void AbbreviationPlugin::GetAbbreviations(wxCodeCompletionBoxEntry::Vec_t& V, const wxString& filter)
+wxCodeCompletionBoxEntry::Vec_t AbbreviationPlugin::GetAbbreviations(const wxString& filter)
 {
     wxString lcFilter = filter.Lower();
 
@@ -143,11 +133,11 @@ void AbbreviationPlugin::GetAbbreviations(wxCodeCompletionBoxEntry::Vec_t& V, co
         m_config.WriteItem(&jsonData);
     }
 
+    wxCodeCompletionBoxEntry::Vec_t V;
     wxBitmap bmp = clGetManager()->GetStdIcons()->LoadBitmap("replace-blue");
     if (bmp.IsOk()) {
         // search for the old item
-        const wxStringMap_t& entries = jsonData.GetEntries();
-        std::for_each(entries.begin(), entries.end(), [&](const wxStringMap_t::value_type& vt) {
+        for (const auto& vt : jsonData.GetEntries()) {
             // Only add matching entries (entries that "starts_with")
             wxString lcAbbv = vt.first.Lower();
             if (lcAbbv.StartsWith(lcFilter)) {
@@ -156,8 +146,9 @@ void AbbreviationPlugin::GetAbbreviations(wxCodeCompletionBoxEntry::Vec_t& V, co
                 textHelp << "**Abbreviation entry**\n===```" << vt.second << "```";
                 V.push_back(wxCodeCompletionBoxEntry::New(vt.first, textHelp, bmp, new AbbreviationClientData()));
             }
-        });
+        }
     }
+    return V;
 }
 
 void AbbreviationPlugin::OnAbbrevSelected(clCodeCompletionEvent& e)
@@ -215,7 +206,7 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
     }
 
     // search for abbreviation that matches str
-    // prepate list of abbreviations
+    // prepare list of abbreviations
     AbbreviationJSONEntry jsonData;
     if (!m_config.ReadItem(&jsonData)) {
         // merge the data from the old configuration
@@ -257,7 +248,7 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
 
         text = editor->FormatTextKeepIndent(text, selStart, Format_Text_Save_Empty_Lines);
 
-        // remove the first line indenation that might have been placed by CL
+        // remove the first line indentation that might have been placed by CL
         text.Trim(false).Trim();
         text = textLeadingSpaces + text;
 
@@ -300,7 +291,7 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
             editor->GetCtrl()->ClearSelections();
 
             bool first = true;
-            std::for_each(carets.begin(), carets.end(), [&](int where) {
+            for (int where : carets) {
                 int caretPos = curPos + where - typedWordLen;
                 if (first) {
                     editor->GetCtrl()->SetSelection(caretPos, caretPos + 1);
@@ -308,7 +299,7 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
                 } else {
                     editor->GetCtrl()->AddSelection(caretPos, caretPos + 1);
                 }
-            });
+            }
         }
         return true;
     } else
@@ -317,15 +308,14 @@ bool AbbreviationPlugin::InsertExpansion(const wxString& abbreviation)
 
 void AbbreviationPlugin::OnCompletionBoxShowing(clCodeCompletionEvent& event) { event.Skip(); }
 
-void AbbreviationPlugin::OnShowAbbvreviations(wxCommandEvent& e)
+void AbbreviationPlugin::OnShowAbbreviations(wxCommandEvent& e)
 {
     e.Skip();
     IEditor* editor = clGetManager()->GetActiveEditor();
     CHECK_PTR_RET(editor);
 
     wxStyledTextCtrl* ctrl = editor->GetCtrl();
-    wxCodeCompletionBoxEntry::Vec_t V;
-    GetAbbreviations(V, editor->GetWordAtPosition(editor->GetCurrentPosition()));
+    const auto V = GetAbbreviations(editor->GetWordAtPosition(editor->GetCurrentPosition()));
     if (!V.empty()) {
         wxCodeCompletionBoxManager::Get().ShowCompletionBox(ctrl, V, wxCodeCompletionBox::kRefreshOnKeyType,
                                                             wxNOT_FOUND);

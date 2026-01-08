@@ -74,14 +74,6 @@ CL_PLUGIN_API PluginInfo* GetPluginInfo()
 
 CL_PLUGIN_API int GetPluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION; }
 
-/// Ascending sorting function
-struct ascendingSortOp {
-    bool operator()(const TagEntryPtr& rStart, const TagEntryPtr& rEnd)
-    {
-        return rEnd->GetName().Cmp(rStart->GetName()) > 0;
-    }
-};
-
 static void WriteNamespacesDeclaration(const wxArrayString& namespacesList, wxString& buffer)
 {
     for(unsigned int i = 0; i < namespacesList.Count(); i++) {
@@ -95,8 +87,6 @@ WizardsPlugin::WizardsPlugin(IManager* manager)
     m_longName = _("Wizards Plugin - a collection of useful utils for C++");
     m_shortName = "Wizards";
 }
-
-WizardsPlugin::~WizardsPlugin() {}
 
 void WizardsPlugin::CreateToolBar(clToolBarGeneric* toolbar)
 {
@@ -233,7 +223,7 @@ void WizardsPlugin::DoCreateNewPlugin()
         filename = m_mgr->GetStartupDirectory() + "/templates/gizmos/plugin.cpp.wizard";
         content.Clear();
         if(!ReadFileWithConversion(filename, content)) {
-            wxMessageBox(_("Failed to load wizard's file 'plugin.cpp.wizard'"), _("CodeLite"), wxICON_WARNING | wxOK);
+            wxMessageBox(_("Failed to load wizard's file 'plugin.cpp.wizard'"), wxT("CodeLite"), wxICON_WARNING | wxOK);
             return;
         }
 
@@ -260,7 +250,7 @@ void WizardsPlugin::DoCreateNewPlugin()
         filename = m_mgr->GetStartupDirectory() + "/templates/gizmos/plugin.h.wizard";
         content.Clear();
         if(!ReadFileWithConversion(filename, content)) {
-            wxMessageBox(_("Failed to load wizard's file 'plugin.h.wizard'"), _("CodeLite"), wxICON_WARNING | wxOK);
+            wxMessageBox(_("Failed to load wizard's file 'plugin.h.wizard'"), wxT("CodeLite"), wxICON_WARNING | wxOK);
             return;
         }
 
@@ -533,7 +523,7 @@ void WizardsPlugin::CreateClass(NewClassInfo& info)
         }
     }
 
-    // Open the newly created classes in codelite
+    // Open the newly created classes in CodeLite
     for(const auto& file : paths) {
         m_mgr->OpenFile(file);
     }
@@ -543,7 +533,7 @@ void WizardsPlugin::CreateClass(NewClassInfo& info)
     eventFilesCreated.GetPaths().swap(paths);
     EventNotifier::Get()->QueueEvent(eventFilesCreated.Clone());
 
-    // Notify codelite to parse the files
+    // Notify CodeLite to parse the files
     TagsManagerST::Get()->ParseWorkspaceIncremental();
 }
 
@@ -561,37 +551,6 @@ void WizardsPlugin::OnGizmosUI(wxUpdateUIEvent& e)
     e.Enable(m_mgr->IsWorkspaceOpen());
 }
 
-void WizardsPlugin::GizmosRemoveDuplicates(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target)
-{
-    std::map<wxString, TagEntryPtr> uniqueSet;
-    for(size_t i = 0; i < src.size(); i++) {
-
-        wxString signature = src.at(i)->GetSignature();
-        wxString key = m_mgr->GetTagsManager()->NormalizeFunctionSig(signature, 0);
-        int hasDefaultValues = signature.Find("=");
-
-        key.Prepend(src.at(i)->GetName());
-        if(uniqueSet.find(key) != uniqueSet.end()) {
-            // we already got an instance of this method,
-            // incase we have default values in the this Tag, keep this
-            // TagEntryPtr, otherwise keep the previous tag
-            if(hasDefaultValues != wxNOT_FOUND) {
-                uniqueSet[key] = src.at(i);
-            }
-
-        } else {
-            // First time
-            uniqueSet[key] = src.at(i);
-        }
-    }
-
-    // copy the unique set to the output vector
-    std::map<wxString, TagEntryPtr>::iterator iter = uniqueSet.begin();
-    for(; iter != uniqueSet.end(); iter++) {
-        target.push_back(iter->second);
-    }
-}
-
 void WizardsPlugin::DoPopupButtonMenu(wxPoint pt)
 {
 #ifdef __WXMSW__
@@ -604,10 +563,7 @@ void WizardsPlugin::DoPopupButtonMenu(wxPoint pt)
     options[MI_NEW_CODELITE_PLUGIN] = ID_MI_NEW_CODELITE_PLUGIN;
     options[MI_NEW_NEW_CLASS] = ID_MI_NEW_NEW_CLASS;
 
-    std::map<wxString, int>::iterator iter = options.begin();
-    for(; iter != options.end(); iter++) {
-        int id = (*iter).second;
-        wxString text = (*iter).first;
+    for (const auto& [text, id] : options) {
         wxMenuItem* item = new wxMenuItem(&popupMenu, id, text, text, wxITEM_NORMAL);
         popupMenu.Append(item);
     }
@@ -638,26 +594,4 @@ void WizardsPlugin::OnFolderContentMenu(clContextMenuEvent& event)
         auto menu = event.GetMenu();
         menu->Append(ID_MI_NEW_NEW_CLASS, _("New C++ Class"));
     }
-}
-
-bool WizardsPlugin::BulkRead(std::vector<std::pair<wxString, wxString*>>& files, const wxString& path_prefix) const
-{
-    for(size_t i = 0; i < files.size(); ++i) {
-        if(!FileUtils::ReadFileContent(path_prefix + files[i].first, *files[i].second)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool WizardsPlugin::BulkWrite(const std::vector<std::pair<wxString, wxString>>& files,
-                              const wxString& path_prefix) const
-{
-
-    for(size_t i = 0; i < files.size(); ++i) {
-        if(!FileUtils::WriteFileContent(path_prefix + files[i].first, files[i].second)) {
-            return false;
-        }
-    }
-    return true;
 }

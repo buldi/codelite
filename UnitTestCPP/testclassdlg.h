@@ -28,7 +28,6 @@
 
 #include "database/entry.h"
 #include "testclassbasedlg.h"
-#include "wxStringHash.h"
 
 #include <unordered_map>
 #include <vector>
@@ -59,7 +58,7 @@ protected:
 public:
     /** Constructor */
     TestClassDlg(wxWindow* parent, IManager* mgr, UnitTestPP* plugin);
-    virtual ~TestClassDlg();
+    virtual ~TestClassDlg() = default;
     wxArrayString GetTestsList();
 
     wxString GetFileName() { return m_textCtrlFileName->GetValue(); }

@@ -2,7 +2,9 @@
 #define CLGOTOENTRY_H
 
 #include "codelite_exports.h"
+
 #include <vector>
+#include <wx/setup.h>
 #if wxUSE_GUI
 #include <wx/bitmap.h>
 #endif
@@ -28,7 +30,7 @@ public:
     };
 
 public:
-    typedef std::vector<clGotoEntry> Vec_t;
+    using Vec_t = std::vector<clGotoEntry>;
 
 public:
     clGotoEntry(const wxString& desc, const wxString& shortcut, int id);

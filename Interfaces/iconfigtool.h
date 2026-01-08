@@ -45,13 +45,13 @@
 class IConfigTool
 {
 public:
-    IConfigTool() {}
-    virtual ~IConfigTool() {}
+    IConfigTool() = default;
+    virtual ~IConfigTool() = default;
 
     /**
      * @brief read an object from the configuration file and place it into obj
      * @param name the name of the object that is stored in the configuration file
-     * @param obj a pointer previsouly allocated SerializedObject
+     * @param obj a pointer previously allocated SerializedObject
      * @return true if the object exist and was read successfully from the configuration file
      */
     virtual bool ReadObject(const wxString& name, SerializedObject* obj) = 0;

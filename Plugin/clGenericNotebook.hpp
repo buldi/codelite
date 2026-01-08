@@ -17,7 +17,6 @@
 #include <wx/notebook.h>
 #include <wx/panel.h>
 #include <wx/settings.h>
-#include <wx/sharedptr.h>
 
 class clGenericNotebook;
 class wxMenu;
@@ -40,7 +39,7 @@ class WXDLLIMPEXP_SDK clTabCtrlDropTarget : public wxTextDropTarget
 public:
     clTabCtrlDropTarget(clTabCtrl* tabCtrl);
     clTabCtrlDropTarget(clGenericNotebook* notebook);
-    virtual ~clTabCtrlDropTarget();
+    virtual ~clTabCtrlDropTarget() = default;
     virtual bool OnDropText(wxCoord x, wxCoord y, const wxString& data);
 };
 
@@ -72,7 +71,6 @@ class WXDLLIMPEXP_SDK clTabCtrl : public wxPanel
 
     clBitmapList* m_bitmaps = nullptr;
     clButton* m_fileListButton = nullptr;
-    clButton* m_actionButton = nullptr;
 
 protected:
     void DoChangeSelection(size_t index);

@@ -29,8 +29,8 @@
 #include "codelite_exports.h"
 #include "project.h"
 
+#include <memory>
 #include <wx/filename.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 #include <wx/wxsqlite3.h>
 
@@ -40,7 +40,7 @@ class WXDLLIMPEXP_SDK CompilationDatabase
     wxFileName m_filename;
 
 public:
-    typedef wxSharedPtr<CompilationDatabase> Ptr_t;
+    using Ptr_t = std::shared_ptr<CompilationDatabase>;
 
 protected:
     void DropTables();
@@ -78,7 +78,7 @@ public:
     wxFileName GetFileName() const;
     /**
      * @brief return the location of the CMake (usually compile_commands.json)
-     * Note that this function does not check for the existance of the file
+     * Note that this function does not check for the existence of the file
      */
     FileNameVector_t GetCompileCommandsFiles() const;
     static FileNameVector_t GetCompileCommandsFiles(const wxString& rootFolder);

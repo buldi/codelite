@@ -5,15 +5,15 @@
 #include "cl_command_event.h"
 #include "database/entry.h"
 #include "plugin.h"
-#include "wxStringHash.h"
+
 #include <unordered_map>
 
 class SmartCompletion : public IPlugin
 {
-    typedef std::unordered_map<wxString, int> WeightTable_t;
+    using WeightTable_t = std::unordered_map<wxString, int>;
     WeightTable_t* m_pCCWeight;
     WeightTable_t* m_pGTAWeight;
-    typedef std::pair<TagEntryPtr, int> QueueElement_t;
+    using QueueElement_t = std::pair<TagEntryPtr, int>;
     SmartCompletionsConfig m_config;
 
 protected:
@@ -25,21 +25,21 @@ protected:
 
 public:
     SmartCompletion(IManager* manager);
-    ~SmartCompletion();
+    ~SmartCompletion() override = default;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
     /**
      * @brief Add plugin menu to the "Plugins" menu item in the menu bar
      */
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
 
     /**
      * @brief Unplug the plugin. Perform here any cleanup needed (e.g. unbind events, destroy allocated windows)
      */
-    virtual void UnPlug();
+    void UnPlug() override;
 };
 
 #endif // SmartCompletion

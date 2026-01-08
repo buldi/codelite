@@ -17,17 +17,14 @@
 #define WXDLLIMPEXP_SDK
 #endif
 
-#include "clTabRenderer.h"
-#include "cl_defs.h"
 #include "drawingutils.h"
-#include "wxStringHash.h"
 
+#include <memory>
 #include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
 #include <wx/colour.h>
 #include <wx/dc.h>
-#include <wx/sharedptr.h>
 #include <wx/window.h>
 
 #define CHEVRON_SIZE 20
@@ -67,10 +64,10 @@ enum NotebookStyle {
     /// Allow DnD between different book controls
     kNotebook_AllowForeignDnD = (1 << 10),
 
-    /// We keep this flag for backward compatability
+    /// We keep this flag for backward compatibility
     kNotebook_RightTabs = 0,
 
-    /// We keep this flag for backward compatability
+    /// We keep this flag for backward compatibility
     kNotebook_LeftTabs = 0,
 
     /// Fixed width tabs
@@ -113,7 +110,7 @@ public:
     wxColour markerColour;
 
     clTabColours();
-    virtual ~clTabColours() {}
+    virtual ~clTabColours() = default;
 
     /**
      * @brief update colours based on the current theme
@@ -160,12 +157,12 @@ public:
     const wxString& GetBestLabel(size_t style) const;
 
 public:
-    typedef wxSharedPtr<clTabInfo> Ptr_t;
-    typedef std::vector<clTabInfo::Ptr_t> Vec_t;
+    using Ptr_t = std::shared_ptr<clTabInfo>;
+    using Vec_t = std::vector<clTabInfo::Ptr_t>;
 
     clTabInfo(clTabCtrl* tabCtrl);
     clTabInfo(clTabCtrl* tabCtrl, size_t style, wxWindow* page, const wxString& text, int bitmapId = wxNOT_FOUND);
-    virtual ~clTabInfo() {}
+    virtual ~clTabInfo() = default;
 
     void CreateDisabledBitmap();
     bool IsValid() const { return m_window != NULL; }
@@ -203,14 +200,14 @@ public:
 class WXDLLIMPEXP_SDK clTabRenderer
 {
 public:
-    typedef wxSharedPtr<clTabRenderer> Ptr_t;
+    using Ptr_t = std::shared_ptr<clTabRenderer>;
 
     // Geometry
     int bottomAreaHeight = 0;
     int xSpacer = DEFAULT_XSPACER;
     int ySpacer = DEFAULT_YSPACER;
     wxString m_name;
-    static std::unordered_map<wxString, clTabRenderer*> ms_Renderes;
+    static std::unordered_map<wxString, clTabRenderer*> ms_Renderers;
     bool use_bold_font = false;
 
 protected:
@@ -222,7 +219,7 @@ protected:
 
 public:
     clTabRenderer(const wxString& name, const wxWindow* parent);
-    virtual ~clTabRenderer() {}
+    virtual ~clTabRenderer() = default;
     virtual void Draw(wxWindow* parent, wxDC& dc, wxDC& fontDC, const clTabInfo& tabInfo, size_t tabIndex,
                       size_t activeTabIndex, const clTabColours& colours, size_t style, eButtonState tabState,
                       eButtonState xButtonState) = 0;
@@ -245,7 +242,7 @@ public:
     virtual void FinaliseBackground(wxWindow* parent, wxDC& dc, const wxRect& clientRect, const wxRect& activeTabRect,
                                     const clTabColours& colours, size_t style);
     /**
-     * @brief reutrn font suitable for drawing the tab label
+     * @brief return font suitable for drawing the tab label
      */
     static wxFont GetTabFont(bool bold);
 
@@ -256,7 +253,7 @@ public:
                            eButtonState state);
 
     /**
-     * @brief draw cheveron button
+     * @brief draw chevron button
      */
     static void DrawChevron(wxWindow* win, wxDC& dc, const wxRect& rect, const clTabColours& colours);
 
@@ -274,7 +271,7 @@ public:
      */
     static clTabRenderer::Ptr_t CreateRenderer(const wxWindow* win, size_t tabStyle);
     /**
-     * @brief return list of availale renderers
+     * @brief return list of available renderers
      */
     static wxArrayString GetRenderers();
 

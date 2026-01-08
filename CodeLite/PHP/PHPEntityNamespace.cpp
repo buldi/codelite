@@ -1,19 +1,17 @@
 #include "PHPEntityNamespace.h"
-#include <wx/tokenzr.h>
+
 #include "PHPLookupTable.h"
 
-PHPEntityNamespace::PHPEntityNamespace() {}
-
-PHPEntityNamespace::~PHPEntityNamespace() {}
+#include <wx/tokenzr.h>
+#include <wx/wxcrtvararg.h>
 
 void PHPEntityNamespace::PrintStdout(int indent) const
 {
     wxString indentString(' ', indent);
     wxPrintf("%sNamespace name: %s\n", indentString, GetFullName());
 
-    PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-    for(; iter != m_children.end(); ++iter) {
-        (*iter)->PrintStdout(indent + 4);
+    for (const auto& child : m_children) {
+        child->PrintStdout(indent + 4);
     }
 }
 
@@ -55,7 +53,7 @@ void PHPEntityNamespace::Store(PHPLookupTable* lookup)
             statement.ExecuteUpdate();
             SetDbId(db.GetLastRowId());
         }
-    } catch(wxSQLite3Exception& exc) {
+    } catch (const wxSQLite3Exception& exc) {
         wxUnusedVar(exc);
     }
 }
@@ -105,7 +103,7 @@ void PHPEntityNamespace::DoEnsureNamespacePathExists(wxSQLite3Database& db, cons
             // SetDbId(db.GetLastRowId());
         }
 
-    } catch(wxSQLite3Exception& exc) {
+    } catch (const wxSQLite3Exception& exc) {
         wxUnusedVar(exc);
     }
 }
@@ -137,6 +135,6 @@ void PHPEntityNamespace::FromJSON(const JSONItem& json)
 
 JSONItem PHPEntityNamespace::ToJSON() const
 {
-    JSONItem json = BaseToJSON("n"); // n stands for namesapce
+    JSONItem json = BaseToJSON("n"); // n stands for namespace
     return json;
 }

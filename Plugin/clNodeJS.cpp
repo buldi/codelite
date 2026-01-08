@@ -4,18 +4,14 @@
 #include "AsyncProcess/processreaderthread.h"
 #include "Console/clConsoleBase.h"
 #include "NodeJSLocator.h"
+#include "StringUtils.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "ieditor.h"
 #include "imanager.h"
 
-#include <algorithm>
 
 wxDEFINE_EVENT(wxEVT_NODE_COMMAND_TERMINATED, clProcessEvent);
-
-clNodeJS::clNodeJS() {}
-
-clNodeJS::~clNodeJS() {}
 
 bool clNodeJS::Initialise(const wxArrayString& hints)
 {
@@ -103,13 +99,11 @@ void clNodeJS::Shutdown()
     // Unbind before we kill the process
     UnBindEvents();
 
-    std::for_each(m_processes.begin(), m_processes.end(),
-                  [&](const std::unordered_map<IProcess*, ProcessData>::value_type& vt) {
-                      IProcess* p = vt.first;
-                      // Terminate the process
-                      p->Terminate();
-                      wxDELETE(p);
-                  });
+    for (auto& [p, _] : m_processes) {
+        // Terminate the process
+        p->Terminate();
+        delete p;
+    }
     m_processes.clear();
 }
 
@@ -153,7 +147,7 @@ void clNodeJS::LintFile(const wxFileName& filename)
 
     wxString command;
     command << GetNode().GetFullPath();
-    ::WrapWithQuotes(command);
+    StringUtils::WrapWithQuotes(command);
 
     command << " -c " << filename.GetFullName();
     IProcess* process = ::CreateAsyncProcess(this, command, IProcessCreateDefault, wd);
@@ -189,27 +183,6 @@ void clNodeJS::ProcessLintOutput(const wxFileName& fn, const wxString& output)
     }
 }
 
-bool clNodeJS::NpmSilentInstall(const wxString& package, const wxString& workingDirectory, const wxString& args,
-                                wxEvtHandler* sink, const wxString& uid)
-{
-    if(!IsInitialised()) {
-        return false;
-    }
-    wxString command;
-    command << GetNpm().GetFullPath();
-    ::WrapWithQuotes(command);
-
-    command << " install " << package << " --silent --quiet " << args;
-    IProcess* process = ::CreateAsyncProcess(this, command, IProcessCreateDefault, workingDirectory);
-    if(process) {
-        ProcessData d;
-        d.SetUid(uid);
-        d.SetSink(sink);
-        m_processes.insert({ process, d });
-    }
-    return (process != nullptr);
-}
-
 wxProcess* clNodeJS::RunScript(const wxArrayString& argv, const wxString& workingDirectory, size_t execFlags)
 {
     if(!IsInitialised() || argv.IsEmpty()) {
@@ -225,7 +198,7 @@ wxProcess* clNodeJS::RunScript(const wxArrayString& argv, const wxString& workin
     for(const wxString& arg : argv) {
         // Build the command line
         wxString tmp = std::move(arg);
-        ::WrapWithQuotes(tmp);
+        StringUtils::WrapWithQuotes(tmp);
         command << tmp << " ";
     }
 

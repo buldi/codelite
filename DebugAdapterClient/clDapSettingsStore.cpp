@@ -29,10 +29,6 @@ void DapEntry::From(const JSONItem& json)
 //////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////
 
-clDapSettingsStore::clDapSettingsStore() {}
-
-clDapSettingsStore::~clDapSettingsStore() {}
-
 void clDapSettingsStore::Clear() { m_entries.clear(); }
 
 void clDapSettingsStore::Load(const wxFileName& file)
@@ -80,12 +76,6 @@ bool clDapSettingsStore::Get(const wxString& name, DapEntry* entry) const
 
     *entry = m_entries.find(name)->second;
     return true;
-}
-
-bool clDapSettingsStore::Contains(const wxString& name) const
-{
-    DapEntry entry;
-    return Get(name, &entry);
 }
 
 bool clDapSettingsStore::Set(const DapEntry& entry)

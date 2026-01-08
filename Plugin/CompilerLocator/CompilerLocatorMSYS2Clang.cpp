@@ -14,7 +14,6 @@ CompilerLocatorMSYS2ClangUsr::CompilerLocatorMSYS2ClangUsr()
     m_repository = "";
     m_msys2.SetChroot("\\usr");
 }
-CompilerLocatorMSYS2ClangUsr::~CompilerLocatorMSYS2ClangUsr() {}
 
 CompilerLocatorMSYS2ClangMingw64::CompilerLocatorMSYS2ClangMingw64()
 {
@@ -22,34 +21,27 @@ CompilerLocatorMSYS2ClangMingw64::CompilerLocatorMSYS2ClangMingw64()
     m_msys2.SetChroot("\\mingw64");
 }
 
-CompilerLocatorMSYS2ClangMingw64::~CompilerLocatorMSYS2ClangMingw64() {}
-
 CompilerLocatorMSYS2ClangClang64::CompilerLocatorMSYS2ClangClang64()
 {
     m_repository = "clang64";
     m_msys2.SetChroot("\\clang64");
 }
-CompilerLocatorMSYS2ClangClang64::~CompilerLocatorMSYS2ClangClang64() {}
 
 // --------------------------------------------------
 // --------------------------------------------------
-
-CompilerLocatorMSYS2Clang::CompilerLocatorMSYS2Clang() {}
-
-CompilerLocatorMSYS2Clang::~CompilerLocatorMSYS2Clang() {}
 
 bool CompilerLocatorMSYS2Clang::Locate()
 {
     m_compilers.clear();
 
     // try some defaults
-    wxString clang_exe;
-    if(!m_msys2.Which("clang", &clang_exe)) {
+    const auto clang_exe = m_msys2.Which("clang");
+    if (!clang_exe) {
         return false;
     }
 
-    auto compiler = Locate(wxFileName(clang_exe).GetPath());
-    if(compiler) {
+    auto compiler = Locate(wxFileName(*clang_exe).GetPath());
+    if (compiler) {
         m_compilers.push_back(compiler);
     }
     return !m_compilers.empty();
@@ -68,23 +60,20 @@ CompilerPtr CompilerLocatorMSYS2Clang::Locate(const wxString& folder)
     wxFileName gdb = GetFileName(folder, "gdb");
 
     // make sure that both clang & g++ exist
-    if(!(clang.FileExists() && clangxx.FileExists())) {
+    if (!(clang.FileExists() && clangxx.FileExists())) {
         return nullptr;
     }
 
     // define the toolchain name
     wxString basename = m_repository;
-    if(!basename.empty()) {
+    if (!basename.empty()) {
         basename << "/";
     }
     basename << "clang";
-    GCCMetadata cmd(basename);
-
-    cmd.Load(clang.GetFullPath(), folder);
 
     // create new compiler
     CompilerPtr compiler(new Compiler(nullptr));
-    compiler->SetName(cmd.GetName());
+    compiler->SetName(clang.GetFullPath());
     compiler->SetCompilerFamily(COMPILER_FAMILY_CLANG);
     compiler->SetInstallationPath(folder);
 
@@ -102,8 +91,6 @@ CompilerPtr CompilerLocatorMSYS2Clang::Locate(const wxString& folder)
     compiler->SetTool("Debugger", gdb.GetFullPath());
     return compiler;
 }
-
-void CompilerLocatorMSYS2Clang::AddTool(const wxString& tool_name, const wxString& value) {}
 
 wxFileName CompilerLocatorMSYS2Clang::GetFileName(const wxString& bin_dir, const wxString& fullname) const
 {

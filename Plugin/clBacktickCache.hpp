@@ -3,9 +3,8 @@
 
 #include "codelite_exports.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
-#include <wx/sharedptr.h>
+#include <memory>
 #include <wx/string.h>
 
 class WXDLLIMPEXP_SDK clBacktickCache
@@ -14,11 +13,11 @@ class WXDLLIMPEXP_SDK clBacktickCache
     wxStringMap_t m_cache;
 
 public:
-    typedef wxSharedPtr<clBacktickCache> ptr_t;
+    using ptr_t = std::shared_ptr<clBacktickCache>;
 
 public:
     clBacktickCache(const wxString& directory);
-    virtual ~clBacktickCache();
+    virtual ~clBacktickCache() = default;
 
     void Save();
 

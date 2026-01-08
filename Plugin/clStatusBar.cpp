@@ -1,6 +1,8 @@
 #include "clStatusBar.h"
 
 #include "ColoursAndFontsManager.h"
+#include "CustomControls/IndicatorPanel.hpp"
+#include "aui/clAuiToolBarArt.h"
 #include "bitmap_loader.h"
 #include "clStrings.h"
 #include "clToolBar.h"
@@ -15,6 +17,8 @@
 #include "macros.h"
 
 #include <algorithm>
+#include <wx/activityindicator.h>
+#include <wx/aui/auibar.h>
 #include <wx/dcclient.h>
 #include <wx/dcmemory.h>
 #include <wx/fontenc.h>
@@ -63,7 +67,7 @@ void GetWhitespaceInfo(wxStyledTextCtrl* ctrl, wxString& whitespace, wxString& e
     }
 }
 } // namespace
-typedef wxCustomStatusBarArt clStatusBarArtNormal;
+using clStatusBarArtNormal = wxCustomStatusBarArt;
 
 clStatusBar::clStatusBar(wxWindow* parent, IManager* mgr)
     : wxCustomStatusBar(parent)
@@ -94,18 +98,25 @@ clStatusBar::clStatusBar(wxWindow* parent, IManager* mgr)
 #endif
 
     // set the width to include a possible label
-    int lable_width = GetTextWidth("_git_source_control_with_long_branch_name");
+    int lable_width = GetTextWidth("_git_source_control_with_long_name");
     wxCustomStatusBarField::Ptr_t sourceControl(
         new wxCustomStatusBarBitmapField(this, clGetScaledSize(30) + lable_width));
     STATUSBAR_SCM_IDX = AddField(sourceControl);
 
-    int lineColWidth = GetTextWidth("Ln 100000, Col 999, Pos 12345678, Len 4821182");
+    const int lineColWidth =
+        GetTextWidth("Ln 123456, Col 123, Lns 123456, Pos 12345678, Len 12345678, Sel 1234567, SelLn 12345");
     wxCustomStatusBarField::Ptr_t lineCol(new wxCustomStatusBarFieldText(this, lineColWidth));
+    lineCol->SetAutoWidth(true);
     STATUSBAR_LINE_COL_IDX = AddField(lineCol);
 
-    wxCustomStatusBarField::Ptr_t buildAnimation(new wxCustomStatusBarAnimationField(
-        this, wxXmlResource::Get()->LoadBitmap("build-animation-sprite"), wxHORIZONTAL, wxSize(80, 7)));
+    auto control = new wxCustomStatusBarControlField(this, new IndicatorPanel(this));
+    control->SetSize(wxSize(GetTextExtent("Building Building").GetWidth(), wxNOT_FOUND));
+    wxCustomStatusBarField::Ptr_t buildAnimation(control);
     STATUSBAR_ANIMATION_COL_IDX = AddField(buildAnimation);
+
+    // wxCustomStatusBarField::Ptr_t buildAnimation(new wxCustomStatusBarAnimationField(
+    //     this, wxXmlResource::Get()->LoadBitmap("build-animation-sprite"), wxHORIZONTAL, wxSize(80, 7)));
+    // STATUSBAR_ANIMATION_COL_IDX = AddField(buildAnimation);
 
     wxCustomStatusBarField::Ptr_t whitespace(new wxCustomStatusBarFieldText(this, clGetScaledSize(80)));
     STATUSBAR_WHITESPACE_INFO_IDX = AddField(whitespace);
@@ -263,7 +274,7 @@ void clStatusBar::StartAnimation(long refreshRate, const wxString& tooltip)
     wxUnusedVar(tooltip);
     wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ANIMATION_COL_IDX);
     CHECK_PTR_RET(field);
-    field->Cast<wxCustomStatusBarAnimationField>()->Start(refreshRate);
+    field->Cast<wxCustomStatusBarControlField>()->GetControl<IndicatorPanel>()->Start(_("Building"));
     field->SetTooltip(_("Build is in progress\nClick to view the Build Log"));
 }
 
@@ -271,11 +282,11 @@ void clStatusBar::StopAnimation()
 {
     wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ANIMATION_COL_IDX);
     CHECK_PTR_RET(field);
-    field->Cast<wxCustomStatusBarAnimationField>()->Stop();
+    field->Cast<wxCustomStatusBarControlField>()->GetControl<IndicatorPanel>()->Stop(_("Ready"));
     field->SetTooltip("");
 }
 
-void clStatusBar::OnFieldClicked(clCommandEvent& event) { DoFieldClicked(event.GetInt()); }
+void clStatusBar::OnFieldClicked(clCommandEvent& event) { DoFieldClicked(static_cast<size_t>(event.GetInt())); }
 
 void clStatusBar::SetWhitespaceInfo()
 {
@@ -304,7 +315,9 @@ void clStatusBar::SetWhitespaceInfo()
     }
 }
 
-void clStatusBar::SetSourceControlBitmap(const wxBitmap& bmp, const wxString& label, const wxString& outputTabName,
+void clStatusBar::SetSourceControlBitmap(const wxBitmap& bmp,
+                                         const wxString& label,
+                                         const wxString& outputTabName,
                                          const wxString& tooltip)
 {
     m_sourceControlTabName = outputTabName;
@@ -375,7 +388,7 @@ void clStatusBar::DoUpdateView()
     SetWhitespaceInfo();
 }
 
-void clStatusBar::DoFieldClicked(int fieldIndex)
+void clStatusBar::DoFieldClicked(size_t fieldIndex)
 {
     if (fieldIndex == STATUSBAR_SCM_IDX) {
         if (m_sourceControlTabName.IsEmpty())
@@ -384,7 +397,7 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
         CHECK_PTR_RET(field);
         // Open the output view only if the bitmap is valid
         if (field->Cast<wxCustomStatusBarBitmapField>()->GetBitmap().IsOk()) {
-            m_mgr->ToggleOutputPane(m_sourceControlTabName);
+            m_mgr->ShowManagementWindow(m_sourceControlTabName, true);
         }
     } else if (fieldIndex == STATUSBAR_ICON_COL_IDX) {
         wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ICON_COL_IDX);
@@ -394,12 +407,7 @@ void clStatusBar::DoFieldClicked(int fieldIndex)
             m_mgr->ToggleOutputPane("Build");
         }
     } else if (fieldIndex == STATUSBAR_ANIMATION_COL_IDX) {
-        wxCustomStatusBarField::Ptr_t field = GetField(STATUSBAR_ANIMATION_COL_IDX);
-        CHECK_PTR_RET(field);
-        // Open the output view only if the bitmap is valid
-        if (field->Cast<wxCustomStatusBarAnimationField>()->IsRunning()) {
-            m_mgr->ToggleOutputPane("Build");
-        }
+        m_mgr->ToggleOutputPane("Build");
     } else if (fieldIndex == STATUSBAR_ENCODING_COL_IDX) {
         // Show encoding menu
         wxMenu menu;
@@ -627,17 +635,21 @@ int clStatusBar::GetTextWidth(const wxString& text) const
     return textWidth;
 }
 
-clToolBarGeneric* clStatusBar::CreatePaneButtonsToolbar()
+wxAuiToolBar* clStatusBar::CreatePaneButtonsToolbar()
 {
-    clToolBarGeneric* toolbar = new clToolBarGeneric(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_NODIVIDER);
-    toolbar->ShowOverflowButton(false);
+    wxAuiToolBar* toolbar = new wxAuiToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_NODIVIDER);
+    toolbar->SetArtProvider(new clAuiToolBarArt());
 
-    clBitmapList* images = toolbar->GetBitmapsCreateIfNeeded();
-    toolbar->AddTool(XRCID("sidebar-button"), _("Show sidebar"), images->Add("sidebar"), wxEmptyString, wxITEM_CHECK);
-    toolbar->AddTool(XRCID("bottombar-button"), _("Show output pane"), images->Add("bottombar"), wxEmptyString,
+    BitmapLoader* images = clGetManager()->GetStdIcons();
+    toolbar->AddTool(
+        XRCID("sidebar-button"), _("Show sidebar"), images->LoadBitmap("sidebar"), wxEmptyString, wxITEM_CHECK);
+    toolbar->AddTool(
+        XRCID("bottombar-button"), _("Show output pane"), images->LoadBitmap("bottombar"), wxEmptyString, wxITEM_CHECK);
+    toolbar->AddTool(XRCID("secondary-sidebar-button"),
+                     _("Show secondary sidebar"),
+                     images->LoadBitmap("secondary-sidebar"),
+                     wxEmptyString,
                      wxITEM_CHECK);
-    toolbar->AddTool(XRCID("secondary-sidebar-button"), _("Show secondary sidebar"), images->Add("secondary-sidebar"),
-                     wxEmptyString, wxITEM_CHECK);
     toolbar->Realize();
 
     toolbar->Bind(wxEVT_TOOL, &clStatusBar::OnSidebar, this, XRCID("sidebar-button"));

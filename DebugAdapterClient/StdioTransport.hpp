@@ -15,21 +15,21 @@ private:
     StdioTransport& operator=(StdioTransport&&) = delete;
 
 public:
-    StdioTransport();
-    virtual ~StdioTransport();
+    StdioTransport() = default;
+    virtual ~StdioTransport() = default;
 
     /**
      * @brief return a buffer from the network with a given timeout
      * @returns true on success, false in case of an error. True is also returned when timeout occurs, The caller should
      * check the buffer length: if it is 0, than timeout occurred.
      */
-    bool Read(wxString& buffer, int msTimeout) override;
+    bool Read(std::string& buffer, int msTimeout) override;
 
     /**
      * @brief send data over the network
      * @return number of bytes written
      */
-    size_t Send(const wxString& buffer) override;
+    size_t Send(const std::string& buffer) override;
 };
 
 } // namespace dap

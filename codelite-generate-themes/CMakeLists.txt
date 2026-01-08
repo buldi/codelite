@@ -7,15 +7,9 @@ include(${wxWidgets_USE_FILE})
 # prepare list of files
 file(GLOB SRCS "codelite-generate-themes/*.cpp")
 
-include_directories("${CL_SRC_ROOT}/Plugin"
-                    "${CL_SRC_ROOT}/Plugin/ThemeImporters"
-                    "${CL_SRC_ROOT}/sdk/wxsqlite3/include"
-                    "${CL_SRC_ROOT}/CodeLite"
-                    "${CL_SRC_ROOT}/CodeLite/ssh"
-                    "${CL_SRC_ROOT}/PCH"
-                    "${CL_SRC_ROOT}/Interfaces")
+include_directories("${CL_SRC_ROOT}/Plugin/ThemeImporters")
 
-add_definitions(-DwxDEBUG_LEVEL=0)
+add_compile_definitions(wxDEBUG_LEVEL=0)
 
 set(CGT_RES_FILE "")
 if(MINGW)
@@ -26,11 +20,6 @@ endif()
 # Define the output
 add_executable(codelite-generate-themes ${SRCS} ${CGT_RES_FILE})
 
-target_link_libraries(
-    codelite-generate-themes
-    ${wxWidgets_LIBRARIES}
-    libcodelite
-    plugin
-    ${LINKER_OPTIONS})
+target_link_libraries(codelite-generate-themes libcodelite plugin ${LINKER_OPTIONS})
 
 install(TARGETS codelite-generate-themes DESTINATION ${CL_INSTALL_BIN})

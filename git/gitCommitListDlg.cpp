@@ -50,17 +50,22 @@ GitCommitListDlg::GitCommitListDlg(wxWindow* parent, const wxString& workingDir,
 {
     Bind(wxEVT_ASYNC_PROCESS_OUTPUT, &GitCommitListDlg::OnProcessOutput, this);
     Bind(wxEVT_ASYNC_PROCESS_TERMINATED, &GitCommitListDlg::OnProcessTerminated, this);
-    // Bind(wxEVT_CHAR_HOOK, &GitCommitListDlg::OnCharHook, this);
 
     LexerConf::Ptr_t lex = EditorConfigST::Get()->GetLexer("diff");
-    if(lex) {
+    if (lex) {
         lex->Apply(m_stcDiff, true);
     }
 
-    m_dvListCtrlCommitList->Connect(ID_COPY_COMMIT_HASH, wxEVT_COMMAND_MENU_SELECTED,
-                                    wxCommandEventHandler(GitCommitListDlg::OnCopyCommitHashToClipboard), NULL, this);
-    m_dvListCtrlCommitList->Connect(ID_REVERT_COMMIT, wxEVT_COMMAND_MENU_SELECTED,
-                                    wxCommandEventHandler(GitCommitListDlg::OnRevertCommit), NULL, this);
+    m_dvListCtrlCommitList->Connect(ID_COPY_COMMIT_HASH,
+                                    wxEVT_COMMAND_MENU_SELECTED,
+                                    wxCommandEventHandler(GitCommitListDlg::OnCopyCommitHashToClipboard),
+                                    NULL,
+                                    this);
+    m_dvListCtrlCommitList->Connect(ID_REVERT_COMMIT,
+                                    wxEVT_COMMAND_MENU_SELECTED,
+                                    wxCommandEventHandler(GitCommitListDlg::OnRevertCommit),
+                                    NULL,
+                                    this);
 
     ::clSetDialogBestSizeAndPosition(this);
     CenterOnParent();
@@ -112,16 +117,20 @@ void GitCommitListDlg::OnProcessTerminated(clProcessEvent& event)
     GitDiffOutputParser diff_parser;
     diff_parser.GetDiffMap(m_commandOutput, m_diffMap, &commitMessage);
 
-    for(wxStringMap_t::iterator it = m_diffMap.begin(); it != m_diffMap.end(); ++it) {
-        m_fileListBox->Append((*it).first);
-    }
-    if(m_diffMap.size() != 0) {
-        wxStringMap_t::iterator it = m_diffMap.begin();
-        m_stcDiff->SetText((*it).second);
-        m_fileListBox->Select(0);
+    for (const auto& p : m_diffMap) {
+        m_fileListBox->Append(p.first);
     }
 
-    for(size_t i = 0; i < commitMessage.GetCount(); ++i) {
+    if (!m_fileListBox->IsEmpty()) {
+        wxString filename = m_fileListBox->GetString(0);
+        auto it = m_diffMap.find(filename);
+        if (it != m_diffMap.end()) {
+            m_fileListBox->Select(0);
+            m_stcDiff->SetText(it->second);
+        }
+    }
+
+    for (size_t i = 0; i < commitMessage.GetCount(); ++i) {
         m_stcCommitMessage->AppendText(commitMessage.Item(i));
     }
 
@@ -135,7 +144,7 @@ void GitCommitListDlg::OnProcessOutput(clProcessEvent& event) { m_commandOutput.
 void GitCommitListDlg::OnSelectionChanged(wxDataViewEvent& event)
 {
     wxVariant v;
-    if(!event.GetItem().IsOk()) {
+    if (!event.GetItem().IsOk()) {
         return;
     }
 
@@ -169,8 +178,10 @@ void GitCommitListDlg::OnRevertCommit(wxCommandEvent& e)
 
     wxString commitID = m_dvListCtrlCommitList->GetItemText(sel);
 
-    if(::wxMessageBox(_("Are you sure you want to revert commit #") + commitID, "CodeLite",
-                      wxYES_NO | wxCANCEL | wxICON_QUESTION, this) != wxYES) {
+    if (::wxMessageBox(_("Are you sure you want to revert commit #") + commitID,
+                       "CodeLite",
+                       wxYES_NO | wxCANCEL | wxICON_QUESTION,
+                       this) != wxYES) {
         return;
     }
     m_git->CallAfter(&GitPlugin::RevertCommit, commitID);
@@ -182,8 +193,6 @@ void GitCommitListDlg::OnClose(wxCloseEvent& event)
     Destroy();
 }
 
-void GitCommitListDlg::OnOK(wxCommandEvent& event) { Destroy(); }
-
 void GitCommitListDlg::DoLoadCommits(const wxString& filter)
 {
     ClearAll();
@@ -192,9 +201,9 @@ void GitCommitListDlg::DoLoadCommits(const wxString& filter)
     wxArrayString gitList = wxStringTokenize(m_commitList, wxT("\n"), wxTOKEN_STRTOK);
     wxArrayString filters = wxStringTokenize(filter, " ");
     wxVector<wxVariant> cols;
-    for(unsigned i = 0; i < gitList.GetCount(); ++i) {
+    for (unsigned i = 0; i < gitList.GetCount(); ++i) {
         wxArrayString gitCommit = ::wxStringTokenize(gitList[i], "@");
-        if(gitCommit.GetCount() >= 4) {
+        if (gitCommit.GetCount() >= 4) {
             cols.clear();
             cols.reserve(4);
 
@@ -205,6 +214,11 @@ void GitCommitListDlg::DoLoadCommits(const wxString& filter)
             m_dvListCtrlCommitList->AppendItem(cols);
         }
     }
+
+    if (!m_dvListCtrlCommitList->IsEmpty()) {
+        // Choose the first entry, this will trigger an event.
+        m_dvListCtrlCommitList->Select(m_dvListCtrlCommitList->RowToItem(0));
+    }
 }
 
 void GitCommitListDlg::ClearAll(bool includingCommitlist /*=true*/)
@@ -213,7 +227,7 @@ void GitCommitListDlg::ClearAll(bool includingCommitlist /*=true*/)
     m_stcDiff->SetEditable(true);
     m_stcCommitMessage->ClearAll();
     m_fileListBox->Clear();
-    if(includingCommitlist) {
+    if (includingCommitlist) {
         m_dvListCtrlCommitList->DeleteAllItems();
     }
     m_diffMap.clear();
@@ -225,13 +239,13 @@ void GitCommitListDlg::ClearAll(bool includingCommitlist /*=true*/)
 void GitCommitListDlg::OnSearchCommitList(wxCommandEvent& event)
 {
     wxString filter = GetFilterString();
-    if(filter == m_Filter) {
+    if (filter == m_Filter) {
         return; // No change
     }
 
     m_Filter = filter;
 
-    if(m_Filter.empty()) {
+    if (m_Filter.empty()) {
         wxCommandEvent e; // A search-filter has been removed, so reload
         m_git->OnCommitList(e);
         return;
@@ -251,26 +265,26 @@ wxString GitCommitListDlg::GetFilterString() const
     wxString args;
     wxString filter = m_searchCtrlFilter->GetValue();
 
-    if(filter.empty() && m_comboExtraArgs->GetValue().empty()) {
+    if (filter.empty() && m_comboExtraArgs->GetValue().empty()) {
         return args;
     }
 
     wxArrayString searchStrings = ::wxStringTokenize(filter, " ", wxTOKEN_STRTOK);
-    for(size_t i = 0; i < searchStrings.size(); ++i) {
+    for (size_t i = 0; i < searchStrings.size(); ++i) {
         // Pass each search string using its own --grep field
         args << " --grep=" << searchStrings.Item(i);
     }
 
-    if(!searchStrings.IsEmpty()) {
+    if (!searchStrings.IsEmpty()) {
         //  Limit the commits output to ones that match all given --grep
         args << " --all-match";
     }
 
-    if(m_checkBoxIgnoreCase->IsChecked()) {
+    if (m_checkBoxIgnoreCase->IsChecked()) {
         args << " -i";
     }
 
-    if(!m_comboExtraArgs->GetValue().empty()) {
+    if (!m_comboExtraArgs->GetValue().empty()) {
         args << ' ' << m_comboExtraArgs->GetValue();
     }
 
@@ -282,7 +296,7 @@ void GitCommitListDlg::OnNext(wxCommandEvent& event)
     wxUnusedVar(event);
     m_skip += 100;
     // Check the cache first
-    if(m_history.count(m_skip)) {
+    if (m_history.count(m_skip)) {
         SetCommitList(m_history.find(m_skip)->second);
     } else {
         m_git->FetchNextCommits(m_skip, m_Filter);
@@ -293,25 +307,10 @@ void GitCommitListDlg::OnPrevious(wxCommandEvent& event)
 {
     wxUnusedVar(event);
     int skip = m_skip - 100;
-    if(m_history.count(skip)) {
+    if (m_history.count(skip)) {
         m_skip -= 100;
         SetCommitList(m_history.find(m_skip)->second);
     }
-}
-
-void GitCommitListDlg::OnExtraArgsTextEnter(wxCommandEvent& event)
-{
-    // Add any text to the combobox, uniqued
-    wxString extraArgs = m_comboExtraArgs->GetValue();
-    if(!extraArgs.empty()) {
-        int pos = m_comboExtraArgs->FindString(extraArgs);
-        if(pos != 0 && pos != wxNOT_FOUND) { // 0 == already the first item in the list
-            m_comboExtraArgs->Delete(pos);
-        }
-        m_comboExtraArgs->Insert(extraArgs, 0);
-    }
-
-    OnSearchCommitList(event);
 }
 
 void GitCommitListDlg::OnPreviousUI(wxUpdateUIEvent& event) { event.Enable(m_skip >= 100); }
@@ -322,11 +321,3 @@ void GitCommitListDlg::OnNextUpdateUI(wxUpdateUIEvent& event)
 }
 
 void GitCommitListDlg::OnBtnClose(wxCommandEvent& event) { Destroy(); }
-
-void GitCommitListDlg::OnCharHook(wxKeyEvent& event) // Needed to catch ESC
-{
-    event.Skip();
-    if(event.GetKeyCode() == WXK_ESCAPE) {
-        Destroy();
-    }
-}

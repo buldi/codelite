@@ -153,7 +153,7 @@ void clEditorTipWindow::OnPaint(wxPaintEvent& e)
     }
     for (size_t i = 0; i < m_args.size(); ++i) {
         wxString line = m_args.Item(i);
-        if ((int)i == highlight_index) {
+        if (i == highlight_index) {
             // wxFont f = m_font;
             // f.SetWeight(wxFONTWEIGHT_BOLD);
             dc.SetBrush(highlightBgColour);
@@ -382,13 +382,6 @@ wxSize clEditorTipWindow::DoGetTipSize()
     return sz;
 }
 
-int clEditorTipWindow::DoGetTextLen(wxDC& dc, const wxString& txt)
-{
-    int xx, yy;
-    dc.GetTextExtent(txt, &xx, &yy, NULL, NULL, &m_font);
-    return xx;
-}
-
 void clEditorTipWindow::DoAdjustPosition()
 {
     wxPoint pt = m_point;
@@ -419,15 +412,6 @@ void clEditorTipWindow::DoLayoutTip()
     DoAdjustPosition();
     Layout();
     Refresh();
-}
-
-void clEditorTipWindow::SelectSignature(const wxString& signature)
-{
-    m_selectedSignature = signature;
-    if (GetTip()) {
-        GetTip()->SelectSignature(m_selectedSignature);
-        m_selectedSignature.clear();
-    }
 }
 
 void clEditorTipWindow::OnEditoConfigChanged(clCommandEvent& e)

@@ -5,7 +5,6 @@
 
 #include <memory>
 #include <wx/arrstr.h>
-#include <wx/sharedptr.h>
 
 class IProcess;
 class WXDLLIMPEXP_CL clSSHAgent
@@ -19,7 +18,7 @@ protected:
     void Stop();
 
 public:
-    typedef std::shared_ptr<clSSHAgent> Ptr_t;
+    using Ptr_t = std::shared_ptr<clSSHAgent>;
 
 public:
     clSSHAgent(const wxArrayString& files = {});

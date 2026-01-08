@@ -63,8 +63,6 @@ DbSettingDialog::DbSettingDialog(DbViewerPanel* parent, wxWindow* pWindowParent)
     CentreOnParent();
 }
 
-DbSettingDialog::~DbSettingDialog() {}
-
 void DbSettingDialog::OnCancelClick(wxCommandEvent& event) { event.Skip(); }
 
 void DbSettingDialog::OnMySqlOkClick(wxCommandEvent& event)
@@ -80,11 +78,11 @@ void DbSettingDialog::OnMySqlOkClick(wxCommandEvent& event)
         m_pParent->AddDbConnection(new DbConnection(adapt, serverName));
         m_pParent->SetServer(serverName);
         event.Skip();
-    } catch(DatabaseLayerException& e) {
+    } catch (const DatabaseLayerException& e) {
         wxString errorMessage = wxString::Format(_("Error (%d): %s"), e.GetErrorCode(), e.GetErrorMessage().c_str());
         wxMessageDialog dlg(this, errorMessage, _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
-    } catch(...) {
+    } catch (...) {
         wxMessageDialog dlg(this, _("Unknown error."), _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
     }
@@ -152,12 +150,12 @@ void DbSettingDialog::OnPgOkClick(wxCommandEvent& event)
         m_pParent->AddDbConnection(new DbConnection(adapt, serverName));
 
         m_pParent->SetServer(serverName);
-    } catch(DatabaseLayerException& e) {
+    } catch (const DatabaseLayerException& e) {
         wxString errorMessage = wxString::Format(_("Error (%d): %s"), e.GetErrorCode(), e.GetErrorMessage().c_str());
         wxMessageDialog dlg(this, errorMessage, _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
         event.Skip();
-    } catch(...) {
+    } catch (...) {
         wxMessageDialog dlg(this, _("Unknown error."), _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
     }
@@ -379,12 +377,12 @@ bool DbSettingDialog::DoSQLiteItemActivated()
         m_pParent->AddDbConnection(new DbConnection(pAdapt, serverName));
         m_pParent->SetServer(serverName);
         return true;
-    } catch(DatabaseLayerException& e) {
+    } catch (const DatabaseLayerException& e) {
         wxString errorMessage = wxString::Format(_("Error (%d): %s"), e.GetErrorCode(), e.GetErrorMessage().c_str());
         wxMessageDialog dlg(this, errorMessage, _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
         return false;
-    } catch(...) {
+    } catch (...) {
         wxMessageDialog dlg(this, _("Unknown error."), _("DB Error"), wxOK | wxCENTER | wxICON_ERROR);
         dlg.ShowModal();
         return false;

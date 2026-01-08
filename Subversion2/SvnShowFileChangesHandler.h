@@ -17,7 +17,9 @@ struct SvnShowDiffChunk {
     void Finalize()
     {
         // Build the comment from the array of strings
-        std::for_each(commentArr.begin(), commentArr.end(), [&](wxString& line) { line.Trim(); });
+        for (wxString& line : commentArr) {
+            line.Trim();
+        }
         comment = ::wxJoin(commentArr, '\n');
         commentArr.Clear();
         // Extract the revision number
@@ -26,7 +28,7 @@ struct SvnShowDiffChunk {
         description.Trim().Trim(false);
     }
 
-    typedef std::list<SvnShowDiffChunk> List_t;
+    using List_t = std::list<SvnShowDiffChunk>;
 };
 
 class SvnShowFileChangesHandler : public SvnCommandHandler
@@ -36,7 +38,7 @@ class SvnShowFileChangesHandler : public SvnCommandHandler
 
 public:
     SvnShowFileChangesHandler(Subversion2* plugin, int cmdid, wxEvtHandler* owner);
-    virtual ~SvnShowFileChangesHandler();
+    virtual ~SvnShowFileChangesHandler() = default;
 
 public:
     virtual void Process(const wxString& output);

@@ -59,7 +59,7 @@ protected:
 
 public:
     // Setters
-    void SetSelectedTab(const int& selectedTab) { this->m_selectedTab = selectedTab; }
+    void SetSelectedTab(int selectedTab) { this->m_selectedTab = selectedTab; }
     // void SetTabs(const wxArrayString& tabs) {this->m_tabs = tabs;}
     void SetWorkspaceName(const wxString& workspaceName) { this->m_workspaceName = workspaceName; }
     void SetTabInfoArr(const std::vector<TabInfo>& _vTabInfoArr) { m_vTabInfoArr = _vTabInfoArr; }
@@ -69,7 +69,7 @@ public:
     }
 
     // Getters
-    const int& GetSelectedTab() const { return m_selectedTab; }
+    int GetSelectedTab() const { return m_selectedTab; }
     // const wxArrayString& GetTabs() const {return m_tabs;}
     const wxString& GetWorkspaceName() const { return m_workspaceName; }
     const std::vector<TabInfo>& GetTabInfoArr() const { return m_vTabInfoArr; }
@@ -79,8 +79,8 @@ public:
     void SetFindInFilesMask(const wxString& findInFilesMask) { this->m_findInFilesMask = findInFilesMask; }
     const wxString& GetFindInFilesMask() const { return m_findInFilesMask; }
 
-    SessionEntry();
-    virtual ~SessionEntry();
+    SessionEntry() = default;
+    virtual ~SessionEntry() = default;
 
     void Serialize(Archive& arch);
     void DeSerialize(Archive& arch);
@@ -95,8 +95,8 @@ class WXDLLIMPEXP_SDK TabGroupEntry : public SessionEntry
     wxString m_tabgroupName;
 
 public:
-    TabGroupEntry() {}
-    virtual ~TabGroupEntry() {}
+    TabGroupEntry() = default;
+    virtual ~TabGroupEntry() = default;
 
     void Serialize(Archive& arch);
     void DeSerialize(Archive& arch);
@@ -133,6 +133,9 @@ struct WXDLLIMPEXP_SDK FindInFilesSession {
     wxArrayString where_array;
     wxString where = "<Workspace Folder>";
 
+    wxArrayString exclude_patterns_array;
+    wxString exclude_patterns = "build-debug;build-release";
+
     wxString encoding = "ISO-8859-1";
     size_t flags = wxFRD_MATCHCASE | wxFRD_MATCHWHOLEWORD | wxFRD_ENABLE_PIPE_SUPPORT;
     size_t files_scanner_flags = clFilesScanner::SF_EXCLUDE_HIDDEN_DIRS;
@@ -157,7 +160,7 @@ class WXDLLIMPEXP_SDK SessionManager : public wxEvtHandler
 
 private:
     SessionManager();
-    ~SessionManager();
+    ~SessionManager() = default;
 
     void OnWorkspaceLoaded(clWorkspaceEvent& event);
     void OnWorkspaceClosed(clWorkspaceEvent& event);
@@ -165,9 +168,11 @@ private:
 public:
     static SessionManager& Get();
     bool Load(const wxString& fileName);
-    bool Save(const wxString& name, SessionEntry& session, const wxString& suffix = wxT(""),
-              const wxChar* Tag = sessionTag);
-    bool GetSession(const wxString& workspaceFile, SessionEntry& session, const wxString& suffix = wxT(""),
+    bool
+    Save(const wxString& name, SessionEntry& session, const wxString& suffix = wxT(""), const wxChar* Tag = sessionTag);
+    bool GetSession(const wxString& workspaceFile,
+                    SessionEntry& session,
+                    const wxString& suffix = wxT(""),
                     const wxChar* Tag = sessionTag);
     void SetLastSession(const wxString& name);
     wxString GetLastSession();

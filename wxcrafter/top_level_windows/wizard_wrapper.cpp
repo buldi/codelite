@@ -1,21 +1,21 @@
 #include "wizard_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Importer/import_from_xrc.h"
+#include "Properties/bitmap_picker_property.h"
+#include "Properties/category_property.h"
 #include "allocator_mgr.h"
-#include "file_ficker_property.h"
-#include "import_from_wxFB.h"
-#include "import_from_xrc.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
-#include <wx/wizard.h>
 
 WizardWrapper::WizardWrapper()
     : TopLevelWinWrapper(ID_WXWIZARD)
 {
     SetPropertyString(_("Common Settings"), "wxWizard");
     DoSetPropertyStringValue(PROP_TITLE, _("My Wizard"));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, wxT(""),
-                                         _("The default bitmap used in the left side of the wizard.")));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH, wxT(""), _("The default bitmap used in the left side of the wizard."));
 
     PREPEND_STYLE(wxDEFAULT_DIALOG_STYLE, true);
     EnableStyle(wxT("wxCLOSE_BOX"), false);
@@ -45,18 +45,16 @@ WizardWrapper::WizardWrapper()
     RegisterEvent(wxT("wxEVT_ACTIVATE"), wxT("wxActivateEvent"), _("Process a wxEVT_ACTIVATE event"));
     RegisterEvent(wxT("wxEVT_ACTIVATE_APP"), wxT("wxActivateEvent"), _("Process a wxEVT_ACTIVATE_APP event"));
 
-    AddCategory(_("Wizard Icons"));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH_16, wxT(""), _("Select a 16x16 bitmap")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH_32, wxT(""), _("Select a 32x32 bitmap")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH_64, wxT(""), _("Select a 64x64 bitmap")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH_128, wxT(""), _("Select a 128x128 bitmap")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH_256, wxT(""), _("Select a 256x256 bitmap")));
+    Add<CategoryProperty>(_("Wizard Icons"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH_16, wxT(""), _("Select a 16x16 bitmap"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH_32, wxT(""), _("Select a 32x32 bitmap"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH_64, wxT(""), _("Select a 64x64 bitmap"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH_128, wxT(""), _("Select a 128x128 bitmap"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH_256, wxT(""), _("Select a 256x256 bitmap"));
 
     m_namePattern = wxT("MyWizard");
     SetName(GenerateName());
 }
-
-WizardWrapper::~WizardWrapper() {}
 
 wxString WizardWrapper::BaseCtorDecl() const
 {

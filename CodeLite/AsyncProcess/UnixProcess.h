@@ -27,9 +27,9 @@ private:
     int m_writeFd = wxNOT_FOUND;
 
 public:
-    const inline int GetReadFd() const { return m_readFd; }
-    const inline int GetWriteFd() const { return m_writeFd; }
-    CPipe() {}
+    int GetReadFd() const { return m_readFd; }
+    int GetWriteFd() const { return m_writeFd; }
+    CPipe() = default;
     void Close()
     {
         CLOSE_FD(m_readFd);

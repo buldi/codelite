@@ -2,8 +2,8 @@
 #define CLEDITORWORDCHARSLOCKER_H
 
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
+#include <unordered_set>
 #include <wx/stc/stc.h>
 #include <wx/string.h>
 
@@ -18,7 +18,7 @@ protected:
 
 public:
     clEditorXmlHelper(wxStyledTextCtrl* stc);
-    ~clEditorXmlHelper();
+    ~clEditorXmlHelper() = default;
 
     /**
      * @brief return the word from given pos

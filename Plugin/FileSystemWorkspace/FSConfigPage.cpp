@@ -6,16 +6,11 @@
 #include "EditDlg.h"
 #include "StringUtils.h"
 #include "build_settings_config.h"
-#include "clFileSystemWorkspace.hpp"
-#include "clangd/CompileCommandsGenerator.h"
-#include "event_notifier.h"
-#include "file_logger.h"
-#include "fileextmanager.h"
-#include "fileutils.h"
 #include "globals.h"
-#include "macromanager.h"
 #include "macros.h"
 
+#include <wx/dirdlg.h>
+#include <wx/filedlg.h>
 #include <wx/msgdlg.h>
 #include <wx/tokenzr.h>
 
@@ -33,10 +28,11 @@ FSConfigPage::FSConfigPage(wxWindow* parent, clFileSystemWorkspaceConfig::Ptr_t 
 {
     m_config = config;
     LexerConf::Ptr_t lexer = ColoursAndFontsManager::Get().GetLexer("text");
-    if(lexer) {
+    if (lexer) {
         lexer->Apply(m_stcCCFlags);
         lexer->Apply(m_stcEnv);
         lexer->Apply(m_stcCommands);
+        lexer->Apply(m_stcRemoteCommands);
     }
 
     m_dvListCtrlTargets->SetSortFunction([](clRowEntry* a, clRowEntry* b) {
@@ -48,17 +44,24 @@ FSConfigPage::FSConfigPage(wxWindow* parent, clFileSystemWorkspaceConfig::Ptr_t 
     m_stcCCFlags->SetText(m_config->GetCompileFlagsAsString());
     m_textCtrlFileExt->ChangeValue(m_config->GetFileExtensions());
 
-    if(m_config->GetLastExecutables().empty()) {
-        m_comboBoxExecutable->Append(m_config->GetExecutable());
-    } else {
-        m_comboBoxExecutable->Append(m_config->GetLastExecutables());
+    wxArrayString values;
+    if (!m_config->GetLastExecutables().empty()) {
+        values.insert(values.end(), m_config->GetLastExecutables().begin(), m_config->GetLastExecutables().end());
     }
+
+    if (!m_config->GetExecutable().empty()) {
+        values.Add(m_config->GetExecutable());
+    }
+    values.Sort(); // Sort the items, ascending order
+    values = StringUtils::MakeUniqueArray(values);
+
+    m_comboBoxExecutable->Append(values);
     m_comboBoxExecutable->SetValue(m_config->GetExecutable());
 
     m_textCtrlArgs->ChangeValue(m_config->GetArgs());
     m_stcEnv->SetText(m_config->GetEnvironment());
     const auto& targets = m_config->GetBuildTargets();
-    for(const auto& vt : targets) {
+    for (const auto& vt : targets) {
         wxDataViewItem item = m_dvListCtrlTargets->AppendItem(vt.first);
         m_dvListCtrlTargets->SetItemText(item, vt.second, 1);
     }
@@ -77,10 +80,17 @@ FSConfigPage::FSConfigPage(wxWindow* parent, clFileSystemWorkspaceConfig::Ptr_t 
     m_textCtrlExcludeFiles->ChangeValue(config->GetExcludeFilesPattern());
     m_textCtrlExcludePaths->ChangeValue(config->GetExecludePaths());
     m_textCtrlWD->ChangeValue(config->GetWorkingDirectory());
+
     m_textCtrlDebugger->ChangeValue(config->GetDebuggerPath());
     m_stcCommands->SetText(config->GetDebuggerCommands());
 
-    if(!m_enableRemotePage) {
+    m_checkRemoteEnabled->SetValue(config->GetDebuggerRemoteEnabled());
+    m_checkRemoteExtended->SetValue(config->GetDebuggerRemoteExtended());
+    m_textRemoteTargetHost->SetValue(config->GetDebuggerRemoteHost());
+    m_textRemoteTargetPort->SetValue(config->GetDebuggerRemotePort());
+    m_stcRemoteCommands->SetText(config->GetDebuggerRemoteCommands());
+
+    if (!m_enableRemotePage) {
         m_checkBoxEnableRemote->Disable();
         m_checkBoxRemoteBuild->Disable();
         m_textCtrlRemoteFolder->Disable();
@@ -101,7 +111,7 @@ void FSConfigPage::OnDelete(wxCommandEvent& event)
 void FSConfigPage::OnDeleteUI(wxUpdateUIEvent& event)
 {
     wxDataViewItem item = m_dvListCtrlTargets->GetSelection();
-    if(item.IsOk()) {
+    if (item.IsOk()) {
         wxString name = m_dvListCtrlTargets->GetItemText(item, 0);
         event.Enable(name != "build" && name != "clean");
 
@@ -124,7 +134,7 @@ void FSConfigPage::OnEditTargetUI(wxUpdateUIEvent& event)
 void FSConfigPage::OnNewTarget(wxCommandEvent& event)
 {
     BuildTargetDlg dlg(::wxGetTopLevelParent(this), "", "");
-    if(dlg.ShowModal() == wxID_OK) {
+    if (dlg.ShowModal() == wxID_OK) {
         wxDataViewItem item = m_dvListCtrlTargets->AppendItem(dlg.GetTargetName());
         m_dvListCtrlTargets->SetItemText(item, dlg.GetTargetCommand(), 1);
     }
@@ -133,7 +143,7 @@ void FSConfigPage::OnNewTarget(wxCommandEvent& event)
 void FSConfigPage::Save()
 {
     std::map<wxString, wxString> targets;
-    for(size_t i = 0; i < m_dvListCtrlTargets->GetItemCount(); ++i) {
+    for (size_t i = 0; i < m_dvListCtrlTargets->GetItemCount(); ++i) {
         wxDataViewItem item = m_dvListCtrlTargets->RowToItem(i);
         wxString name = m_dvListCtrlTargets->GetItemText(item, 0);
         wxString command = m_dvListCtrlTargets->GetItemText(item, 1);
@@ -143,18 +153,18 @@ void FSConfigPage::Save()
     m_config->SetBuildTargets(targets);
     m_config->SetCompileFlags(::wxStringTokenize(m_stcCCFlags->GetText(), "\r\n", wxTOKEN_STRTOK));
     m_config->SetFileExtensions(m_textCtrlFileExt->GetValue());
-    m_config->SetExecutable(m_comboBoxExecutable->GetStringSelection());
 
     wxArrayString last_executables = m_comboBoxExecutable->GetStrings();
-    if(last_executables.Index(m_comboBoxExecutable->GetValue()) == wxNOT_FOUND) {
-        last_executables.Insert(m_comboBoxExecutable->GetValue(), 0);
-    }
-    if(last_executables.size() > 10) {
+    last_executables.Add(m_comboBoxExecutable->GetValue());
+
+    const size_t MAX_SIZE = 20;
+    if (last_executables.size() > MAX_SIZE) {
         wxArrayString small_arr;
-        small_arr.insert(small_arr.end(), last_executables.begin(), last_executables.begin() + 9);
+        small_arr.insert(small_arr.end(), last_executables.begin(), last_executables.begin() + MAX_SIZE - 1);
         last_executables.swap(small_arr);
     }
 
+    m_config->SetExecutable(m_comboBoxExecutable->GetValue());
     m_config->SetLastExecutables(last_executables);
     m_config->SetEnvironment(m_stcEnv->GetText());
     m_config->SetArgs(m_textCtrlArgs->GetValue());
@@ -167,8 +177,15 @@ void FSConfigPage::Save()
     m_config->SetExcludeFilesPattern(m_textCtrlExcludeFiles->GetValue());
     m_config->SetExcludePaths(m_textCtrlExcludePaths->GetValue());
     m_config->SetWorkingDirectory(m_textCtrlWD->GetValue());
+
     m_config->SetDebuggerPath(m_textCtrlDebugger->GetValue());
     m_config->SetDebuggerCommands(m_stcCommands->GetText());
+
+    m_config->SetDebuggerRemoteEnabled(m_checkRemoteEnabled->IsChecked());
+    m_config->SetDebuggerRemoteExtended(m_checkRemoteExtended->IsChecked());
+    m_config->SetDebuggerRemoteHost(m_textRemoteTargetHost->GetValue());
+    m_config->SetDebuggerRemotePort(m_textRemoteTargetPort->GetValue());
+    m_config->SetDebuggerRemoteCommands(m_stcRemoteCommands->GetText());
 }
 
 void FSConfigPage::OnTargetActivated(wxDataViewEvent& event)
@@ -184,7 +201,7 @@ void FSConfigPage::DoTargetActivated()
 
     BuildTargetDlg dlg(::wxGetTopLevelParent(this), m_dvListCtrlTargets->GetItemText(item, 0),
                        m_dvListCtrlTargets->GetItemText(item, 1));
-    if(dlg.ShowModal() == wxID_OK) {
+    if (dlg.ShowModal() == wxID_OK) {
         m_dvListCtrlTargets->SetItemText(item, dlg.GetTargetName(), 0);
         m_dvListCtrlTargets->SetItemText(item, dlg.GetTargetCommand(), 1);
     }
@@ -204,7 +221,7 @@ void FSConfigPage::OnSSHBrowse(wxCommandEvent& event)
 #if USE_SFTP
     SFTPBrowserDlg dlg(GetParent(), _("Choose folder"), "", clSFTP::SFTP_BROWSE_FOLDERS);
     dlg.Initialize(m_choiceSSHAccount->GetStringSelection(), m_textCtrlRemoteFolder->GetValue());
-    if(dlg.ShowModal() == wxID_OK) {
+    if (dlg.ShowModal() == wxID_OK) {
         m_textCtrlRemoteFolder->ChangeValue(dlg.GetPath());
     }
 #endif
@@ -214,7 +231,7 @@ void FSConfigPage::OnSSHAccountChoice(wxCommandEvent& event)
 {
 #if USE_SFTP
     wxString s = m_choiceSSHAccount->GetStringSelection();
-    if(s == OPEN_SSH_ACCOUNT_MANAGER) {
+    if (s == OPEN_SSH_ACCOUNT_MANAGER) {
         SSHAccountManagerDlg dlg(GetParent());
         dlg.ShowModal();
         CallAfter(&FSConfigPage::DoUpdateSSHAcounts);
@@ -225,7 +242,7 @@ void FSConfigPage::OnSSHAccountChoice(wxCommandEvent& event)
 void FSConfigPage::DoUpdateSSHAcounts()
 {
 #if USE_SFTP
-    if(!m_enableRemotePage) {
+    if (!m_enableRemotePage) {
         m_choiceSSHAccount->Enable(false);
         return;
     }
@@ -237,15 +254,15 @@ void FSConfigPage::DoUpdateSSHAcounts()
     const SSHAccountInfo::Vect_t& accounts = settings.GetAccounts();
     const wxString& selectedAccount = m_config->GetRemoteAccount();
     int sel = wxNOT_FOUND;
-    for(const auto& v : accounts) {
+    for (const auto& v : accounts) {
         int where = m_choiceSSHAccount->Append(v.GetAccountName());
-        if(sel == wxNOT_FOUND && (v.GetAccountName() == selectedAccount)) {
+        if (sel == wxNOT_FOUND && (v.GetAccountName() == selectedAccount)) {
             sel = where;
         }
     }
-    if(sel != wxNOT_FOUND) {
+    if (sel != wxNOT_FOUND) {
         m_choiceSSHAccount->SetSelection(sel);
-    } else if(!m_choiceSSHAccount->IsEmpty()) {
+    } else if (!m_choiceSSHAccount->IsEmpty()) {
         m_choiceSSHAccount->SetSelection(0);
     }
     m_choiceSSHAccount->Append(OPEN_SSH_ACCOUNT_MANAGER);
@@ -266,11 +283,11 @@ void FSConfigPage::OnEditExcludePaths(wxCommandEvent& event)
 
     wxArrayString paths = StringUtils::BuildArgv(m_textCtrlExcludePaths->GetValue());
     wxString value;
-    if(!paths.IsEmpty()) {
+    if (!paths.IsEmpty()) {
         value = wxJoin(paths, '\n');
     }
     value = ::clGetStringFromUser(value, wxGetTopLevelParent(this));
-    if(!value.IsEmpty()) {
+    if (!value.IsEmpty()) {
         wxArrayString lines = ::wxStringTokenize(value, "\n", wxTOKEN_STRTOK);
         value = wxJoin(lines, ';');
         m_textCtrlExcludePaths->ChangeValue(value);
@@ -279,9 +296,9 @@ void FSConfigPage::OnEditExcludePaths(wxCommandEvent& event)
 void FSConfigPage::OnBrowseExec(wxCommandEvent& event)
 {
     wxString path;
-    if(m_useRemoteBrowsing) {
+    if (m_useRemoteBrowsing) {
         auto p = ::clRemoteFileSelector(_("Select a directory"), m_sshAccount);
-        if(p.first != m_sshAccount) {
+        if (p.first != m_sshAccount) {
             ::wxMessageBox(_("Wrong account selected!"), "CodeLite", wxOK | wxICON_WARNING);
             return;
         }
@@ -289,7 +306,7 @@ void FSConfigPage::OnBrowseExec(wxCommandEvent& event)
     } else {
         path = ::wxFileSelector();
     }
-    if(path.empty()) {
+    if (path.empty()) {
         return;
     }
     m_comboBoxExecutable->SetValue(path);
@@ -298,9 +315,9 @@ void FSConfigPage::OnBrowseExec(wxCommandEvent& event)
 void FSConfigPage::OnBrowseWD(wxCommandEvent& event)
 {
     wxString path;
-    if(m_useRemoteBrowsing) {
+    if (m_useRemoteBrowsing) {
         auto p = ::clRemoteFolderSelector(_("Select a directory"), m_sshAccount);
-        if(p.first != m_sshAccount) {
+        if (p.first != m_sshAccount) {
             ::wxMessageBox(_("Wrong account selected!"), "CodeLite", wxOK | wxICON_WARNING);
             return;
         }
@@ -308,7 +325,7 @@ void FSConfigPage::OnBrowseWD(wxCommandEvent& event)
     } else {
         path = ::wxDirSelector();
     }
-    if(path.empty()) {
+    if (path.empty()) {
         return;
     }
     m_textCtrlWD->ChangeValue(path);
@@ -317,9 +334,9 @@ void FSConfigPage::OnBrowseWD(wxCommandEvent& event)
 void FSConfigPage::OnBrowseForGDB(wxCommandEvent& event)
 {
     wxString path;
-    if(m_useRemoteBrowsing) {
+    if (m_useRemoteBrowsing) {
         auto p = ::clRemoteFileSelector(_("Select debugger executable:"), m_sshAccount);
-        if(p.first != m_sshAccount) {
+        if (p.first != m_sshAccount) {
             ::wxMessageBox(_("Wrong account selected!"), "CodeLite", wxOK | wxICON_WARNING);
             return;
         }
@@ -327,7 +344,7 @@ void FSConfigPage::OnBrowseForGDB(wxCommandEvent& event)
     } else {
         path = ::wxFileSelector();
     }
-    if(path.empty()) {
+    if (path.empty()) {
         return;
     }
     m_textCtrlDebugger->ChangeValue(path);

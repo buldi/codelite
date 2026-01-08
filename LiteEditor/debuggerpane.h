@@ -75,7 +75,7 @@ public:
 
     void ShowDebuggerWindow(eDebuggerWindows win, bool show)
     {
-        if(show) {
+        if (show) {
             m_windows |= win;
         } else {
             m_windows &= ~win;
@@ -86,7 +86,7 @@ public:
 
 public:
     DebuggerPaneConfig();
-    virtual ~DebuggerPaneConfig();
+    virtual ~DebuggerPaneConfig() = default;
 };
 
 class DebuggerPane : public wxPanel
@@ -114,7 +114,6 @@ private:
     DebuggerAsciiViewer* m_asciiViewer;
     DebuggerDisassemblyTab* m_disassemble;
     bool m_initDone;
-    wxAuiManager* m_mgr;
     DebugTab* m_outputDebug;
     wxStringSet_t m_visibleWindows;
 

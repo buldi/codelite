@@ -1,10 +1,10 @@
 if(WXC_APP)
     message("-- Building wxCrafter as a standalone executable ")
-    add_definitions(-DSTANDALONE_BUILD=1)
-    add_definitions(-DINSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\")
+    add_compile_definitions(STANDALONE_BUILD=1)
+    add_compile_definitions(INSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\")
 else()
     message("-- Building wxCrafter as codelite plugin ")
-    add_definitions(-DWXCAPP=0)
+    add_compile_definitions(WXCAPP=0)
 endif(WXC_APP)
 
 # set the plugin name here
@@ -28,18 +28,9 @@ project(${PLUGIN_NAME})
 # wxWidgets include (this will do all the magic to configure everything)
 include("${wxWidgets_USE_FILE}")
 
-# Include paths
-include_directories("${CL_SRC_ROOT}/Plugin" "${CL_SRC_ROOT}/sdk/wxsqlite3/include" "${CL_SRC_ROOT}/CodeLite"
-                    "${CL_SRC_ROOT}/CodeLite/ssh" "${CL_SRC_ROOT}/PCH" "${CL_SRC_ROOT}/Interfaces")
-
-add_definitions(-DWXUSINGDLL_WXSQLITE3)
-add_definitions(-DWXUSINGDLL_CL)
-add_definitions(-DWXUSINGDLL_SDK)
-
 if(USE_PCH AND NOT MINGW)
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
-    add_definitions(-fPIC)
 endif()
 
 # Add RPATH When building an application, set the install library to the proper location which is now under
@@ -70,32 +61,43 @@ configure_file(${CL_SRC_ROOT}/wxcrafter/wxcversion.cpp.in ${CMAKE_BINARY_DIR}/ge
 file(
     GLOB
     SRCS
-    "src/*.cpp"
+    "Importer/*.cpp"
+    "Preview/*.cpp"
+    "Properties/*.cpp"
+    "UI/PropertiesView/*.cpp"
+    "UI/*.cpp"
     "aui/*.cpp"
     "controls/*.cpp"
+    "controls/Containers/*.cpp"
+    "controls/Grid/*.cpp"
+    "controls/PropertyGrid/*.cpp"
+    "controls/RibbonBar/*.cpp"
+    "controls/menu_toolbar/*.cpp"
     "sizers/*.cpp"
+    "src/*.cpp"
     "top_level_windows/*.cpp"
     "xrc_handlers/*.cpp"
     "${CMAKE_BINARY_DIR}/generated/wxcversion.cpp")
 
-if(NOT WXC_APP)
-    file(GLOB WXCLIB_SRCS "wxcLib/json_node.cpp" "wxcLib/cJSON.cpp" "wxcLib/wxc*.cpp")
-else(NOT WXC_APP)
-    file(GLOB WXCLIB_SRCS "wxcLib/*.cpp")
-endif(NOT WXC_APP)
+set(WXCLIB_SRCS "wxcLib/json_node.cpp")
 
 include_directories(
     "${CMAKE_CURRENT_LIST_DIR}"
-    "${CMAKE_CURRENT_LIST_DIR}/wxcLib"
-    "${CMAKE_CURRENT_LIST_DIR}/src"
     "${CMAKE_CURRENT_LIST_DIR}/aui"
     "${CMAKE_CURRENT_LIST_DIR}/controls"
     "${CMAKE_CURRENT_LIST_DIR}/sizers"
+    "${CMAKE_CURRENT_LIST_DIR}/src"
     "${CMAKE_CURRENT_LIST_DIR}/top_level_windows"
-    "${CMAKE_CURRENT_LIST_DIR}/xrc_handlers")
+    "${CMAKE_CURRENT_LIST_DIR}/xrc_handlers"
+    "${CMAKE_CURRENT_LIST_DIR}/wxcLib")
 
-add_definitions(-fPIC)
 add_library(wxcLib STATIC ${WXCLIB_SRCS})
+
+if(UNIX OR APPLE)
+    set_target_properties(wxcLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+target_link_libraries(wxcLib PUBLIC cJSON)
 
 set(RES_FILE "")
 # Define the output
@@ -112,7 +114,11 @@ else()
     add_executable(${PLUGIN_NAME} ${SRCS} ${RES_FILES})
 endif()
 
-if(NOT WXC_APP)
+if(UNIX OR APPLE)
+    set_target_properties(${PLUGIN_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if(NOT WXC_APP AND USE_PCH)
     target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
 endif()
 
@@ -122,16 +128,9 @@ target_link_libraries(${PLUGIN_NAME} wxcLib)
 
 if(NOT WXC_APP)
     if(NOT OFFICIAL_CL_BUILD)
-        target_link_libraries(
-            ${PLUGIN_NAME}
-            ${LINKER_OPTIONS}
-            ${wxWidgets_LIBRARIES}
-            wxsqlite3
-            ${SQLite3_LIBRARIES}
-            libcodelite
-            plugin)
+        target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} wxsqlite3 ${SQLite3_LIBRARIES} libcodelite plugin)
     else(OFFICIAL_CL_BUILD)
-        target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES})
+        target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS})
     endif(NOT OFFICIAL_CL_BUILD)
 else()
     set(WXC_EXTRA_LIBS "")
@@ -141,14 +140,7 @@ else()
         set(WXC_EXTRA_LIBS "-mwindows")
     endif()
 
-    target_link_libraries(
-        ${PLUGIN_NAME}
-        ${LINKER_OPTIONS}
-        ${wxWidgets_LIBRARIES}
-        wxsqlite3
-        libcodelite
-        plugin
-        ${WXC_EXTRA_LIBS})
+    target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} wxsqlite3 libcodelite plugin ${WXC_EXTRA_LIBS})
 endif()
 
 if(NOT WXC_APP)

@@ -14,29 +14,27 @@
 #include "codelite_exports.h"
 #include "fileextmanager.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
 #include <functional>
-#include <map>
+#include <memory>
 #include <queue>
 #include <string>
 #include <unordered_map>
 #include <wx/arrstr.h>
 #include <wx/filename.h>
-#include <wx/sharedptr.h>
 
-typedef std::function<void()> LSPOnConnectedCallback_t;
+using LSPOnConnectedCallback_t = std::function<void()>;
 
 class IEditor;
 class WXDLLIMPEXP_SDK LSPRequestMessageQueue
 {
     std::queue<LSP::MessageWithParams::Ptr_t> m_Queue;
     std::unordered_map<int, LSP::MessageWithParams::Ptr_t> m_pendingReplyMessages;
-    bool m_waitingReponse = false;
+    bool m_waitingResponse = false;
 
 public:
-    LSPRequestMessageQueue() {}
-    virtual ~LSPRequestMessageQueue() {}
+    LSPRequestMessageQueue() = default;
+    virtual ~LSPRequestMessageQueue() = default;
 
     LSP::MessageWithParams::Ptr_t TakePendingReplyMessage(int msgid);
     void Push(LSP::MessageWithParams::Ptr_t message);
@@ -44,8 +42,8 @@ public:
     LSP::MessageWithParams::Ptr_t Get();
     void Clear();
     bool IsEmpty() const { return m_Queue.empty(); }
-    void SetWaitingReponse(bool waitingReponse) { this->m_waitingReponse = waitingReponse; }
-    bool IsWaitingReponse() const { return m_waitingReponse; }
+    void SetWaitingResponse(bool waitingResponse) { this->m_waitingResponse = waitingResponse; }
+    bool IsWaitingResponse() const { return m_waitingResponse; }
 
     /// move the content of `other` into `this` while consuming the `other` queue
     void Move(LSPRequestMessageQueue& other);
@@ -80,14 +78,14 @@ class WXDLLIMPEXP_SDK LanguageServerProtocol : public wxEvtHandler
     LSPRequestMessageQueue m_pendingQueue;
 
     wxStringSet_t m_providers;
-    bool m_disaplayDiagnostics = true;
+    bool m_displayDiagnostics = true;
     int m_lastCompletionRequestId = wxNOT_FOUND;
     wxArrayString m_semanticTokensTypes;
     LSPOnConnectedCallback_t m_onServerStartedCallback = nullptr;
     bool m_incrementalChangeSupported = false;
 
 public:
-    typedef wxSharedPtr<LanguageServerProtocol> Ptr_t;
+    using Ptr_t = std::shared_ptr<LanguageServerProtocol>;
     static FileExtManager::FileType workspace_file_type;
 
 protected:
@@ -102,35 +100,21 @@ protected:
     void OnWorkspaceLoaded(clWorkspaceEvent& e);
     void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnEditorChanged(wxCommandEvent& event);
-    void OnCodeComplete(clCodeCompletionEvent& event);
-    void OnFindSymbolDecl(clCodeCompletionEvent& event);
-    void OnFindSymbolImpl(clCodeCompletionEvent& event);
-    void OnFindSymbol(clCodeCompletionEvent& event);
-    void OnFunctionCallTip(clCodeCompletionEvent& event);
-    void OnTypeInfoToolTip(clCodeCompletionEvent& event);
-    void OnQuickOutline(clCodeCompletionEvent& event);
-    void OnSemanticHighlights(clCodeCompletionEvent& event);
-    void OnWorkspaceSymbols(clCodeCompletionEvent& event);
-    void OnFindHeaderFile(clCodeCompletionEvent& event);
-    void OnQuickJump(clCodeCompletionEvent& event);
 
     wxString GetEditorFilePath(IEditor* editor) const;
-    bool CheckCapability(const LSP::ResponseMessage& res, const wxString& capabilityName,
-                         const wxString& lspRequestName);
+    bool
+    CheckCapability(const LSP::ResponseMessage& res, const wxString& capabilityName, const wxString& lspRequestName);
 
-protected:
     void DoClear();
     bool ShouldHandleFile(IEditor* editor) const;
     wxString GetLogPrefix() const;
     void ProcessQueue();
     static wxString GetLanguageId(IEditor* editor);
-    static wxString GetLanguageId(FileExtManager::FileType file_type);
     void HandleResponseError(LSP::ResponseMessage& response, LSP::MessageWithParams::Ptr_t msg_ptr);
     void HandleResponse(LSP::ResponseMessage& response, LSP::MessageWithParams::Ptr_t msg_ptr);
     void HandleWorkspaceEdit(const JSONItem& changes);
     IEditor* GetEditor(const clCodeCompletionEvent& event) const;
 
-protected:
     /**
      * @brief notify about file open
      */
@@ -140,16 +124,6 @@ protected:
      * @brief report a file-close notification
      */
     void SendCloseRequest(const wxString& filename);
-
-    /**
-     * @brief ask the server for semantic tokens
-     */
-    void SendSemanticTokensRequest(IEditor* editor);
-
-    /**
-     * @brief query the LSP for a list of workspace symbols that matches a query string
-     */
-    void SendWorkspaceSymbolsRequest(const wxString& query_string);
 
     /**
      * @brief report a file-changed notification
@@ -177,8 +151,10 @@ public:
     LanguageServerProtocol(const wxString& name, eNetworkType netType, wxEvtHandler* owner);
     virtual ~LanguageServerProtocol();
 
+    static wxString GetLanguageId(FileExtManager::FileType file_type);
+
     /**
-     * @brief set a callnack to be executed once the LSP is up and running
+     * @brief set a callback to be executed once the LSP is up and running
      * but before the `initialize` request has been sent
      */
     void SetStartedCallback(LSPOnConnectedCallback_t&& cb);
@@ -188,12 +164,12 @@ public:
      */
     const wxString& GetSemanticToken(size_t index) const;
 
-    LanguageServerProtocol& SetDisaplayDiagnostics(bool disaplayDiagnostics)
+    LanguageServerProtocol& SetDisplayDiagnostics(bool displayDiagnostics)
     {
-        this->m_disaplayDiagnostics = disaplayDiagnostics;
+        this->m_displayDiagnostics = displayDiagnostics;
         return *this;
     }
-    bool IsDisaplayDiagnostics() const { return m_disaplayDiagnostics; }
+    bool IsDisplayDiagnostics() const { return m_displayDiagnostics; }
 
     LanguageServerProtocol& SetName(const wxString& name)
     {
@@ -220,13 +196,16 @@ public:
     /**
      * @brief start LSP server and connect to it (e.g. clangd)
      * @param LSPStartupInfo which contains the command to execute, working directory and other process related stuff
-     * @param env environment vriables for this LSP
+     * @param env environment variables for this LSP
      * @param initOptions initialization options to pass to the LSP
      * @param rootFolder the LSP root folder (to be passed during the 'initialize' request)
      * @param languages supported languages by this LSP
      */
-    bool Start(const LSPStartupInfo& startupInfo, const clEnvList_t& env, const wxString& initOptions,
-               const wxString& rootFolder, const wxArrayString& languages);
+    bool Start(const LSPStartupInfo& startupInfo,
+               const clEnvList_t& env,
+               const wxString& initOptions,
+               const wxString& rootFolder,
+               const wxArrayString& languages);
 
     /**
      * @brief same as above, but reuse the current parameters
@@ -244,13 +223,19 @@ public:
     void Stop();
 
     /**
+     * @brief Restarts the component by stopping it and then starting it again.
+     */
+    inline void Restart()
+    {
+        Stop();
+        Start();
+    }
+
+    /**
      * @brief find the definition of the item at the caret position
      */
     void FindDefinition(IEditor* editor);
-    /**
-     * @brief find the implementatin of a symbol at the caret position
-     */
-    void FindImplementation(IEditor* editor);
+
     /**
      * @brief find the definition of the item at the caret position
      * @param for_add_missing_header the context of the `FindDeclaration` is `Add include header` request
@@ -268,7 +253,7 @@ public:
     void FunctionHelp(IEditor* editor);
 
     /**
-     * @brief ask for available hovertip
+     * @brief ask for available hover tip
      */
     void HoverTip(IEditor* editor);
 
@@ -297,7 +282,7 @@ public:
      * @param editor the current editor
      * @param context_flags request context. See LSP::DocumentSymbolsRequest::eDocumentSymbolsContext (bit or'd)
      */
-    void DocumentSymbols(IEditor* editor, size_t context_flags);
+    void DocumentSymbols(IEditor* editor, size_t context_flags, std::function<void(const LSPEvent&)> cb);
 
     /**
      * @brief execute remote command `workspace/executeCommand`
@@ -308,6 +293,15 @@ public:
      * @brief request a code action from the server
      */
     void SendCodeActionRequest(IEditor* editor, const std::vector<LSP::Diagnostic>& diags);
+
+    /**
+     * @brief ask the server for semantic tokens
+     */
+    void SendSemanticTokensRequest(IEditor* editor);
+    /**
+     * @brief query the LSP for a list of workspace symbols that matches a query string
+     */
+    void SendWorkspaceSymbolsRequest(const wxString& query_string);
 
     // helpers
     bool IsCapabilitySupported(const wxString& name) const;

@@ -1,44 +1,55 @@
 #ifndef __LanguageServerPlugin__
 #define __LanguageServerPlugin__
 
-#include "LanguageServerCluster.h"
-#include "LanguageServerLogView.h"
+#include "CustomControls/TextGenerationPreviewFrame.hpp"
+#include "LSP/LSPManager.hpp"
+#include "LSP/LanguageServerLogView.h"
+#include "LSP/detectors/LSPDetector.hpp"
 #include "clTabTogglerHelper.h"
 #include "cl_command_event.h"
-#include "detectors/LSPDetector.hpp"
 #include "plugin.h"
-
-#include <wx/notifmsg.h>
-#include <wx/sharedptr.h>
 
 class LanguageServerPlugin : public IPlugin
 {
-    LanguageServerCluster* m_servers = nullptr;
-    IProcess* m_process = nullptr;
-    clTabTogglerHelper::Ptr_t m_tabToggler;
-    LanguageServerLogView* m_logView = nullptr;
+public:
+    LanguageServerPlugin(IManager* manager);
+    ~LanguageServerPlugin() override = default;
+
+    //--------------------------------------------
+    // Abstract methods
+    //--------------------------------------------
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    /**
+     * @brief Add plugin menu to the "Plugins" menu item in the menu bar
+     */
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+
+    /**
+     * @brief Unplug the plugin. Perform here any cleanup needed (e.g. unbind events, destroy allocated windows)
+     */
+    void UnPlug() override;
+
+    /**
+     * @brief log message to the output tab
+     */
+    void LogMessage(const wxString& server_name, const wxString& message, int log_leve);
 
 protected:
     void OnSettings(wxCommandEvent& e);
     void OnRestartLSP(wxCommandEvent& e);
     void OnInitDone(wxCommandEvent& event);
     void OnEditorContextMenu(clContextMenuEvent& event);
-    void OnMenuFindSymbol(wxCommandEvent& event);
-    void OnMenuRenameSymbol(wxCommandEvent& event);
-    void OnMenuFindReferences(wxCommandEvent& event);
+
+    void OnGenerateDocString(wxCommandEvent& event);
+    void OnDocStringGenerationDone();
     void ConfigureLSPs(const std::vector<LSPDetector::Ptr_t>& lsps);
 
-    void OnLSPStopAll(clLanguageServerEvent& event);
-    void OnLSPStartAll(clLanguageServerEvent& event);
-    void OnLSPRestartAll(clLanguageServerEvent& event);
     void OnLSPStopOne(clLanguageServerEvent& event);
     void OnLSPStartOne(clLanguageServerEvent& event);
     void OnLSPRestartOne(clLanguageServerEvent& event);
     void OnLSPConfigure(clLanguageServerEvent& event);
     void OnLSPDelete(clLanguageServerEvent& event);
     void OnLSPShowSettingsDlg(clLanguageServerEvent& event);
-    void OnLSPEnableServer(clLanguageServerEvent& event);
-    void OnLSPDisableServer(clLanguageServerEvent& event);
     wxString GetEditorFilePath(IEditor* editor) const;
     void OnWorkspaceClosed(clWorkspaceEvent& event);
     void OnFixLSPPaths(wxCommandEvent& event);
@@ -47,28 +58,9 @@ protected:
     void CheckServers();
     wxArrayString GetBrokenLSPs() const;
 
-public:
-    LanguageServerPlugin(IManager* manager);
-    virtual ~LanguageServerPlugin();
-
-    //--------------------------------------------
-    // Abstract methods
-    //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    /**
-     * @brief Add plugin menu to the "Plugins" menu item in the menu bar
-     */
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-
-    /**
-     * @brief Unplug the plugin. Perform here any cleanup needed (e.g. unbind events, destroy allocated windows)
-     */
-    virtual void UnPlug();
-
-    /**
-     * @brief log message to the output tab
-     */
-    void LogMessage(const wxString& server_name, const wxString& message, int log_leve);
+    clTabTogglerHelper::Ptr_t m_tabToggler;
+    LanguageServerLogView* m_logView{nullptr};
+    std::shared_ptr<TextGenerationPreviewFrame> m_commentGenerationView{nullptr};
 };
 
 #endif // LanguageServerPlugin

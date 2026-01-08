@@ -44,7 +44,7 @@ GitEntry::GitEntry()
     , m_colourTrackedFile(*wxGREEN)
     , m_colourDiffFile(*wxRED)
 #ifdef __WXMSW__
-    , m_flags(Git_Show_Terminal)
+    , m_flags(ShowTerminal)
 #else
     , m_flags(0)
 #endif
@@ -60,17 +60,14 @@ GitEntry::GitEntry()
 {
     GitLocator locator;
     wxFileName gitpath;
-    if(locator.GetExecutable(gitpath)) {
+    if (locator.GetExecutable(gitpath)) {
         m_pathGIT = gitpath.GetFullPath();
     }
     locator.MSWGetGitShellCommand(m_gitShellCommand);
 }
 
-GitEntry::~GitEntry() {}
-
 void GitEntry::FromJSON(const JSONItem& json)
 {
-    GitLocator locator;
     m_entries = json.namedObject("m_entries").toStringMap();
     wxString track, diff;
     track = json.namedObject("m_colourTrackedFile").toString();
@@ -79,10 +76,10 @@ void GitEntry::FromJSON(const JSONItem& json)
 
     // If the current path does not exists, search again
     bool updateGitShell = false;
-    if(!wxFileName::FileExists(m_pathGIT)) {
+    if (!wxFileName::FileExists(m_pathGIT)) {
         GitLocator locator;
         wxFileName gitpath;
-        if(locator.GetExecutable(gitpath)) {
+        if (locator.GetExecutable(gitpath)) {
             updateGitShell = true;
             m_pathGIT = gitpath.GetFullPath();
         }
@@ -104,26 +101,25 @@ void GitEntry::FromJSON(const JSONItem& json)
     m_gitBlameDlgVSashPos = json.namedObject("m_gitBlameDlgVSashPos").toInt(m_gitBlameDlgVSashPos);
 
     wxString defaultGitShell;
+    GitLocator locator;
     locator.MSWGetGitShellCommand(defaultGitShell);
-    if(updateGitShell) {
+    if (updateGitShell) {
         m_gitShellCommand = defaultGitShell;
     } else {
         m_gitShellCommand = json.namedObject("m_gitShellCommand").toString(defaultGitShell);
     }
 
     // override the colour only if it is a valid colour
-    if(!track.IsEmpty()) {
+    if (!track.IsEmpty()) {
         m_colourTrackedFile = track;
     }
-    if(!diff.IsEmpty()) {
+    if (!diff.IsEmpty()) {
         m_colourDiffFile = diff;
     }
 
-    m_recentCommits = json.namedObject("m_recentCommits").toArrayString();
-
     // read the git commands
     JSONItem arrCommands = json.namedObject("Commands");
-    for(int i = 0; i < arrCommands.arraySize(); ++i) {
+    for (int i = 0; i < arrCommands.arraySize(); ++i) {
         GitCommandsEntries entry;
         entry.FromJSON(arrCommands.arrayItem(i));
         m_commandsMap.insert(std::make_pair(entry.GetCommandname(), entry));
@@ -131,7 +127,7 @@ void GitEntry::FromJSON(const JSONItem& json)
 
     // Load the workspace info: each known workspace name & its known projects' repo paths
     JSONItem arrWorkspaces = json.namedObject("Workspaces");
-    for(int i = 0; i < arrWorkspaces.arraySize(); ++i) {
+    for (int i = 0; i < arrWorkspaces.arraySize(); ++i) {
         GitWorkspace workspace;
         workspace.FromJSON(arrWorkspaces.arrayItem(i));
         m_workspacesMap.insert(std::make_pair(workspace.GetWorkspaceName(), workspace));
@@ -144,11 +140,11 @@ JSONItem GitEntry::ToJSON() const
 {
     JSONItem json = JSONItem::createObject(GetName());
     json.addProperty("m_entries", m_entries);
-    if(m_colourTrackedFile.IsOk()) {
+    if (m_colourTrackedFile.IsOk()) {
         json.addProperty("m_colourTrackedFile", m_colourTrackedFile.GetAsString(wxC2S_HTML_SYNTAX));
     }
 
-    if(m_colourDiffFile.IsOk()) {
+    if (m_colourDiffFile.IsOk()) {
         json.addProperty("m_colourDiffFile", m_colourDiffFile.GetAsString(wxC2S_HTML_SYNTAX));
     }
 
@@ -163,7 +159,6 @@ JSONItem GitEntry::ToJSON() const
     json.addProperty("m_gitConsoleSashPos", m_gitConsoleSashPos);
     json.addProperty("m_gitCommitDlgHSashPos", m_gitCommitDlgHSashPos);
     json.addProperty("m_gitCommitDlgVSashPos", m_gitCommitDlgVSashPos);
-    json.addProperty("m_recentCommits", m_recentCommits);
     json.addProperty("m_gitShellCommand", m_gitShellCommand);
     json.addProperty("gitBlameShowLogControls", m_gitBlameShowLogControls);
     json.addProperty("m_gitBlameShowParentCommit", m_gitBlameShowParentCommit);
@@ -174,16 +169,14 @@ JSONItem GitEntry::ToJSON() const
     // Add the git commands array
     JSONItem arrCommands = JSONItem::createArray("Commands");
     json.append(arrCommands);
-    GitCommandsEntriesMap_t::const_iterator iter = m_commandsMap.begin();
-    for(; iter != m_commandsMap.end(); ++iter) {
-        iter->second.ToJSON(arrCommands);
+    for (const auto& p : m_commandsMap) {
+        p.second.ToJSON(arrCommands);
     }
     // and the workspace info
     JSONItem arrWorkspaces = JSONItem::createArray("Workspaces");
     json.append(arrWorkspaces);
-    GitWorkspaceMap_t::const_iterator it = m_workspacesMap.begin();
-    for(; it != m_workspacesMap.end(); ++it) {
-        it->second.ToJSON(arrWorkspaces);
+    for (const auto& p : m_workspacesMap) {
+        p.second.ToJSON(arrWorkspaces);
     }
     json.addProperty("DiffTool", m_difftool);
     return json;
@@ -191,7 +184,7 @@ JSONItem GitEntry::ToJSON() const
 
 wxString GitEntry::GetGITExecutablePath() const
 {
-    if(m_pathGIT.IsEmpty()) {
+    if (m_pathGIT.IsEmpty()) {
         return GIT_EXE;
 
     } else {
@@ -201,7 +194,7 @@ wxString GitEntry::GetGITExecutablePath() const
 
 wxString GitEntry::GetGITKExecutablePath() const
 {
-    if(m_pathGITK.IsEmpty()) {
+    if (m_pathGITK.IsEmpty()) {
         return GITK_EXE;
 
     } else {
@@ -216,9 +209,9 @@ GitEntry::GitProperties GitEntry::ReadGitProperties(const wxString& localRepoPat
     // ~/.gitconfig | %USERPROFILE%\.gitconfig
     {
         wxFileName globalConfig(::wxGetHomeDir(), ".gitconfig");
-        if(globalConfig.Exists()) {
+        if (globalConfig.Exists()) {
             wxFFile fp(globalConfig.GetFullPath(), "rb");
-            if(fp.IsOpened()) {
+            if (fp.IsOpened()) {
                 wxString content;
                 fp.ReadAll(&content, wxConvUTF8);
                 wxStringInputStream sis(content);
@@ -233,11 +226,11 @@ GitEntry::GitProperties GitEntry::ReadGitProperties(const wxString& localRepoPat
     }
 
     // Read the repo config file
-    if(!localRepoPath.IsEmpty()) {
+    if (!localRepoPath.IsEmpty()) {
         wxFileName localConfig(localRepoPath, "config");
         localConfig.AppendDir(".git");
         wxFFile fp(localConfig.GetFullPath(), "rb");
-        if(fp.IsOpened()) {
+        if (fp.IsOpened()) {
             wxString content;
             fp.ReadAll(&content, wxConvUTF8);
             wxStringInputStream sis(content);
@@ -254,7 +247,7 @@ GitEntry::GitProperties GitEntry::ReadGitProperties(const wxString& localRepoPat
 
 GitCommandsEntries& GitEntry::GetGitCommandsEntries(const wxString& entryName)
 {
-    if(!m_commandsMap.count(entryName)) {
+    if (!m_commandsMap.count(entryName)) {
         GitCommandsEntries entries(entryName);
         m_commandsMap.insert(std::make_pair(entryName, entries));
     }
@@ -267,7 +260,7 @@ GitCommandsEntries& GitEntry::GetGitCommandsEntries(const wxString& entryName)
 
 void GitEntry::AddGitCommandsEntry(GitCommandsEntries& entries, const wxString& entryName)
 {
-    if(!m_commandsMap.count(entryName)) {
+    if (!m_commandsMap.count(entryName)) {
         m_commandsMap.insert(std::make_pair(entryName, entries));
     }
     // Possible TODO: Append any novel items to the existing vector
@@ -279,9 +272,9 @@ void GitEntry::WriteGitProperties(const wxString& localRepoPath, const GitEntry:
     // ~/.gitconfig | %USERPROFILE%\.gitconfig
     {
         wxFileName globalConfig(::wxGetHomeDir(), ".gitconfig");
-        if(globalConfig.Exists()) {
+        if (globalConfig.Exists()) {
             wxFFile fp(globalConfig.GetFullPath(), "rb");
-            if(fp.IsOpened()) {
+            if (fp.IsOpened()) {
                 wxString content;
                 fp.ReadAll(&content, wxConvUTF8);
                 fp.Close();
@@ -293,9 +286,9 @@ void GitEntry::WriteGitProperties(const wxString& localRepoPath, const GitEntry:
                 // Write the content
                 content.Clear();
                 wxStringOutputStream sos(&content);
-                if(conf.Save(sos, wxConvUTF8)) {
+                if (conf.Save(sos, wxConvUTF8)) {
                     wxFFile fpo(globalConfig.GetFullPath(), "w+b");
-                    if(fpo.IsOpened()) {
+                    if (fpo.IsOpened()) {
                         fpo.Write(content, wxConvUTF8);
                         fpo.Close();
                     }
@@ -308,11 +301,11 @@ void GitEntry::WriteGitProperties(const wxString& localRepoPath, const GitEntry:
     }
 
     // Read the repo config file
-    if(!localRepoPath.IsEmpty()) {
+    if (!localRepoPath.IsEmpty()) {
         wxFileName localConfig(localRepoPath, "config");
         localConfig.AppendDir(".git");
         wxFFile fp(localConfig.GetFullPath(), "rb");
-        if(fp.IsOpened()) {
+        if (fp.IsOpened()) {
             wxString content;
             fp.ReadAll(&content, wxConvUTF8);
             fp.Close();
@@ -323,9 +316,9 @@ void GitEntry::WriteGitProperties(const wxString& localRepoPath, const GitEntry:
 
             content.Clear();
             wxStringOutputStream sos(&content);
-            if(conf.Save(sos, wxConvUTF8)) {
+            if (conf.Save(sos, wxConvUTF8)) {
                 wxFFile fpo(localConfig.GetFullPath(), "w+b");
-                if(fpo.IsOpened()) {
+                if (fpo.IsOpened()) {
                     fpo.Write(content, wxConvUTF8);
                     fpo.Close();
                 }
@@ -350,41 +343,18 @@ void GitEntry::Save()
     conf.WriteItem(this);
 }
 
-void GitEntry::AddRecentCommit(const wxString& commitMessage)
-{
-    wxString msg = commitMessage;
-    msg.Trim().Trim(false);
-    if(msg.IsEmpty())
-        return;
-
-    if(m_recentCommits.Index(msg) == wxNOT_FOUND) {
-        m_recentCommits.Insert(msg, 0);
-    }
-
-    if(m_recentCommits.size() > 20) {
-        m_recentCommits.RemoveAt(m_recentCommits.size() - 1); // Remove the last commit
-    }
-}
-
-void GitEntry::DeleteEntry(const wxString& workspace)
-{
-    if(m_entries.count(workspace)) {
-        m_entries.erase(workspace);
-    }
-}
-
 wxString GitEntry::GetProjectUserEnteredRepoPath(const wxString& nameHash)
 {
     wxString repoPath;
     wxString projectName;
     wxString workspaceName = nameHash.BeforeFirst('-', &projectName);
 
-    if(workspaceName.empty() || projectName.empty())
+    if (workspaceName.empty() || projectName.empty())
         return "";
 
     GitWorkspaceMap_t::iterator iter;
 
-    if(!m_workspacesMap.count(workspaceName)) {
+    if (!m_workspacesMap.count(workspaceName)) {
         // A new workspace so add it
         GitWorkspace workspace(workspaceName);
         m_workspacesMap.insert(std::make_pair(workspaceName, workspace));
@@ -402,13 +372,13 @@ void GitEntry::SetProjectUserEnteredRepoPath(const wxString& repoPath, const wxS
 {
     wxString projectName;
     wxString workspaceName = nameHash.BeforeFirst('-', &projectName);
-    if(workspaceName.empty() || projectName.empty()) {
+    if (workspaceName.empty() || projectName.empty()) {
         return;
     }
 
     GitWorkspaceMap_t::iterator iter;
 
-    if(!m_workspacesMap.count(workspaceName)) {
+    if (!m_workspacesMap.count(workspaceName)) {
         // A new workspace so add it
         GitWorkspace workspace(workspaceName);
         m_workspacesMap.insert(std::make_pair(workspaceName, workspace));
@@ -427,7 +397,7 @@ void GitCommandsEntries::FromJSON(const JSONItem& json)
     m_lastUsed = json.namedObject("m_lastUsed").toInt();
 
     JSONItem arrCommandChoices = json.namedObject("m_commands");
-    for(int i = 0; i < arrCommandChoices.arraySize(); ++i) {
+    for (int i = 0; i < arrCommandChoices.arraySize(); ++i) {
         GitLabelCommand item;
         item.label = arrCommandChoices.arrayItem(i).namedObject("label").toString();
         item.command = arrCommandChoices.arrayItem(i).namedObject("command").toString();
@@ -444,11 +414,10 @@ void GitCommandsEntries::ToJSON(JSONItem& arr) const
     JSONItem commandsArr = JSONItem::createArray("m_commands");
     obj.append(commandsArr);
 
-    vGitLabelCommands_t::const_iterator iter = m_commands.begin();
-    for(; iter != m_commands.end(); ++iter) {
+    for (const auto& command : m_commands) {
         JSONItem e = JSONItem::createObject();
-        e.addProperty("label", iter->label);
-        e.addProperty("command", iter->command);
+        e.addProperty("label", command.label);
+        e.addProperty("command", command.command);
         commandsArr.arrayAppend(e);
     }
     arr.arrayAppend(obj);
@@ -474,7 +443,7 @@ void GitWorkspace::FromJSON(const JSONItem& json)
 
 void GitWorkspace::ToJSON(JSONItem& arr) const
 {
-    if(!GetWorkspaceName().empty()) {
+    if (!GetWorkspaceName().empty()) {
         JSONItem json = JSONItem::createObject(GetWorkspaceName());
         json.addProperty("m_workspaceName", GetWorkspaceName());
         json.addProperty("m_projectData", m_projectData);

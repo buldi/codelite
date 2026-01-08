@@ -42,8 +42,8 @@ struct ExternalToolItemData {
     }
 
     ExternalToolItemData* Clone() const { return new ExternalToolItemData(m_command, m_pid); }
-    ~ExternalToolItemData() {}
-    typedef std::map<int, ExternalToolItemData> Map_t;
+    ~ExternalToolItemData() = default;
+    using Map_t = std::map<int, ExternalToolItemData>;
 };
 
 class ToolsTaskManager : public wxEvtHandler

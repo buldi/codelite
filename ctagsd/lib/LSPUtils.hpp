@@ -27,15 +27,13 @@ private:
                                       std::unordered_set<wxString>* parents_seen = nullptr);
 
 public:
-    LSPUtils();
-    ~LSPUtils();
+    LSPUtils() = default;
+    ~LSPUtils() = default;
 
     static void encode_semantic_tokens(const std::vector<TokenWrapper>& tokens_vec, std::vector<int>* encoded_arr);
     static LSP::eSymbolKind get_symbol_kind(const TagEntry* tag);
     static LSP::CompletionItem::eCompletionItemKind get_completion_kind(const TagEntry* tag);
     static std::vector<LSP::SymbolInformation> to_symbol_information_array(const std::vector<TagEntryPtr>& tags,
-                                                                           bool for_tree_view);
-    static std::vector<LSP::SymbolInformation> to_symbol_information_array(const std::vector<TagEntry>& tags,
                                                                            bool for_tree_view);
 };
 

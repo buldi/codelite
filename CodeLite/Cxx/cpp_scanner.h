@@ -34,7 +34,7 @@ class WXDLLIMPEXP_CL CppScanner : public flex::yyFlexLexer
 {
 public:
 	CppScanner();
-	~CppScanner(void);
+	~CppScanner();
 
 	/// Override the LexerInput function
 	int LexerInput(char *buf, int max_size);
@@ -48,17 +48,15 @@ public:
 	///	incase the comment spans over number of lines
 	///	(i.e. /* ... */ comment style)
 
-	const int& LineNo() const { return yylineno; }
-	inline void ClearComment() { m_comment = wxEmptyString; }
-	inline const wxChar* GetComment() const { return m_comment.GetData(); }
-	inline void KeepComment(const int& keep) { m_keepComments = keep; }
-	inline void ReturnWhite(const int& rw) { m_returnWhite = rw; }
-	void Restart();
+	int LineNo() const { return yylineno; }
+	void ClearComment() { m_comment = wxEmptyString; }
+	const wxChar* GetComment() const { return m_comment.GetData(); }
+	void KeepComment(int keep) { m_keepComments = keep; }
+	void ReturnWhite(int rw) { m_returnWhite = rw; }
 
 private:
 	char *m_data;
 	char *m_pcurr;
-	int   m_total;
 	int   m_curr;
 };
 

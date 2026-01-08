@@ -3,7 +3,7 @@
 
 #include "SmartCompletionUsageDB.h"
 #include "cl_config.h"
-#include "wxStringHash.h"
+
 #include <unordered_map>
 
 class SmartCompletionsConfig : public clConfigItem
@@ -24,7 +24,7 @@ protected:
 
 public:
     SmartCompletionsConfig();
-    virtual ~SmartCompletionsConfig();
+    virtual ~SmartCompletionsConfig() = default;
 
     SmartCompletionsConfig& Load();
     SmartCompletionsConfig& Save();

@@ -7,12 +7,11 @@
 #include <functional>
 #include <vector>
 #include <wx/colour.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 #include <wx/treebase.h>
 
 class clTreeCtrl;
-typedef std::function<bool(clRowEntry*, clRowEntry*)> clSortFunc_t;
+using clSortFunc_t = std::function<bool(clRowEntry*, clRowEntry*)>;
 class WXDLLIMPEXP_SDK clTreeCtrlModel
 {
     clTreeCtrl* m_tree = nullptr;
@@ -89,7 +88,7 @@ public:
     void AddSelection(const wxTreeItemId& item);
 
     /**
-     * @brief clear all selections, return true on sucess, this function fires the changing event
+     * @brief clear all selections, return true on success, this function fires the changing event
      */
     bool ClearSelections(bool notify);
 
@@ -99,7 +98,7 @@ public:
     bool IsVisible(const wxTreeItemId& item) const;
 
     /**
-     * @brief select the children of 'item' this functin fires the changing and changed events
+     * @brief select the children of 'item' this function fires the changing and changed events
      */
     void SelectChildren(const wxTreeItemId& item);
 

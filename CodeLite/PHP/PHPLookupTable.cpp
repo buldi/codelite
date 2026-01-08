@@ -222,7 +222,7 @@ void PHPLookupTable::Open(const wxFileName& dbfile)
         m_filename = dbfile;
         CreateSchema();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::Open" << e.GetMessage() << clEndl;
     }
 }
@@ -258,7 +258,7 @@ void PHPLookupTable::CreateSchema()
         if(res.NextRow()) {
             schemaVersion = res.GetString("SCHEMA_VERSION");
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         wxUnusedVar(e);
     }
 
@@ -326,7 +326,7 @@ void PHPLookupTable::CreateSchema()
         st.Bind(st.GetParamIndex(":SCHEMA_VERSION"), PHP_SCHEMA_VERSION);
         st.ExecuteUpdate();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::CreateSchema" << e.GetMessage() << endl;
     }
 }
@@ -349,7 +349,7 @@ void PHPLookupTable::UpdateSourceFile(PHPSourceFile& source, bool autoCommit)
 
         // Store defines
         // --------------
-        // 'defines' are handled separately as they dont really comply to the standard PHP rules
+        // 'defines' are handled separately as they don't really comply to the standard PHP rules
         // define() will define constants exactly as specified.
         // The following code will define the constant "MESSAGE" in the global namespace (i.e. "\MESSAGE").
         // <?php
@@ -362,11 +362,8 @@ void PHPLookupTable::UpdateSourceFile(PHPSourceFile& source, bool autoCommit)
         // with their namespace (we either load the namespace from the database or create one)
 
         if(!source.GetDefines().empty()) {
-            const PHPEntityBase::List_t& defines = source.GetDefines();
-            PHPEntityBase::List_t::const_iterator iter = defines.begin();
             PHPEntityBase::Map_t nsMap;
-            for(; iter != defines.end(); ++iter) {
-                PHPEntityBase::Ptr_t pDefine = *iter;
+            for (const auto& pDefine : source.GetDefines()) {
                 PHPEntityBase::Ptr_t pNamespace(NULL);
 
                 wxString nameSpaceName, shortName;
@@ -386,16 +383,15 @@ void PHPLookupTable::UpdateSourceFile(PHPSourceFile& source, bool autoCommit)
             }
 
             // Now, loop over the namespace map and store all entries
-            PHPEntityBase::Map_t::iterator nsIter = nsMap.begin();
-            for(; nsIter != nsMap.end(); ++nsIter) {
-                nsIter->second->StoreRecursive(this);
+            for (auto& p : nsMap) {
+                p.second->StoreRecursive(this);
             }
         }
 
         if(autoCommit)
             m_db.Commit();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         if(autoCommit)
             m_db.Rollback();
         clWARNING() << "PHPLookupTable::SaveSourceFile" << e.GetMessage() << endl;
@@ -501,7 +497,7 @@ PHPEntityBase::Ptr_t PHPLookupTable::DoFindMemberOf(wxLongLong parentDbId, const
             return (*matches.begin());
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::DoFindMemberOf" << e.GetMessage() << endl;
     }
     return PHPEntityBase::Ptr_t(NULL);
@@ -560,7 +556,7 @@ PHPEntityBase::Ptr_t PHPLookupTable::DoFindScope(const wxString& fullname, ePhpS
         }
         return match;
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindScope" << e.GetMessage() << endl;
     }
     return PHPEntityBase::Ptr_t(NULL);
@@ -601,13 +597,11 @@ PHPEntityBase::Ptr_t PHPLookupTable::DoFindScope(wxLongLong id, ePhpScopeType sc
             match->FromResultSet(res);
             return match;
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::DoFindScope" << e.GetMessage() << endl;
     }
     return PHPEntityBase::Ptr_t(NULL);
 }
-
-PHPEntityBase::Ptr_t PHPLookupTable::FindClass(wxLongLong id) { return DoFindScope(id, kPhpScopeTypeClass); }
 
 PHPEntityBase::List_t PHPLookupTable::FindChildren(wxLongLong parentId, size_t flags, const wxString& nameHint)
 {
@@ -627,9 +621,7 @@ PHPEntityBase::List_t PHPLookupTable::FindChildren(wxLongLong parentId, size_t f
 
         // Filter out abstract functions
         if(!(flags & kLookupFlags_IncludeAbstractMethods)) {
-            PHPEntityBase::List_t::iterator iter = matches.begin();
-            for(; iter != matches.end(); ++iter) {
-                PHPEntityBase::Ptr_t child = *iter;
+            for (const auto& child : matches) {
                 if(child->Is(kEntityTypeFunction) && child->HasFlag(kFunc_Abstract))
                     continue;
                 matchesNoAbstracts.push_back(child);
@@ -661,7 +653,7 @@ PHPEntityBase::List_t PHPLookupTable::LoadFunctionArguments(wxLongLong parentId)
                 matches.push_back(match);
             }
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::LoadFunctionArguments" << e.GetMessage() << endl;
     }
     return matches;
@@ -708,7 +700,7 @@ void PHPLookupTable::LoadAllByFilter(PHPEntityBase::List_t& matches, const wxStr
         LoadFromTableByNameHint(matches, "SCOPE_TABLE", nameHint, flags);
         LoadFromTableByNameHint(matches, "FUNCTION_TABLE", nameHint, flags);
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::LoadAllByFilter:" << e.GetMessage() << clEndl;
     }
 }
@@ -764,7 +756,7 @@ void PHPLookupTable::LoadFromTableByNameHint(PHPEntityBase::List_t& matches, con
                 matches.push_back(match);
             }
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::LoadFromTableByNameHint:" << sql << ":" << e.GetMessage() << clEndl;
     }
 }
@@ -827,7 +819,7 @@ void PHPLookupTable::DeleteFileEntries(const wxFileName& filename, bool autoComm
 
         if(autoCommit)
             m_db.Commit();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         if(autoCommit)
             m_db.Rollback();
         clWARNING() << "PHPLookupTable::DeleteFileEntries" << e.GetMessage() << endl;
@@ -843,7 +835,7 @@ void PHPLookupTable::Close()
         m_filename.Clear();
         m_allClasses.clear();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::Close" << e.GetMessage() << endl;
     }
 }
@@ -954,7 +946,7 @@ void PHPLookupTable::DoFindChildren(PHPEntityBase::List_t& matches, wxLongLong p
             DoFixVarsDocComment(matches, parentId);
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindChildren" << e.GetMessage() << endl;
     }
 }
@@ -969,7 +961,7 @@ wxLongLong PHPLookupTable::GetFileLastParsedTimestamp(const wxFileName& filename
         if(res.NextRow()) {
             return res.GetInt64("LAST_UPDATED");
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindChildren" << e.GetMessage() << endl;
     }
     return 0;
@@ -984,7 +976,7 @@ void PHPLookupTable::UpdateFileLastParsedTimestamp(const wxFileName& filename)
         st.Bind(st.GetParamIndex(":LAST_UPDATED"), (wxLongLong)time(NULL));
         st.ExecuteUpdate();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::UpdateFileLastParsedTimestamp" << e.GetMessage() << endl;
     }
 }
@@ -1031,7 +1023,7 @@ void PHPLookupTable::ClearAll(bool autoCommit)
 
         if(autoCommit)
             m_db.Commit();
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         if(autoCommit)
             m_db.Rollback();
         clWARNING() << "PHPLookupTable::ClearAll" << e.GetMessage() << endl;
@@ -1064,7 +1056,7 @@ PHPEntityBase::Ptr_t PHPLookupTable::FindFunction(const wxString& fullname)
         }
         return match;
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindFunction" << e.GetMessage() << endl;
     }
     return PHPEntityBase::Ptr_t(NULL);
@@ -1144,37 +1136,16 @@ PHPEntityBase::List_t PHPLookupTable::FindNamespaces(const wxString& fullnameSta
                 matches.push_back(match);
             }
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindNamespaces" << e.GetMessage() << endl;
     }
     return matches;
 }
 
-PHPEntityBase::Ptr_t PHPLookupTable::FindFunctionByLineAndFile(const wxFileName& filename, int line)
-{
-    try {
-        wxString sql;
-        // Try to locate function first
-        sql << "SELECT * from FUNCTION_TABLE WHERE FILE_NAME=:FILE_NAME AND LINE_NUMBER=:LINE_NUMBER LIMIT 1";
-        wxSQLite3Statement st = m_db.PrepareStatement(sql);
-        st.Bind(st.GetParamIndex(":FILE_NAME"), filename.GetFullPath());
-        st.Bind(st.GetParamIndex(":LINE_NUMBER"), line);
-        wxSQLite3ResultSet res = st.ExecuteQuery();
-        if(res.NextRow()) {
-            PHPEntityBase::Ptr_t match(new PHPEntityFunction());
-            match->FromResultSet(res);
-            return match;
-        }
-    } catch(wxSQLite3Exception& e) {
-        clWARNING() << "PHPLookupTable::FindFunctionByLineAndFile" << e.GetMessage() << endl;
-    }
-    return NULL;
-}
-
 void PHPLookupTable::ResetDatabase()
 {
     wxFileName curfile = m_filename;
-    Close(); // Close the databse releasing any file capture we have
+    Close(); // Close the database releasing any file capture we have
     // Delete the file
     if(curfile.IsOk() && curfile.Exists()) {
         // Delete it from the file system
@@ -1197,7 +1168,7 @@ bool PHPLookupTable::CheckDiskImage(wxSQLite3Database& db, const wxFileName& fil
         } else {
             return false;
         }
-    } catch(wxSQLite3Exception& exec) {
+    } catch (const wxSQLite3Exception& exec) {
         // this can only happen if we have a corrupt disk image
         clWARNING() << "PHP: exception caught:" << exec.GetMessage() << clEndl;
         clWARNING() << "PHP: database image is corrupted:" << filename.GetFullPath() << clEndl;
@@ -1298,7 +1269,7 @@ PHPEntityBase::List_t PHPLookupTable::FindSymbol(const wxString& name)
             }
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::FindSymbol" << e.GetMessage() << endl;
     }
     return matches;
@@ -1321,7 +1292,7 @@ void PHPLookupTable::DoFixVarsDocComment(PHPEntityBase::List_t& matches, wxLongL
     }
 
     // Let the PHPDOC table content override the matches' type
-    std::for_each(matches.begin(), matches.end(), [&](PHPEntityBase::Ptr_t match) {
+    for (auto& match : matches) {
         if(match->Is(kEntityTypeVariable)) {
             if(docs.count(match->GetShortName())) {
                 PHPDocVar::Ptr_t docvar = docs.find(match->GetShortName())->second;
@@ -1330,7 +1301,7 @@ void PHPLookupTable::DoFixVarsDocComment(PHPEntityBase::List_t& matches, wxLongL
                 }
             }
         }
-    });
+    }
 }
 
 void PHPLookupTable::UpdateClassCache(const wxString& classname)
@@ -1358,39 +1329,12 @@ void PHPLookupTable::RebuildClassCache()
             ++count;
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "PHPLookupTable::RebuildClassCache:" << e.GetMessage() << clEndl;
         return;
     }
     clDEBUG() << "Loading" << count << "class names into the cache" << clEndl;
     clDEBUG() << "Rebuilding PHP class cache...done" << clEndl;
-}
-
-PHPEntityBase::Ptr_t PHPLookupTable::FindFunctionNearLine(const wxFileName& filename, int lineNumber)
-{
-    try {
-        wxString sql;
-
-        // limit by 2 for performance reason
-        // we will return NULL incase the number of matches is greater than 1...
-        // SELECT * from FUNCTION_TABLE WHERE
-        sql << "SELECT * from FUNCTION_TABLE WHERE FILE_NAME='" << filename.GetFullPath()
-            << "' AND LINE_NUMBER <=" << lineNumber << " order by LINE_NUMBER DESC LIMIT 1";
-
-        wxSQLite3Statement st = m_db.PrepareStatement(sql);
-        wxSQLite3ResultSet res = st.ExecuteQuery();
-        PHPEntityBase::Ptr_t match(NULL);
-
-        if(res.NextRow()) {
-            match = std::make_shared<PHPEntityFunction>();
-            match->FromResultSet(res);
-        }
-        return match;
-
-    } catch(wxSQLite3Exception& e) {
-        clWARNING() << "PHPLookupTable::FindFunctionNearLine:" << e.GetMessage() << clEndl;
-    }
-    return PHPEntityBase::Ptr_t(NULL);
 }
 
 size_t PHPLookupTable::FindFunctionsByFile(const wxFileName& filename, PHPEntityBase::List_t& functions)
@@ -1410,62 +1354,8 @@ size_t PHPLookupTable::FindFunctionsByFile(const wxFileName& filename, PHPEntity
             func->FromResultSet(res);
             functions.push_back(func);
         }
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clWARNING() << "SQLite 3 error:" << e.GetMessage() << clEndl;
     }
     return functions.size();
-}
-
-void PHPLookupTable::ParseFolder(const wxString& folder, const wxString& filemask, eUpdateMode updateMode)
-{
-    clFilesScanner scanner;
-    std::vector<wxString> files;
-    if(scanner.Scan(folder, files, filemask) == 0) {
-        return;
-    }
-    std::for_each(files.begin(), files.end(), [&](const wxString& file) {
-        try {
-            wxFileName fnFile(file);
-            bool reParseNeeded(true);
-            if(updateMode == kUpdateMode_Fast) {
-                // Check to see if we need to re-parse this file
-                // and store it to the database
-
-                if(!fnFile.Exists()) {
-                    reParseNeeded = false;
-                } else {
-                    time_t lastModifiedOnDisk = fnFile.GetModificationTime().GetTicks();
-                    wxLongLong lastModifiedInDB = GetFileLastParsedTimestamp(fnFile);
-                    if(lastModifiedOnDisk <= lastModifiedInDB.ToLong()) {
-                        reParseNeeded = false;
-                    }
-                }
-            }
-
-            // Ensure that the file exists
-            if(!fnFile.Exists()) {
-                reParseNeeded = false;
-            }
-            if(!reParseNeeded)
-                return;
-
-            wxString content;
-            if(!FileUtils::ReadFileContent(fnFile, content, wxConvISO8859_1)) {
-                clWARNING() << "PHP: Failed to read file:" << fnFile << "for parsing";
-                return;
-            }
-            LOG_IF_TRACE { clDEBUG1() << "Parsing PHP file:" << fnFile; }
-            PHPSourceFile sourceFile(content, this);
-            sourceFile.SetFilename(fnFile);
-            sourceFile.SetParseFunctionBody(true);
-            sourceFile.Parse();
-            UpdateSourceFile(sourceFile, false);
-        } catch(wxSQLite3Exception& e) {
-            try {
-                m_db.Rollback();
-            } catch(...) {
-            }
-            clWARNING() << "PHPLookupTable::ParseFolder:" << e.GetMessage();
-        }
-    });
 }

@@ -1,9 +1,10 @@
 #include "command_link_button_wrapper.h"
 
+#include "Properties/bitmap_picker_property.h"
+#include "Properties/bool_property.h"
+#include "Properties/category_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "bitmap_picker_property.h"
-#include "bool_property.h"
-#include "file_ficker_property.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
@@ -21,25 +22,24 @@ CommandLinkButtonWrapper::CommandLinkButtonWrapper()
 
     SetPropertyString(_("Common Settings"), "wxCommandLinkButton");
     DelProperty(_("Control Specific Settings"));
-    AddProperty(new CategoryProperty("wxCommandLinkButton"));
+    Add<CategoryProperty>("wxCommandLinkButton");
 
     RegisterEvent("wxEVT_COMMAND_BUTTON_CLICKED", "wxCommandEvent",
                   _("Process a wxEVT_COMMAND_BUTTON_CLICKED event, when the button is clicked."),
                   "wxCommandEventHandler");
 
-    AddProperty(new StringProperty(PROP_LABEL, _("Label"),
-                                   _("First line of text on the button, typically the label of an action that will be "
-                                     "made when the button is pressed")));
-    AddProperty(new StringProperty(
-        PROP_NOTE, "", _("Second line of text describing the action performed when the button is pressed")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, "", _("Select the bitmap file")));
-    AddProperty(new BoolProperty(PROP_DEFAULT_BUTTON, false, _("Make this button the default button")));
+    Add<StringProperty>(PROP_LABEL,
+                        _("Label"),
+                        _("First line of text on the button, typically the label of an action that will be "
+                          "made when the button is pressed"));
+    Add<StringProperty>(
+        PROP_NOTE, "", _("Second line of text describing the action performed when the button is pressed"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH, "", _("Select the bitmap file"));
+    Add<BoolProperty>(PROP_DEFAULT_BUTTON, false, _("Make this button the default button"));
 
     m_namePattern = "m_cmdLnkBtn";
     SetName(GenerateName());
 }
-
-CommandLinkButtonWrapper::~CommandLinkButtonWrapper() {}
 
 wxcWidget* CommandLinkButtonWrapper::Clone() const { return new CommandLinkButtonWrapper(); }
 

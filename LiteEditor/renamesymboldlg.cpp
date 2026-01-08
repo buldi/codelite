@@ -42,7 +42,7 @@ public:
         : m_token(token)
     {
     }
-    ~RenameSymbolData() {}
+    ~RenameSymbolData() override = default;
 };
 
 RenameSymbol::RenameSymbol(wxWindow* parent, const CppToken::Vec_t& candidates, const CppToken::Vec_t& possCandidates,
@@ -53,16 +53,14 @@ RenameSymbol::RenameSymbol(wxWindow* parent, const CppToken::Vec_t& candidates, 
     EditorConfigST::Get()->GetLexer("C++")->Apply(m_preview, true);
     m_tokens.clear();
 
-    CppToken::Vec_t::const_iterator iter = candidates.begin();
-    for(; iter != candidates.end(); ++iter) {
-        AddMatch(*iter, true);
-        m_tokens.push_back(*iter);
+    for (const auto& candidate : candidates) {
+        AddMatch(candidate, true);
+        m_tokens.push_back(candidate);
     }
 
-    iter = possCandidates.begin();
-    for(; iter != possCandidates.end(); iter++) {
-        AddMatch(*iter, false);
-        m_tokens.push_back(*iter);
+    for (const auto& candidate : possCandidates) {
+        AddMatch(candidate, false);
+        m_tokens.push_back(candidate);
     }
 
     if(m_tokens.empty() == false) { DoSelectFile(m_tokens.at((size_t)0)); }
@@ -90,7 +88,7 @@ void RenameSymbol::OnButtonOK(wxCommandEvent& e)
     wxUnusedVar(e);
 
     if(!IsValidCppIdentifier(m_textCtrlNewName->GetValue())) {
-        wxMessageBox(_("Invalid C/C++ symbol name"), _("CodeLite"), wxICON_WARNING | wxOK);
+        wxMessageBox(_("Invalid C/C++ symbol name"), wxT("CodeLite"), wxICON_WARNING | wxOK);
         return;
     }
 
@@ -140,8 +138,6 @@ void RenameSymbol::OnSelection(wxDataViewEvent& event)
     RenameSymbolData* data = (RenameSymbolData*)m_dvListCtrl->GetItemData(event.GetItem());
     if(data) { DoSelectFile(data->m_token); }
 }
-
-RenameSymbol::~RenameSymbol() {}
 
 void RenameSymbol::OnCheckAll(wxCommandEvent& event)
 {

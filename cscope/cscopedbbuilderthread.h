@@ -39,8 +39,8 @@
 extern int wxEVT_CSCOPE_THREAD_DONE;
 extern int wxEVT_CSCOPE_THREAD_UPDATE_STATUS;
 
-typedef std::vector<CscopeEntryData> CScopeEntryDataVec_t;
-typedef std::map<wxString, CScopeEntryDataVec_t*> CScopeResultTable_t;
+using CScopeEntryDataVec_t = std::vector<CscopeEntryData>;
+using CScopeResultTable_t = std::map<wxString, CScopeEntryDataVec_t*>;
 
 /**
  * \class CscopeRequest
@@ -50,7 +50,7 @@ typedef std::map<wxString, CScopeEntryDataVec_t*> CScopeResultTable_t;
  */
 class CscopeRequest : public ThreadRequest
 {
-    wxEvtHandler* m_owner;
+    wxEvtHandler* m_owner = nullptr;
     wxString m_cmd;
     wxString m_workingDir;
     wxString m_outfile;
@@ -58,8 +58,8 @@ class CscopeRequest : public ThreadRequest
     wxString m_findWhat;
 
 public:
-    CscopeRequest(){};
-    ~CscopeRequest(){};
+    CscopeRequest() = default;
+    ~CscopeRequest() override = default;
 
     // Setters
     void SetCmd(const wxString& cmd) { this->m_cmd = cmd; }
@@ -91,9 +91,9 @@ protected:
     void SendStatusEvent(const wxString& msg, int percent, const wxString& findWhat, wxEvtHandler* owner);
 
 public:
-    CscopeDbBuilderThread();
-    ~CscopeDbBuilderThread();
+    CscopeDbBuilderThread() = default;
+    ~CscopeDbBuilderThread() = default;
 };
 
-typedef Singleton<CscopeDbBuilderThread> CScopeThreadST;
+using CScopeThreadST = Singleton<CscopeDbBuilderThread>;
 #endif // __cscopedbbuilderthread__

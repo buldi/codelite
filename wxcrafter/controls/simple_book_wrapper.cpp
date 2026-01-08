@@ -1,8 +1,8 @@
 #include "simple_book_wrapper.h"
 
+#include "Properties/choice_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "choice_property.h"
 #include "wxgui_defs.h"
 
 SimpleBookWrapper::SimpleBookWrapper()
@@ -26,13 +26,10 @@ SimpleBookWrapper::SimpleBookWrapper()
           "wxSHOW_EFFECT_SLIDE_TO_RIGHT", "wxSHOW_EFFECT_SLIDE_TO_TOP", "wxSHOW_EFFECT_SLIDE_TO_BOTTOM",
           "wxSHOW_EFFECT_BLEND", "wxSHOW_EFFECT_EXPAND" });
     SetPropertyString(_("Common Settings"), "wxSimplebook");
-    AddProperty(new ChoiceProperty(PROP_EFFECT, effects, 0,
-                                   _("Set the same effect to use for both showing and hiding the pages")));
+    Add<ChoiceProperty>(PROP_EFFECT, effects, 0, _("Set the same effect to use for both showing and hiding the pages"));
     m_namePattern = wxT("m_simpleBook");
     SetName(GenerateName());
 }
-
-SimpleBookWrapper::~SimpleBookWrapper() {}
 
 wxString SimpleBookWrapper::GetXRCPageClass() const { return wxT("simplebookpage"); }
 

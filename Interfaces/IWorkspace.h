@@ -29,9 +29,12 @@
 #include "AsyncProcess/asyncprocess.h"
 
 #include <list>
+#include <optional>
 #include <wx/event.h>
 #include <wx/filename.h>
 #include <wx/string.h>
+
+class IEditor;
 
 /**
  * @class IWorkspace
@@ -44,11 +47,11 @@ protected:
     wxString m_workspaceType;
 
 public:
-    typedef std::list<IWorkspace*> List_t;
+    using List_t = std::list<IWorkspace*>;
 
 public:
-    IWorkspace() {}
-    virtual ~IWorkspace() {}
+    IWorkspace() = default;
+    ~IWorkspace() override = default;
 
     /**
      * @brief return the workspace name
@@ -101,7 +104,7 @@ public:
     /**
      * @brief return the project name of a file.
      * If the workspace does not support projects, return an empty string
-     * If the we could not match a project for the given filename, return empty string
+     * If we could not match a project for the given filename, return empty string
      */
     virtual wxString GetProjectFromFile(const wxFileName& filename) const = 0;
 
@@ -111,7 +114,7 @@ public:
      */
     virtual void GetWorkspaceFiles(wxArrayString& files) const = 0;
     /**
-     * @brief return list of files belonged to the prokect. If the workspace does not support
+     * @brief return list of files belonged to the project. If the workspace does not support
      * projects, do not modify 'files'
      * @param projectName the project name
      * @param files [output] list of files in absolute path
@@ -140,7 +143,7 @@ public:
     virtual wxArrayString GetWorkspaceProjects() const = 0;
 
     /**
-     * @brief returm true if this workspace is a remote one
+     * @brief return true if this workspace is a remote one
      */
     virtual bool IsRemote() const { return false; }
     /**
@@ -152,6 +155,18 @@ public:
      * @brief return the environment for the workspace
      */
     virtual clEnvList_t GetEnvironment() const { return {}; }
+
+    /// Return the workspace specific indentation width
+    virtual int GetIndentWidth() { return wxNOT_FOUND; }
+
+    /// Open (or create if missing) `filepath` and load it into an editor.
+    virtual IEditor* OpenFileInEditor(const wxString& filepath, bool createIfMissing = true) = 0;
+
+    /// Open (create if missing) `filename` and load it into an editor. The file is searched (or created)
+    /// inside the workspace private folder (i.e. `.codelite`).
+    /// `filename`: the file name to open or create. It must not contain the path, only name + extension, e.g.
+    /// `codelite-remote.json`
+    virtual IEditor* CreateOrOpenSettingFile(const wxString& filename) = 0;
 };
 
 #endif // IWORKSPACE_H

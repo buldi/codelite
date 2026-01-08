@@ -1,21 +1,14 @@
 #include "php_utils.h"
 
-#include "JSON.h"
 #include "PHP/PHPSourceFile.h"
-#include "editor_config.h"
-#include "file_logger.h"
+#include "StringUtils.h"
 #include "fileextmanager.h"
-#include "fileutils.h"
-#include "lexer_configuration.h"
 #include "php_project.h"
 #include "php_workspace.h"
 
-#include <map>
 #include <wx/base64.h>
 #include <wx/filename.h>
 #include <wx/stc/stc.h>
-#include <wx/tokenzr.h>
-#include <wx/treectrl.h>
 #include <wx/uri.h>
 
 bool IsPHPCommentOrString(int styleAtPos)
@@ -77,25 +70,6 @@ bool IsPHPFileByExt(const wxString& filename)
     // return false;
 }
 
-wxString GetResourceDirectory()
-{
-    wxFileName fn;
-#ifdef __WXGTK__
-    fn = wxFileName(PLUGINS_DIR, "");
-    fn.AppendDir("resources");
-#else
-#ifdef USE_POSIX_LAYOUT
-    fn = wxFileName(clStandardPaths::Get().GetPluginsDirectory());
-#else
-    fn = wxFileName(clStandardPaths::Get().GetExecutablePath());
-    fn.AppendDir("plugins");
-#endif
-    fn.AppendDir("resources");
-#endif
-    fn.AppendDir("php");
-    return fn.GetPath();
-}
-
 wxString URIToFileName(const wxString& uriFileName)
 {
     wxString filename = wxURI::Unescape(uriFileName);
@@ -109,7 +83,7 @@ wxString URIToFileName(const wxString& uriFileName)
     return wxFileName(filename).GetFullPath();
 }
 
-static wxString URIEncode(const wxString& inputStr) { return FileUtils::EncodeURI(inputStr); }
+static wxString URIEncode(const wxString& inputStr) { return StringUtils::EncodeURI(inputStr); }
 
 wxString FileNameToURI(const wxString& filename)
 {
@@ -131,7 +105,7 @@ wxString Base64Encode(const wxString& str)
     return encodedString;
 }
 
-static void DecodeFileName(wxString& filename) { filename = FileUtils::DecodeURI(filename); }
+static void DecodeFileName(wxString& filename) { filename = StringUtils::DecodeURI(filename); }
 
 wxString MapRemoteFileToLocalFile(const wxString& remoteFile)
 {
@@ -167,13 +141,8 @@ wxString MapRemoteFileToLocalFile(const wxString& remoteFile)
     }
 
     // Use the active project file mapping
-    const PHPProjectSettingsData& settings = pProject->GetSettings();
-    const wxStringMap_t& mapping = settings.GetFileMapping();
-    wxStringMap_t::const_iterator iter = mapping.begin();
-    for(; iter != mapping.end(); ++iter) {
-        const wxString& localFolder = iter->first;
-        const wxString& remoteFolder = iter->second;
-        if(filename.StartsWith(remoteFolder)) {
+    for (const auto& [localFolder, remoteFolder] : pProject->GetSettings().GetFileMapping()) {
+        if (filename.StartsWith(remoteFolder)) {
             filename.Replace(remoteFolder, localFolder);
             return wxFileName(filename).GetFullPath();
         }

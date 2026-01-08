@@ -49,35 +49,25 @@ class IProcess;
 // The Manager class
 // ====================================================================
 
-extern const wxEventType wxEVT_CMD_RESTART_CODELITE;
-
 class DisplayVariableDlg;
 
 class DbgStackInfo
 {
 public:
-    size_t depth;
+    size_t depth{wxString::npos};
     wxString func;
 
 public:
-    DbgStackInfo()
-        : depth(wxString::npos)
-        , func(wxT(""))
-    {
-    }
-
-    ~DbgStackInfo() { Clear(); }
-
+    DbgStackInfo() = default;
+    ~DbgStackInfo() = default;
+ 
     void Clear()
     {
         func.Clear();
         depth = wxString::npos;
     }
 
-    bool operator==(const DbgStackInfo& rhs) { return func == rhs.func && depth == rhs.depth; }
-
-    bool operator!=(const DbgStackInfo& rhs) { return func != rhs.func || depth != rhs.depth; }
-
+    bool operator==(const DbgStackInfo& rhs) const = default;
     bool IsValid() const { return !func.IsEmpty() && depth != wxString::npos; }
 };
 
@@ -98,7 +88,6 @@ protected:
     IProcess* m_programProcess;
     BreakptMgr* m_breakptsmgr;
     bool m_isShutdown;
-    bool m_workspceClosing;
     bool m_dbgCanInteract;
     bool m_useTipWin;
     long m_tipWinPos;
@@ -107,15 +96,13 @@ protected:
     wxArrayString m_dbgWatchExpressions;
     DisplayVariableDlg* m_watchDlg;
     bool m_retagInProgress;
-    bool m_repositionEditor; // flag used for debugging, should editor be repositioned after user updates like "add
-                             // watch"
     DbgStackInfo m_dbgCurrentFrameInfo;
     PerspectiveManager m_perspectiveManager;
     clDebuggerTerminalPOSIX m_debuggerTerminal;
 
 protected:
-    Manager(void);
-    virtual ~Manager(void);
+    Manager();
+    virtual ~Manager();
     void OnHideGdbTooltip(clCommandEvent& event);
 
     //--------------------------- Global State -----------------------------
@@ -139,12 +126,8 @@ public:
     bool IsShutdownInProgress() const { return m_isShutdown; }
     void SetShutdownInProgress(bool b) { m_isShutdown = b; }
 
-    bool GetRepositionEditor() const { return m_repositionEditor; }
-    void SetRepositionEditor(bool b) { m_repositionEditor = b; }
-
     void OnRestart(clCommandEvent& event);
-    void OnCmdRestart(wxCommandEvent& event);
-    void GenerateCompileCommands();
+    void OnForcedRestart(clCommandEvent& event);
     void OnFindInFilesDismissed(clFindInFilesEvent& event);
     void OnFindInFilesShowing(clFindInFilesEvent& event);
     void OnUpdateDebuggerActiveView(clDebugEvent& event);
@@ -154,8 +137,7 @@ public:
     void OnDebuggerStopping(clDebugEvent& event);
 
 protected:
-    void DoRestartCodeLite();
-    void InstallClangTools();
+    void DoRestartCodeLite(bool force = false);
 
     //--------------------------- Workspace Loading -----------------------------
 public:
@@ -167,8 +149,6 @@ public:
      * true if a workspace is open
      */
     bool IsWorkspaceOpen() const;
-
-    const bool& IsWorkspaceClosing() const { return m_workspceClosing; }
 
     /*!
      * @brief
@@ -190,7 +170,7 @@ public:
 
     /**
      * @brief close the currently opened workspace and reload it without saving any modifications made to it, if no
-     * workspace is opened, this functiond does anything
+     * workspace is opened, this function does anything
      */
     void ReloadWorkspace();
 
@@ -219,15 +199,13 @@ public:
 
     /**
      * @brief update the C++ parser search / exclude paths with the global paths
-     * and the workspace specifc ones
+     * and the workspace specific ones
      * @return true if the paths were modified, false otherwise
      */
     void UpdateParserPaths(bool notify);
 
 protected:
     void DoSetupWorkspace(const wxString& path);
-
-    void OnAddWorkspaceToRecentlyUsedList(wxCommandEvent& e);
 
     /**
      * @brief a project was renamed, reload the workspace
@@ -316,25 +294,9 @@ public:
     void GetWorkspaceFiles(wxArrayString& files);
 
     /**
-     * @brief return list of files in a form of std::set
-     */
-    void GetWorkspaceFiles(std::set<wxString>& files);
-
-    /**
      * return list of files that are part of the workspace
      */
     void GetWorkspaceFiles(std::vector<wxFileName>& files, bool absPath = false);
-
-    /**
-     * check if a file is part of the workspace
-     * @param fileName the file name in absolute path
-     */
-    bool IsFileInWorkspace(const wxString& fileName);
-
-    /**
-     * Search for (non-absolute) file in the workspace
-     */
-    wxFileName FindFile(const wxString& fileName, const wxString& project = wxEmptyString);
 
     /**
      * retag workspace
@@ -348,13 +310,10 @@ public:
     void RetagFile(const wxString& filename);
 
     /**
-     * @brief Launch the ParseThread to update the preprocessor vizualisation
+     * @brief Launch the ParseThread to update the preprocessor visualization
      * @param filename
      */
     void UpdatePreprocessorFile(clEditor* editor);
-
-protected:
-    wxFileName FindFile(const wxArrayString& files, const wxFileName& fn);
 
     //--------------------------- Project Files Mgmt -----------------------------
 public:
@@ -428,17 +387,6 @@ public:
     void GetProjectFiles(const wxString& project, wxArrayString& files);
 
     /**
-     * @brief return list of files belonged the active project (same as running: GetProjectFiles(GetActiveProjectName(),
-     * files)
-     */
-    void GetActiveProjectFiles(wxArrayString& files);
-
-    /**
-     * @brief return the currently opened file's project files
-     */
-    void GetActiveFileProjectFiles(wxArrayString& files);
-
-    /**
      * @brief return the project name that 'fullPathFileName' belongs to. if 2 matches are found, return
      * the first one, or empty string if no match is found
      * @param fullPathFileName the filepath to search with
@@ -455,13 +403,6 @@ public:
 
     //--------------------------- Project Settings Mgmt -----------------------------
 public:
-    /**
-     * @brief if a workspace is opened, return the current build configuration
-     * of the active project
-     * @return active build configuration or NULL
-     */
-    BuildConfigPtr GetCurrentBuildConf();
-
     /**
      * Return a project working directory
      * @param project project name
@@ -490,7 +431,7 @@ public:
     void SetProjectGlobalSettings(const wxString& projectName, BuildConfigCommonPtr settings);
 
     /**
-     * @brief return the project excution command as it appears in the project settings
+     * @brief return the project execution command as it appears in the project settings
      * @param projectName
      * @param wd the working directory that the command should be running from
      * @param considerPauseWhenExecuting when set to true (default) CodeLite will take into consideration the value set
@@ -500,8 +441,6 @@ public:
      */
     wxString GetProjectExecutionCommand(const wxString& projectName, wxString& wd,
                                         bool considerPauseWhenExecuting = true);
-
-    bool DoFindDockInfo(const wxString& saved_perspective, const wxString& dock_name, wxString& dock_info);
 
     //--------------------------- Top Level Pane Management -----------------------------
 public:
@@ -549,7 +488,7 @@ public:
     void ShowPane(const wxString& paneName, bool commit = true);
 
     /**
-     * Hide/Show all panes. This function saves the current prespective and
+     * Hide/Show all panes. This function saves the current perspective and
      * then hides all panes, when called again, all panes are restored
      */
     void TogglePanes();
@@ -559,7 +498,7 @@ public:
     /**
      * @brief update the menu bar accelerators
      */
-    void UpdateMenuAccelerators(wxFrame* frame = NULL);
+    void UpdateMenuAccelerators();
 
     //--------------------------- Run Program (No Debug) -----------------------------
 public:
@@ -591,7 +530,6 @@ protected:
     //--------------------------- Debugger Support -----------------------------
 protected:
     void DoUpdateDebuggerTabControl(wxWindow* curpage);
-    bool DebuggerPaneWasShown;
 
 public:
     BreakptMgr* GetBreakpointsMgr() { return m_breakptsmgr; }
@@ -607,16 +545,6 @@ public:
     void UpdateDebuggerPane();
 
     void SetMemory(const wxString& address, size_t count, const wxString& hex_value);
-
-    /**
-     * Stores the debugger pane status when the debug session started
-     */
-    void SetDebuggerPaneOriginallyVisible(bool shown) { DebuggerPaneWasShown = shown; }
-
-    /**
-     * Returns true if the debugger pane was already shown when the debug session started
-     */
-    bool GetDebuggerPaneOriginallyVisible() const { return DebuggerPaneWasShown; }
 
     //---------------------------------------------------
     // Debugging API
@@ -636,11 +564,10 @@ public:
     DbgStackInfo DbgGetCurrentFrameInfo() { return m_dbgCurrentFrameInfo; }
 
     //---------------------------------------------------
-    // Internal implementaion for various debugger events
+    // Internal implementation for various debugger events
     //---------------------------------------------------
 
     void UpdateAddLine(const wxString& line, const bool OnlyIfLoggingOn = false);
-    void UpdateFileLine(const wxString& file, int lineno, bool repositionEditor = true);
     void UpdateGotControl(const DebuggerEventData& e);
     void UpdateLostControl();
     void UpdateRemoteTargetConnected(const wxString& line);
@@ -692,7 +619,7 @@ public:
     void CleanWorkspace();
 
     /**
-     * @brief clean, followed by buid of the entire workspace. This operation is equal to
+     * @brief clean, followed by build of the entire workspace. This operation is equal to
      * manually right clicking on each project in the workspace and selecting
      * 'clean'
      */
@@ -711,7 +638,7 @@ public:
     void CompileFile(const wxString& project, const wxString& fileName, bool preprocessOnly = false);
 
     /**
-     * return true if the last buid ended successfully
+     * return true if the last build ended successfully
      */
     bool IsBuildEndedSuccessfully() const;
 
@@ -723,7 +650,7 @@ public:
     void GetActiveProjectAndConf(wxString& project, wxString& conf);
     /**
      * @brief return true if debugger view is visible
-     * This can be true incase the view is the selected tab in the debuggger pane notebook
+     * This can be true incase the view is the selected tab in the debugger pane notebook
      * or incase it is detached and visible
      */
     bool IsDebuggerViewVisible(const wxString& name);
@@ -743,6 +670,6 @@ protected:
     void DoSaveAllFilesBeforeBuild();
 };
 
-typedef Singleton<Manager> ManagerST;
+using ManagerST = Singleton<Manager>;
 
 #endif // MANAGER_H

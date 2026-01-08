@@ -28,13 +28,10 @@
 #include "StringUtils.h"
 #include "build_settings_config.h"
 #include "buildmanager.h"
-#include "editor_config.h"
 #include "environmentconfig.h"
-#include "file_logger.h"
-#include "globals.h"
 #include "macromanager.h"
-#include "macros.h"
 #include "project.h"
+#include "workspace.h"
 #include "xmlutils.h"
 
 #include <wx/tokenzr.h>
@@ -313,8 +310,6 @@ BuildConfig::BuildConfig(wxXmlNode* node)
     }
 }
 
-BuildConfig::~BuildConfig() {}
-
 BuildConfig* BuildConfig::Clone() const
 {
     wxXmlNode* node = ToXml();
@@ -396,7 +391,7 @@ wxXmlNode* BuildConfig::ToXml() const
     XmlUtils::SetNodeContent(dbgPostConnectCommands, m_debuggerPostRemoteConnectCmds);
 
     wxXmlNode* dbgSearchPaths = new wxXmlNode(debugger, wxXML_ELEMENT_NODE, "DebuggerSearchPaths");
-    XmlUtils::SetNodeContent(dbgSearchPaths, ::wxImplode(m_debuggerSearchPaths, "\n"));
+    XmlUtils::SetNodeContent(dbgSearchPaths, StringUtils::wxImplode(m_debuggerSearchPaths, "\n"));
 
     node->AddChild(debugger);
 
@@ -466,11 +461,7 @@ wxXmlNode* BuildConfig::ToXml() const
     XmlUtils::SetNodeContent(rebldCmd, m_customRebuildCmd);
 
     // add all 'Targets'
-    std::map<wxString, wxString>::const_iterator ir = m_customTargets.begin();
-    for(; ir != m_customTargets.end(); ir++) {
-        wxString target_name = ir->first;
-        wxString target_cmd = ir->second;
-
+    for (const auto& [target_name, target_cmd] : m_customTargets) {
         wxXmlNode* customTarget = new wxXmlNode(customBuild, wxXML_ELEMENT_NODE, "Target");
         customTarget->AddAttribute("Name", target_name);
         XmlUtils::SetNodeContent(customTarget, target_cmd);
@@ -524,11 +515,11 @@ wxString BuildConfig::GetPreprocessor() const { return m_commonConfig.GetPreproc
 
 wxString BuildConfig::GetOutputDirectory() const { return GetOutputFileName().BeforeLast('/'); }
 
-wxString BuildConfig::GetOutputFileName() const { return NormalizePath(m_outputFile); }
+wxString BuildConfig::GetOutputFileName() const { return FileUtils::NormalizePath(m_outputFile); }
 
-wxString BuildConfig::GetIntermediateDirectory() const { return NormalizePath(m_intermediateDirectory); }
+wxString BuildConfig::GetIntermediateDirectory() const { return FileUtils::NormalizePath(m_intermediateDirectory); }
 
-wxString BuildConfig::GetWorkingDirectory() const { return NormalizePath(m_workingDirectory); }
+wxString BuildConfig::GetWorkingDirectory() const { return FileUtils::NormalizePath(m_workingDirectory); }
 
 CompilerPtr BuildConfig::GetCompiler() const { return BuildSettingsConfigST::Get()->GetCompiler(GetCompilerType()); }
 
@@ -565,7 +556,6 @@ wxString expand_env_variable(const wxString& value, const wxEnvVariableHashMap& 
     wxArrayString parts = wxStringTokenize(value, wxPATH_SEP, wxTOKEN_STRTOK);
     wxString resolved;
     for(const wxString& part : parts) {
-        wxArrayString resovled_array;
         wxString env_name;
         if(is_env_variable(part, &env_name)) {
             // try the environment variables first
@@ -608,7 +598,7 @@ clEnvList_t BuildConfig::GetEnvironment(Project* project) const
     // by default, we only return env modified within CodeLite
     std::unordered_set<wxString> interesting_env_set;
 
-    // get the global enviroment variables (macros expnaded)
+    // get the global environment variables (macros expanded)
     EnvMap envMap = env.GetVariables(env.GetActiveSet(), false, project_name, config_name);
 
     // expand the global environments variables first
@@ -623,7 +613,7 @@ clEnvList_t BuildConfig::GetEnvironment(Project* project) const
     }
 
     // get the workspace environment variables
-    wxString workspace_env = clCxxWorkspaceST::Get()->GetEnvironmentVariabels();
+    wxString workspace_env = clCxxWorkspaceST::Get()->GetEnvironmentVariables();
     {
         auto arr = StringUtils::BuildEnvFromString(workspace_env);
         for(auto& p : arr) {

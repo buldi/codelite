@@ -1,4 +1,7 @@
 #include "spacer_wrapper.h"
+
+#include "Properties/category_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
@@ -8,18 +11,16 @@ SpacerWrapper::SpacerWrapper()
     : wxcWidget(ID_WXSPACER)
 {
     m_styles.Clear();
-    m_properties.DeleteValues();
+    m_properties.Clear();
 
-    AddProperty(new CategoryProperty(_("Spacer")));
-    AddProperty(new StringProperty(PROP_NAME, wxT("Spacer"), wxT("")));
+    Add<CategoryProperty>(_("Spacer"));
+    Add<StringProperty>(PROP_NAME, wxT("Spacer"), wxT(""));
     // This was removed above because sizers don't do 'size'. But wxSpacer does...
-    AddProperty(new StringProperty(PROP_SIZE, wxT("0,0"), _("The spacer's size: width,height")));
+    Add<StringProperty>(PROP_SIZE, wxT("0,0"), _("The spacer's size: width,height"));
 
     m_namePattern = wxT("Spacer");
     SetName(GenerateName());
 }
-
-SpacerWrapper::~SpacerWrapper() {}
 
 wxcWidget* SpacerWrapper::Clone() const { return new SpacerWrapper(); }
 

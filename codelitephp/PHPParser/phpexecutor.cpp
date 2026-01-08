@@ -2,17 +2,12 @@
 
 #include "AsyncProcess/TerminalEmulatorFrame.h"
 #include "AsyncProcess/asyncprocess.h"
-#include "AsyncProcess/processreaderthread.h"
 #include "Console/clConsoleBase.h"
-#include "PHPTerminal.h"
 #include "StringUtils.h"
-#include "cl_config.h"
 #include "clplatform.h"
-#include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "globals.h"
 #include "php_configuration_data.h"
 #include "php_event.h"
 #include "php_project_settings_data.h"
@@ -20,13 +15,8 @@
 
 #include <wx/app.h>
 #include <wx/msgdlg.h>
-#include <wx/process.h>
 #include <wx/tokenzr.h>
 #include <wx/uri.h>
-
-PHPExecutor::PHPExecutor() {}
-
-PHPExecutor::~PHPExecutor() {}
 
 bool PHPExecutor::Exec(const wxString& projectName, const wxString& urlOrFilePath, const wxString& xdebugSessionName,
                        bool neverPauseOnExit)
@@ -210,7 +200,7 @@ std::pair<wxString, wxString> PHPExecutor::DoGetCLICommand(const wxString& scrip
         cmd << wxT("\" ");
     }
 
-    ::WrapWithQuotes(index);
+    StringUtils::WrapWithQuotes(index);
     cmd << index;
 
     if(!args.empty()) {

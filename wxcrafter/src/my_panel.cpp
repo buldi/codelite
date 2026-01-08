@@ -1,5 +1,5 @@
 #include "my_panel.h"
 
-MyPanel::MyPanel() {}
+#include "wxc_aui_manager.h"
 
 MyPanel::~MyPanel() { wxcAuiManager::Get().UnInit(this); }

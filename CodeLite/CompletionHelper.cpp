@@ -25,20 +25,19 @@ wxString wrap_lines(const wxString& str)
     wxString wrappedString;
 
     int curLineBytes(0);
-    wxString::const_iterator iter = str.begin();
-    for(; iter != str.end(); iter++) {
-        if(*iter == '\t') {
+    for (const auto c : str) {
+        if (c == '\t') {
             wrappedString << " ";
 
-        } else if(*iter == '\n') {
+        } else if (c == '\n') {
             wrappedString << "\n";
             curLineBytes = 0;
 
-        } else if(*iter == '\r') {
+        } else if (c == '\r') {
             // Skip it
 
         } else {
-            wrappedString << *iter;
+            wrappedString << c;
         }
         curLineBytes++;
 
@@ -55,10 +54,6 @@ wxString wrap_lines(const wxString& str)
 }
 
 } // namespace
-
-CompletionHelper::CompletionHelper() {}
-
-CompletionHelper::~CompletionHelper() {}
 
 wxString CompletionHelper::get_expression(const wxString& file_content, bool for_calltip, wxString* last_word) const
 {
@@ -699,7 +694,7 @@ std::vector<wxString> CompletionHelper::split_function_signature(const wxString&
                 // Check if we want to ignore the argument name
                 if((depth == 1) && (next_token_type == ',' || next_token_type == '=' || next_token_type == ')') &&
                    (flags & STRIP_NO_NAME)) {
-                    // two consecutive T_IDENTIFIER, dont add it
+                    // two consecutive T_IDENTIFIER, don't add it
                     add_identifier = false;
                 } else if(LAST_TOKEN_IS_CLOSING_PARENTHESES() || LAST_TOKEN_IS_ONE_OF_2(T_IDENTIFIER, '*')) {
                     APPEND_SPACE_IF_MISSING();

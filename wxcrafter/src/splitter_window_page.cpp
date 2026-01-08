@@ -9,8 +9,6 @@ SplitterWindowPage::SplitterWindowPage()
     SetName(GenerateName());
 }
 
-SplitterWindowPage::~SplitterWindowPage() {}
-
 wxcWidget* SplitterWindowPage::Clone() const { return new SplitterWindowPage(); }
 
 wxString SplitterWindowPage::CppCtorCode() const
@@ -24,13 +22,12 @@ wxString SplitterWindowPage::CppCtorCode() const
     if(IsLastChild()) {
         // We are the last child, create the code that calls the 'split' method
         wxString first, second;
-        wxcWidget::List_t::const_iterator iter = siblings.begin();
-        for(; iter != siblings.end(); iter++) {
+        for (const auto* sibling : siblings) {
             if(first.IsEmpty()) {
-                first = (*iter)->GetName();
+                first = sibling->GetName();
 
             } else {
-                second = (*iter)->GetName();
+                second = sibling->GetName();
             }
         }
 

@@ -34,26 +34,16 @@ class WXDLLIMPEXP_SDK wxTerminalOutputCtrl : public wxWindow
             m_end = e;
         }
 
-        bool operator==(const IndicatorRange& other) const
-        {
-            return this->m_start == other.m_start && this->m_end == other.m_end;
-        }
+        bool operator==(const IndicatorRange&) const = default;
 
-        IndicatorRange& operator=(const IndicatorRange& other)
-        {
-            if(this == &other) {
-                return *this;
-            }
-            this->m_start = other.m_start;
-            this->m_end = other.m_end;
-            return *this;
-        }
+        IndicatorRange& operator=(const IndicatorRange&) = default;
+
         IndicatorRange(int s, int e)
             : m_start(s)
             , m_end(e)
         {
         }
-        IndicatorRange() {}
+        IndicatorRange() = default;
     };
 
     wxStyledTextCtrl* m_ctrl = nullptr;
@@ -64,13 +54,14 @@ class WXDLLIMPEXP_SDK wxTerminalOutputCtrl : public wxWindow
     wxTextAttr m_defaultAttr;
     std::unordered_map<wxString, int> m_styles;
     int m_nextStyle = 0;
-    wxFont m_textFont;
+    wxFont m_textFont{wxNullFont};
     wxColour m_bgColour;
     wxColour m_textColour;
     bool m_scrollToEndQueued = false;
     wxTerminalCtrl* m_terminal = nullptr;
     clEditEventsHandler::Ptr_t m_editEvents;
     IndicatorRange m_indicatorHyperlink;
+    friend class wxTerminalCtrl;
 
 protected:
     int GetCurrentStyle();
@@ -80,17 +71,24 @@ protected:
     void OnLeftUp(wxMouseEvent& event);
     void ApplyTheme();
     void OnKeyDown(wxKeyEvent& event);
-    void Initialise(const wxFont& font = wxNullFont, const wxColour& bg_colour = *wxBLACK,
+    void Initialise(const wxFont& font = wxNullFont,
+                    const wxColour& bg_colour = *wxBLACK,
                     const wxColour& text_colour = *wxWHITE);
     void ClearIndicators();
-    void OnIdle(wxIdleEvent& event);
+    void ProcessIdle();
     void OnEnterWindow(wxMouseEvent& event);
     void OnLeaveWindow(wxMouseEvent& event);
     void DoPatternClicked(const wxString& pattern);
+    void OnMenu(wxContextMenuEvent& event);
+
+    void OnFocusLost(wxFocusEvent& event);
+    void OnFocus(wxFocusEvent& event);
 
 public:
-    explicit wxTerminalOutputCtrl(wxTerminalCtrl* parent, wxWindowID winid = wxNOT_FOUND,
-                                  const wxFont& font = wxNullFont, const wxColour& bg_colour = *wxBLACK,
+    explicit wxTerminalOutputCtrl(wxTerminalCtrl* parent,
+                                  wxWindowID winid = wxNOT_FOUND,
+                                  const wxFont& font = wxNullFont,
+                                  const wxColour& bg_colour = *wxBLACK,
                                   const wxColour& text_colour = *wxWHITE);
     explicit wxTerminalOutputCtrl(wxWindow* parent, wxWindowID winid = wxNOT_FOUND);
     virtual ~wxTerminalOutputCtrl();
@@ -122,11 +120,18 @@ public:
     int Truncate();
     wxChar GetLastChar() const;
     void Clear();
+    inline bool IsEmpty() const { return m_ctrl->IsEmpty(); }
     void SetAttributes(const wxColour& bg_colour, const wxColour& text_colour, const wxFont& font)
     {
         m_textColour = text_colour;
         m_bgColour = bg_colour;
         m_textFont = font;
+    }
+
+    void SetTextFont(const wxFont& font)
+    {
+        m_textFont = font;
+        CallAfter(&wxTerminalOutputCtrl::ApplyTheme);
     }
 };
 

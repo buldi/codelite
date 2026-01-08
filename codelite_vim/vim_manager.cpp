@@ -13,8 +13,6 @@ VimManager::VimManager(IManager* manager, VimSettings& settings)
     : m_settings(settings)
     , m_currentCommand(manager)
     , m_lastCommand(manager)
-    , m_tmpBuf()
-    , m_editorStates()
     , m_caretInsertStyle(1)
     , m_caretBlockStyle(2)
 {
@@ -209,8 +207,8 @@ void VimManager::updateMessageModus()
 void VimManager::updateVimMessage()
 {
     switch (m_currentCommand.getError()) {
-    case MESSAGES_VIM::UNBALNCED_PARENTESIS_VIM_MSG:
-        m_mgr->GetStatusBar()->SetMessage(_("Unbalanced Parentesis"));
+    case MESSAGES_VIM::UNBALNCED_PARENTHESIS_VIM_MSG:
+        m_mgr->GetStatusBar()->SetMessage(_("Unbalanced Parenthesis"));
         break;
     case MESSAGES_VIM::SAVED_VIM_MSG:
         m_mgr->GetStatusBar()->SetMessage(_("Saving"));
@@ -437,10 +435,10 @@ void VimManager::UpdateOldEditorState()
 
     wxString fullpath_name = m_editor->GetFileName().GetFullPath();
 
-    for (auto status_editor = m_editorStates.begin(); status_editor != m_editorStates.end(); ++status_editor) {
+    for (auto status_editor : m_editorStates) {
 
-        if ((*status_editor)->isCurrentEditor(fullpath_name)) {
-            (*status_editor)->setSavedStatus(m_currentCommand);
+        if (status_editor->isCurrentEditor(fullpath_name)) {
+            status_editor->setSavedStatus(m_currentCommand);
             return;
         }
     }
@@ -455,9 +453,9 @@ void VimManager::SaveOldEditorState()
         return;
 
     wxString fullpath_name = m_editor->GetFileName().GetFullPath();
-    for (auto status_editor = m_editorStates.begin(); status_editor != m_editorStates.end(); ++status_editor) {
-        if ((*status_editor)->isCurrentEditor(fullpath_name)) {
-            (*status_editor)->saveCurrentStatus(m_currentCommand);
+    for (auto status_editor : m_editorStates) {
+        if (status_editor->isCurrentEditor(fullpath_name)) {
+            status_editor->saveCurrentStatus(m_currentCommand);
             return;
         }
     }

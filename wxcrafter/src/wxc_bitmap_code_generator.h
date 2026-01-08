@@ -1,7 +1,6 @@
 #ifndef WXCBITMAPCODEGENERATOR_H
 #define WXCBITMAPCODEGENERATOR_H
 
-#include "AsyncProcess/asyncprocess.h"
 #include "macros.h"
 
 #include <wx/arrstr.h>
@@ -13,7 +12,7 @@ extern const wxEventType wxEVT_BITMAP_CODE_GENERATION_DONE;
 class TopLevelWinWrapper;
 class wxcCodeGeneratorHelper : public wxEvtHandler
 {
-    typedef std::map<wxString, wxString> MapString_t;
+    using MapString_t = std::map<wxString, wxString>;
 
 protected:
     MapString_t m_bitmapMap;
@@ -29,7 +28,7 @@ protected:
 
 private:
     wxcCodeGeneratorHelper();
-    virtual ~wxcCodeGeneratorHelper();
+    ~wxcCodeGeneratorHelper() override = default;
     wxString GenerateTopLevelWindowIconCode() const;
 
 public:

@@ -84,8 +84,8 @@ static wxString CreateHtml(const wxArrayString& array)
 {
     wxString result;
 
-    for(wxArrayString::const_iterator it = array.begin(), ite = array.end(); it != ite; ++it) {
-        if(it != array.begin()) {
+    for (wxArrayString::const_iterator it = array.begin(), ite = array.end(); it != ite; ++it) {
+        if (it != array.begin()) {
             result += "<br />";
         }
         wxString esc = *it;
@@ -149,25 +149,25 @@ bool CMake::LoadData(bool force, LoadNotifier* notifier)
     m_properties.clear();
     m_variables.clear();
 
-    if(notifier) {
+    if (notifier) {
         notifier->Start();
     }
 
     // Load data from database
-    if(!force && m_dbInitialized && LoadFromDatabase()) {
+    if (!force && m_dbInitialized && LoadFromDatabase()) {
         // Loading is done
-        if(notifier) {
+        if (notifier) {
             notifier->Done();
         }
         return true;
     }
 
     // Unable to use CMake
-    if(!IsOk())
+    if (!IsOk())
         return false;
 
     // Request to stop
-    if(notifier && notifier->RequestStop()) {
+    if (notifier && notifier->RequestStop()) {
         return false;
     }
 
@@ -180,37 +180,37 @@ bool CMake::LoadData(bool force, LoadNotifier* notifier)
         ProcUtils::SafeExecuteCommand(program + " --version", output);
 
         // Unable to find version
-        if(!output.IsEmpty()) {
+        if (!output.IsEmpty()) {
             const wxString& versionLine = output[0];
             wxRegEx expression("cmake version (.+)");
 
-            if(expression.IsValid() && expression.Matches(versionLine)) {
+            if (expression.IsValid() && expression.Matches(versionLine)) {
                 m_version = expression.GetMatch(versionLine, 1).Trim().Trim(false);
             }
         }
     }
 
     // Request to stop
-    if(notifier && notifier->RequestStop()) {
+    if (notifier && notifier->RequestStop()) {
         return false;
     }
 
     // Load data
-    if(!LoadFromCMake(notifier))
+    if (!LoadFromCMake(notifier))
         return false;
 
     // Request to stop
-    if(notifier && notifier->RequestStop()) {
+    if (notifier && notifier->RequestStop()) {
         return false;
     }
 
     // Database is open so we can store result into database
-    if(m_dbInitialized) {
+    if (m_dbInitialized) {
         StoreIntoDatabase();
     }
 
     // Loading is done
-    if(notifier) {
+    if (notifier) {
         notifier->Update(100);
         notifier->Done();
     }
@@ -233,7 +233,7 @@ void CMake::PrepareDatabase()
         db.Open(GetDatabaseFileName().GetFullPath());
 
         // Not opened
-        if(!db.IsOpen())
+        if (!db.IsOpen())
             return;
 
         // Create tables
@@ -253,7 +253,7 @@ void CMake::PrepareDatabase()
         // Everything is OK
         m_dbInitialized = true;
 
-    } catch(const wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         // Unable to use SQLite database
         clERROR() << "CMake DoPrepareDatabase error" << e.GetMessage() << endl;
     }
@@ -265,8 +265,10 @@ bool CMake::LoadFromCMake(LoadNotifier* notifier)
 {
     // Possible types
     static const std::pair<wxString, HelpMap*> types[] = {
-        std::make_pair("command", &m_commands), std::make_pair("module", &m_modules),
-        std::make_pair("property", &m_properties), std::make_pair("variable", &m_variables)
+        std::make_pair("command", &m_commands),
+        std::make_pair("module", &m_modules),
+        std::make_pair("property", &m_properties),
+        std::make_pair("variable", &m_variables)
         // make_pair("policy", &m_policies)
     };
     static const int typesCount = sizeof(types) / sizeof(types[0]);
@@ -274,18 +276,18 @@ bool CMake::LoadFromCMake(LoadNotifier* notifier)
     static const int STEP = PROGRESS / typesCount;
 
     // Foreach all types
-    for(int i = 0; i < typesCount; ++i) {
+    for (int i = 0; i < typesCount; ++i) {
         // Notify??
-        if(notifier) {
+        if (notifier) {
             // Stop request?
-            if(notifier->RequestStop())
+            if (notifier->RequestStop())
                 return false;
 
             notifier->Update(STEP * i);
         }
 
         // Load
-        if(!LoadList(types[i].first, *types[i].second, notifier, STEP))
+        if (!LoadList(types[i].first, *types[i].second, notifier, STEP))
             return false;
     }
 
@@ -296,7 +298,7 @@ bool CMake::LoadFromCMake(LoadNotifier* notifier)
 
 bool CMake::LoadFromDatabase()
 {
-    if(!m_dbInitialized) {
+    if (!m_dbInitialized) {
         return false;
     }
 
@@ -308,25 +310,25 @@ bool CMake::LoadFromDatabase()
         db.Open(GetDatabaseFileName().GetFullPath());
 
         // Not opened
-        if(!db.IsOpen())
+        if (!db.IsOpen())
             return false;
 
         // Strings - Version
         {
             wxSQLite3ResultSet res = db.ExecuteQuery("SELECT desc FROM strings WHERE name = 'version'");
-            if(res.NextRow()) {
+            if (res.NextRow()) {
                 m_version = res.GetAsString(0);
             }
         }
 
         // No data stored
-        if(m_version.IsEmpty())
+        if (m_version.IsEmpty())
             return false;
 
         // Commands
         {
             wxSQLite3ResultSet res = db.ExecuteQuery("SELECT name, desc FROM commands");
-            while(res.NextRow()) {
+            while (res.NextRow()) {
                 m_commands[res.GetAsString(0)] = res.GetAsString(1);
             }
         }
@@ -334,7 +336,7 @@ bool CMake::LoadFromDatabase()
         // Modules
         {
             wxSQLite3ResultSet res = db.ExecuteQuery("SELECT name, desc FROM modules");
-            while(res.NextRow()) {
+            while (res.NextRow()) {
                 m_modules[res.GetAsString(0)] = res.GetAsString(1);
             }
         }
@@ -342,7 +344,7 @@ bool CMake::LoadFromDatabase()
         // Properties
         {
             wxSQLite3ResultSet res = db.ExecuteQuery("SELECT name, desc FROM properties");
-            while(res.NextRow()) {
+            while (res.NextRow()) {
                 m_properties[res.GetAsString(0)] = res.GetAsString(1);
             }
         }
@@ -350,12 +352,12 @@ bool CMake::LoadFromDatabase()
         // Variables
         {
             wxSQLite3ResultSet res = db.ExecuteQuery("SELECT name, desc FROM variables");
-            while(res.NextRow()) {
+            while (res.NextRow()) {
                 m_variables[res.GetAsString(0)] = res.GetAsString(1);
             }
         }
 
-    } catch(const wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clERROR() << "Error occurred while loading data from CMake database" << e.GetMessage();
     }
 
@@ -367,7 +369,7 @@ bool CMake::LoadFromDatabase()
 
 void CMake::StoreIntoDatabase()
 {
-    if(!m_dbInitialized) {
+    if (!m_dbInitialized) {
         clWARNING() << "CMake: can't store data into database. Database was not initialized properly" << endl;
         return;
     }
@@ -380,7 +382,7 @@ void CMake::StoreIntoDatabase()
         db.Open(GetDatabaseFileName().GetFullPath());
 
         // Not opened
-        if(!db.IsOpen())
+        if (!db.IsOpen())
             return;
 
         db.Begin();
@@ -389,9 +391,9 @@ void CMake::StoreIntoDatabase()
         {
             db.ExecuteUpdate("DELETE FROM commands");
             wxSQLite3Statement stmt = db.PrepareStatement("INSERT INTO commands (name, desc) VALUES(?, ?)");
-            for(HelpMap::const_iterator it = m_commands.begin(), ite = m_commands.end(); it != ite; ++it) {
-                stmt.Bind(1, it->first);
-                stmt.Bind(2, it->second);
+            for (const auto& [name, desc] : m_commands) {
+                stmt.Bind(1, name);
+                stmt.Bind(2, desc);
                 stmt.ExecuteUpdate();
             }
         }
@@ -400,9 +402,9 @@ void CMake::StoreIntoDatabase()
         {
             db.ExecuteUpdate("DELETE FROM modules");
             wxSQLite3Statement stmt = db.PrepareStatement("INSERT INTO modules (name, desc) VALUES(?, ?)");
-            for(HelpMap::const_iterator it = m_modules.begin(), ite = m_modules.end(); it != ite; ++it) {
-                stmt.Bind(1, it->first);
-                stmt.Bind(2, it->second);
+            for (const auto& [name, desc] : m_modules) {
+                stmt.Bind(1, name);
+                stmt.Bind(2, desc);
                 stmt.ExecuteUpdate();
             }
         }
@@ -411,9 +413,9 @@ void CMake::StoreIntoDatabase()
         {
             db.ExecuteUpdate("DELETE FROM properties");
             wxSQLite3Statement stmt = db.PrepareStatement("INSERT INTO properties (name, desc) VALUES(?, ?)");
-            for(HelpMap::const_iterator it = m_properties.begin(), ite = m_properties.end(); it != ite; ++it) {
-                stmt.Bind(1, it->first);
-                stmt.Bind(2, it->second);
+            for (const auto& [name, desc] : m_properties) {
+                stmt.Bind(1, name);
+                stmt.Bind(2, desc);
                 stmt.ExecuteUpdate();
             }
         }
@@ -422,9 +424,9 @@ void CMake::StoreIntoDatabase()
         {
             db.ExecuteUpdate("DELETE FROM variables");
             wxSQLite3Statement stmt = db.PrepareStatement("INSERT INTO variables (name, desc) VALUES(?, ?)");
-            for(HelpMap::const_iterator it = m_variables.begin(), ite = m_variables.end(); it != ite; ++it) {
-                stmt.Bind(1, it->first);
-                stmt.Bind(2, it->second);
+            for (const auto& [name, desc] : m_variables) {
+                stmt.Bind(1, name);
+                stmt.Bind(2, desc);
                 stmt.ExecuteUpdate();
             }
         }
@@ -438,7 +440,7 @@ void CMake::StoreIntoDatabase()
 
         db.Commit();
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         clERROR() << "An error occurred while storing CMake data into database:" << e.GetMessage();
     }
 }
@@ -455,22 +457,21 @@ bool CMake::LoadList(const wxString& type, CMake::HelpMap& list, LoadNotifier* n
     ProcUtils::SafeExecuteCommand(cmdList, names);
 
     // Remove version
-    if(!names.IsEmpty())
+    if (!names.IsEmpty())
         names.RemoveAt(0);
 
     const int notifyCount = (names.GetCount() / limit) + 1;
     int loaded = 0;
 
     // Foreach names
-    for(wxArrayString::const_iterator it = names.begin(), ite = names.end(); it != ite; ++it) {
+    for (wxString name : names) {
 
-        if(notifier && notifier->RequestStop()) {
+        if (notifier && notifier->RequestStop()) {
             // Someone called 'wxThread::Delete'
             return false;
         }
 
         // Trim name
-        wxString name = *it;
         name.Trim().Trim(false);
 
         // Export help
@@ -479,11 +480,11 @@ bool CMake::LoadList(const wxString& type, CMake::HelpMap& list, LoadNotifier* n
         ProcUtils::SafeExecuteCommand(cmdItem, desc);
 
         // Skip empty results
-        if(desc.IsEmpty())
+        if (desc.IsEmpty())
             continue;
 
         // Remove first line (cmake version)
-        if(desc.Item(0).Matches("*cmake version*"))
+        if (desc.Item(0).Matches("*cmake version*"))
             desc.RemoveAt(0);
 
         // Store help page
@@ -493,7 +494,7 @@ bool CMake::LoadList(const wxString& type, CMake::HelpMap& list, LoadNotifier* n
         loaded++;
 
         // Add 1%
-        if(notifier && loaded == notifyCount) {
+        if (notifier && loaded == notifyCount) {
             notifier->Inc(1);
             loaded = 0;
         }

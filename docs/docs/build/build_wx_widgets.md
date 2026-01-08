@@ -1,13 +1,13 @@
-# Build wxWidgets from sources
+# Building wxWidgets from Source
+
 ---
 
 ## Windows
----
 
-CodeLite uses `MSYS2` for installing compiler and other tools:
+CodeLite uses **MSYS2** to provide the compiler and related tools.
 
-- Prepare a working terminal with all the tools required [as described here][4]
-- Open `MSYS2` terminal, and clone wxWidgets sources:
+1. Open an MSYS2 shell and install all prerequisites as described in the linked guide.
+2. Clone the wxWidgets repository and initialize its sub‑modules:
 
 ```bash
 git clone https://github.com/wxWidgets/wxWidgets
@@ -15,41 +15,44 @@ cd wxWidgets
 git submodule update --init
 ```
 
-- For a `Release` build of wxWidgets, run this:
+### Release build
 
 ```bash
-mkdir build-release
-cd build-release
-cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release                 \
-         -DwxBUILD_DEBUG_LEVEL=0                                        \
-         -DwxBUILD_MONOLITHIC=1 -DwxBUILD_SAMPLES=SOME -DwxUSE_STL=1    \
+mkdir .build-release
+cd .build-release
+cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release \
+         -DwxBUILD_DEBUG_LEVEL=0 \
+         -DwxBUILD_MONOLITHIC=1 -DwxBUILD_SAMPLES=ALL -DwxUSE_STL=1 \
          -DCMAKE_INSTALL_PREFIX=$HOME/root
 mingw32-make -j$(nproc) install
 ```
 
-- If you need a `Debug` build of wxWidgets, run this command instead:
+### Debug build
 
 ```bash
-mkdir build-debug
-cd build-debug
+mkdir .build-debug
+cd .build-debug
 cmake .. -G"MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug -DwxBUILD_DEBUG_LEVEL=1 \
-    -DwxBUILD_SAMPLES=SOME  -DwxBUILD_MONOLITHIC=1  -DwxUSE_STL=1             \
-    -DCMAKE_INSTALL_PREFIX=$HOME/root  
+         -DwxBUILD_SAMPLES=ALL -DwxBUILD_MONOLITHIC=1 -DwxUSE_STL=1 \
+         -DCMAKE_INSTALL_PREFIX=$HOME/root
 mingw32-make -j$(nproc) install
 ```
 
-## Linux
 ---
 
-To build wxWidgets on you computer you will need these packages:
+## Linux
 
-- The gtk development package: for GTK+2 it's often called `libgtk2.0-dev` or similar; for GTK3, `libgtk-3-dev`
-- `pkg-config` (which usually comes with the gtk dev package)
-- The `build-essential` package (or the relevant bit of it: `g++`, `make` etc)
+To build wxWidgets on Linux you need the following packages:
+
+- GTK development libraries
+  - `libgtk2.0-dev` for GTK 2
+  - `libgtk-3-dev` for GTK 3
+- `pkg-config` (usually included with the GTK development package)
+- Build essentials (`g++`, `make`, etc.)
 - `git`
 - `cmake`
 
-Use the following command to install the prerequisites for Ubuntu 18.04:
+Install the prerequisites on **Ubuntu** with:
 
 ```bash
 sudo apt-get install libgtk-3-dev \
@@ -61,58 +64,80 @@ sudo apt-get install libgtk-3-dev \
                      libssh-dev \
                      libedit-dev \
                      libhunspell-dev \
-                     clang-format-12 \
                      xterm
 ```
 
-!!! Tip
-    If your distro provides a newer version of `clang-format`, install it. The higher, the better
+### Build sequence
 
 ```bash
 mkdir -p $HOME/devl
 cd $HOME/devl
 
-# download wxWidgets 3.2.0 & extract it
-wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.0/wxWidgets-3.2.0.tar.bz2
-bzip2 -d wxWidgets-3.2.0.tar.bz2
-tar xvf wxWidgets-3.2.0.tar.bz2
+git clone https://github.com/wxWidgets/wxWidgets
+cd wxWidgets
+git submodule update --init
 
-# build and install it
-cd wxWidgets-3.2.0
-mkdir -p build-release
-cd build-release
+mkdir -p .build-release
+cd .build-release
+
 ../configure --disable-debug_flag --with-gtk=3 --enable-stl
 make -j$(nproc) && sudo make install
 ```
 
-## macOS
 ---
 
-#### Prerequisites
+## macOS
 
-- Install [Homebrew][1]
-- Install `cmake`
-- Install `git`
-- Install latest Xcode from Apple
-- Install the Command Line Tools (open `Xcode` &#8594;  `Preferences` &#8594;  `Downloads and install the command line tools`). This will place `clang`/`clang++` in the default locations `/usr/bin`
-- [Download wxWidgets sources][2]
+### Prerequisites
 
-#### Build wxWidgets
+1. Install **Homebrew** – <https://brew.sh/>
+2. Run `brew install cmake git`
+3. Download the latest Xcode from the App Store
+4. In Xcode, open **Preferences → Downloads** and install the Command Line Tools (adds `clang`/`clang++` to `/usr/bin`)
+
+### Building with `configure`
 
 ```bash
 mkdir -p $HOME/devl
-cd $_
+cd $HOME/devl
 git clone https://github.com/wxWidgets/wxWidgets.git
 cd wxWidgets
 git submodule update --init
-mkdir build-release
-cd $_
-../configure --enable-shared --enable-monolithic --with-osx_cocoa CXX='clang++ -std=c++17 -stdlib=libc++' CC=clang --disable-debug --disable-mediactrl --enable-stl --with-libtiff=no --enable-utf8
+
+mkdir .build-release
+cd .build-release
+../configure --enable-shared        \
+             --enable-monolithic    \
+             --with-osx_cocoa       \
+             --disable-debug        \
+             --disable-mediactrl    \
+             --enable-stl           \
+             --with-libtiff=no      \
+             --enable-utf8
 make -j$(sysctl -n hw.physicalcpu)
 sudo make install
 ```
 
- [1]: https://brew.sh/
- [2]: https://wxwidgets.org/downloads/
- [3]: https://www.wxwidgets.org/downloads
- [4]: /build/mingw_builds/#prepare-a-working-environment
+### Building with CMake
+
+```bash
+mkdir -p $HOME/devl
+cd $HOME/devl
+git clone https://github.com/wxWidgets/wxWidgets.git
+cd wxWidgets
+git submodule update --init
+
+mkdir .build-release
+cd .build-release
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+         -DwxBUILD_DEBUG_LEVEL=0 \
+         -DwxBUILD_MONOLITHIC=1 \
+         -DwxBUILD_SAMPLES=ALL
+make -j$(sysctl -n hw.physicalcpu)
+sudo make install
+```
+
+[1]: https://brew.sh/
+[2]: https://wxwidgets.org/downloads/
+[3]: https://www.wxwidgets.org/downloads
+[4]: /build/mingw_builds/#prepare-a-working-environment

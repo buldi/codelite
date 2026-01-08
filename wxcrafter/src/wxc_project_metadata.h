@@ -27,7 +27,6 @@ protected:
     wxString m_virtualFolder;
     wxString m_bitmapFunction;
     int m_GenerateCodeTypes;
-    CustomControlTemplateMap_t m_projctCustomControls;
     wxStringMap_t m_additionalFiles;
     wxString m_outputFileName;
     bool m_useHpp;
@@ -38,7 +37,7 @@ protected:
 
 private:
     wxcProjectMetadata();
-    virtual ~wxcProjectMetadata();
+    virtual ~wxcProjectMetadata() = default;
     void DoGenerateBitmapFunctionName();
     wxString DoGenerateBitmapsFile() const;
 
@@ -50,12 +49,6 @@ public:
 
     void SetAddHandlers(bool addHandlers) { this->m_addHandlers = addHandlers; }
     bool IsAddHandlers() const { return m_addHandlers; }
-
-    void SetProjctCustomControls(const CustomControlTemplateMap_t& projctCustomControls)
-    {
-        this->m_projctCustomControls = projctCustomControls;
-    }
-    const CustomControlTemplateMap_t& GetProjctCustomControls() const { return m_projctCustomControls; }
 
     static wxcProjectMetadata& Get();
     void Reset();

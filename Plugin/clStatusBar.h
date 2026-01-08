@@ -31,6 +31,7 @@
 #include "codelite_exports.h"
 #include "wxCustomStatusBar.h" // Base class: wxCustomStatusBar
 
+#include <wx/aui/auibar.h>
 #include <wx/bitmap.h>
 
 class IManager;
@@ -62,10 +63,10 @@ protected:
     void SetBuildBitmap(const wxBitmap& bmp, const wxString& tooltip);
 
     void DoUpdateView();
-    void DoFieldClicked(int fieldIndex);
+    void DoFieldClicked(size_t fieldIndex);
     int GetTextWidth(const wxString& text) const;
 
-    clToolBarGeneric* CreatePaneButtonsToolbar();
+    wxAuiToolBar* CreatePaneButtonsToolbar();
     void OnSidebarUI(wxUpdateUIEvent& event);
     void OnSidebar(wxCommandEvent& event);
     void OnSecondarySidebarUI(wxUpdateUIEvent& event);
@@ -128,7 +129,9 @@ public:
      * @brief set a bitmap (16x16) in the source control section
      * and optionally, provide an output tab name to toggle when the bitmap is clicked
      */
-    void SetSourceControlBitmap(const wxBitmap& bmp, const wxString& label, const wxString& outputTabName,
+    void SetSourceControlBitmap(const wxBitmap& bmp,
+                                const wxString& label,
+                                const wxString& outputTabName,
                                 const wxString& tooltip);
 };
 

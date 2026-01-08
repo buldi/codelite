@@ -9,15 +9,6 @@ project(${PLUGIN_NAME})
 # wxWidgets include (this will do all the magic to configure everything)
 include("${wxWidgets_USE_FILE}")
 
-if(UNIX AND NOT APPLE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
-
-if(APPLE)
-    add_definitions(-fPIC)
-endif()
-
 if(WITH_MYSQL)
     find_library(LIBMYSQLCLIENT NAMES libmysqlclient.so)
     if(${LIBMYSQLCLIENT} STREQUAL "LIBMYSQLCLIENT-NOTFOUND")
@@ -25,8 +16,31 @@ if(WITH_MYSQL)
     else(${LIBMYSQLCLIENT} STREQUAL "LIBMYSQLCLIENT-NOTFOUND")
         message("-- LIBMYSQLCLIENT is set to ${LIBMYSQLCLIENT}")
     endif(${LIBMYSQLCLIENT} STREQUAL "LIBMYSQLCLIENT-NOTFOUND")
-    add_definitions(-DDBL_USE_MYSQL=1)
+    add_compile_definitions(DBL_USE_MYSQL=1)
+
+    if(MINGW)
+        install(FILES "${MSYS2_BASE}/${MSYSTEM}/bin/libmariadb.dll" DESTINATION "${CL_INSTALL_BIN}")
+        msys_list_deps(${MSYS2_BASE}/${MSYSTEM}/bin/libmariadb.dll LIBMARIA_DEPS)
+        foreach(DEP ${LIBMARIA_DEPS})
+            install(FILES "${DEP}" DESTINATION "${CL_INSTALL_BIN}")
+        endforeach()
+    endif()
+    unset(WITH_MYSQL CACHE)
 endif(WITH_MYSQL)
+
+if(WITH_POSTGRES)
+    find_package(PostgreSQL REQUIRED)
+
+    add_compile_definitions(DBL_USE_POSTGRES=1)
+
+    if(MINGW)
+        install(FILES "${MSYS2_BASE}/${MSYSTEM}/bin/libpq.dll" DESTINATION "${CL_INSTALL_BIN}")
+        msys_list_deps(${MSYS2_BASE}/${MSYSTEM}/bin/libpq.dll LIBPOSTGRES_DEPS)
+        foreach(DEP ${LIBPOSTGRES_DEPS})
+            install(FILES "${DEP}" DESTINATION "${CL_INSTALL_BIN}")
+        endforeach()
+    endif()
+endif()
 
 # On UNIX we require GTK
 if(UNIX AND NOT APPLE)
@@ -58,27 +72,22 @@ if(USE_PCH AND NOT MINGW)
 endif()
 
 # Include paths
-include_directories(
-    "${CL_SRC_ROOT}/Plugin"
-    "${CL_SRC_ROOT}/sdk/wxsqlite3/include"
-    "${CL_SRC_ROOT}/CodeLite"
-    "${CL_SRC_ROOT}/CodeLite/ssh"
-    "${CL_SRC_ROOT}/PCH"
-    "${CL_SRC_ROOT}/Interfaces"
-    "${CL_SRC_ROOT}/sdk/wxshapeframework/include"
-    "${CL_SRC_ROOT}/sdk/databaselayer/include")
+include_directories("${CL_SRC_ROOT}/sdk/databaselayer/include")
 
-add_definitions(-DWXUSINGDLL_WXSQLITE3)
-add_definitions(-DWXUSINGDLL_CL)
-add_definitions(-DWXUSINGDLL_SDK)
-add_definitions(-DDBL_USE_SQLITE)
+add_compile_definitions(DBL_USE_SQLITE)
 
 file(GLOB SRCS "*.cpp")
 
 # Define the output
 add_library(${PLUGIN_NAME} SHARED ${SRCS})
 
-target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
+if(UNIX OR APPLE)
+    set_target_properties(${PLUGIN_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
+if(USE_PCH)
+    target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
+endif()
 
 # Remove the "lib" prefix from the plugin name
 set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")
@@ -92,7 +101,6 @@ endif()
 target_link_libraries(
     ${PLUGIN_NAME}
     ${LINKER_OPTIONS}
-    ${wxWidgets_LIBRARIES}
     ${GTK_LIBS}
     libcodelite
     plugin

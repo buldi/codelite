@@ -1,4 +1,3 @@
-#include <string>
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -26,42 +25,39 @@
 
 #include "fileutils.h"
 
-#include "AsyncProcess/asyncprocess.h"
 #include "Console/clConsoleBase.h"
 #include "StringUtils.h"
-#include "cl_config.h"
-#include "cl_standard_paths.h"
-#include "dirsaver.h"
 #include "file_logger.h"
 #include "macros.h"
+#include "precompiled_header.h"
 #include "procutils.h"
-#include "wxStringHash.h"
 
-#include <algorithm>
+#include <cstdint>
+#include <cstring> // strerror
 #include <fstream>
-#include <map>
+#include <string>
+#include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/file.h>
+#include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/regex.h>
+#include <wx/strconv.h>
 #include <wx/string.h>
+#include <wx/tokenzr.h>
 #include <wx/uri.h>
+#include <wx/utils.h>
+
 #if wxUSE_GUI
 #include <wx/msgdlg.h>
 #endif
-#include <string.h> // strerror
-#include <wx/strconv.h>
-#include <wx/tokenzr.h>
-#include <wx/utils.h>
 #ifdef __WXGTK__
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #endif
-#include <cstring>
-#include <functional>
-#include <memory>
-#include <wx/filename.h>
+
+static bool bRealPathModeResolveSymlinks = true;
 
 thread_local std::unordered_set<wxChar> VALID_CHARS = {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
@@ -94,7 +90,7 @@ bool write_file_content_raw(const wxFileName& fn, const std::string& content)
 }
 
 #ifndef __WXMSW__
-const char ELF_STR[] = { 0x7f, 'E', 'L', 'F' };
+const char ELF_STR[] = {0x7f, 'E', 'L', 'F'};
 #endif
 } // namespace
 
@@ -213,7 +209,9 @@ void FileUtils::OpenFileExplorerAndSelect(const wxFileName& filename)
 #endif
 }
 
-void FileUtils::OSXOpenDebuggerTerminalAndGetTTY(const wxString& path, const wxString& appname, wxString& tty,
+void FileUtils::OSXOpenDebuggerTerminalAndGetTTY(const wxString& path,
+                                                 const wxString& appname,
+                                                 wxString& tty,
                                                  long& pid)
 {
     tty.Clear();
@@ -275,7 +273,9 @@ void FileUtils::OSXOpenDebuggerTerminalAndGetTTY(const wxString& path, const wxS
     clDEBUG() << "TTY is:" << tty;
 }
 
-void FileUtils::OpenSSHTerminal(const wxString& sshClient, const wxString& connectString, const wxString& password,
+void FileUtils::OpenSSHTerminal(const wxString& sshClient,
+                                const wxString& connectString,
+                                const wxString& password,
                                 int port)
 {
     clConsoleBase::Ptr_t console = clConsoleBase::GetTerminal();
@@ -297,8 +297,7 @@ static void SplitMask(const wxString& maskString, wxArrayString& includeMask, wx
 {
     wxString lcMask = maskString.Lower();
     wxArrayString masks = ::wxStringTokenize(lcMask, ";,", wxTOKEN_STRTOK);
-    for (size_t i = 0; i < masks.size(); ++i) {
-        wxString& mask = masks.Item(i);
+    for (wxString& mask : masks) {
         mask.Trim().Trim(false);
         // exclude mask starts with "!" or "-"
         if ((mask[0] == '!') || (mask[0] == '-')) {
@@ -312,7 +311,6 @@ static void SplitMask(const wxString& maskString, wxArrayString& includeMask, wx
 
 bool FileUtils::WildMatch(const wxString& mask, const wxFileName& filename)
 {
-
     wxArrayString incMasks;
     wxArrayString excMasks;
     SplitMask(mask, incMasks, excMasks);
@@ -324,19 +322,17 @@ bool FileUtils::WildMatch(const wxString& mask, const wxFileName& filename)
 
     wxString lcFilename = filename.GetFullName().Lower();
     // Try to the "exclude" masking first
-    for (size_t i = 0; i < excMasks.size(); ++i) {
-        const wxString& pattern = excMasks.Item(i);
+    for (const wxString& pattern : excMasks) {
         if ((!pattern.Contains("*") && lcFilename == pattern) ||
-            (pattern.Contains("*") && ::wxMatchWild(pattern, lcFilename))) {
+            (pattern.Contains("*") && ::wxMatchWild(pattern, lcFilename, false))) {
             // use exact match
             return false;
         }
     }
 
-    for (size_t i = 0; i < incMasks.size(); ++i) {
-        const wxString& pattern = incMasks.Item(i);
+    for (const wxString& pattern : incMasks) {
         if ((!pattern.Contains("*") && lcFilename == pattern) ||
-            (pattern.Contains("*") && ::wxMatchWild(pattern, lcFilename))) {
+            (pattern.Contains("*") && ::wxMatchWild(pattern, lcFilename, false))) {
             // use exact match
             return true;
         }
@@ -349,76 +345,12 @@ bool FileUtils::WildMatch(const wxString& mask, const wxString& filename)
     return WildMatch(mask, wxFileName(filename));
 }
 
-wxString FileUtils::DecodeURI(const wxString& uri)
-{
-    static wxStringMap_t T = { { "%20", " " }, { "%21", "!" }, { "%23", "#" }, { "%24", "$" }, { "%26", "&" },
-                               { "%27", "'" }, { "%28", "(" }, { "%29", ")" }, { "%2A", "*" }, { "%2B", "+" },
-                               { "%2C", "," }, { "%3B", ";" }, { "%3D", "=" }, { "%3F", "?" }, { "%40", "@" },
-                               { "%5B", "[" }, { "%5D", "]" } };
-    wxString decodedString;
-    wxString escapeSeq;
-    int state = 0;
-    for (size_t i = 0; i < uri.size(); ++i) {
-        wxChar ch = uri[i];
-        switch (state) {
-        case 0: // Normal
-            switch (ch) {
-            case '%':
-                state = 1;
-                escapeSeq << ch;
-                break;
-            default:
-                decodedString << ch;
-                break;
-            }
-            break;
-        case 1: // Escaping mode
-            escapeSeq << ch;
-            if (escapeSeq.size() == 3) {
-                // Try to decode it
-                wxStringMap_t::iterator iter = T.find(escapeSeq);
-                if (iter != T.end()) {
-                    decodedString << iter->second;
-                } else {
-                    decodedString << escapeSeq;
-                }
-                state = 0;
-                escapeSeq.Clear();
-            }
-            break;
-        }
-    }
-    return decodedString;
-}
-
-wxString FileUtils::EncodeURI(const wxString& uri)
-{
-    static std::unordered_map<int, wxString> sEncodeMap = {
-        { (int)'!', "%21" }, { (int)'#', "%23" }, { (int)'$', "%24" }, { (int)'&', "%26" }, { (int)'\'', "%27" },
-        { (int)'(', "%28" }, { (int)')', "%29" }, { (int)'*', "%2A" }, { (int)'+', "%2B" }, { (int)',', "%2C" },
-        { (int)';', "%3B" }, { (int)'=', "%3D" }, { (int)'?', "%3F" }, { (int)'@', "%40" }, { (int)'[', "%5B" },
-        { (int)']', "%5D" }, { (int)' ', "%20" }
-    };
-
-    wxString encoded;
-    for (size_t i = 0; i < uri.length(); ++i) {
-        wxChar ch = uri[i];
-        std::unordered_map<int, wxString>::iterator iter = sEncodeMap.find((int)ch);
-        if (iter != sEncodeMap.end()) {
-            encoded << iter->second;
-        } else {
-            encoded << ch;
-        }
-    }
-    return encoded;
-}
-
 bool FileUtils::FuzzyMatch(const wxString& needle, const wxString& haystack)
 {
     wxString word;
     size_t offset = 0;
     wxString lcHaystack = haystack.Lower();
-    while (NextWord(needle, offset, word, true)) {
+    while (StringUtils::NextWord(needle, offset, word, true)) {
         if (!lcHaystack.Contains(word)) {
             return false;
         }
@@ -428,16 +360,16 @@ bool FileUtils::FuzzyMatch(const wxString& needle, const wxString& haystack)
 
 bool FileUtils::IsHidden(const wxString& filename)
 {
+    wxString fullname = wxFileName(filename).GetFullName();
 #ifdef __WXMSW__
     DWORD dwAttrs = GetFileAttributes(filename.c_str());
     if (dwAttrs == INVALID_FILE_ATTRIBUTES) {
         return false;
     }
-    return (dwAttrs & FILE_ATTRIBUTE_HIDDEN) || (wxFileName(filename).GetFullName().StartsWith("."));
+    return (dwAttrs & FILE_ATTRIBUTE_HIDDEN) || (fullname.StartsWith(".") || fullname.StartsWith("_"));
 #else
     // is it enough to test for file name?
-    wxFileName fn(filename);
-    return fn.GetFullName().StartsWith(".");
+    return fullname.StartsWith(".") || fullname.StartsWith("_");
 #endif
 }
 
@@ -454,10 +386,9 @@ bool FileUtils::WildMatch(const wxArrayString& masks, const wxString& filename)
         return true;
     }
 
-    for (size_t i = 0; i < masks.size(); ++i) {
-        const wxString& pattern = masks.Item(i);
+    for (const wxString& pattern : masks) {
         if ((!pattern.Contains("*") && filename == pattern) ||
-            (pattern.Contains("*") && ::wxMatchWild(pattern, filename))) {
+            (pattern.Contains("*") && ::wxMatchWild(pattern, filename, false))) {
             // use exact match
             return true;
         }
@@ -484,9 +415,13 @@ bool FileUtils::GetFilePermissions(const wxFileName& filename, mode_t& perm)
 
 time_t FileUtils::GetFileModificationTime(const wxFileName& filename)
 {
-    wxString file = filename.GetFullPath();
+    return GetFileModificationTime(filename.GetFullPath());
+}
+
+time_t FileUtils::GetFileModificationTime(const wxString& filename)
+{
     struct stat buff;
-    const wxCharBuffer cname = file.mb_str(wxConvUTF8);
+    const wxCharBuffer cname = filename.mb_str(wxConvUTF8);
     if (stat(cname.data(), &buff) < 0) {
         return 0;
     }
@@ -506,94 +441,30 @@ size_t FileUtils::GetFileSize(const wxFileName& filename)
     }
 }
 
-wxString FileUtils::EscapeString(const wxString& str)
-{
-    wxString modstr = str;
-    modstr.Replace(" ", "\\ ");
-    modstr.Replace("\"", "\\\"");
-    return modstr;
-}
-
-wxString FileUtils::GetOSXTerminalCommand(const wxString& command, const wxString& workingDirectory)
-{
-    wxFileName script(clStandardPaths::Get().GetBinFolder(), "osx-terminal.sh");
-
-    wxString cmd;
-    cmd << EscapeString(script.GetFullPath()) << " \"";
-    if (!workingDirectory.IsEmpty()) {
-        cmd << "cd " << EscapeString(workingDirectory) << " && ";
-    }
-    cmd << EscapeString(command) << "\"";
-    clDEBUG() << "GetOSXTerminalCommand returned:" << cmd << clEndl;
-    return cmd;
-}
-
 wxString FileUtils::NormaliseName(const wxString& name)
 {
     static bool initialised = false;
     static int invalidChars[256];
     if (!initialised) {
         memset(invalidChars, 0, sizeof(invalidChars));
-        std::vector<int> V = { '@', '-', '^', '%', '&', '$', '#', '@', '!', '(', ')',
-                               '{', '}', '[', ']', '+', '=', ';', ',', '.', ' ' };
-        for (size_t i = 0; i < V.size(); ++i) {
-            invalidChars[V[i]] = 1;
+        std::vector<int> V = {
+            '@', '-', '^', '%', '&', '$', '#', '@', '!', '(', ')', '{', '}', '[', ']', '+', '=', ';', ',', '.', ' '};
+        for (auto ch : V) {
+            invalidChars[ch] = 1;
         }
         initialised = true;
     }
 
     wxString normalisedName;
-    for (size_t i = 0; i < name.size(); ++i) {
-        if (invalidChars[name[i]]) {
+    for (auto c : name) {
+        if (invalidChars[c]) {
             // an invalid char was found
             normalisedName << "_";
         } else {
-            normalisedName << name[i];
+            normalisedName << c;
         }
     }
     return normalisedName;
-}
-
-bool FileUtils::NextWord(const wxString& str, size_t& offset, wxString& word, bool makeLower)
-{
-    if (offset == str.size()) {
-        return false;
-    }
-    size_t start = wxString::npos;
-    word.Clear();
-    for (; offset < str.size(); ++offset) {
-        wxChar ch = str[offset];
-        bool isWhitespace = ((ch == ' ') || (ch == '\t'));
-        if (isWhitespace && (start != wxString::npos)) {
-            // we found a trailing whitespace
-            break;
-        } else if (isWhitespace && (start == wxString::npos)) {
-            // skip leading whitespace
-            continue;
-        } else if (start == wxString::npos) {
-            start = offset;
-        }
-        if (makeLower) {
-            ch = wxTolower(ch);
-        }
-        word << ch;
-    }
-
-    if ((start != wxString::npos) && (offset > start)) {
-        return true;
-    }
-    return false;
-}
-
-size_t FileUtils::SplitWords(const wxString& str, wxStringSet_t& outputSet, bool makeLower)
-{
-    size_t offset = 0;
-    wxString word;
-    outputSet.clear();
-    while (NextWord(str, offset, word, makeLower)) {
-        outputSet.insert(word);
-    }
-    return outputSet.size();
 }
 
 bool FileUtils::RemoveFile(const wxString& filename, const wxString& context)
@@ -603,37 +474,11 @@ bool FileUtils::RemoveFile(const wxString& filename, const wxString& context)
     return ::wxRemoveFile(filename);
 }
 
-unsigned int FileUtils::UTF8Length(const wchar_t* uptr, unsigned int tlen)
-{
-#define SURROGATE_LEAD_FIRST 0xD800
-#define SURROGATE_TRAIL_FIRST 0xDC00
-#define SURROGATE_TRAIL_LAST 0xDFFF
-    unsigned int len = 0;
-    for (unsigned int i = 0; i < tlen && uptr[i];) {
-        unsigned int uch = uptr[i];
-        if (uch < 0x80) {
-            len++;
-        } else if (uch < 0x800) {
-            len += 2;
-        } else if ((uch >= SURROGATE_LEAD_FIRST) && (uch <= SURROGATE_TRAIL_LAST)) {
-            len += 4;
-            i++;
-        } else {
-            len += 3;
-        }
-        i++;
-    }
-#undef SURROGATE_LEAD_FIRST
-#undef SURROGATE_TRAIL_FIRST
-#undef SURROGATE_TRAIL_LAST
-    return len;
-}
-
 // This is readlink on steroids: it also makes-absolute, and dereferences any symlinked dirs in the path
-wxString FileUtils::RealPath(const wxString& filepath)
+wxString FileUtils::RealPath(const wxString& filepath, bool forced)
 {
 #if defined(__WXGTK__) || defined(__WXOSX__)
-    if (!filepath.empty()) {
+    if (!filepath.empty() && (forced || bRealPathModeResolveSymlinks)) {
 #if defined(__FreeBSD__) || defined(__WXOSX__)
         wxStructStat stbuff;
         if ((::wxLstat(filepath, &stbuff) != 0) || !S_ISLNK(stbuff.st_mode)) {
@@ -652,31 +497,9 @@ wxString FileUtils::RealPath(const wxString& filepath)
     return filepath;
 }
 
-void FileUtils::OpenBuiltInTerminal(const wxString& wd, const wxString& user_command, bool pause_when_exit)
-{
-    wxString title(user_command);
+bool FileUtils::RealPathGetModeResolveSymlinks() { return bRealPathModeResolveSymlinks; }
 
-    wxFileName fnCodeliteTerminal(clStandardPaths::Get().GetExecutablePath());
-    fnCodeliteTerminal.SetFullName("codelite-terminal");
-
-    wxString newCommand;
-    newCommand << fnCodeliteTerminal.GetFullPath() << " --exit ";
-    if (pause_when_exit) {
-        newCommand << " --wait ";
-    }
-    if (wxDirExists(wd)) {
-        wxString workingDirectory = wd;
-        workingDirectory.Trim().Trim(false);
-        if (workingDirectory.Contains(" ") && !workingDirectory.StartsWith("\"")) {
-            workingDirectory.Prepend("\"").Append("\"");
-        }
-        newCommand << " --working-directory " << wd;
-    }
-    newCommand << " --cmd " << title;
-    ::wxExecute(newCommand, wxEXEC_ASYNC);
-}
-
-std::string FileUtils::ToStdString(const wxString& str) { return StringUtils::ToStdString(str); }
+void FileUtils::RealPathSetModeResolveSymlinks(bool resolveSymlinks) { bRealPathModeResolveSymlinks = resolveSymlinks; }
 
 bool FileUtils::ReadBufferFromFile(const wxFileName& fn, wxString& data, size_t bufferSize)
 {
@@ -743,7 +566,7 @@ clEnvList_t FileUtils::CreateEnvironment(const wxString& envstr)
         }
         wxString name = line.BeforeFirst('=');
         wxString value = line.AfterFirst('=');
-        L.push_back({ name, value });
+        L.push_back({name, value});
     }
     return L;
 }
@@ -764,8 +587,8 @@ bool DoFindExe(const wxString& name, wxFileName& exepath, const wxArrayString& h
     }
     mergedPaths.swap(paths);
 
-    for (size_t i = 0; i < paths.size(); ++i) {
-        const wxString& curpath = paths.Item(i);
+    for (const wxString& curpath : paths) {
+
         wxFileName fnPath(curpath, name);
         if (fnPath.FileExists()) {
             exepath = fnPath;
@@ -800,7 +623,9 @@ bool DoFindExe(const wxString& name, wxFileName& exepath, const wxArrayString& h
 }
 } // namespace
 
-bool FileUtils::FindExe(const wxString& name, wxFileName& exepath, const wxArrayString& hint,
+bool FileUtils::FindExe(const wxString& name,
+                        wxFileName& exepath,
+                        const wxArrayString& hint,
                         const wxArrayString& suffix_list)
 {
     wxArrayString possible_suffix;
@@ -839,7 +664,8 @@ wxFileName FileUtils::CreateTempFileName(const wxString& folder, const wxString&
     return wxFileName(folder, full_name);
 }
 
-size_t FileUtils::FindSimilar(const wxFileName& filename, const std::vector<wxString>& extensions,
+size_t FileUtils::FindSimilar(const wxFileName& filename,
+                              const std::vector<wxString>& extensions,
                               std::vector<wxFileName>& vout)
 {
     wxFileName fn(filename);
@@ -851,43 +677,6 @@ size_t FileUtils::FindSimilar(const wxFileName& filename, const std::vector<wxSt
         }
     }
     return vout.size();
-}
-
-bool FileUtils::ParseURI(const wxString& uri, wxString& path, wxString& scheme, wxString& user, wxString& host,
-                         wxString& port)
-{
-    if (uri.StartsWith("file://")) {
-        path = uri.Mid(7);
-        scheme = "file://";
-        return true;
-    } else if (uri.StartsWith("ssh://")) {
-        // expected syntax:
-        // ssh://user@host:port:/path
-        scheme = "ssh://";
-        wxString remainder = uri.Mid(6);
-        user = remainder.BeforeFirst('@');
-        remainder = remainder.AfterFirst('@');
-        host = remainder.BeforeFirst(':');
-        remainder = remainder.AfterFirst(':');
-
-        // at this point we got:
-        // port:/path
-        // OR -
-        // /path
-        if (remainder.empty()) {
-            return true;
-        }
-
-        if (remainder[0] == '/') {
-            path = remainder;
-        } else {
-            port = remainder.BeforeFirst(':');
-            path = remainder.AfterFirst(':');
-        }
-        return true;
-    } else {
-        return false;
-    }
 }
 
 wxString FileUtils::FilePathToURI(const wxString& filepath)
@@ -902,7 +691,7 @@ wxString FileUtils::FilePathToURI(const wxString& filepath)
         }
         wxString file_part = filepath;
         file_part.Replace("\\", "/");
-        file_part = EncodeURI(file_part);
+        file_part = StringUtils::EncodeURI(file_part);
         uri << file_part;
         return uri;
     }
@@ -915,14 +704,16 @@ wxString FileUtils::FilePathFromURI(const wxString& uri)
 #ifdef __WXMSW__
         // check if the file path starts with /C: (Windows drive)
         wxRegEx re_windows_drive("/[a-z]{1}:", wxRE_DEFAULT | wxRE_ICASE);
-        if (re_windows_drive.IsValid() && re_windows_drive.Matches(rest)) {
+        wxRegEx re_windows_drive_encoded("/[a-z]%3A", wxRE_DEFAULT | wxRE_ICASE);
+        if ((re_windows_drive.IsValid() && re_windows_drive.Matches(rest)) ||
+            (re_windows_drive_encoded.IsValid() && re_windows_drive_encoded.Matches(rest))) {
             rest.Remove(0, 1); // remove the leading slash
             // since we know that his is a Windows style path
             // make sure we are using backslashes
             rest.Replace("/", "\\");
         }
 #endif
-        rest = DecodeURI(rest);
+        rest = StringUtils::DecodeURI(rest);
         return rest;
     } else {
         return uri;
@@ -963,8 +754,7 @@ uint_fast32_t const crctab[256] = {
     0xc1683bce, 0xcc2b1d17, 0xc8ea00a0, 0xd6ad50a5, 0xd26c4d12, 0xdf2f6bcb, 0xdbee767c, 0xe3a1cbc1, 0xe760d676,
     0xea23f0af, 0xeee2ed18, 0xf0a5bd1d, 0xf464a0aa, 0xf9278673, 0xfde69bc4, 0x89b8fd09, 0x8d79e0be, 0x803ac667,
     0x84fbdbd0, 0x9abc8bd5, 0x9e7d9662, 0x933eb0bb, 0x97ffad0c, 0xafb010b1, 0xab710d06, 0xa6322bdf, 0xa2f33668,
-    0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4
-};
+    0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4};
 
 bool cksum(const std::string& file, size_t* checksum)
 {
@@ -1010,7 +800,7 @@ bool cksum(const std::string& file, size_t* checksum)
 
 bool FileUtils::GetChecksum(const wxString& filepath, size_t* checksum)
 {
-    return cksum(ToStdString(filepath), checksum);
+    return cksum(StringUtils::ToStdString(filepath), checksum);
 }
 
 bool FileUtils::IsBinaryExecutable(const wxString& filename)
@@ -1048,4 +838,143 @@ wxString FileUtils::NormaliseFilename(const wxString& str)
         fixed[i] = '_';
     }
     return fixed;
+}
+
+static void Mkdir(const wxString& path)
+{
+#ifdef __WXMSW__
+    wxMkDir(path.GetData());
+#else
+    wxMkDir(path.ToAscii(), 0777);
+#endif
+}
+
+bool FileUtils::CopyDir(const wxString& src, const wxString& target)
+{
+    wxString SLASH = wxFileName::GetPathSeparator();
+
+    wxString from(src);
+    wxString to(target);
+
+    // append a slash if there is not one (for easier parsing)
+    // because who knows what people will pass to the function.
+    if (to.EndsWith(SLASH) == false) {
+        to << SLASH;
+    }
+
+    // for both dirs
+    if (from.EndsWith(SLASH) == false) {
+        from << SLASH;
+    }
+
+    // first make sure that the source dir exists
+    if (!wxDir::Exists(from)) {
+        Mkdir(from);
+        return false;
+    }
+
+    if (!wxDir::Exists(to)) {
+        Mkdir(to);
+    }
+
+    wxDir dir(from);
+    wxString filename;
+    bool bla = dir.GetFirst(&filename);
+    if (bla) {
+        do {
+            if (wxDirExists(from + filename)) {
+                Mkdir(to + filename);
+                CopyDir(from + filename, to + filename);
+            } else {
+                // change the umask for files only
+                wxCopyFile(from + filename, to + filename);
+            }
+        } while (dir.GetNext(&filename));
+    }
+    return true;
+}
+
+bool FileUtils::IsFileReadOnly(const wxFileName& filename)
+{
+#ifdef __WXMSW__
+    DWORD dwAttrs = GetFileAttributes(filename.GetFullPath().c_str());
+    if (dwAttrs != INVALID_FILE_ATTRIBUTES && (dwAttrs & FILE_ATTRIBUTE_READONLY)) {
+        return true;
+    } else {
+        return false;
+    }
+#else
+    // try to open the file with 'write permission'
+    return !filename.IsFileWritable();
+#endif
+}
+
+wxString FileUtils::NormalizePath(const wxString& path)
+{
+    wxString normalized_path(path);
+    normalized_path.Trim().Trim(false);
+    normalized_path.Replace("\\", "/");
+    while (normalized_path.Replace("//", "/")) {}
+    return normalized_path;
+}
+
+// Make absolute first, including abolishing any symlinks (Normalise only does MSW shortcuts)
+// Then only 'make relative' if it's a subpath of reference_path (or reference_path itself)
+bool FileUtils::MakeRelativeIfSensible(wxFileName& fn, const wxString& reference_path)
+{
+    if (reference_path.IsEmpty() || !fn.IsOk()) {
+        return false;
+    }
+
+#if defined(__WXGTK__)
+    // Normalize() doesn't account for symlinks in wxGTK
+    wxStructStat statstruct;
+    int error = wxLstat(fn.GetFullPath(), &statstruct);
+
+    if (!error && S_ISLNK(statstruct.st_mode)) { // If it's a symlink
+        char buf[4096];
+        int len = readlink(fn.GetFullPath().mb_str(wxConvUTF8), buf, WXSIZEOF(buf) - sizeof(char));
+        if (len != -1) {
+            buf[len] = '\0'; // readlink() doesn't NULL-terminate the buffer
+            fn.Assign(wxString(buf, wxConvUTF8, len));
+        }
+    }
+#endif
+
+    fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE | wxPATH_NORM_TILDE | wxPATH_NORM_SHORTCUT);
+
+    // Now see if fn is in or under 'reference_path'
+    wxString fnPath = fn.GetPath();
+    if ((fnPath.Len() >= reference_path.Len()) && (fnPath.compare(0, reference_path.Len(), reference_path) == 0)) {
+        fn.MakeRelativeTo(reference_path);
+        return true;
+    }
+
+    return false;
+}
+
+wxFileName FileUtils::wxReadLink(const wxFileName& filename)
+{
+#ifndef __WXMSW__
+    if (FileUtils::IsSymlink(filename)) {
+#if defined(__WXGTK__)
+        // Use 'realpath' on Linux, otherwise this breaks on relative symlinks, and (untested) on symlinks-to-symlinks
+        return wxFileName(FileUtils::RealPath(filename.GetFullPath(), true));
+
+#else  // OSX
+        wxFileName realFileName;
+        char _tmp[512];
+        memset(_tmp, 0, sizeof(_tmp));
+        int len = readlink(filename.GetFullPath().mb_str(wxConvUTF8).data(), _tmp, sizeof(_tmp));
+        if (len != -1) {
+            realFileName = wxFileName(wxString(_tmp, wxConvUTF8, len));
+            return realFileName;
+        }
+#endif // !OSX
+    }
+    return filename;
+
+#else
+    return filename;
+#endif
 }

@@ -17,7 +17,7 @@ protected:
     void clear();
 
 public:
-    CodeFormatterManager();
+    CodeFormatterManager() = default;
     virtual ~CodeFormatterManager();
 
     std::shared_ptr<GenericFormatter> GetFormatter(const wxString& filepath) const;
@@ -33,8 +33,6 @@ public:
 
     // do we have a formatter that can handle `filepath`?
     bool CanFormat(const wxString& filepath) const;
-    // can we format this content?
-    bool CanFormatByContent(const wxString& content) const;
 
     // serialization API
     void Load();

@@ -33,12 +33,12 @@
 #include "clTabTogglerHelper.h"
 
 class wxEvtHandler;
-class ContinousBuildPane;
+class ContinuousBuildPane;
 class ShellCommand;
 
 class ContinuousBuild : public IPlugin
 {
-    ContinousBuildPane* m_view;
+    ContinuousBuildPane* m_view;
     wxEvtHandler* m_topWin;
     BuildProcess m_buildProcess;
     wxArrayString m_files;
@@ -50,15 +50,15 @@ public:
 
 public:
     ContinuousBuild(IManager* manager);
-    ~ContinuousBuild();
+    ~ContinuousBuild() override = default;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 
     void StopAll();
 

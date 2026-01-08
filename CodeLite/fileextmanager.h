@@ -27,12 +27,10 @@
 #define __FILEEXTMANAGER__
 
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
 #include <map>
 #include <vector>
 #include <wx/filename.h>
-#include <wx/regex.h>
 #include <wx/string.h>
 
 class WXDLLIMPEXP_CL FileExtManager
@@ -174,11 +172,6 @@ public:
     }
     static FileExtManager::FileType GetTypeFromExtension(const wxFileName& filename);
 
-    /**
-     * @brief return map of all supported file types
-     * the returned map contains pairs of file extension -> FileType enumerator
-     */
-    static std::map<wxString, FileExtManager::FileType> GetAllSupportedFileTypes();
     /**
      * @brief return map of file types grouped by languages
      */

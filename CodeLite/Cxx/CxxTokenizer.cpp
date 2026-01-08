@@ -51,42 +51,6 @@ void CxxTokenizer::Reset(const wxString& buffer)
     }
 }
 
-bool CxxTokenizer::ReadUntilClosingBracket(int delim, wxString& bufferRead)
-{
-    CxxLexerToken tok;
-    int depth = 0;
-    while(NextToken(tok)) {
-        if(IsInPreProcessorSection()) {
-            // pre-processor tokens
-            continue;
-        }
-        switch(tok.GetType()) {
-        case '<':
-        case '(':
-        case '[':
-        case '{':
-            depth++;
-            bufferRead << tok.GetWXString() << " ";
-            break;
-        case '>':
-        case ')':
-        case ']':
-        case '}':
-            depth--;
-            bufferRead << tok.GetWXString() << " ";
-            if((tok.GetType() == delim) && (depth == 0)) {
-                ::LexerUnget(m_scanner);
-                return true;
-            }
-            break;
-        default:
-            bufferRead << tok.GetWXString() << " ";
-            break;
-        }
-    }
-    return false;
-}
-
 int CxxTokenizer::PeekToken(wxString& text)
 {
     CxxLexerToken tok;
@@ -151,7 +115,7 @@ wxString CxxTokenizer::GetVisibleScope(const wxString& inputString)
                 parenthesisDepth++;
                 currentScope << "(";
                 // Handle lambda
-                // If we are enterting lamda function defenition, collect the locals
+                // If we are entering lambda function definition, collect the locals
                 // this is exactly what we in 'catch' hence the state change to SCP_STATE_IN_CATCH
                 if(GetLastToken().GetType() == ']') {
                     state = SCP_STATE_IN_CATCH;
@@ -260,13 +224,6 @@ CppLexerUserData* CxxTokenizer::GetUserData() const
     if(!m_scanner)
         return NULL;
     return ::LexerGetUserData(m_scanner);
-}
-
-bool CxxTokenizer::IsInPreProcessorSection() const
-{
-    if(!GetUserData())
-        return false;
-    return GetUserData()->IsInPreProcessorSection();
 }
 
 void CxxTokenizer::read_until_find(CxxLexerToken& token, int type_1, int type_2, int* what_was_found,

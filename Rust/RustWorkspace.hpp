@@ -1,13 +1,13 @@
 #ifndef RUSTWORKSPACE_HPP
 #define RUSTWORKSPACE_HPP
 
-#include "IWorkspace.h" // Base class: IWorkspace
+#include "clWorkspaceManager.h"
 
-class RustWorkspace : public IWorkspace
+class RustWorkspace : public LocalWorkspaceCommon
 {
 public:
     RustWorkspace();
-    virtual ~RustWorkspace();
+    ~RustWorkspace() override = default;
 
 public:
     wxString GetActiveProjectName() const override { return wxEmptyString; }

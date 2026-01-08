@@ -6,8 +6,8 @@
 #include <string>
 
 extern std::string gdb_result_string;
-typedef std::map<std::string, std::string> GdbStringMap_t;
-typedef std::vector<GdbStringMap_t>        GdbChildren_t;
+using GdbStringMap_t = std::map<std::string, std::string>;
+using GdbChildren_t = std::vector<GdbStringMap_t>;
 
 struct GdbChildrenInfo {
     GdbChildren_t children;
@@ -25,15 +25,13 @@ struct GdbChildrenInfo {
         children.clear();
         has_more = false;
     }
-    
-    void print() {
+
+    void print() const {
         printf("has_more : %d\n", has_more ? 1 : 0);
-        for(size_t i=0; i<children.size(); i++) {
+        for (const auto& child : children) {
             printf("--------------\n");
-            std::map<std::string, std::string> attr = children.at(i);
-            std::map<std::string, std::string>::iterator iter = attr.begin();
-            for( ; iter != attr.end(); iter++ ) {
-                printf("%s : %s\n", iter->first.c_str(), iter->second.c_str());
+            for (const auto& p : child) {
+                printf("%s : %s\n", p.first.c_str(), p.second.c_str());
             }
         }
     }

@@ -9,16 +9,16 @@ struct SvnShowDiffChunkUI : public wxClientData {
         : m_chunk(chunk)
     {
     }
-    virtual ~SvnShowDiffChunkUI() {}
+    virtual ~SvnShowDiffChunkUI() = default;
 };
 
 SvnShowRecentChangesDlg::SvnShowRecentChangesDlg(wxWindow* parent, const SvnShowDiffChunk::List_t& changes)
     : SvnShowRecentChangesBaseDlg(parent)
     , m_changes(changes)
 {
-    std::for_each(changes.begin(), changes.end(), [&](const SvnShowDiffChunk& chunk) {
+    for (const SvnShowDiffChunk& chunk : changes) {
         m_listBoxRevisions->Append(chunk.revision, new SvnShowDiffChunkUI(chunk));
-    });
+    }
     m_listBoxRevisions->Select(0);
 
     LexerConf::Ptr_t diffLexer = ColoursAndFontsManager::Get().GetLexer("diff");
@@ -32,8 +32,6 @@ SvnShowRecentChangesDlg::SvnShowRecentChangesDlg(wxWindow* parent, const SvnShow
     }
     DoSelectRevision(0);
 }
-
-SvnShowRecentChangesDlg::~SvnShowRecentChangesDlg() {}
 
 void SvnShowRecentChangesDlg::OnRevisionSelected(wxCommandEvent& event)
 {

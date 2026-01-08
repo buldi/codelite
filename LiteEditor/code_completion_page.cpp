@@ -24,9 +24,12 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "code_completion_page.h"
+
 #include "ColoursAndFontsManager.h"
-#include "globals.h"
+#include "StringUtils.h"
 #include "localworkspace.h"
+#include "workspace.h"
+
 #include <wx/tokenzr.h>
 
 CodeCompletionPage::CodeCompletionPage(wxWindow* parent, int type)
@@ -48,7 +51,7 @@ CodeCompletionPage::CodeCompletionPage(wxWindow* parent, int type)
         lw->GetParserPaths(includePaths, excludePaths);
         lw->GetParserMacros(macros);
 
-        m_textCtrlSearchPaths->SetValue(wxImplode(includePaths, wxT("\n")));
+        m_textCtrlSearchPaths->SetValue(StringUtils::wxImplode(includePaths, wxT("\n")));
         m_textCtrlMacros->SetValue(macros);
 
         if(lw->GetParserFlags() & LocalWorkspace::EnableCpp11) {
@@ -63,8 +66,6 @@ CodeCompletionPage::CodeCompletionPage(wxWindow* parent, int type)
         m_checkBoxSWTLW->SetValue(lw->GetParserFlags() & LocalWorkspace::EnableSWTLW);
     }
 }
-
-CodeCompletionPage::~CodeCompletionPage() {}
 
 wxArrayString CodeCompletionPage::GetIncludePaths() const
 {
@@ -100,4 +101,3 @@ void CodeCompletionPage::Save()
 }
 
 void CodeCompletionPage::OnCCContentModified(wxStyledTextEvent& event) { m_ccChanged = true; }
-bool CodeCompletionPage::IsCpp11Enabled() const { return m_choiceStandard->GetStringSelection() == "C++11"; }

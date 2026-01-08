@@ -43,14 +43,13 @@ protected:
 
 public:
     CodeCompletionPage(wxWindow* parent, int type);
-    virtual ~CodeCompletionPage();
+    virtual ~CodeCompletionPage() = default;
 
     void Save();
 
     wxArrayString GetIncludePaths() const;
     wxString GetMacros() const;
     wxString GetIncludePathsAsString() const;
-    bool IsCpp11Enabled() const;
 };
 
 #endif // CODECOMPLETIONPAGE_H

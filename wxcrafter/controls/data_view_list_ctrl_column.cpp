@@ -1,21 +1,20 @@
 #include "data_view_list_ctrl_column.h"
 
+#include "Properties/category_property.h"
+#include "Properties/choice_property.h"
+#include "Properties/col_header_flags_property.h"
+#include "Properties/string_property.h"
+#include "Properties/multi_strings_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "bool_property.h"
-#include "choice_property.h"
-#include "col_header_flags_property.h"
-#include "multi_strings_property.h"
 #include "wxgui_helpers.h"
-
-#include <wx/dataview.h>
 
 DataViewListCtrlColumn::DataViewListCtrlColumn()
     : wxcWidget(ID_WXDATAVIEWCOL)
 {
     m_styles.Clear();
     m_sizerFlags.Clear();
-    m_properties.DeleteValues();
+    m_properties.Clear();
 
     const wxArrayString coltype =
         StdToWX::ToArrayString({ "bitmap", "check", "text", "icontext", "progress", "choice" });
@@ -23,22 +22,20 @@ DataViewListCtrlColumn::DataViewListCtrlColumn()
     const wxArrayString cellType =
         StdToWX::ToArrayString({ "wxDATAVIEW_CELL_INERT", "wxDATAVIEW_CELL_ACTIVATABLE", "wxDATAVIEW_CELL_EDITABLE" });
 
-    AddProperty(new CategoryProperty(_("wxDataViewListCtrl Column")));
-    AddProperty(new StringProperty(PROP_NAME, _("My Column"), _("Column Caption")));
-    AddProperty(new StringProperty(PROP_WIDTH, wxT("-2"),
-                                   _("Column Width (in pixels)\n-1 - special value for column width meaning "
-                                     "unspecified/default\n-2 - size the column automatically to fit all values")));
-    AddProperty(new ChoiceProperty(PROP_DV_LISTCTRL_COL_TYPES, coltype, 2, _("Column Type")));
-    AddProperty(new MultiStringsProperty(PROP_OPTIONS, _("Choices strings\nRelevant only for column of type 'choice'"),
-                                         ";", "Enter choices"));
-    AddProperty(new ChoiceProperty(PROP_DV_LISTCTRL_COL_ALIGN, alignment, 0, _("Cell Alignment")));
-    AddProperty(
-        new ChoiceProperty(PROP_DV_CELLMODE, cellType, 0, _("Cell mode (can be editable, activatable or inert)")));
-    AddProperty(new ColHeaderFlagsProperty(
-        PROP_DV_COLFLAGS, 0, _("One or more flags of the wxDataViewColumnFlags enumeration"), eColumnKind::kDataView));
+    Add<CategoryProperty>(_("wxDataViewListCtrl Column"));
+    Add<StringProperty>(PROP_NAME, _("My Column"), _("Column Caption"));
+    Add<StringProperty>(PROP_WIDTH,
+                        wxT("-2"),
+                        _("Column Width (in pixels)\n-1 - special value for column width meaning "
+                          "unspecified/default\n-2 - size the column automatically to fit all values"));
+    Add<ChoiceProperty>(PROP_DV_LISTCTRL_COL_TYPES, coltype, 2, _("Column Type"));
+    Add<MultiStringsProperty>(
+        PROP_OPTIONS, _("Choices strings\nRelevant only for column of type 'choice'"), ";", "Enter choices");
+    Add<ChoiceProperty>(PROP_DV_LISTCTRL_COL_ALIGN, alignment, 0, _("Cell Alignment"));
+    Add<ChoiceProperty>(PROP_DV_CELLMODE, cellType, 0, _("Cell mode (can be editable, activatable or inert)"));
+    Add<ColHeaderFlagsProperty>(
+        PROP_DV_COLFLAGS, 0, _("One or more flags of the wxDataViewColumnFlags enumeration"), eColumnKind::kDataView);
 }
-
-DataViewListCtrlColumn::~DataViewListCtrlColumn() {}
 
 wxcWidget* DataViewListCtrlColumn::Clone() const { return new DataViewListCtrlColumn(); }
 

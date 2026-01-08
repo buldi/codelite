@@ -10,7 +10,6 @@
 #include <vector>
 #include <wx/colour.h>
 #include <wx/gdicmn.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 #include <wx/treebase.h>
 
@@ -30,7 +29,7 @@ enum clTreeCtrlNodeFlags {
     kNF_HighlightText = (1 << 8),
 };
 
-typedef std::array<wxString, 3> Str3Arr_t;
+using Str3Arr_t = std::array<wxString, 3>;
 struct WXDLLIMPEXP_SDK clMatchResult {
     std::unordered_map<size_t, Str3Arr_t> matches;
 
@@ -54,7 +53,7 @@ struct WXDLLIMPEXP_SDK clMatchResult {
 class WXDLLIMPEXP_SDK clRowEntry
 {
 public:
-    typedef std::vector<clRowEntry*> Vec_t;
+    using Vec_t = std::vector<clRowEntry*>;
     static int Y_SPACER;
     static int X_SPACER;
 

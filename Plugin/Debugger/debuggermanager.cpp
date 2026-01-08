@@ -47,22 +47,19 @@ wxDEFINE_EVENT(wxEVT_DEBUGGER_QUERY_LOCALS, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_LIST_CHILDREN, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_VAROBJ_EVALUATED, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_VAROBJECT_CREATED, clCommandEvent);
-wxDEFINE_EVENT(wxEVT_DEBUGGER_DISASSEBLE_OUTPUT, clCommandEvent);
-wxDEFINE_EVENT(wxEVT_DEBUGGER_DISASSEBLE_CURLINE, clCommandEvent);
+wxDEFINE_EVENT(wxEVT_DEBUGGER_DISASSEMBLE_OUTPUT, clCommandEvent);
+wxDEFINE_EVENT(wxEVT_DEBUGGER_DISASSEMBLE_CURLINE, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_QUERY_FILELINE, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_TYPE_RESOLVE_ERROR, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_LIST_REGISTERS, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_LIST_FRAMES, clCommandEvent);
 wxDEFINE_EVENT(wxEVT_DEBUGGER_FRAME_SELECTED, clCommandEvent);
 
-DebuggerMgr::DebuggerMgr() {}
-
 DebuggerMgr::~DebuggerMgr()
 {
-    std::vector<clDynamicLibrary*>::iterator iter = m_dl.begin();
-    for(; iter != m_dl.end(); iter++) {
-        (*iter)->Detach();
-        delete(*iter);
+    for (auto* dl : m_dl) {
+        dl->Detach();
+        delete dl;
     }
 
     m_dl.clear();
@@ -71,7 +68,7 @@ DebuggerMgr::~DebuggerMgr()
 
 DebuggerMgr& DebuggerMgr::Get()
 {
-    if(!ms_instance) {
+    if (!ms_instance) {
         ms_instance = new DebuggerMgr();
     }
     return *ms_instance;
@@ -106,11 +103,7 @@ bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
     wxString debuggersPath(PLUGINS_DIR, wxConvUTF8);
     debuggersPath += wxT("/debuggers");
 #elif defined(__WXMSW__)
-#ifdef USE_POSIX_LAYOUT
     wxString debuggersPath(clStandardPaths::Get().GetPluginsDirectory() + wxT("/debuggers"));
-#else
-    wxString debuggersPath(m_baseDir + wxT("/debuggers"));
-#endif
 #else
     // OSX
     wxFileName debuggersFolder(clStandardPaths::Get().GetDataDir(), "");
@@ -121,14 +114,14 @@ bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
     clDEBUG() << "Loading debuggers from:" << debuggersPath;
     wxDir::GetAllFiles(debuggersPath, &files, fileSpec, wxDIR_FILES);
 
-    for(size_t i = 0; i < files.GetCount(); i++) {
+    for (size_t i = 0; i < files.GetCount(); i++) {
         clDynamicLibrary* dl = new clDynamicLibrary();
         wxString fileName(files.Item(i));
 
         clDEBUG() << "Attempting to load debugger:" << fileName << endl;
-        if(!dl->Load(fileName)) {
+        if (!dl->Load(fileName)) {
             clWARNING() << "Failed to load debugger:" << fileName << endl;
-            if(!dl->GetError().IsEmpty()) {
+            if (!dl->GetError().IsEmpty()) {
                 clWARNING() << dl->GetError() << endl;
             }
             wxDELETE(dl);
@@ -137,9 +130,9 @@ bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
 
         bool success(false);
         GET_DBG_INFO_FUNC pfn = (GET_DBG_INFO_FUNC)dl->GetSymbol(wxT("GetDebuggerInfo"), &success);
-        if(!success) {
+        if (!success) {
             clLogMessage(wxT("Failed to find GetDebuggerInfo() in dll: ") + fileName);
-            if(!dl->GetError().IsEmpty()) {
+            if (!dl->GetError().IsEmpty()) {
                 clLogMessage(dl->GetError());
             }
             // dl->Unload();
@@ -147,13 +140,13 @@ bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
             continue;
         }
 
-        DebuggerInfo info = pfn();
+        const DebuggerInfo* info = pfn();
         // Call the init method to create an instance of the debugger
         success = false;
-        GET_DBG_CREATE_FUNC pfnInitDbg = (GET_DBG_CREATE_FUNC)dl->GetSymbol(info.initFuncName, &success);
-        if(!success) {
+        GET_DBG_CREATE_FUNC pfnInitDbg = (GET_DBG_CREATE_FUNC)dl->GetSymbol(info->initFuncName, &success);
+        if (!success) {
             clLogMessage(wxT("Failed to find init function in dll: ") + fileName);
-            if(!dl->GetError().IsEmpty()) {
+            if (!dl->GetError().IsEmpty()) {
                 clLogMessage(dl->GetError());
             }
             dl->Detach();
@@ -161,13 +154,13 @@ bool DebuggerMgr::LoadDebuggers(IDebuggerObserver* observer)
             continue;
         }
 
-        clLogMessage(wxT("Loaded debugger: ") + info.name + wxT(", Version: ") + info.version);
+        clDEBUG() << wxT("Loaded debugger: ") << info->name << wxT(", Version: ") << info->version << endl;
         IDebugger* dbg = pfnInitDbg();
 
         // set the environment
         dbg->SetEnvironment(m_env);
         dbg->SetObserver(observer);
-        m_debuggers[info.name] = dbg;
+        m_debuggers[wxString(info->name)] = dbg;
 
         // keep the dynamic load library
         m_dl.push_back(dl);
@@ -180,13 +173,12 @@ wxArrayString DebuggerMgr::GetAvailableDebuggers()
     wxArrayString dbgs;
     dbgs.reserve(m_pluginsDebuggers.size() + m_debuggers.size());
 
-    auto iter = m_debuggers.begin();
-    for(; iter != m_debuggers.end(); iter++) {
-        dbgs.Add(iter->first);
+    for (const auto& [name, _] : m_debuggers) {
+        dbgs.Add(name);
     }
 
     // append all the plugins that were registered themself as debugger
-    for(const auto& vt : m_pluginsDebuggers) {
+    for (const auto& vt : m_pluginsDebuggers) {
         dbgs.insert(dbgs.end(), vt.second.begin(), vt.second.end());
     }
     return dbgs;
@@ -194,10 +186,10 @@ wxArrayString DebuggerMgr::GetAvailableDebuggers()
 
 IDebugger* DebuggerMgr::GetActiveDebugger()
 {
-    if(m_activeDebuggerName.IsEmpty()) {
+    if (m_activeDebuggerName.IsEmpty()) {
         // no active debugger is set, use the first one
         auto iter = m_debuggers.begin();
-        if(iter != m_debuggers.end()) {
+        if (iter != m_debuggers.end()) {
             SetActiveDebugger(iter->first);
             return iter->second;
         }
@@ -205,7 +197,7 @@ IDebugger* DebuggerMgr::GetActiveDebugger()
     }
 
     auto iter = m_debuggers.find(m_activeDebuggerName);
-    if(iter != m_debuggers.end()) {
+    if (iter != m_debuggers.end()) {
         return iter->second;
     }
     return NULL;
@@ -226,7 +218,7 @@ bool DebuggerMgr::GetDebuggerInformation(const wxString& name, DebuggerInformati
 bool DebuggerMgr::IsNativeDebuggerRunning() const
 {
     auto iter = m_debuggers.find(m_activeDebuggerName);
-    if(iter == m_debuggers.end()) {
+    if (iter == m_debuggers.end()) {
         return false;
     }
 
@@ -237,7 +229,7 @@ bool DebuggerMgr::IsNativeDebuggerRunning() const
 void DebuggerMgr::RegisterDebuggers(const wxString& plugin_name, const wxArrayString& names)
 {
     m_pluginsDebuggers.erase(plugin_name);
-    m_pluginsDebuggers.insert({ plugin_name, names });
+    m_pluginsDebuggers.insert({plugin_name, names});
 }
 
 void DebuggerMgr::UnregisterDebuggers(const wxString& plugin_name) { m_pluginsDebuggers.erase(plugin_name); }

@@ -32,16 +32,16 @@
 class CustomTargetsMgr
 {
 public:
-    typedef std::pair<wxString, wxString> Pair_t;
-    typedef std::map<int, Pair_t> Map_t;
+    using  Pair_t= std::pair<wxString, wxString>;
+    using Map_t = std::map<int, Pair_t>;
 
 protected:
     Map_t m_targets;
     wxString m_projectName;
 
 public:
-    CustomTargetsMgr();
-    virtual ~CustomTargetsMgr();
+    CustomTargetsMgr() = default;
+    virtual ~CustomTargetsMgr() = default;
     void Clear();
 
     static CustomTargetsMgr& Get();

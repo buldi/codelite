@@ -33,15 +33,9 @@
 
 class WXDLLIMPEXP_SDK ThemeImporterMarkdown : public ThemeImporterBase
 {
-private:
-    /**
-     * @brief convert a lexer object into eclipse XML format
-     */
-    static wxFileName ToEclipseXML(LexerConf::Ptr_t cxxLexer, size_t id);
-
 public:
     ThemeImporterMarkdown();
-    virtual ~ThemeImporterMarkdown();
+    virtual ~ThemeImporterMarkdown() = default;
 
     /**
      * @brief import an eclipse XML colour theme

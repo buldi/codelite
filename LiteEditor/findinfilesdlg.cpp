@@ -25,31 +25,23 @@
 #include "findinfilesdlg.h"
 
 #include "ColoursAndFontsManager.h"
-#include "FindInFilesLocationsDlg.h"
 #include "StringUtils.h"
 #include "clFilesCollector.h"
 #include "clWorkspaceManager.h"
-#include "dirpicker.h"
-#include "event_notifier.h"
-#include "findresultstab.h"
 #include "frame.h"
 #include "globals.h"
 #include "lexer_configuration.h"
 #include "macros.h"
-#include "manager.h"
 #include "project.h"
 #include "replaceinfilespanel.h"
 #include "search_thread.h"
 #include "sessionmanager.h"
 #include "windowattrmanager.h"
 #include "workspace.h"
-#include "wxStringHash.h"
 
-#include <algorithm>
 #include <wx/dirdlg.h>
 #include <wx/fontmap.h>
 #include <wx/tokenzr.h>
-#include <wx/wupdlock.h>
 
 namespace
 {
@@ -58,12 +50,21 @@ const wxString RE_BUG = "(/[/\\*]+ *BUG)";
 const wxString RE_ATTN = "(/[/\\*]+ *ATTN)";
 const wxString RE_FIXME = "(/[/\\*]+ *FIXME)";
 
-void UpdateComboBox(clComboBox* cb, const wxArrayString& arr, const wxString& str)
+void UpdateComboBox(wxComboBox* cb, const wxArrayString& arr, const wxString& str)
 {
     auto updated_arr = StringUtils::AppendAndMakeUnique(arr, str);
     cb->Clear();
     cb->Append(updated_arr);
     cb->SetStringSelection(str);
+#ifdef __WXMSW__
+    cb->Bind(wxEVT_KEY_DOWN, [cb](wxKeyEvent& e) {
+        if (e.ControlDown() && e.GetKeyCode() == WXK_BACK) {
+            cb->ChangeValue(wxEmptyString);
+        } else {
+            e.Skip();
+        }
+    });
+#endif
 }
 } // namespace
 
@@ -78,6 +79,7 @@ FindInFilesDialog::FindInFilesDialog(wxWindow* parent, wxWindow* handler)
     lex->ApplyFont(m_replaceString);
     lex->ApplyFont(m_fileTypes);
     lex->ApplyFont(m_comboBoxEncoding);
+    lex->ApplyFont(m_comboBoxWhere);
 
     // "Find"
     UpdateComboBox(m_findString, m_data.find_what_array, m_data.find_what);
@@ -147,7 +149,7 @@ FindInFilesDialog::FindInFilesDialog(wxWindow* parent, wxWindow* handler)
             }
             wxString encodingName = wxFontMapper::GetEncodingName(fontEnc);
             size_t pos = astrEncodings.Add(encodingName);
-            encodingMap.insert({ encodingName, (int)pos });
+            encodingMap.insert({encodingName, (int)pos});
             if (m_data.encoding == encodingName) {
                 selection = static_cast<int>(pos);
             }
@@ -164,8 +166,6 @@ FindInFilesDialog::FindInFilesDialog(wxWindow* parent, wxWindow* handler)
     m_checkBoxFollowSymlinks->SetValue(!(m_data.files_scanner_flags & clFilesScanner::SF_DONT_FOLLOW_SYMLINKS));
     m_checkBoxIncludeHiddenFolders->SetValue(!(m_data.files_scanner_flags & clFilesScanner::SF_EXCLUDE_HIDDEN_DIRS));
 
-    // Set the file mask
-    DoSetFileMask();
     SetName("FindInFilesDialog");
     CallAfter(&FindInFilesDialog::DoSelectAll);
 
@@ -177,8 +177,6 @@ FindInFilesDialog::FindInFilesDialog(wxWindow* parent, wxWindow* handler)
 }
 
 FindInFilesDialog::~FindInFilesDialog() { SaveFindReplaceData(); }
-
-void FindInFilesDialog::DoSetFileMask() {}
 
 void FindInFilesDialog::DoSearchReplace()
 {
@@ -243,7 +241,7 @@ SearchData FindInFilesDialog::DoGetSearchData()
     }
     data.SetFileScannerFlags(search_flags);
 
-    // for persisntency
+    // for persistence
     m_data.files_scanner_flags = search_flags;
 
     wxArrayString searchWhere = GetPathsAsArray();
@@ -275,8 +273,7 @@ SearchData FindInFilesDialog::DoGetSearchData()
                 vd = vd.AfterFirst(':');
                 ProjectPtr p = clCxxWorkspaceST::Get()->GetProject(projectName);
                 if (p) {
-                    wxArrayString vdFiles;
-                    p->GetFilesByVirtualDir(vd, vdFiles, true);
+                    const wxArrayString vdFiles = p->GetFilesByVirtualDir(vd, true);
                     files.insert(files.end(), vdFiles.begin(), vdFiles.end());
                 }
             }
@@ -334,8 +331,7 @@ SearchData FindInFilesDialog::DoGetSearchData()
                 files.Add(editor->GetFileName().GetFullPath());
             }
         } else if ((rootDir == wxGetTranslation(SEARCH_IN_OPEN_FILES)) || (rootDir == SEARCH_IN_OPEN_FILES)) {
-            std::vector<clEditor*> editors;
-            clMainFrame::Get()->GetMainBook()->GetAllEditors(editors, MainBook::kGetAll_Default);
+            std::vector<clEditor*> editors = clMainFrame::Get()->GetMainBook()->GetAllEditors();
 
             for (size_t n = 0; n < editors.size(); ++n) {
                 clEditor* editor = dynamic_cast<clEditor*>(*(editors.begin() + n));
@@ -398,10 +394,14 @@ void FindInFilesDialog::OnAddPath(wxCommandEvent& event)
     options.insert(std::make_pair(firstItem + 4, wxGetTranslation(SEARCH_IN_CURRENT_FILE)));
     options.insert(std::make_pair(firstItem + 5, wxGetTranslation(SEARCH_IN_OPEN_FILES)));
 
+#ifdef __WXGTK__
+    int selection = m_btnAddPath->GetPopupMenuSelectionFromUser(menu);
+#else
     // Menu will be shown in client coordinates
     wxRect size = m_btnAddPath->GetSize();
     wxPoint menuPos(0, size.GetHeight());
     int selection = m_btnAddPath->GetPopupMenuSelectionFromUser(menu, menuPos);
+#endif
 
     if (selection == wxID_NONE)
         return;
@@ -414,12 +414,10 @@ void FindInFilesDialog::OnAddPath(wxCommandEvent& event)
             current_content << ";";
         }
 
-        int selection_start = current_content.length();
         current_content << "-*PATTERN*";
-        selection_start += 1; // skip the `-`
         int selection_end = current_content.length();
         m_comboBoxWhere->SetValue(current_content);
-        m_comboBoxWhere->CallAfter(&clComboBox::SetFocus);
+        m_comboBoxWhere->CallAfter(&wxComboBox::SetFocus);
 
     } else if (selection == (firstItem + 6)) {
         wxString folder = ::wxDirSelector();
@@ -539,8 +537,9 @@ void FindInFilesDialog::DoAddProjectFiles(const wxString& projectName, wxArraySt
         if (!filesMap.empty()) {
             wxArrayString tmpArr;
             tmpArr.Alloc(filesMap.size());
-            std::for_each(filesMap.begin(), filesMap.end(),
-                          [&](const Project::FilesMap_t::value_type& vt) { tmpArr.Add(vt.second->GetFilename()); });
+            for (const auto& p : filesMap) {
+                tmpArr.Add(p.second->GetFilename());
+            }
             files.insert(files.end(), tmpArr.begin(), tmpArr.end());
         }
     }
@@ -555,7 +554,7 @@ wxArrayString FindInFilesDialog::GetPathsAsArray() const
 
 namespace
 {
-wxArrayString GetComboBoxStrings(clComboBox* cb)
+wxArrayString GetComboBoxStrings(wxComboBox* cb)
 {
     wxArrayString arr = cb->GetStrings();
     wxString value = cb->GetValue();
@@ -626,11 +625,15 @@ void FindInFilesDialog::SetFileMask(const wxString& mask)
 
 void FindInFilesDialog::OnFindEnter(wxCommandEvent& event)
 {
-    event.Skip();
+    wxUnusedVar(event);
     OnFind(event);
 }
 
-void FindInFilesDialog::OnReplaceEnter(wxCommandEvent& event) { OnReplace(event); }
+void FindInFilesDialog::OnReplaceEnter(wxCommandEvent& event)
+{
+    wxUnusedVar(event);
+    OnReplace(event);
+}
 
 void FindInFilesDialog::DoSelectAll() { m_findString->SelectAll(); }
 

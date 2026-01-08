@@ -58,10 +58,9 @@ bool TabgroupManager::FindTabgroup(bool isGlobal, const wxString& tabgroupname, 
 {
     items.Empty();
     vTabGrps& tabgrps = (isGlobal ? m_globalTabgroups : m_tabgroups);
-    vTabGrps::const_iterator iter = tabgrps.begin();
-    for(; iter != tabgrps.end(); ++iter) {
-        if(iter->first == tabgroupname) {
-            items = iter->second;
+    for (const auto& tabGroup : tabgrps) {
+        if (tabGroup.first == tabgroupname) {
+            items = tabGroup.second;
             return true;
         }
     }
@@ -69,15 +68,6 @@ bool TabgroupManager::FindTabgroup(bool isGlobal, const wxString& tabgroupname, 
 }
 
 wxString TabgroupManager::GetTabgroupDirectory() { return m_tabgroupdir; }
-
-void TabgroupManager::SetTabgroupDirectory()
-{
-    wxFileName TabgrpPath = wxFileName::DirName(clCxxWorkspaceST::Get()->GetPrivateFolder() + wxT("/tabgroups/"));
-    if(!TabgrpPath.DirExists()) {
-        TabgrpPath.Mkdir(0777, wxPATH_MKDIR_FULL);
-    }
-    m_tabgroupdir = TabgrpPath.GetPath();
-}
 
 void TabgroupManager::LoadKnownTabgroups(bool isGlobal /*=false*/)
 {

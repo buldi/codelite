@@ -33,12 +33,11 @@
 #include <wx/ffile.h>
 #include <wx/tokenzr.h>
 
-wxString TagsOptionsData::CLANG_CACHE_LAZY = "Lazy";
 wxString TagsOptionsData::CLANG_CACHE_ON_FILE_LOAD = "On File Load";
 
 size_t TagsOptionsData::CURRENT_VERSION = 7100;
 
-static bool _IsValidCppIndetifier(const wxString& id)
+static bool _IsValidCppIdentifier(const wxString& id)
 {
     if(id.IsEmpty()) {
         return false;
@@ -437,18 +436,15 @@ TagsOptionsData::TagsOptionsData()
     , m_clangOptions(0)
     , m_clangBinary("")
     , m_clangCachePolicy(TagsOptionsData::CLANG_CACHE_ON_FILE_LOAD)
-    , m_ccNumberOfDisplayItems(150)
+    , m_ccNumberOfDisplayItems(500)
     , m_version(0)
 {
     // Initialize defaults
     m_languages.Add("C++");
     AddDefaultTokens();
-    AddDefaultTypes();
 
     SyncData();
 }
-
-TagsOptionsData::~TagsOptionsData() {}
 
 void TagsOptionsData::AddDefaultTokens()
 {
@@ -457,8 +453,6 @@ void TagsOptionsData::AddDefaultTokens()
         m_tokens.Add(token);
     }
 }
-
-void TagsOptionsData::AddDefaultTypes() {}
 
 wxString TagsOptionsData::ToString() const
 {
@@ -475,20 +469,18 @@ wxString TagsOptionsData::ToString() const
     }
 
     const wxStringTable_t& tokensMap = GetTokensWxMap();
-    wxStringTable_t::const_iterator iter = tokensMap.begin();
-
-    if(tokensMap.empty() == false) {
-        for(; iter != tokensMap.end(); ++iter) {
-            if(!iter->second.IsEmpty() || (iter->second.IsEmpty() && iter->first.Find("%0") != wxNOT_FOUND)) {
+    if (tokensMap.empty() == false) {
+        for (const auto& p : tokensMap) {
+            if (!p.second.IsEmpty() || (p.second.IsEmpty() && p.first.Find("%0") != wxNOT_FOUND)) {
                 // Key = Value pair. Place this one in the output file
-                file_content << iter->first << "=" << iter->second << "\n";
+                file_content << p.first << "=" << p.second << "\n";
             } else {
 
                 if(options.IsEmpty()) {
                     options = " -I";
                 }
 
-                options << iter->first;
+                options << p.first;
                 options << ",";
             }
         }
@@ -517,15 +509,6 @@ wxString TagsOptionsData::ToString() const
     return options;
 }
 
-void TagsOptionsData::SetLanguageSelection(const wxString& lang)
-{
-    int where = m_languages.Index(lang);
-    if(where != wxNOT_FOUND) {
-        m_languages.RemoveAt(where);
-    }
-    m_languages.Insert(lang, 0);
-}
-
 std::map<std::string, std::string> TagsOptionsData::GetTokensMap() const
 {
     std::map<std::string, std::string> tokens;
@@ -549,19 +532,6 @@ std::map<std::string, std::string> TagsOptionsData::GetTokensMap() const
 }
 
 const wxStringTable_t& TagsOptionsData::GetTokensWxMap() const { return m_tokensWxMap; }
-
-wxStringTable_t TagsOptionsData::GetTypesMap() const
-{
-    wxStringTable_t tokens;
-    for(size_t i = 0; i < m_types.GetCount(); i++) {
-        wxString item = m_types.Item(i);
-        item.Trim().Trim(false);
-        wxString k = item.BeforeFirst('=');
-        wxString v = item.AfterFirst('=');
-        tokens[k] = v;
-    }
-    return tokens;
-}
 
 void TagsOptionsData::SetTokens(const wxString& tokens)
 {
@@ -588,13 +558,11 @@ void TagsOptionsData::DoUpdateTokensWxMapReversed()
         wxString item = m_tokens.Item(i).Trim().Trim(false);
         wxString k = item.AfterFirst('=');
         wxString v = item.BeforeFirst('=');
-        if(_IsValidCppIndetifier(k) && !_IsCppKeyword(k)) {
+        if(_IsValidCppIdentifier(k) && !_IsCppKeyword(k)) {
             m_tokensWxMapReversed[k] = v;
         }
     }
 }
-
-const wxStringTable_t& TagsOptionsData::GetTokensReversedWxMap() const { return m_tokensWxMapReversed; }
 
 void TagsOptionsData::FromJSON(const JSONItem& json)
 {
@@ -685,18 +653,4 @@ void TagsOptionsData::SyncData()
 {
     DoUpdateTokensWxMap();
     DoUpdateTokensWxMapReversed();
-}
-
-std::vector<std::pair<wxString, wxString>> TagsOptionsData::GetTypes() const
-{
-    std::vector<std::pair<wxString, wxString>> arr;
-    arr.reserve(m_types.size());
-
-    for(const auto& line : m_types) {
-        std::pair<wxString, wxString> p;
-        p.first = line.BeforeFirst('=');
-        p.second = line.AfterFirst('=');
-        arr.emplace_back(p);
-    }
-    return arr;
 }

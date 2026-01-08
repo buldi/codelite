@@ -1,15 +1,18 @@
 #include "slider_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "xmlutils.h"
+
 #include <wx/slider.h>
 
 SliderWrapper::SliderWrapper()
     : wxcWidget(ID_WXSLIDER)
 {
     SetPropertyString(_("Common Settings"), "wxSlider");
-    AddProperty(new StringProperty(PROP_VALUE, wxT("50"), _("Value")));
-    AddProperty(new StringProperty(PROP_MINVALUE, wxT("0"), _("Minimum slider value")));
-    AddProperty(new StringProperty(PROP_MAXVALUE, wxT("100"), _("Maximum slider value")));
+    Add<StringProperty>(PROP_VALUE, wxT("50"), _("Value"));
+    Add<StringProperty>(PROP_MINVALUE, wxT("0"), _("Minimum slider value"));
+    Add<StringProperty>(PROP_MAXVALUE, wxT("100"), _("Maximum slider value"));
 
     PREPEND_STYLE(wxSL_HORIZONTAL, true);
     PREPEND_STYLE(wxSL_VERTICAL, false);
@@ -43,8 +46,6 @@ SliderWrapper::SliderWrapper()
     m_namePattern = wxT("m_slider");
     SetName(GenerateName());
 }
-
-SliderWrapper::~SliderWrapper() {}
 
 wxcWidget* SliderWrapper::Clone() const { return new SliderWrapper(); }
 

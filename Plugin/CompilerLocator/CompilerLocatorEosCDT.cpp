@@ -1,26 +1,21 @@
 #include "CompilerLocatorEosCDT.h"
 
+#include "StringUtils.h"
 #include "file_logger.h"
-#include "globals.h"
 
-#include <algorithm>
 #include <wx/filename.h>
 #include <wx/thread.h>
-
-CompilerLocatorEosCDT::CompilerLocatorEosCDT() {}
-
-CompilerLocatorEosCDT::~CompilerLocatorEosCDT() {}
 
 bool CompilerLocatorEosCDT::Locate()
 {
     clDEBUG() << "CompilerLocatorEosCDT locate..." << endl;
     std::vector<wxString> possiblePaths{ "/usr/bin", "/usr/local/bin" };
-    std::for_each(possiblePaths.begin(), possiblePaths.end(), [&](const wxString& path) {
+    for (const wxString& path : possiblePaths) {
         wxString foundPath;
-        if(CheckExists(path, foundPath)) {
+        if (CheckExists(path, foundPath)) {
             m_compilers.push_back(CreateCompiler(foundPath));
         }
-    });
+    }
     clDEBUG() << "CompilerLocatorEosCDT locate...done" << endl;
     return !m_compilers.empty();
 }
@@ -41,7 +36,7 @@ void CompilerLocatorEosCDT::AddTool(CompilerPtr compiler, const wxString& toolna
                                     const wxString& args) const
 {
     wxString tool = path;
-    ::WrapWithQuotes(tool);
+    StringUtils::WrapWithQuotes(tool);
     if(!args.IsEmpty()) {
         tool << " " << args;
     }
@@ -78,7 +73,7 @@ CompilerPtr CompilerLocatorEosCDT::CreateCompiler(const wxString& path) const
 
     // get the compiler version
     compiler->SetName("eosio");
-    compiler->SetGenerateDependeciesFile(true);
+    compiler->SetGenerateDependenciesFile(true);
     compiler->SetInstallationPath(path);
 
     // Add the tools

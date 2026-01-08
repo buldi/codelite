@@ -1,22 +1,17 @@
 #include "CodeFormatterManager.hpp"
 
-#include "JSON.h"
-#include "cl_standard_paths.h"
-#include "file_logger.h"
 #include "fmtBlack.hpp"
-#include "fmtCMakeForamt.hpp"
+#include "fmtCMakeFormat.hpp"
 #include "fmtClangFormat.hpp"
 #include "fmtJQ.hpp"
 #include "fmtPHPCBF.hpp"
 #include "fmtPHPCSFixer.hpp"
 #include "fmtRustfmt.hpp"
+#include "fmtShfmtFormat.hpp"
 #include "fmtXmlLint.hpp"
 #include "fmtYQ.hpp"
 
-#include <algorithm>
 #include <wx/filename.h>
-
-CodeFormatterManager::CodeFormatterManager() {}
 
 CodeFormatterManager::~CodeFormatterManager() { clear(); }
 
@@ -44,7 +39,8 @@ void CodeFormatterManager::initialize_defaults()
     push_back(new fmtRustfmt);
     push_back(new fmtBlack);
     push_back(new fmtYQ);
-    push_back(new fmtCMakeForamt);
+    push_back(new fmtCMakeFormat);
+    push_back(new fmtShfmtFormat);
 }
 
 void CodeFormatterManager::push_back(GenericFormatter* formatter)
@@ -124,21 +120,6 @@ bool CodeFormatterManager::CanFormat(const wxString& filepath) const
     return false;
 }
 
-bool CodeFormatterManager::CanFormatByContent(const wxString& content) const
-{
-    FileExtManager::FileType file_type;
-    if (!FileExtManager::GetContentType(content, file_type)) {
-        return false;
-    }
-
-    for (auto f : m_formatters) {
-        if (f->IsEnabled() && f->CanHandle(file_type)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void CodeFormatterManager::RestoreDefaults()
 {
     clear();
@@ -182,7 +163,8 @@ bool CodeFormatterManager::AddCustom(GenericFormatter* formatter)
 
 bool CodeFormatterManager::DeleteFormatter(const wxString& name)
 {
-    auto where = std::find_if(m_formatters.begin(), m_formatters.end(),
+    auto where = std::find_if(m_formatters.begin(),
+                              m_formatters.end(),
                               [&name](std::shared_ptr<GenericFormatter> fmtr) { return fmtr->GetName() == name; });
     if (where == m_formatters.end()) {
         // not found

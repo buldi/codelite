@@ -32,7 +32,6 @@
 #include "language.h"
 #include "macros.h"
 #include "tags_options_data.h"
-#include "wxStringHash.h"
 
 #include <wx/event.h>
 
@@ -134,12 +133,7 @@ public:
     void ClearCachedFile(const wxString& fileName);
 
     /**
-     4* @brief clear all the cached tags information stored in this class
-     */
-    void ClearAllCaches();
-
-    /**
-     * @brief load fileName into cache, note that this call will clear perivous
+     * @brief load fileName into cache, note that this call will clear previous
      * cache
      */
     void CacheFile(const wxString& fileName);
@@ -160,8 +154,6 @@ public:
      * @param options options to use
      */
     void SetCtagsOptions(const TagsOptionsData& options);
-
-    void SetEncoding(const wxFontEncoding& encoding);
 
     /**
      * Locate symbol by name in database
@@ -215,36 +207,6 @@ public:
     void FindByNameAndScope(const wxString& name, const wxString& scope, std::vector<TagEntryPtr>& tags);
 
     /**
-     * Find tags with given path
-     * @param path path to search
-     * @param tags [output] output tags
-     */
-    void FindByPath(const wxString& path, std::vector<TagEntryPtr>& tags);
-
-    /**
-     * Get tags related to a scope.
-     * @param scope scope to search for members
-     * @param tags [output] vector of tags
-     */
-    void TagsByScope(const wxString& scope, std::vector<TagEntryPtr>& tags);
-
-    /**
-     *	Get tags related to a scope and name (name can be partial name
-     * @param scope scope to search for members
-     * @param name partial tag name
-     * @param tags [output] vector of tags
-     */
-    void TagsByScopeAndName(const wxString& scope, const wxString& name, std::vector<TagEntryPtr>& tags,
-                            size_t flags = PartialMatch);
-
-    /**
-     * Delete all tags related to these files
-     * @param files list of files, in absolute path
-     */
-    void DeleteFilesTags(const std::vector<wxFileName>& files);
-    void DeleteFilesTags(const wxArrayString& files);
-
-    /**
      * Close the workspace database
      */
     void CloseDatabase();
@@ -260,37 +222,12 @@ public:
     void ParseWorkspaceIncremental();
 
     /**
-     * Get a hover tip. This function is a wrapper around the Language::GetHoverTip.
-     * @param expr the current expression
-     * @param word the token under the cursor
-     * @param text scope where token was found
-     * @param scopeName scope name
-     * @param isFunc is token is a function
-     * @param tips array of tip strings
-     */
-    void GetHoverTip(const wxFileName& fileName, int lineno, const wxString& expr, const wxString& word,
-                     const wxString& text, std::vector<wxString>& tips);
-
-    /**
-     * return tags belongs to given scope and kind
-     * @param scopeName the scope to search
-     * @param kind tags's kind to return
-     * @param tags [output] the result vector
-     * @param inherits set to true if you want inherited members as well members
-     */
-    void TagsByScope(const wxString& scopeName, const wxString& kind, std::vector<TagEntryPtr>& tags,
-                     bool includeInherits = false, bool applyLimit = true);
-
-    /**
      * return tags belongs to given scope and kind
      * @param scopeName the scope to search
      * @param kind list of tags kind to return
      * @param tags [output] the result vector
-     * @param inherits set to true if you want inherited members as well members
-     * @param include_anon included anonymous members (of Unions/structs/enums)
      */
-    void TagsByScope(const wxString& scopeName, const wxArrayString& kind, std::vector<TagEntryPtr>& tags,
-                     bool include_anon = false);
+    void TagsByScope(const wxString& scopeName, const wxArrayString& kind, std::vector<TagEntryPtr>& tags);
 
     /**
      * @brief get the scope name. CodeLite assumes that the caret is placed at the end of the 'scope'
@@ -318,18 +255,9 @@ public:
      * file name
      * @param fileName file to search for
      * @param lineno the line number
-     * @return pointer to the tage which matches the line number & files
+     * @return pointer to the tag which matches the line number & files
      */
-    TagEntryPtr FunctionFromFileLine(const wxFileName& fileName, int lineno, bool nextFunction = false);
-
-    /**
-     * @brief Return function that is close to current line number
-     * this is done by parsing `buffer`
-     * @param buffer input source file as string
-     * @param lineno the end buffer line number
-     * @param file_name the returned tag `GetFile()` value
-     */
-    TagEntryPtr FunctionFromBufferLine(const wxString& buffer, int lineno, const wxString& file_name);
+    TagEntryPtr FunctionFromFileLine(const wxFileName& fileName, int lineno);
 
     /**
      * @brief
@@ -347,51 +275,13 @@ public:
     /**
      * @brief return list of all classes.
      * @param tags [output] vector of tags for the classes
-     * @param onlyWorkspace set to true if you wish to accept only classes belongs to the workspace, false if you would
-     * like to receive
-     * classes from the external database as well
      */
-    void GetClasses(std::vector<TagEntryPtr>& tags, bool onlyWorkspace = true);
-
-    /**
-     * @brief return list of tags by KIND
-     * @param tags [output]
-     * @param kind the kind of the tags to fetch from the database
-     * @param partName name criterion (partial)
-     */
-    void GetTagsByKind(std::vector<TagEntryPtr>& tags, const wxArrayString& kind,
-                       const wxString& partName = wxEmptyString);
-
-    /**
-     * @brief return list of tags by name
-     * @param prefix
-     * @param tags
-     */
-    void GetTagsByName(const wxString& prefix, std::vector<TagEntryPtr>& tags);
+    void GetClasses(std::vector<TagEntryPtr>& tags);
 
     /**
      * @brief return list of tags by their partial names
      */
     void GetTagsByPartialNames(const wxArrayString& partialNames, std::vector<TagEntryPtr>& tags);
-
-    /**
-     * @brief return list of tags by KIND
-     * @param tags [output]
-     * @param kind the kind of the tags to fetch from the database
-     * @param partName name criterion (partial)
-     */
-    void GetTagsByKindLimit(std::vector<TagEntryPtr>& tags, const wxArrayString& kind, int limit,
-                            const wxString& partName = wxEmptyString);
-
-    /**
-     * @brief generate function body/impl based on a tag
-     * @param tag the input tag which represents the requested tag
-     * @param impl set to true if you need an implementation, false otherwise. Default is set to false
-     * @param scope real function scope to use
-     * @return the function impl/decl
-     */
-    wxString FormatFunction(TagEntryPtr tag, size_t flags = FunctionFormat_WithVirtual,
-                            const wxString& scope = wxEmptyString);
 
     /**
      * @brief return true if type & scope do exist in the symbols database
@@ -400,15 +290,6 @@ public:
      * @return
      */
     bool IsTypeAndScopeExists(wxString& typeName, wxString& scope);
-
-    /**
-     * @brief try to process a given expression and evaluate it into type & typescope
-     * @param expression
-     * @param type
-     * @param typeScope
-     * @return true on success false otherwise
-     */
-    bool ProcessExpression(const wxString& expression, wxString& type, wxString& typeScope);
 
     /**
      * @brief return normalize function signature. This function strips any default values or variable
@@ -424,27 +305,15 @@ public:
                                   std::vector<std::pair<int, int>>* paramLen = NULL);
 
     /**
-     * @brief accept as input ctags pattern of a function and tries to evaluate the
-     * return value of the function
-     * @param pattern ctags pattern of the method
-     * @return return value of the method from the pattern of empty string
-     */
-    wxString GetFunctionReturnValueFromPattern(TagEntryPtr tag);
-    /**
-     * @brief fileter a recently tagged files from the strFiles array
+     * @brief filter a recently tagged files from the strFiles array
      * @param strFiles
      * @param db
      */
     void FilterNonNeededFilesForRetaging(wxArrayString& strFiles, ITagsStoragePtr db);
 
     /**
-     * @brief return true of v1 cotnains the same tags as v2
-     */
-    bool AreTheSame(const TagEntryPtrVector_t& v1, const TagEntryPtrVector_t& v2) const;
-
-    /**
      * @brief insert functionBody into clsname. This function will search for best location
-     * to place the function body. set visibility to 0 for 'pubilc' function, 1 for 'protected' and 2 for private
+     * to place the function body. set visibility to 0 for 'public' function, 1 for 'protected' and 2 for private
      * return true if this function succeeded, false otherwise
      */
     bool InsertFunctionDecl(const wxString& clsname, const wxString& functionDecl, wxString& sourceContent,
@@ -473,7 +342,7 @@ private:
     /**
      * Destructor
      */
-    virtual ~TagsManager();
+    virtual ~TagsManager() = default;
 
     /**
      * @param path
@@ -506,15 +375,7 @@ public:
 
 protected:
     void DoFindByNameAndScope(const wxString& name, const wxString& scope, std::vector<TagEntryPtr>& tags);
-    void RemoveDuplicatesTips(std::vector<TagEntryPtr>& src, std::vector<TagEntryPtr>& target);
-    void GetGlobalTags(const wxString& name, std::vector<TagEntryPtr>& tags, size_t flags = PartialMatch);
-    void GetLocalTags(const wxString& name, const wxString& scope, std::vector<TagEntryPtr>& tags, bool isFuncSignature,
-                      size_t flags = PartialMatch);
-    void TipsFromTags(const std::vector<TagEntryPtr>& tags, const wxString& word, std::vector<wxString>& tips);
-    bool ProcessExpression(const wxFileName& filename, int lineno, const wxString& expr, const wxString& scopeText,
-                           wxString& typeName, wxString& typeScope, wxString& oper, wxString& scopeTemplateInitList);
     wxString DoReplaceMacros(const wxString& name);
-    wxArrayString BreakToOuterScopes(const wxString& scope);
     wxString DoReplaceMacrosFromDatabase(const wxString& name);
     void GetScopesByScopeName(const wxString& scopeName, wxArrayString& scopes);
 };

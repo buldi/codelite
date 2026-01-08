@@ -1,16 +1,10 @@
 #include "clConfigurationSelectionCtrl.h"
 
-#include "bitmap_loader.h"
-#include "clThemedChoice.h"
-#include "cl_config.h"
 #include "codelite_events.h"
 #include "configuration_manager_dlg.h"
 #include "event_notifier.h"
 #include "frame.h"
-#include "globals.h"
-#include "imanager.h"
 #include "manager.h"
-#include "wxStringHash.h"
 
 clConfigurationSelectionCtrl::clConfigurationSelectionCtrl(wxWindow* parent, wxWindowID winid, const wxPoint& pos,
                                                            const wxSize& size, long style)
@@ -89,8 +83,6 @@ void clConfigurationSelectionCtrl::OnChoice(wxCommandEvent& event)
     }
 }
 
-void clConfigurationSelectionCtrl::Clear() {}
-
 void clConfigurationSelectionCtrl::SetConfigurations(const wxArrayString& configurations, const wxString& activeConfig)
 {
     m_configurations = configurations;
@@ -109,30 +101,24 @@ void clConfigurationSelectionCtrl::OnWorkspaceLoaded(clWorkspaceEvent& event)
     if(ManagerST::Get()->IsWorkspaceOpen()) {
         Enable(true);
         DoWorkspaceConfig();
-        DoUpdateChoiceWithProjects();
     }
 }
 
 void clConfigurationSelectionCtrl::OnWorkspaceClosed(clWorkspaceEvent& event)
 {
     event.Skip();
-    Clear();
     Enable(false);
 }
 
 void clConfigurationSelectionCtrl::OnProjectAdded(clCommandEvent& event)
 {
     event.Skip();
-    DoUpdateChoiceWithProjects();
 }
 
 void clConfigurationSelectionCtrl::OnProjectRemoved(clCommandEvent& event)
 {
     event.Skip();
-    DoUpdateChoiceWithProjects();
 }
-
-void clConfigurationSelectionCtrl::DoUpdateChoiceWithProjects() {}
 
 void clConfigurationSelectionCtrl::DoWorkspaceConfig()
 {
@@ -145,8 +131,9 @@ void clConfigurationSelectionCtrl::DoWorkspaceConfig()
     });
 
     wxArrayString configurations;
-    std::for_each(confs.begin(), confs.end(),
-                  [&](WorkspaceConfigurationPtr conf) { configurations.push_back(conf->GetName()); });
+    for (const auto& conf : confs) {
+        configurations.push_back(conf->GetName());
+    }
 
     wxString activeConfig = configurations.IsEmpty() ? "" : matrix->GetSelectedConfigurationName();
     SetConfigurations(configurations, activeConfig);
@@ -166,7 +153,6 @@ void clConfigurationSelectionCtrl::DoOpenConfigurationManagerDlg()
 
     // in case user added configurations, update the choice control
     DoWorkspaceConfig();
-    DoUpdateChoiceWithProjects();
 
     BuildMatrixPtr matrix = ManagerST::Get()->GetWorkspaceBuildMatrix();
     SetActiveConfiguration(matrix->GetSelectedConfigurationName());

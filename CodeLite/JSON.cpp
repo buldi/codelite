@@ -68,7 +68,9 @@ JSON::JSON(const wxFileName& filename)
     if (!FileUtils::ReadFileContent(filename, content)) {
         return;
     }
-    m_json = cJSON_Parse(content.mb_str(wxConvUTF8).data());
+
+    const std::string cstr = content.ToStdString(wxConvUTF8);
+    m_json = cJSON_Parse(cstr.c_str());
 }
 
 JSON::~JSON()
@@ -138,34 +140,34 @@ JSONItem::JSONItem(cJSON* json)
     : m_json(json)
 {
     if (m_json) {
-        m_properytName = m_json->string ? m_json->string : "";
+        m_propertyName = m_json->string ? m_json->string : "";
         m_type = m_json->type;
     }
 }
 
 JSONItem::JSONItem(const wxString& name, double val)
-    : m_properytName(name)
+    : m_propertyName(name)
     , m_type(cJSON_Number)
     , m_valueNumer(val)
 {
 }
 
 JSONItem::JSONItem(const wxString& name, const std::string& val)
-    : m_properytName(name)
+    : m_propertyName(name)
     , m_type(cJSON_String)
     , m_valueString(val)
 {
 }
 
 JSONItem::JSONItem(const wxString& name, const char* pval, size_t len)
-    : m_properytName(name)
+    : m_propertyName(name)
     , m_type(cJSON_String)
     , m_valueString(pval, len)
 {
 }
 
 JSONItem::JSONItem(const wxString& name, bool val)
-    : m_properytName(name)
+    : m_propertyName(name)
     , m_type(val ? cJSON_True : cJSON_False)
 {
 }
@@ -188,7 +190,7 @@ std::unordered_map<std::string_view, JSONItem> JSONItem::GetAsMap() const
     cJSON* c = m_json->child;
     while (c) {
         res.erase(c->string);
-        res.insert({ c->string, JSONItem{ c } });
+        res.insert({c->string, JSONItem{c}});
         c = c->next;
     }
     return res;
@@ -204,7 +206,7 @@ std::vector<JSONItem> JSONItem::GetAsVector() const
     res.reserve(arraySize());
     cJSON* c = m_json->child;
     while (c) {
-        res.emplace_back(JSONItem{ c });
+        res.emplace_back(JSONItem{c});
         c = c->next;
     }
     return res;
@@ -304,7 +306,8 @@ void JSONItem::append(const JSONItem& element)
         break;
 
     case cJSON_String:
-        cJSON_AddStringToObject(m_json, element.GetPropertyName().mb_str(wxConvUTF8).data(),
+        cJSON_AddStringToObject(m_json,
+                                element.GetPropertyName().mb_str(wxConvUTF8).data(),
                                 element.m_valueString.mb_str(wxConvUTF8).data());
         break;
 
@@ -412,10 +415,10 @@ wxString JSONItem::format(bool formatted) const
         return wxT("");
     }
 
-    char* p = formatted ? cJSON_Print(m_json) : cJSON_PrintUnformatted(m_json);
-    wxString s(p, wxConvUTF8);
+    auto p = formatted ? cJSON_Print(m_json) : cJSON_PrintUnformatted(m_json);
+    auto utf8_str = wxString::FromUTF8(p);
     free(p);
-    return s;
+    return utf8_str;
 }
 
 int JSONItem::toInt(int defaultVal) const
@@ -477,8 +480,8 @@ JSONItem& JSONItem::addProperty(const wxString& name, bool value)
 
 JSONItem& JSONItem::addProperty(const wxString& name, const wxString& value)
 {
-    const wxCharBuffer cb = value.mb_str(wxConvUTF8);
-    append(JSONItem(name, cb.data(), cb.length()));
+    const std::string cstr = value.ToStdString(wxConvUTF8);
+    append(JSONItem(name, cstr.data(), cstr.length()));
     return *this;
 }
 
@@ -622,26 +625,21 @@ JSONItem& JSONItem::addProperty(const wxString& name, const wxStringMap_t& strin
         return *this;
 
     JSONItem arr = JSONItem::createArray(name);
-    wxStringMap_t::const_iterator iter = stringMap.begin();
-    for (; iter != stringMap.end(); ++iter) {
+    for (const auto& [key, value] : stringMap) {
         JSONItem obj = JSONItem::createObject();
-        obj.addProperty("key", iter->first);
-        obj.addProperty("value", iter->second);
+        obj.addProperty("key", key);
+        obj.addProperty("value", value);
         arr.arrayAppend(obj);
     }
     append(arr);
     return *this;
 }
 #endif
-wxStringMap_t JSONItem::toStringMap() const
+wxStringMap_t JSONItem::toStringMap(const wxStringMap_t& default_map) const
 {
     wxStringMap_t res;
-    if (!m_json) {
-        return res;
-    }
-
-    if (m_json->type != cJSON_Array) {
-        return res;
+    if (!m_json || m_json->type != cJSON_Array) {
+        return default_map;
     }
 
     for (int i = 0; i < arraySize(); ++i) {
@@ -651,6 +649,7 @@ wxStringMap_t JSONItem::toStringMap() const
     }
     return res;
 }
+
 JSONItem& JSONItem::addProperty(const wxString& name, size_t value) { return addProperty(name, (int)value); }
 
 #if wxUSE_GUI

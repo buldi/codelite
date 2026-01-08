@@ -62,17 +62,15 @@ ThemeImporterJavaScript::ThemeImporterJavaScript()
     SetOthersWordSetIndex(4);
     SetLangName("javascript");
     SetLocalsWordSetIndex(LexerConf::WS_VARIABLES, true);
-    SetFileExtensions("*.js;*.javascript;*.qml;*.json;*.ts");
+    SetFileExtensions("*.js;*.javascript;*.qml;*.json;*.ts;*.tsx");
 }
-
-ThemeImporterJavaScript::~ThemeImporterJavaScript() {}
 
 LexerConf::Ptr_t ThemeImporterJavaScript::Import(const wxFileName& theme_file)
 {
     LexerConf::Ptr_t lexer = InitializeImport(theme_file, GetLangName(), wxSTC_LEX_CPP);
     CHECK_PTR_RET_NULL(lexer);
 
-    // Covnert to codelite's XML properties
+    // Convert to CodeLite's XML properties
     AddProperty(lexer, wxSTC_C_DEFAULT, "Default", m_editor);
     AddProperty(lexer, wxSTC_C_COMMENT, "Block comment", m_multiLineComment);
     AddProperty(lexer, wxSTC_C_COMMENTLINE, "Single line comment", m_singleLineComment);

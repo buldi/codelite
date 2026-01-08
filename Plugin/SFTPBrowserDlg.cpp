@@ -66,7 +66,7 @@ public:
         }
     }
 
-    virtual ~SFTPBrowserEntryClientData() {}
+    virtual ~SFTPBrowserEntryClientData() = default;
 
     const wxString& GetDisplayName() const { return GetAttribute()->GetName(); }
     void SetAttribute(const SFTPAttribute::Ptr_t& attribute) { this->m_attribute = attribute; }
@@ -220,7 +220,7 @@ void SFTPBrowserDlg::DoDisplayEntriesForPath(const wxString& path)
         }
         m_dataview->SetFocus();
 
-    } catch (clException& e) {
+    } catch (const clException& e) {
         ::wxMessageBox(e.What(), "SFTP", wxICON_ERROR | wxOK);
         DoCloseSession();
     }
@@ -390,9 +390,8 @@ void SFTPBrowserDlg::OnSSHAccountManager(wxCommandEvent& event)
             return;
 
         } else {
-            SSHAccountInfo::Vect_t::const_iterator iter = accounts.begin();
-            for (; iter != accounts.end(); ++iter) {
-                m_choiceAccount->Append(iter->GetAccountName());
+            for (const auto& account : accounts) {
+                m_choiceAccount->Append(account.GetAccountName());
             }
 
             int where = m_choiceAccount->FindString(curselection);
@@ -450,7 +449,7 @@ void SFTPBrowserDlg::DoBrowse()
 
         DoDisplayEntriesForPath();
 
-    } catch (clException& e) {
+    } catch (const clException& e) {
         ::wxMessageBox(e.What(), "CodeLite", wxICON_ERROR | wxOK, this);
         DoCloseSession();
     }
@@ -472,7 +471,7 @@ void SFTPBrowserDlg::OnNewFolder(wxCommandEvent& event)
         m_sftp->CreateDir(path);
         ClearView();
         DoDisplayEntriesForPath();
-    } catch (clException& e) {
+    } catch (const clException& e) {
         ::wxMessageBox(e.What(), "CodeLite", wxICON_ERROR | wxOK, this);
     }
 }

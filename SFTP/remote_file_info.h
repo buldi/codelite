@@ -27,34 +27,32 @@
 #define REMOTEFILEINFO_H
 
 #include "ssh/ssh_account_info.h"
-#include "wxStringHash.h"
 
-#include <map>
+#include <unordered_map>
 #include <wx/clntdata.h>
-#include <wx/filename.h>
 
 class RemoteFileInfo : public wxClientData
 {
     SSHAccountInfo m_account; // the account for which this file belongs to
     wxString m_localFile;
     wxString m_remoteFile;
-    size_t m_premissions;
+    size_t m_permissions;
     int m_lineNumber = 0;
 
 public:
-    typedef std::unordered_map<wxString, RemoteFileInfo> Map_t;
+    using Map_t = std::unordered_map<wxString, RemoteFileInfo>;
 
 public:
     RemoteFileInfo();
-    virtual ~RemoteFileInfo();
+    virtual ~RemoteFileInfo() = default;
 
     void SetAccount(const SSHAccountInfo& account) { this->m_account = account; }
     const SSHAccountInfo& GetAccount() const { return m_account; }
     const wxString& GetLocalFile() const { return m_localFile; }
     void SetRemoteFile(const wxString& remoteFile);
     const wxString& GetRemoteFile() const { return m_remoteFile; }
-    void SetPremissions(size_t premissions) { this->m_premissions = premissions; }
-    size_t GetPremissions() const { return m_premissions; }
+    void SetPermissions(size_t permissions) { this->m_permissions = permissions; }
+    size_t GetPermissions() const { return m_permissions; }
 
     void SetLineNumber(int lineNumber) { this->m_lineNumber = lineNumber; }
     int GetLineNumber() const { return m_lineNumber; }

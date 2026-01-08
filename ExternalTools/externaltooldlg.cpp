@@ -38,8 +38,6 @@ ExternalToolDlg::ExternalToolDlg(wxWindow* parent, IManager* mgr)
     CentreOnParent();
 }
 
-ExternalToolDlg::~ExternalToolDlg() {}
-
 void ExternalToolDlg::OnItemActivated(wxDataViewEvent& event) { DoEditEntry(event.GetItem()); }
 
 void ExternalToolDlg::OnButtonNew(wxCommandEvent& event)
@@ -69,7 +67,7 @@ void ExternalToolDlg::OnButtonDelete(wxCommandEvent& event)
 {
     wxDataViewItem item = m_dvListCtrlTools->GetSelection();
     CHECK_ITEM_RET(item);
-    if(wxMessageBox(_("Are you sure you want to delete this tool?"), _("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
+    if (wxMessageBox(_("Are you sure you want to delete this tool?"), wxT("CodeLite"), wxYES_NO | wxCANCEL) == wxYES) {
         m_dvListCtrlTools->DeleteItem(m_dvListCtrlTools->ItemToRow(item));
     }
 }

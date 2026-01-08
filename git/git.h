@@ -35,7 +35,9 @@
 
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
+#include "ai/ResponseCollector.hpp"
 #include "clCodeLiteRemoteProcess.hpp"
+#include "clResult.hpp"
 #include "clTabTogglerHelper.h"
 #include "cl_command_event.h"
 #include "gitentry.h"
@@ -46,13 +48,20 @@
 #include "project.h" // wxStringSet_t
 
 #include <map>
+#include <optional>
 #include <queue>
 #include <set>
 #include <vector>
 #include <wx/progdlg.h>
+#if USE_SFTP
+#include "cl_ssh.h"
+#endif
 
 class clTreeCtrl;
 class clCommandProcessor;
+class GitCommitDlg;
+
+#define GIT_TAB_NAME "Git"
 
 class gitAction
 {
@@ -62,13 +71,13 @@ public:
     wxString workingDirectory;
 
 public:
-    gitAction() {}
+    gitAction() = default;
     gitAction(int act, const wxString& args)
         : action(act)
         , arguments(args)
     {
     }
-    ~gitAction() {}
+    ~gitAction() = default;
 };
 
 class GitConsole;
@@ -87,7 +96,7 @@ struct GitCmd {
         : processFlags(IProcessCreateDefault)
     {
     }
-    typedef std::vector<GitCmd> Vec_t;
+    using Vec_t = std::vector<GitCmd>;
 };
 
 class GitPlugin : public IPlugin
@@ -96,7 +105,7 @@ class GitPlugin : public IPlugin
     friend class GitCommitListDlg;
     friend class GitCommitDlg;
 
-    typedef std::map<int, int> IntMap_t;
+    using IntMap_t = std::map<int, int>;
     enum {
         gitNone = 0,
         gitUpdateRemotes,
@@ -167,7 +176,6 @@ class GitPlugin : public IPlugin
     wxArrayString m_filesSelected;
     wxString m_selectedFolder;
     clCommandProcessor* m_commandProcessor;
-    clTabTogglerHelper::Ptr_t m_tabToggler;
     std::unordered_map<wxString, std::vector<wxString>>
         m_blameMap; // contains file: comment per line (extracted from the 'git blame' info)
     size_t m_configFlags = 0;
@@ -177,15 +185,19 @@ class GitPlugin : public IPlugin
     clCodeLiteRemoteProcess m_remoteProcess;
     wxString m_codeliteRemoteScriptPath;
     bool m_isEnabled = false;
-    bool m_commitDialogIsShown = false;
+    GitCommitDlg* m_commitDialog{nullptr};
+
+#if USE_SFTP
+    clSSH::Ptr_t m_ssh;
+#endif
 
 private:
     void StartCodeLiteRemote();
     void ClearCodeLiteRemoteInfo();
     void DoShowDiffViewer(const wxString& headFile, const wxString& fileName);
     void DoExecuteCommands(const GitCmd::Vec_t& commands, const wxString& workingDir);
-    bool DoExecuteCommandSync(const wxString& command, wxString* commandOutput,
-                              const wxString& workingDir = wxEmptyString);
+    bool
+    DoExecuteCommandSync(const wxString& command, wxString* commandOutput, const wxString& workingDir = wxEmptyString);
 
     void DoSetTreeItemImage(clTreeCtrl* ctrl, const wxTreeItemId& item, OverlayTool::BmpType bmpType) const;
     void InitDefaults();
@@ -206,12 +218,11 @@ private:
     void GetCurrentBranchAction(const gitAction& ga);
     void UpdateFileTree();
 
-    void ShowProgress(const wxString& message, bool pulse = true);
+    void ShowProgress(const wxString& message);
     void HideProgress();
     void DoCleanup();
     void DoAddFiles(const wxArrayString& files);
     void DoResetFiles(const wxArrayString& files);
-    void DoGetFileViewSelectedFiles(wxArrayString& files, bool relativeToRepo);
     void DoShowDiffsForFiles(const wxArrayString& files, bool useFileAsBase = false);
     void DoSetRepoPath(const wxString& repo_path = wxEmptyString);
     void DoRecoverFromGitCommandError(bool clear_queue = true);
@@ -227,6 +238,8 @@ private:
     void OnFileMenu(clContextMenuEvent& event);
     void OnFolderMenu(clContextMenuEvent& event);
 
+    void OnSideBarPageChanged(clCommandEvent& event);
+
     void OnFileCreated(clFileSystemEvent& event);
     void OnReplaceInFiles(clFileSystemEvent& event);
     void OnEditorChanged(wxCommandEvent& event);
@@ -238,12 +251,10 @@ private:
     void OnWorkspaceClosed(clWorkspaceEvent& e);
     void OnWorkspaceConfigurationChanged(wxCommandEvent& e);
     void OnMainFrameTitle(clCommandEvent& e);
-    void OnSetGitRepoPath(wxCommandEvent& e);
     void OnSettings(wxCommandEvent& e);
     void OnFileDiffSelected(wxCommandEvent& e);
     void OnFileResetSelected(wxCommandEvent& e);
     void OnFileAddSelected(wxCommandEvent& e);
-    void OnFileDeleteSelected(wxCommandEvent& e);
     void OnSwitchLocalBranch(wxCommandEvent& e);
     void OnSwitchRemoteBranch(wxCommandEvent& e);
     void OnCreateBranch(wxCommandEvent& e);
@@ -270,7 +281,6 @@ private:
     void OnEditorClosed(wxCommandEvent& event);
     void OnEnableGitRepoExists(wxUpdateUIEvent& e);
     void OnClone(wxCommandEvent& e);
-    void OnSftpFileSaved(clCommandEvent& event);
 
     // Event handlers from folder context menu
     void OnFolderPullRebase(wxCommandEvent& event);
@@ -288,9 +298,11 @@ private:
     void OnFindPath(clCommandEvent& event);
     void OpenURLInBrowser(const wxString& url);
 
+    std::optional<wxString> CheckForIndexLock() const;
+
 public:
     GitPlugin(IManager* manager);
-    virtual ~GitPlugin();
+    ~GitPlugin() override = default;
 
     const wxString& GetRepositoryPath() const { return m_repositoryDirectory; }
     void WorkspaceClosed();
@@ -300,13 +312,19 @@ public:
     /**
      * @brief create git process and return the process handle
      */
-    IProcess* AsyncRunGit(wxEvtHandler* handler, const wxString& git_args, size_t create_flags,
-                          const wxString& working_directory, bool logMessage = false);
+    IProcess* AsyncRunGit(wxEvtHandler* handler,
+                          const wxString& git_args,
+                          size_t create_flags,
+                          const wxString& working_directory,
+                          bool logMessage = false);
     /**
      * @brief create a git process and direct the output to a callback
      */
-    void AsyncRunGitWithCallback(const wxString& git_args, std::function<void(const wxString&)> callback,
-                                 size_t create_flags, const wxString& working_directory, bool logMessage = false);
+    void AsyncRunGitWithCallback(const wxString& git_args,
+                                 std::function<void(const wxString&)> callback,
+                                 size_t create_flags,
+                                 const wxString& working_directory,
+                                 bool logMessage = false);
     /**
      * @brief is git enabled for the current workspace?
      */
@@ -352,8 +370,6 @@ public:
 
     void DoGitBlame(const wxString& args);      // Called by OnGitBlame or the git blame dialog
     wxString GetEditorRelativeFilepath() const; // Called by OnGitBlame or the git blame dialog
-    void OnGitBlameRevList(const wxString& arg, const wxString& filepath,
-                           const wxString& commit = ""); // Called by the git blame dialog
 
     /**
      * @brief simple git command executioin completed. Display its output etc
@@ -361,13 +377,22 @@ public:
     void OnCommandOutput(clCommandEvent& event);
     void OnCommandEnded(clCommandEvent& event);
 
+    bool GenerateCommitMessage(const wxString& prompt);
+
+    /// Return the commit log between range of commits. We split the log (line based), to match the `chunk_size`
+    /// argument.
+    clStatusOr<wxArrayString> FetchLogBetweenCommits(const wxString& start_commit,
+                                                     const wxString& end_commit,
+                                                     bool oneline = true,
+                                                     size_t chunk_size = wxString::npos);
+
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 };
 
 #endif // git

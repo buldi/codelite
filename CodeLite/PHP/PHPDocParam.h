@@ -3,14 +3,14 @@
 
 #include "PHPSourceFile.h"
 #include "codelite_exports.h"
-#include "wxStringHash.h"
+
 #include <vector>
 #include <wx/string.h>
 
 class WXDLLIMPEXP_CL PHPDocParam
 {
 public:
-    typedef std::vector<std::pair<wxString, wxString> > Vec_t;
+    using Vec_t = std::vector<std::pair<wxString, wxString>>;
 
 protected:
     PHPSourceFile& m_sourceFile;
@@ -19,7 +19,7 @@ protected:
 
 public:
     PHPDocParam(PHPSourceFile& sourceFile, const wxString& comment);
-    ~PHPDocParam();
+    ~PHPDocParam() = default;
 
     /**
      * @brief parse comment and map of params found in it

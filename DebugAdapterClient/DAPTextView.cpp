@@ -7,6 +7,7 @@
 #include "globals.h"
 #include "imanager.h"
 #include "clAuiBook.hpp"
+#include "clGenericNotebook.hpp"
 
 namespace
 {
@@ -111,24 +112,6 @@ void DAPTextView::SetText(const dap::Source& source, const wxString& text, const
     m_current_source = source;
     m_mimeType = mimeType;
     SetFilePath(path);
-    UpdateLineNumbersMargin();
-    ApplyTheme();
-}
-
-void DAPTextView::LoadFile(const dap::Source& source, const wxString& filepath)
-{
-    m_stcTextView->SetEditable(true);
-    bool ok = m_stcTextView->LoadFile(filepath);
-    m_stcTextView->SetEditable(false);
-    m_mimeType.clear();
-
-    if(ok) {
-        SetFilePath(filepath);
-        m_current_source = source;
-    } else {
-        Clear();
-    }
-
     UpdateLineNumbersMargin();
     ApplyTheme();
 }

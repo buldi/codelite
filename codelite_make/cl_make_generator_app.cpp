@@ -1,16 +1,16 @@
 #include "cl_make_generator_app.h"
 
 #include "build_settings_config.h"
-#include "builder/builder_gnumake.h"
 #include "builder/builder_gnumake_default.h"
 #include "configuration_mapping.h"
-#include "globals.h"
+#include "fileutils.h"
 #include "macromanager.h"
+#include "procutils.h"
 #include "workspace.h"
 
 #include <algorithm>
-#include <wx/crt.h>
 #include <wx/filename.h>
+#include <wx/wxcrtvararg.h>
 
 IMPLEMENT_APP_CONSOLE(clMakeGeneratorApp)
 
@@ -48,8 +48,6 @@ clMakeGeneratorApp::clMakeGeneratorApp()
     , m_commandType(kBuild)
 {
 }
-
-clMakeGeneratorApp::~clMakeGeneratorApp() {}
 
 int clMakeGeneratorApp::OnExit()
 {
@@ -103,8 +101,8 @@ bool clMakeGeneratorApp::OnInit()
         return false;
     }
     buildMatrix->SetSelectedConfigurationName(m_configuration);
-    wxString projectConfiguraion = iter->m_name;
-    Info(wxString() << "-- Building project configuration: " << projectConfiguraion);
+    wxString projectConfiguration = iter->m_name;
+    Info(wxString() << "-- Building project configuration: " << projectConfiguration);
 
     // Which makefile should we create?
     BuilderGnuMake builder;
@@ -115,9 +113,9 @@ bool clMakeGeneratorApp::OnInit()
     }
 
     // Load the build configuration
-    BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(m_project, projectConfiguraion);
+    BuildConfigPtr bldConf = clCxxWorkspaceST::Get()->GetProjBuildConf(m_project, projectConfiguration);
     if(!bldConf) {
-        Error(wxString() << "Could not find configuration " << projectConfiguraion << " for project " << m_project);
+        Error(wxString() << "Could not find configuration " << projectConfiguration << " for project " << m_project);
         return false;
     }
 
@@ -129,7 +127,7 @@ bool clMakeGeneratorApp::OnInit()
         Bye();
     } else {
         if(bldConf->IsCustomBuild()) {
-            Notice(wxString() << "Configuration " << projectConfiguraion << " for project " << m_project
+            Notice(wxString() << "Configuration " << projectConfiguration << " for project " << m_project
                               << " is using a custom build - will not generate makefile");
             Notice(wxString() << "Instead, here is the command line to use:");
             wxString command;
@@ -152,7 +150,7 @@ bool clMakeGeneratorApp::OnInit()
         }
 
         wxString args = bldConf->GetBuildSystemArguments();
-        if(!builder.Export(m_project, projectConfiguraion, args, false, true, errmsg)) {
+        if (!builder.Export(m_project, projectConfiguration, args, false, true, errmsg)) {
             Error(wxString() << "Error while exporting makefile. " << errmsg);
             return false;
         }
@@ -160,15 +158,15 @@ bool clMakeGeneratorApp::OnInit()
         wxString commandToRun;
         switch(m_commandType) {
         case kBuild:
-            commandToRun = builder.GetBuildCommand(m_project, projectConfiguraion, args);
+            commandToRun = builder.GetBuildCommand(m_project, projectConfiguration, args);
             break;
         case kClean:
-            commandToRun = builder.GetCleanCommand(m_project, projectConfiguraion, args);
+            commandToRun = builder.GetCleanCommand(m_project, projectConfiguration, args);
             break;
         case kRebuild:
-            commandToRun = builder.GetCleanCommand(m_project, projectConfiguraion, args);
+            commandToRun = builder.GetCleanCommand(m_project, projectConfiguration, args);
             // append the build command
-            commandToRun << " && " << builder.GetBuildCommand(m_project, projectConfiguraion, args);
+            commandToRun << " && " << builder.GetBuildCommand(m_project, projectConfiguration, args);
             break;
         }
 
@@ -277,7 +275,7 @@ void clMakeGeneratorApp::Out(const wxString& msg) { wxPrintf("%s\n", msg); }
 void clMakeGeneratorApp::DoExecCommand(const wxString& command)
 {
     wxString cmd = command;
-    WrapInShell(cmd);
+    ProcUtils::WrapInShell(cmd);
     wxPrintf(cmd + "\n");
     m_exitCode = ::wxExecute(cmd, wxEXEC_SYNC | wxEXEC_NOHIDE | wxEXEC_SHOW_CONSOLE);
     Bye();
@@ -285,23 +283,23 @@ void clMakeGeneratorApp::DoExecCommand(const wxString& command)
 
 void clMakeGeneratorApp::DoGenerateCompileCommands()
 {
-    wxFileName fn(clCxxWorkspaceST::Get()->GetFileName());
-    fn.SetFullName("compile_commands.json");
+    if (m_generateCompileCommands) {
+        wxFileName fn(clCxxWorkspaceST::Get()->GetFileName());
+        fn.SetFullName("compile_commands.json");
 
-    if(m_generateCompileCommands) {
         Info(wxString() << "-- Generating: " << fn.GetFullPath());
+        auto json = clCxxWorkspaceST::Get()->CreateCompileCommandsJSON();
+        if (json.is_array()) {
+            // Save the file
+            FileUtils::WriteFileContentRaw(fn, json.dump(2));
+        }
     } else {
         Info(wxString() << "-- Generating: compile_flags.txt files...");
-    }
 
-    wxArrayString generated_paths;
-    JSON json(clCxxWorkspaceST::Get()->CreateCompileCommandsJSON(!m_generateCompileCommands, &generated_paths));
-    if(json.isOk()) {
-        // Save the file
-        json.save(fn);
-    }
-    for(const wxString& path : generated_paths) {
-        wxFprintf(stdout, "%s\n", path);
+        const wxArrayString generated_paths = clCxxWorkspaceST::Get()->CreateCompileFlagsTexts();
+        for (const wxString& path : generated_paths) {
+            wxFprintf(stdout, "%s\n", path);
+        }
     }
 }
 

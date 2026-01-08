@@ -27,11 +27,11 @@
 
 #include "Keyboard/clKeyboardManager.h"
 #include "StdToWX.h"
+#include "StringUtils.h"
 #include "SvnCommitDialog.h"
 #include "SvnLogDialog.h"
 #include "SvnShowFileChangesHandler.h"
 #include "SvnShowRecentChangesDlg.h"
-#include "clGotoAnythingManager.h"
 #include "cl_standard_paths.h"
 #include "detachedpanesinfo.h"
 #include "dockablepane.h"
@@ -53,18 +53,14 @@
 
 #include <algorithm>
 #include <wx/app.h>
-#include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/fileconf.h>
-#include <wx/filedlg.h>
 #include <wx/filefn.h>
-#include <wx/imaglist.h>
 #include <wx/menu.h>
 #include <wx/menuitem.h>
 #include <wx/msgdlg.h>
 #include <wx/numdlg.h>
 #include <wx/regex.h>
-#include <wx/stdpaths.h>
 #include <wx/textdlg.h>
 #include <wx/tokenzr.h>
 #include <wx/xrc/xmlres.h>
@@ -146,7 +142,6 @@ CL_PLUGIN_API int GetPluginInterfaceVersion() { return PLUGIN_INTERFACE_VERSION;
 
 Subversion2::Subversion2(IManager* manager)
     : IPlugin(manager)
-    , m_explorerSepItem(NULL)
     , m_projectSepItem(NULL)
     , m_simpleCommand(this)
     , m_diffCommand(this)
@@ -215,8 +210,6 @@ Subversion2::Subversion2(IManager* manager)
     // clGotoAnythingManager::Get().Add(clGotoEntry("Svn > Commit", "", XRCID("svn_commit")));
     // clGotoAnythingManager::Get().Add(clGotoEntry("Svn > Update", "", XRCID("svn_update")));
 }
-
-Subversion2::~Subversion2() {}
 
 void Subversion2::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
@@ -325,7 +318,7 @@ void Subversion2::UnPlug()
     EventNotifier::Get()->Unbind(wxEVT_FOLDER_DELETED, &Subversion2::OnFolderDeleted, this);
     EventNotifier::Get()->Unbind(wxEVT_GOTO_ANYTHING_SHOWING, &Subversion2::OnGotoAnythingShowing, this);
 
-    m_tabToggler.reset(NULL);
+    m_tabToggler.reset();
     GetManager()->GetTheApp()->Disconnect(XRCID("subversion2_settings"), wxEVT_COMMAND_MENU_SELECTED,
                                           wxCommandEventHandler(Subversion2::OnSettings), NULL, this);
     GetManager()->GetTheApp()->Disconnect(XRCID("svn_explorer_commit"), wxEVT_COMMAND_MENU_SELECTED,
@@ -468,7 +461,7 @@ void Subversion2::OnFolderAdd(wxCommandEvent& event)
         command << GetSvnExeName() << loginString << " add " << m_selectedFile.GetFullName();
     } else {
         wxString folderName = workingDirectory.GetDirs().Last();
-        ::WrapWithQuotes(folderName);
+        StringUtils::WrapWithQuotes(folderName);
 
         workingDirectory.RemoveLastDir();
         command << GetSvnExeName() << loginString << " add " << folderName;
@@ -496,7 +489,7 @@ void Subversion2::OnDeleteFolder(wxCommandEvent& event)
     wxFileName workingDirectory(m_selectedFolder, "");
     if(!m_selectedFile.IsOk()) {
         wxString folderName = workingDirectory.GetDirs().Last();
-        ::WrapWithQuotes(folderName);
+        StringUtils::WrapWithQuotes(folderName);
 
         workingDirectory.RemoveLastDir();
         command << GetSvnExeName() << loginString << " delete --force " << folderName;
@@ -581,46 +574,21 @@ wxString Subversion2::GetSvnExeName()
 
     wxString exeName = ssd.GetExecutable();
     exeName.Trim().Trim(false);
-    ::WrapWithQuotes(exeName);
+    StringUtils::WrapWithQuotes(exeName);
 
     exeName << " --config-dir";
 
     wxString configDir = GetUserConfigDir();
-    ::WrapWithQuotes(configDir);
+    StringUtils::WrapWithQuotes(configDir);
 
     exeName << " " << configDir;
     return exeName;
-}
-
-wxString Subversion2::DoGetFileExplorerFilesAsString()
-{
-    wxString s;
-    wxArrayString files = DoGetFileExplorerFiles();
-    for(size_t i = 0; i < files.GetCount(); i++) {
-        s << " \"" << files.Item(i) << "\" ";
-    }
-    return s;
 }
 
 wxArrayString Subversion2::DoGetFileExplorerFiles()
 {
     TreeItemInfo item = m_mgr->GetSelectedTreeItemInfo(TreeFileExplorer);
     return item.m_paths;
-}
-
-wxString Subversion2::DoGetFileExplorerItemFullPath()
-{
-    TreeItemInfo item = m_mgr->GetSelectedTreeItemInfo(TreeFileExplorer);
-    wxString filename(item.m_fileName.GetFullPath());
-    filename.Trim().Trim(false);
-
-    if(filename.EndsWith("\\")) {
-        filename.RemoveLast();
-
-    } else if(filename.EndsWith("/")) {
-        filename.RemoveLast();
-    }
-    return filename;
 }
 
 wxString Subversion2::DoGetFileExplorerItemPath()
@@ -1063,7 +1031,7 @@ void Subversion2::OnFileExplorerRenameItem(wxCommandEvent& event)
         if(newname.IsEmpty() || newname == folderName) {
             return;
         }
-        ::WrapWithQuotes(newname);
+        StringUtils::WrapWithQuotes(newname);
         DoRename(workingDirectory.GetPath(), folderName, newname, event);
     } else {
         wxString newname = ::clGetTextFromUser(_("Svn Rename"), _("New name:"), m_selectedFile.GetFullName(),
@@ -1071,7 +1039,7 @@ void Subversion2::OnFileExplorerRenameItem(wxCommandEvent& event)
         if(newname.IsEmpty() || newname == m_selectedFile.GetFullName()) {
             return;
         }
-        ::WrapWithQuotes(newname);
+        StringUtils::WrapWithQuotes(newname);
         DoRename(workingDirectory.GetPath(), m_selectedFile.GetFullName(), newname, event);
     }
 }
@@ -1127,49 +1095,16 @@ void Subversion2::DoCommit(const wxArrayString& files, const wxString& workingDi
         }
 
         wxString filepath = tmpFile.GetFullPath();
-        ::WrapWithQuotes(filepath);
+        StringUtils::WrapWithQuotes(filepath);
         command << " --file " << filepath << " ";
 
         // Add the changed files
         for(size_t i = 0; i < actualFiles.GetCount(); ++i) {
-            ::WrapWithQuotes(actualFiles.Item(i));
+            StringUtils::WrapWithQuotes(actualFiles.Item(i));
             command << actualFiles.Item(i) << " ";
         }
         GetConsole()->Execute(command, workingDirectory, new SvnCommitHandler(this, event.GetId(), this));
     }
-}
-
-wxArrayString Subversion2::DoGetFileExplorerFilesToCommitRelativeTo(const wxString& wd)
-{
-    wxArrayString files;
-    TreeItemInfo itemInfo = m_mgr->GetSelectedTreeItemInfo(TreeFileExplorer);
-    files.swap(itemInfo.m_paths);
-
-    for(size_t i = 0; i < files.GetCount(); i++) {
-        if(wxDir::Exists(files.Item(i))) {
-            // Get the list of modified files from the directory
-            wxArrayString modFiles = DoGetSvnStatusQuiet(files.Item(i));
-
-            for(size_t j = 0; j < modFiles.GetCount(); j++) {
-                wxFileName fn(modFiles.Item(j));
-                fn.MakeAbsolute(files.Item(i));
-                fn.MakeRelativeTo(wd);
-
-                if(files.Index(fn.GetFullPath()) == wxNOT_FOUND) {
-                    files.Add(fn.GetFullPath());
-                }
-            }
-
-        } else {
-            wxFileName fn(files.Item(i));
-            fn.MakeRelativeTo(wd);
-
-            if(files.Index(fn.GetFullPath()) == wxNOT_FOUND) {
-                files.Add(fn.GetFullPath());
-            }
-        }
-    }
-    return files;
 }
 
 wxArrayString Subversion2::DoGetSvnStatusQuiet(const wxString& wd)
@@ -1435,10 +1370,10 @@ void Subversion2::FinishSyncProcess(ProjectPtr& proj, const wxString& workDir, b
 wxString Subversion2::GetSvnExeNameNoConfigDir()
 {
     SvnSettingsData ssd = GetSettings();
-    wxString executeable = ssd.GetExecutable();
-    ::WrapWithQuotes(executeable);
-    executeable << " ";
-    return executeable;
+    wxString executable = ssd.GetExecutable();
+    StringUtils::WrapWithQuotes(executable);
+    executable << " ";
+    return executable;
 }
 
 void Subversion2::OnRevertToRevision(wxCommandEvent& event)
@@ -1467,7 +1402,7 @@ void Subversion2::OnRevertToRevision(wxCommandEvent& event)
     } else {
         wxString folderName = workingDirectory.GetDirs().Last();
         workingDirectory.RemoveLastDir();
-        ::WrapWithQuotes(folderName);
+        StringUtils::WrapWithQuotes(folderName);
 
         command << GetSvnExeName() << loginString << " merge -r HEAD:" << nRevision << " " << folderName;
         GetConsole()->Execute(command, workingDirectory.GetPath(),
@@ -1619,7 +1554,7 @@ void Subversion2::ShowRecentChanges(const wxString& file)
         return;
     }
     wxString filename(file);
-    ::WrapWithQuotes(filename);
+    StringUtils::WrapWithQuotes(filename);
     long numberOfChanges = wxGetNumberFromUser(_("How many recent changes you want to view?"), "",
                                                _("Svn show recent changes"), 1, 1, 100);
     if(numberOfChanges == wxNOT_FOUND) {

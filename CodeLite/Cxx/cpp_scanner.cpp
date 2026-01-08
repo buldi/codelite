@@ -25,12 +25,6 @@
 #include "precompiled_header.h"
 #include "cpp_scanner.h"
 
-#ifdef __VISUALC__
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-#endif
-
 CppScanner::CppScanner()
 : m_curr(0)
 {
@@ -41,7 +35,7 @@ CppScanner::CppScanner()
 	m_comment = wxEmptyString;
 }
 
-CppScanner::~CppScanner(void)
+CppScanner::~CppScanner()
 {
 	free(m_data);
 }
@@ -85,11 +79,4 @@ void CppScanner::Reset()
 	yy_flush_buffer(yy_current_buffer);
 	m_comment = wxEmptyString;
 	yylineno = 1;
-}
-
-void CppScanner::Restart()
-{
-	char* p = strdup(m_data);
-	SetText( p );
-	free(p);
 }

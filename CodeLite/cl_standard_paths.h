@@ -35,7 +35,7 @@ class WXDLLIMPEXP_CL clStandardPaths
 {
 private:
     clStandardPaths();
-    virtual ~clStandardPaths();
+    virtual ~clStandardPaths() = default;
 
     wxString m_path;
     wxString m_dataDir;
@@ -96,12 +96,12 @@ public:
      * @brief return the full path for an executable. This function
      * usually returns: GetBinFolder() + "/" + toolname + ".exe"
      * @param unixStylePath the path returned is always using forward slash `/`
-     * @note the .exe and "/" are platform dependant
+     * @note the .exe and "/" are platform dependent
      */
     wxString GetBinaryFullPath(const wxString& toolname, bool unixStylePath = false) const;
 
     /**
-     * @brief get CodeLite executale path
+     * @brief get CodeLite executable path
      */
     wxString GetExecutablePath() const;
 
@@ -116,7 +116,7 @@ public:
     wxString GetLexersDir() const;
 
     /**
-     * @brief return the project templates dircectory
+     * @brief return the project templates directory
      */
     wxString GetProjectTemplatesDir() const;
 

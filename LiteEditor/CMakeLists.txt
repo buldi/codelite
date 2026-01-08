@@ -7,30 +7,18 @@ project(codelite)
 include("${wxWidgets_USE_FILE}")
 include(UtilsHelper)
 
-# Include paths
-include_directories("${CL_SRC_ROOT}/Plugin" "${CL_SRC_ROOT}/sdk/wxsqlite3/include" "${CL_SRC_ROOT}/CodeLite"
-                    "${CL_SRC_ROOT}/CodeLite/ssh" "${CL_SRC_ROOT}/PCH" "${CL_SRC_ROOT}/Interfaces")
-
-if(NOT MINGW)
-    add_definitions(-fPIC)
-endif(NOT MINGW)
-
 if(USE_PCH AND NOT MINGW)
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
 endif()
 
-add_definitions(-DWXUSINGDLL_WXSQLITE3)
-add_definitions(-DWXUSINGDLL_CL)
-add_definitions(-DWXUSINGDLL_SDK)
-
 if(MINGW)
     # disables the part of urlmon.h that defines IsLoggingEnabled
-    add_definitions(-D_HITLOGGING_DEFINED=0)
+    add_compile_definitions(_HITLOGGING_DEFINED=0)
 endif(MINGW)
 
 if(USE_CLANG)
-    add_definitions(-DHAS_LIBCLANG)
+    add_compile_definitions(HAS_LIBCLANG)
     include_directories(${CLANG_INCLUDE})
 endif(USE_CLANG)
 
@@ -47,6 +35,10 @@ if(MINGW)
 endif()
 add_executable(codelite ${SRCS} ${RES_FILES})
 
+if(UNIX OR APPLE)
+    set_target_properties(codelite PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
+
 set(ADDITIONAL_LIBRARIES "")
 
 if(MINGW)
@@ -57,7 +49,7 @@ if(UNIX)
     if(IS_FREEBSD)
         set(ADDITIONAL_LIBRARIES "-lkvm -lutil")
     elseif(IS_NETBSD)
-        set(ADDTIONAL_LIBRARIES "-lutil")
+        set(ADDITIONAL_LIBRARIES "-lutil")
     elseif(UNIX AND NOT APPLE)
         set(ADDITIONAL_LIBRARIES "-ldl -lutil -lgobject-2.0")
     endif()
@@ -72,7 +64,6 @@ if(GTK2_FOUND)
         codelite
         ${LINKER_OPTIONS}
         ${GTK2_LIBRARIES}
-        ${wxWidgets_LIBRARIES}
         ${CLANG_LIBRARY}
         -L"${CL_LIBPATH}"
         libcodelite
@@ -83,7 +74,6 @@ elseif(GTK3_FOUND)
         codelite
         ${LINKER_OPTIONS}
         ${GTK3_LIBRARIES}
-        ${wxWidgets_LIBRARIES}
         ${CLANG_LIBRARY}
         -L"${CL_LIBPATH}"
         libcodelite
@@ -93,7 +83,6 @@ else()
     target_link_libraries(
         codelite
         ${LINKER_OPTIONS}
-        ${wxWidgets_LIBRARIES}
         ${CLANG_LIBRARY}
         -L"${CL_LIBPATH}"
         libcodelite
@@ -101,7 +90,9 @@ else()
         ${ADDITIONAL_LIBRARIES})
 endif()
 
-codelite_add_pch(codelite)
+if(USE_PCH)
+    codelite_add_pch(plugin)
+endif()
 
 # ######################################################################################################################
 # Install
@@ -239,17 +230,16 @@ if(NOT APPLE)
     elseif(MINGW)
         install(
             FILES ${CL_SRC_ROOT}/art/splashscreen@2x.png
-            DESTINATION ${CL_INSTALL_BIN}/images
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/share/codelite/images
             RENAME splashscreen.png)
 
-        install(FILES ${CL_SRC_ROOT}/art/splashscreen@2x.png DESTINATION ${CL_INSTALL_BIN}/images)
+        install(FILES ${CL_SRC_ROOT}/art/splashscreen@2x.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/codelite/images)
     endif()
 
     codelite_install_script(${CL_SRC_ROOT}/Runtime/codelite-remote)
 
     install(
-        DIRECTORY ${CL_SRC_ROOT}/Runtime/images
-                  ${CL_SRC_ROOT}/Runtime/gdb_printers
+        DIRECTORY ${CL_SRC_ROOT}/Runtime/gdb_printers
                   ${CL_SRC_ROOT}/Runtime/src/
                   ${CL_SRC_ROOT}/Runtime/lexers
                   ${CL_SRC_ROOT}/Runtime/templates
@@ -284,14 +274,6 @@ if(NOT APPLE)
             FILES
                 ${CL_SRC_ROOT}/Runtime/templates/projects/dynamic-library-wx-enabled/dynamic-library-wx-enabled.project
             DESTINATION ${CL_RESOURCES_DIR}/templates/projects/dynamic-library-wx-enabled)
-    endif()
-
-    if(UNIX)
-        install(
-            DIRECTORY ${CL_SRC_ROOT}/translations/
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/share/locale
-            USE_SOURCE_PERMISSIONS FILES_MATCHING
-            PATTERN "codelite.mo")
     endif()
 
     if(UNIX AND CL_COPY_WX_LIBS) # If we're packaging with wx2.9

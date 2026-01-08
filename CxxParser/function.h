@@ -36,14 +36,14 @@ public:
     
 public:
     clFunction();
-    virtual ~clFunction();
+    virtual ~clFunction() = default;
 
     // clear the class content
     void Reset();
 
     // print the variable to stdout
-    void Print();
+    void Print() const;
 };
 
-typedef std::list<clFunction> FunctionList;
+using FunctionList = std::list<clFunction>;
 #endif // FUNCTION_H

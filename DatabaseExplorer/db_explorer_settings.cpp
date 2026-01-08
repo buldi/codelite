@@ -34,10 +34,6 @@ DbExplorerSettings::DbExplorerSettings()
 {
 }
 
-DbExplorerSettings::~DbExplorerSettings()
-{
-}
-
 void DbExplorerSettings::SetRecentFiles(const wxArrayString& recentFiles)
 {
     m_recentFiles.Clear();
@@ -111,9 +107,8 @@ JSONItem DbExplorerSettings::ToJSON() const
     // add the connections array
     JSONItem arrConnections = JSONItem::createArray("connections");
     element.append(arrConnections);
-    DbConnectionInfoVec::const_iterator iter = m_connections.begin();
-    for(; iter != m_connections.end(); ++iter) {
-        arrConnections.arrayAppend( iter->ToJSON() );
+    for (const auto& connection : m_connections) {
+        arrConnections.arrayAppend(connection.ToJSON());
     }
     return element;
 }
@@ -125,10 +120,6 @@ JSONItem DbExplorerSettings::ToJSON() const
 DbConnectionInfo::DbConnectionInfo()
     : clConfigItem("connection-info")
     , m_connectionType(DbConnTypeMySQL)
-{
-}
-
-DbConnectionInfo::~DbConnectionInfo()
 {
 }
 

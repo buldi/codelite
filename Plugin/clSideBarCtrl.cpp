@@ -2,6 +2,7 @@
 
 #include "bitmap_loader.h"
 #include "clSystemSettings.h"
+#include "event_notifier.h"
 
 #include <wx/anybutton.h>
 #include <wx/dcbuffer.h>
@@ -11,8 +12,8 @@
 #include <wx/toolbar.h>
 #include <wx/tooltip.h>
 
-wxDEFINE_EVENT(wxEVT_SIDEBAR_SELECTION_CHANGED, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_SIDEBAR_CONTEXT_MENU, wxContextMenuEvent);
+wxDEFINE_EVENT(wxEVT_SIDEBAR_SELECTION_CHANGED, clCommandEvent);
+wxDEFINE_EVENT(wxEVT_SIDEBAR_CONTEXT_MENU, clContextMenuEvent);
 
 #define CHECK_POINTER_RETURN(ptr, WHAT) \
     if (!ptr)                           \
@@ -38,7 +39,7 @@ wxDEFINE_EVENT(wxEVT_SIDEBAR_CONTEXT_MENU, wxContextMenuEvent);
 namespace
 {
 
-// return the wxBORDER_SIMPLE that matches the current application theme
+// Return the wxBORDER_SIMPLE that matches the current application theme
 wxBorder border_simple_theme_aware_bit()
 {
 #ifdef __WXMAC__
@@ -46,9 +47,10 @@ wxBorder border_simple_theme_aware_bit()
 #elif defined(__WXGTK__)
     return wxBORDER_STATIC;
 #else
-    return wxBORDER_SIMPLE;
+    // Windows
+    return wxBORDER_NONE;
 #endif
-} // DoGetBorderSimpleBit
+} // border_simple_theme_aware_bit
 
 /// Return true if we are running under Windows 11 in dark mode
 bool IsWindows11DarkMode()
@@ -139,7 +141,7 @@ long clSideBarCtrl::AddToolData(clSideBarToolData data)
     static long tool_data_id = 0;
 
     long next_id = ++tool_data_id;
-    m_toolDataMap.insert({ next_id, data });
+    m_toolDataMap.insert({next_id, data});
     return next_id;
 }
 
@@ -222,11 +224,7 @@ void clSideBarCtrl::AddTool(const wxString& label, const wxString& bmpname, size
         clWARNING() << "clSideBarCtrl::AddPage(): Invalid bitmap:" << bmpname << endl;
     }
 
-    const wxBitmap& bmp = clSystemSettings::GetAppearance().IsDark()
-                              // Under Windows 11, the toolbar selection is "very light"
-                              // so use the light theme bitmap
-                              ? (IsWindows11DarkMode() ? light_theme_bmp : dark_theme_bmp)
-                              : light_theme_bmp;
+    const wxBitmap& bmp = clSystemSettings::GetAppearance().IsDark() ? dark_theme_bmp : light_theme_bmp;
 
     auto tool = m_toolbar->AddTool(wxID_ANY, label, wxBitmapBundle(bmp), label, wxITEM_CHECK);
     auto tool_id = tool->GetId();
@@ -244,7 +242,7 @@ void clSideBarCtrl::AddTool(const wxString& label, const wxString& bmpname, size
 
     m_toolbar->Bind(
         wxEVT_UPDATE_UI,
-        [label, tool_id, this](wxUpdateUIEvent& event) {
+        [label, this](wxUpdateUIEvent& event) {
             int book_index = GetPageIndex(label);
             bool is_checked = m_book->GetSelection() == book_index;
             event.Check(is_checked);
@@ -271,7 +269,6 @@ void clSideBarCtrl::DoRemovePage(size_t pos, bool delete_it)
         m_book->RemovePage(pos);
     }
 
-    int tool_id = tool->GetId();
     bool was_selection = TOOL_IS_CHECKED(tool);
 
     m_toolbar->DeleteTool(tool->GetId());
@@ -319,6 +316,12 @@ void clSideBarCtrl::ChangeSelection(size_t pos)
     CallAfter(&clSideBarCtrl::MSWUpdateToolbarBitmaps, new_tool_id, old_tool_id);
     m_selectedToolId = new_tool_id;
     m_book->ChangeSelection(pos);
+
+    clCommandEvent paged_changed_event{wxEVT_SIDEBAR_SELECTION_CHANGED};
+    paged_changed_event.SetInt(pos);
+    paged_changed_event.SetString(m_book->GetPageText(pos));
+    paged_changed_event.SetEventObject(this);
+    EventNotifier::Get()->AddPendingEvent(paged_changed_event);
 }
 
 size_t clSideBarCtrl::GetPageCount() const { return m_book->GetPageCount(); }
@@ -457,7 +460,7 @@ void clSideBarCtrl::OnContextMenu(
     int book_index = GetPageIndex(tool->GetLabel());
     CHECK_COND_RET(book_index != wxNOT_FOUND);
 
-    wxContextMenuEvent menu_event{ wxEVT_SIDEBAR_CONTEXT_MENU };
+    clContextMenuEvent menu_event{wxEVT_SIDEBAR_CONTEXT_MENU};
     menu_event.SetEventObject(this);
     menu_event.SetInt(book_index);
     GetEventHandler()->ProcessEvent(menu_event);

@@ -1,12 +1,10 @@
 #include "PHPEntityVariable.h"
-#include "PHPScannerTokens.h"
+
 #include "PHPEntityFunction.h"
-#include "PHPEntityClass.h"
 #include "PHPLookupTable.h"
+#include "PHPScannerTokens.h"
 
-PHPEntityVariable::PHPEntityVariable() {}
-
-PHPEntityVariable::~PHPEntityVariable() {}
+#include <wx/wxcrtvararg.h>
 
 void PHPEntityVariable::PrintStdout(int indent) const
 {
@@ -28,9 +26,8 @@ void PHPEntityVariable::PrintStdout(int indent) const
     wxPrintf(", Ln. %d", GetLine());
     wxPrintf("\n");
 
-    PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-    for(; iter != m_children.end(); ++iter) {
-        (*iter)->PrintStdout(indent + 4);
+    for (const auto& child : m_children) {
+        child->PrintStdout(indent + 4);
     }
 }
 
@@ -116,7 +113,7 @@ void PHPEntityVariable::Store(PHPLookupTable* lookup)
             statement.ExecuteUpdate();
             SetDbId(db.GetLastRowId());
 
-        } catch(wxSQLite3Exception& exc) {
+        } catch (const wxSQLite3Exception& exc) {
             wxUnusedVar(exc);
         }
     }

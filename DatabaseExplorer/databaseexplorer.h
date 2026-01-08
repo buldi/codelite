@@ -34,15 +34,15 @@ class DatabaseExplorer : public IPlugin
 {
 public:
     DatabaseExplorer(IManager* manager);
-    ~DatabaseExplorer();
+    ~DatabaseExplorer() override;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void HookPopupMenu(wxMenu* menu, MenuType type);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void HookPopupMenu(wxMenu* menu, MenuType type) override;
+    void UnPlug() override;
 
     static IManager* GetManager();
     static DbViewerPanel* GetViewerPanel() { return m_dbViewerPanel; }
@@ -51,7 +51,6 @@ protected:
     void OnAbout(wxCommandEvent& e);
     void OnOpenWithDBE(clCommandEvent& e);
     void DoOpenFile(const wxFileName& filename);
-    void OnUpdateOpenWithDBE(wxUpdateUIEvent& e);
     void OnToggleTab(clCommandEvent& event);
     void OnExecuteSQL(wxCommandEvent& event);
     static DbViewerPanel* m_dbViewerPanel;

@@ -31,9 +31,10 @@
 #include "codelite_exports.h"
 #include "wxPNGAnimation.h"
 
+#include <memory>
+#include <vector>
 #include <wx/bitmap.h>
 #include <wx/colour.h>
-#include <wx/sharedptr.h>
 #include <wx/statusbr.h>
 #include <wx/timer.h>
 
@@ -44,11 +45,11 @@ protected:
     wxString m_name;
 
 public:
-    typedef wxSharedPtr<wxCustomStatusBarArt> Ptr_t;
+    using Ptr_t = std::shared_ptr<wxCustomStatusBarArt>;
 
 public:
     wxCustomStatusBarArt(const wxString& name);
-    virtual ~wxCustomStatusBarArt() {}
+    virtual ~wxCustomStatusBarArt() = default;
 
     virtual void DrawText(wxDC& dc, wxCoord x, wxCoord y, const wxString& text);
     virtual void DrawFieldSeparator(wxDC& dc, const wxRect& fieldRect);
@@ -79,14 +80,14 @@ protected:
     size_t m_autoWidth = 0;
 
 public:
-    typedef wxSharedPtr<wxCustomStatusBarField> Ptr_t;
-    typedef std::vector<wxCustomStatusBarField::Ptr_t> Vect_t;
+    using Ptr_t = std::shared_ptr<wxCustomStatusBarField>;
+    using Vect_t = std::vector<wxCustomStatusBarField::Ptr_t>;
 
     wxCustomStatusBarField(wxCustomStatusBar* parent)
         : m_parent(parent)
     {
     }
-    virtual ~wxCustomStatusBarField() {}
+    virtual ~wxCustomStatusBarField() = default;
 
     bool IsAutoWidth() const { return m_flags & AUTO_WIDTH; }
     void SetAutoWidth(bool b) { m_flags |= AUTO_WIDTH; }
@@ -122,7 +123,11 @@ public:
     const wxString& GetTooltip() const { return m_tooltip; }
     const wxRect& GetRect() const { return m_rect; }
     void SetRect(const wxRect& rect) { this->m_rect = rect; }
-    template <typename T> T* Cast() const { return dynamic_cast<T*>(const_cast<wxCustomStatusBarField*>(this)); }
+    template <typename T>
+    T* Cast() const
+    {
+        return dynamic_cast<T*>(const_cast<wxCustomStatusBarField*>(this));
+    }
 };
 
 //================---------------
@@ -141,12 +146,19 @@ public:
         , m_textAlign(wxALIGN_CENTER)
     {
     }
-    virtual ~wxCustomStatusBarFieldText() {}
-    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+
+    // Destructor overrides the base class virtual destructor
+    ~wxCustomStatusBarFieldText() override = default;
+
+    // Render overrides the base class virtual function
+    void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art) override;
+
     void SetText(const wxString& text);
     const wxString& GetText() const { return m_text; }
+
     void SetWidth(size_t width) { this->m_width = width; }
-    size_t GetWidth() const { return m_width; }
+    size_t GetWidth() const override { return m_width; }
+
     void SetTextAlignment(wxAlignment align) { m_textAlign = align; }
 };
 
@@ -164,10 +176,17 @@ public:
         , m_width(width)
     {
     }
-    virtual ~wxCustomStatusBarSpacerField() {}
-    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+
+    // Destructor overrides the base class virtual destructor
+    ~wxCustomStatusBarSpacerField() override = default;
+
+    // Render overrides the base class virtual function
+    void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art) override;
+
     void SetWidth(size_t width) { this->m_width = width; }
-    size_t GetWidth() const { return m_width; }
+
+    // GetWidth is not marked virtual in the original snippet, so we leave it unchanged
+    size_t GetWidth() const override { return m_width; }
 };
 
 //================---------------
@@ -185,12 +204,21 @@ public:
         , m_width(width)
     {
     }
-    virtual ~wxCustomStatusBarBitmapField() {}
-    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+
+    // Destructor overrides the base class virtual destructor
+    ~wxCustomStatusBarBitmapField() override = default;
+
+    // Render overrides the base class virtual function
+    void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art) override;
+
     void SetWidth(size_t width) { this->m_width = width; }
-    size_t GetWidth() const { return m_width; }
+
+    // Already overriding GetWidth in the base class
+    size_t GetWidth() const override { return m_width; }
+
     void SetBitmap(const wxBitmap& bitmap) { this->m_bitmap = bitmap; }
     const wxBitmap& GetBitmap() const { return m_bitmap; }
+
     void SetLabel(const wxString& label) { this->m_label = label; }
     const wxString& GetLabel() const { return m_label; }
 };
@@ -210,18 +238,26 @@ public:
     /**
      * @brief construct animation field.
      */
-    wxCustomStatusBarAnimationField(wxCustomStatusBar* parent, const wxBitmap& sprite, wxOrientation spriteOrientation,
+    wxCustomStatusBarAnimationField(wxCustomStatusBar* parent,
+                                    const wxBitmap& sprite,
+                                    wxOrientation spriteOrientation,
                                     const wxSize& animSize);
 
-    virtual ~wxCustomStatusBarAnimationField();
-    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+    // Destructor overrides the base class virtual destructor
+    ~wxCustomStatusBarAnimationField() override = default;
+
+    // Render overrides a virtual function in wxCustomStatusBarField
+    void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art) override;
+
     void SetWidth(size_t width) { this->m_width = width; }
-    size_t GetWidth() const { return m_width; }
+    size_t GetWidth() const override { return m_width; }
+
     /**
      * @brief start the animation with a given refresh rate (milliseconds)
      */
     void Start(long refreshRate = 50);
     void Stop();
+
     /**
      * @brief is the animation running?
      */
@@ -230,10 +266,10 @@ public:
     /**
      * @brief set the tooltip to the animation as well
      */
-    virtual void SetTooltip(const wxString& tooltip)
+    void SetTooltip(const wxString& tooltip) override
     {
         this->m_tooltip = tooltip;
-        if(m_animation) {
+        if (m_animation) {
             m_animation->SetToolTip(tooltip);
         }
     }
@@ -251,9 +287,9 @@ public:
      * @brief construct animation field.
      */
     wxCustomStatusBarControlField(wxCustomStatusBar* parent, wxControl* control);
+    ~wxCustomStatusBarControlField() override = default;
 
-    virtual ~wxCustomStatusBarControlField();
-    virtual void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art);
+    void Render(wxDC& dc, const wxRect& rect, wxCustomStatusBarArt::Ptr_t art) override;
 
     void SetSize(const wxSize& size)
     {
@@ -262,9 +298,9 @@ public:
         m_control->SetSize(size);
     }
 
-    size_t GetWidth() const
+    size_t GetWidth() const override
     {
-        if(m_control) {
+        if (m_control) {
             return m_control->GetSize().GetWidth();
         } else {
             return 0;
@@ -274,10 +310,16 @@ public:
     /**
      * @brief set the tooltip for the control
      */
-    virtual void SetTooltip(const wxString& tooltip)
+    void SetTooltip(const wxString& tooltip) override
     {
         CHECK_PTR_RET(m_control);
         m_control->SetToolTip(tooltip);
+    }
+
+    template <typename T>
+    T* GetControl() const
+    {
+        return dynamic_cast<T*>(m_control);
     }
 };
 
@@ -336,7 +378,7 @@ public:
     /// Insert field at given position
     size_t InsertField(size_t index, wxCustomStatusBarField::Ptr_t field)
     {
-        if(index >= m_fields.size()) {
+        if (index >= m_fields.size()) {
             return AddField(field);
         }
         m_fields.insert(m_fields.begin() + index, field);

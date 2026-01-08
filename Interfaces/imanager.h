@@ -30,6 +30,7 @@
 #include "clStatusBar.h"
 #include "clTab.h"
 #include "clToolBar.h"
+#include "cl_defs.h"
 #include "debugger.h"
 #include "iconfigtool.h"
 #include "ieditor.h"
@@ -38,6 +39,7 @@
 #include "project.h"
 #include "queuecommand.h"
 
+#include <optional>
 #include <vector>
 #include <wx/aui/auibook.h>
 #include <wx/aui/framemanager.h>
@@ -53,26 +55,28 @@ class IPlugin;
 class BuildManager;
 class BuildSettingsConfig;
 class NavMgr;
-class IMacroManager;
 class wxAuiManager;
 class clInfoBar;
-class clGenericNotebook;
-class clAuiBook;
-
-#if defined(__WXMSW__) || defined(__WXMAC__)
-#define MAINBOOK_AUIBOOK 0
-#else
-#define MAINBOOK_AUIBOOK 1
-#endif
 
 #if MAINBOOK_AUIBOOK
+
+#include "../Plugin/aui/clAuiBook.hpp"
 using MainNotebook = clAuiBook;
+
+#elif CL_USE_NATIVEBOOK
+
+#include "../Plugin/clNativeNotebook.hpp"
+using MainNotebook = clNativeNotebook;
+
 #else
+
+#include "../Plugin/clGenericNotebook.hpp"
 using MainNotebook = clGenericNotebook;
+
 #endif
 
 //--------------------------
-// Auxulary class
+// Auxilary class
 //--------------------------
 
 class TreeItemInfo
@@ -118,8 +122,8 @@ class IManager
     wxArrayString m_outputTabs;
 
 public:
-    IManager() {}
-    virtual ~IManager() {}
+    IManager() = default;
+    virtual ~IManager() = default;
 
     /**
      * @brief return a list of all possible output tabs registered by the user
@@ -154,7 +158,7 @@ public:
     /// Return the plugins' toolbar managed by CodeLite
     virtual clToolBarGeneric* GetToolBar() = 0;
 
-    /// Return applicaion menu bar
+    /// Return application menu bar
     virtual wxMenuBar* GetMenuBar() = 0;
 
     /**
@@ -191,6 +195,10 @@ public:
     /// - "Output View"
     virtual void ShowPane(const wxString& pane_name, bool show) = 0;
 
+    /// Return true if `pane_name` is shown. If `tab` is not empty, also check that it is the
+    /// selected tab
+    virtual bool IsPaneShown(const wxString& pane_name, const wxString& tab = wxEmptyString) = 0;
+
     /**
      * @brief show the toolbar. This only works when using the native toolbar
      */
@@ -221,6 +229,11 @@ public:
     virtual bool SelectEditor(IEditor* editor) = 0;
 
     /**
+     * @brief Convert `win` into `IEditor`. If the conversion fails, return `nullptr`
+     */
+    virtual IEditor* GetEditorFromWindow(wxWindow* win) = 0;
+
+    /**
      * @brief return the main frame's status bar
      */
     virtual clStatusBar* GetStatusBar() = 0;
@@ -238,20 +251,29 @@ public:
      * @param lineno if lineno is not wxNOT_FOUD, the caret will placed on this line number
      * @return Pointer to the newly opened editor or nullptr
      */
-    virtual IEditor* OpenFile(const wxString& fileName, const wxString& projectName = wxEmptyString,
-                              int lineno = wxNOT_FOUND, OF_extra flags = OF_AddJump) = 0;
+    virtual IEditor* OpenFile(const wxString& fileName,
+                              const wxString& projectName = wxEmptyString,
+                              int lineno = wxNOT_FOUND,
+                              OF_extra flags = OF_AddJump) = 0;
+    /**
+     * @brief open filepath (or create it if does not exist) and load it into an editor.
+     * note: filepath must be a local path.
+     */
+    virtual IEditor* CreateOrOpenLocalFile(const wxString& filepath) = 0;
 
     /**
      * @brief open a file with a given tooltip and bitmap
      */
-    virtual IEditor* OpenFile(const wxString& fileName, const wxString& bmpResourceName,
-                              const wxString& tooltip = wxEmptyString) = 0;
+    virtual IEditor*
+    OpenFile(const wxString& fileName, const wxString& bmpResourceName, const wxString& tooltip = wxEmptyString) = 0;
 
     /**
-     * @brief load a remote file content (represented by the local_path) into an `IEdtor`
+     * @brief load a remote file content (represented by the local_path) into an `IEditor`
      */
-    virtual IEditor* OpenRemoteFile(const wxString& local_path, const wxString& remote_path,
-                                    const wxString& ssh_account, const wxString& tooltip = wxEmptyString) = 0;
+    virtual IEditor* OpenRemoteFile(const wxString& local_path,
+                                    const wxString& remote_path,
+                                    const wxString& ssh_account,
+                                    const wxString& tooltip = wxEmptyString) = 0;
 
     /**
      * @brief open or select ((if the file is already loaded in CodeLite) editor with a given `file_name` to the
@@ -285,7 +307,6 @@ public:
     virtual TreeItemInfo GetSelectedTreeItemInfo(TreeType type) = 0;
     /**
      * @brief returns a pointer to wxTreeCtrl by type
-     * @param type the type of tree
      * @sa TreeType
      */
     virtual clTreeCtrl* GetFileExplorerTree() = 0;
@@ -318,8 +339,8 @@ public:
     virtual wxString GetStartupDirectory() const = 0;
 
     /**
-     * @brief return the installation directory of codelite
-     * @return a full path to codelite installation
+     * @brief return the installation directory of CodeLite
+     * @return a full path to CodeLite installation
      */
     virtual wxString GetInstallDirectory() const = 0;
 
@@ -355,7 +376,7 @@ public:
      * @brief add files to a virtual folder in the project
      * @param item a tree item which represents the tree item of the virtual folder
      * @param paths an array of files to add
-     * @return true on sucesss, false otherwise
+     * @return true on success, false otherwise
      */
     virtual bool AddFilesToVirtualFolder(wxTreeItemId& item, wxArrayString& paths) = 0;
 
@@ -363,7 +384,7 @@ public:
      * @brief add files to a virtual folder in the project
      * @param vdFullPath virtual directory full path in the form of <project>:vd1:vd2:...:vdN
      * @param paths an array of files to add
-     * @return true on sucesss, false otherwise
+     * @return true on success, false otherwise
      */
     virtual bool AddFilesToVirtualFolder(const wxString& vdFullPath, wxArrayString& paths) = 0;
 
@@ -371,7 +392,7 @@ public:
      * @brief Add a pair of cpp/h files to the :src/include folders, if these exist
      * @param vdFullPath virtual directory full path in the form of <project>:vd1:vd2:...:vdN
      * @param paths an array of files to add
-     * @return true on sucesss, false otherwise
+     * @return true on success, false otherwise
      */
     virtual bool AddFilesToVirtualFolderIntelligently(const wxString& vdFullPath, wxArrayString& paths) = 0;
 
@@ -398,8 +419,8 @@ public:
     virtual int GetToolbarIconSize() = 0;
 
     /**
-     * @brief return true if toobars are allowed for plugins. This is useful for the Mac port of
-     * codelite. On Mac, only single toolbar is allowed in the application (otherwise, the application
+     * @brief return true if toolbars are allowed for plugins. This is useful for the Mac port of
+     * CodeLite. On Mac, only single toolbar is allowed in the application (otherwise, the application
      * does not feet into the environment)
      * @return true if plugin can create a toolbar, false otherwise
      */
@@ -418,7 +439,7 @@ public:
     /**
      * @brief return the project execution command as set in the project's settings
      * @param projectName the project
-     * @param wd starting dirctory
+     * @param wd starting directory
      * @return the execution command or wxEmptyString if the project does not exist
      */
     virtual wxString GetProjectExecutionCommand(const wxString& projectName, wxString& wd) = 0;
@@ -482,7 +503,7 @@ public:
     virtual void ProcessCommandQueue() = 0;
 
     /**
-     * @brief place a command on the internal queue of codelite to be processed. Each command is executed on
+     * @brief place a command on the internal queue of CodeLite to be processed. Each command is executed on
      * a separated process. The queue will not start processing, until a call to ProcessCommandQueue() is issued
      * @param cmd command to process
      */
@@ -505,7 +526,7 @@ public:
     virtual bool IsShutdownInProgress() const = 0;
 
     /**
-     * return true if the last buid ended successfully
+     * return true if the last build ended successfully
      */
     virtual bool IsBuildEndedSuccessfully() const = 0;
 
@@ -547,7 +568,7 @@ public:
     /**
      * @brief close 'editor' from the notebook
      * @param editor editor to close
-     * @param prompt if set to 'true' prompt if editor is modified, otherwise, close withotu prompting
+     * @param prompt if set to 'true' prompt if editor is modified, otherwise, close without prompting
      */
     virtual bool CloseEditor(IEditor* editor, bool prompt = true) = 0;
 
@@ -559,11 +580,14 @@ public:
     /**
      * @brief add a page to the mainbook
      */
-    virtual bool AddPage(wxWindow* win, const wxString& text, const wxString& tooltip = wxEmptyString,
-                         const wxString& bmpResourceName = wxEmptyString, bool selected = false) = 0;
+    virtual bool AddPage(wxWindow* win,
+                         const wxString& text,
+                         const wxString& tooltip = wxEmptyString,
+                         const wxString& bmpResourceName = wxEmptyString,
+                         bool selected = false) = 0;
 
     /**
-     * @brief select a window in mainbook
+     * @brief select a page in mainbook
      */
     virtual bool SelectPage(wxWindow* win) = 0;
 
@@ -573,12 +597,12 @@ public:
     virtual void SetPageTitle(wxWindow* win, const wxString& title) = 0;
 
     /**
-     * @brief set the page's title
+     * @brief get the page's title
      */
     virtual wxString GetPageTitle(wxWindow* win) const = 0;
 
     /**
-     * @brief open new editor "untitiled"
+     * @brief open new editor "untitled"
      * @return pointer to the editor
      */
     virtual IEditor* NewEditor() = 0;
@@ -589,11 +613,6 @@ public:
     virtual BitmapLoader* GetStdIcons() = 0;
 
     /**
-     * @brief return the compilation flags for a file in a given project
-     */
-    virtual wxArrayString GetProjectCompileFlags(const wxString& projectName, bool isCppFile) = 0;
-
-    /**
      * @brief return the selected project item. Note that this is different than
      * returning the *active* project. A selected project, is the project that it is
      * selected in the tree "blue highlight" or the parent of the selected item
@@ -602,7 +621,7 @@ public:
 
     /**
      * @brief search the mainbook for an editor representing a given filename
-     * return IEditor* or NULL if no match was found
+     * return IEditor* or nullptr if no match was found
      */
     virtual IEditor* FindEditor(const wxString& filename) const = 0;
 
@@ -620,7 +639,7 @@ public:
      * @brief return list of all open editors in the main notebook.
      * This function returns only instances of IEditor (i.e. a file text editor)
      */
-    virtual size_t GetAllEditors(IEditor::List_t& editors, bool inOrder = false) = 0;
+    virtual size_t GetAllEditors(IEditor::List_t& editors) = 0;
 
     /**
      * @brief return list of open tabs in the main notebook. If you need only editors, use GetAllEditors
@@ -654,7 +673,7 @@ public:
     virtual void SetBreakpoints(const clDebuggerBreakpoint::Vec_t& breakpoints) = 0;
 
     /**
-     * @brief process a standard edit event ( wxID_COPY, wxID_PASTE etc)
+     * @brief process a standard edit event (wxID_COPY, wxID_PASTE etc)
      * @param e the event to process
      * @param editor the editor
      */
@@ -705,7 +724,8 @@ public:
     /**
      * @brief display message to the user using the info bar
      */
-    virtual void DisplayMessage(const wxString& message, int flags = wxICON_INFORMATION,
+    virtual void DisplayMessage(const wxString& message,
+                                int flags = wxICON_INFORMATION,
                                 const std::vector<std::pair<wxWindowID, wxString>>& buttons = {}) = 0;
 
     /**
@@ -716,20 +736,25 @@ public:
     /**
      * @brief return list of all breakpoints
      */
-    virtual void GetBreakpoints(std::vector<clDebuggerBreakpoint>& bpList) = 0;
+    virtual std::vector<clDebuggerBreakpoint> GetBreakpoints() = 0;
 
     /**
      * @brief build and display the build menu for a toolbar button
      */
     virtual void ShowBuildMenu(clToolBar* toolbar, wxWindowID buttonId) = 0;
 
+    /**
+     * @brief build and display the build menu for a toolbar button
+     */
+    virtual void ShowBuildMenu(wxAuiToolBar* toolbar, wxWindowID buttonId) = 0;
+
     ///--------------------
     /// Book management
     ///--------------------
 
     /// Add a book page
-    virtual void BookAddPage(PaneId pane_id, wxWindow* page, const wxString& label,
-                             const wxString& bmp = wxEmptyString) = 0;
+    virtual void
+    BookAddPage(PaneId pane_id, wxWindow* page, const wxString& label, const wxString& bmp = wxEmptyString) = 0;
 
     /// Find a book page by its label
     virtual wxWindow* BookGetPage(PaneId pane_id, const wxString& label) = 0;
@@ -739,6 +764,16 @@ public:
 
     /// Remove a book page (do not destroy it), return the removed page
     virtual wxWindow* BookRemovePage(PaneId pane_id, wxWindow* page) = 0;
+
+    /// Remove a book page (do not destroy it), return the removed page. This function will search
+    /// all the books until it finds the page.
+    virtual wxWindow* BookRemovePage(wxWindow* page) = 0;
+
+    /// Delete a book page. This function will search all the books until it finds the page.
+    virtual bool BookDeletePage(wxWindow* page) = 0;
+
+    /// Find the pane_id that holds "page".
+    virtual std::optional<PaneId> FindPaneId(wxWindow* page) = 0;
 
     /// Delete a book page, return true on success, false otherwise
     virtual bool BookDeletePage(PaneId pane_id, wxWindow* page) = 0;
@@ -757,6 +792,9 @@ public:
 
     /// Return the main panel of the top level frame
     virtual wxPanel* GetMainPanel() = 0;
+
+    /// Return the build output text.
+    virtual wxString GetBuildOutput() const = 0;
 };
 
 #endif // IMANAGER_H

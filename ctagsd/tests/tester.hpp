@@ -29,9 +29,6 @@
 #include <vector>
 #include <wx/filename.h>
 #include <wx/string.h>
-#include <wx/wxcrtvararg.h>
-
-using namespace std;
 
 class ITest;
 /**
@@ -44,7 +41,7 @@ class ITest;
 class Tester
 {
     static Tester* ms_instance;
-    vector<ITest*> m_tests;
+    std::vector<ITest*> m_tests;
 
 public:
     static Tester* Instance();
@@ -54,8 +51,8 @@ public:
     std::size_t RunTests();
 
 private:
-    Tester();
-    ~Tester();
+    Tester() = default;
+    ~Tester() = default;
 };
 
 /**
@@ -81,7 +78,7 @@ public:
     {
         Tester::Instance()->AddTest(this);
     }
-    virtual ~ITest() {}
+    virtual ~ITest() = default;
     virtual bool test() = 0;
     const wxString& get_summary() const { return m_summary; }
     bool is_passed() const { return m_passed; }

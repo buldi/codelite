@@ -12,15 +12,7 @@
 #include <wx/renderer.h>
 #include <wx/settings.h>
 
-#if wxCHECK_VERSION(3, 1, 0)
 #define TEXT_SPACER FromDIP(5)
-#else
-#define TEXT_SPACER 5
-#endif
-#if !wxCHECK_VERSION(3, 1, 2)
-#define SetFractionalPointSize SetPointSize
-#define wxFONTWEIGHT_SEMIBOLD wxFONTWEIGHT_BOLD
-#endif
 
 #if defined(__WXMSW__) || defined(__WXGTK__)
 #define BUTTON_RADIUS 0.0
@@ -61,8 +53,6 @@ void DrawLabel(wxDC& dc, const wxRect& rr, const wxString& text, const wxColour&
 } // namespace
 
 #if wxUSE_NATIVE_BUTTON
-clButtonBase::clButtonBase() {}
-
 clButtonBase::clButtonBase(wxWindow* parent, wxWindowID id, const wxString& label, const wxPoint& pos,
                            const wxSize& size, long style, const wxValidator& validator, const wxString& name)
     : wxButton(parent, id, label, pos, size, style, validator, name)
@@ -76,8 +66,6 @@ bool clButtonBase::Create(wxWindow* parent, wxWindowID id, const wxString& label
 }
 clButtonBase::~clButtonBase() {}
 #else
-clButtonBase::clButtonBase() {}
-
 clButtonBase::clButtonBase(wxWindow* parent, wxWindowID id, const wxString& label, const wxPoint& pos,
                            const wxSize& size, long style, const wxValidator& validator, const wxString& name)
     : wxControl(parent, id, pos, size, wxTAB_TRAVERSAL | wxNO_BORDER | wxWANTS_CHARS)
@@ -745,6 +733,7 @@ void clButtonBase::ShowMenu(wxMenu& menu, wxPoint* point)
     Refresh();
 #endif
 
+#ifndef __WXGTK__
     wxPoint menuPos;
     if (point) {
         menuPos = *point;
@@ -755,6 +744,10 @@ void clButtonBase::ShowMenu(wxMenu& menu, wxPoint* point)
 #endif
     }
     PopupMenu(&menu, menuPos);
+#else
+    PopupMenu(&menu);
+#endif
+
 #if !wxUSE_NATIVE_BUTTON
     SetNormal();
     Refresh();

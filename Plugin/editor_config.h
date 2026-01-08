@@ -57,16 +57,16 @@ class WXDLLIMPEXP_SDK SimpleLongValue : public SerializedObject
     long m_value;
 
 public:
-    SimpleLongValue();
-    ~SimpleLongValue();
+    SimpleLongValue() = default;
+    ~SimpleLongValue() = default;
 
     void DeSerialize(Archive& arch);
     void Serialize(Archive& arch);
 
     // Setters
-    void SetValue(const long& value) { this->m_value = value; }
+    void SetValue(long value) { this->m_value = value; }
     // Getters
-    const long& GetValue() const { return m_value; }
+    long GetValue() const { return m_value; }
 };
 
 class WXDLLIMPEXP_SDK SimpleStringValue : public SerializedObject
@@ -74,8 +74,8 @@ class WXDLLIMPEXP_SDK SimpleStringValue : public SerializedObject
     wxString m_value;
 
 public:
-    SimpleStringValue();
-    ~SimpleStringValue();
+    SimpleStringValue() = default;
+    ~SimpleStringValue() = default;
 
     void DeSerialize(Archive& arch);
     void Serialize(Archive& arch);
@@ -89,8 +89,8 @@ class WXDLLIMPEXP_SDK SimpleRectValue : public SerializedObject
     wxRect m_rect;
 
 public:
-    SimpleRectValue();
-    ~SimpleRectValue();
+    SimpleRectValue() = default;
+    ~SimpleRectValue() = default;
 
     void DeSerialize(Archive& arch);
     void Serialize(Archive& arch);
@@ -115,7 +115,7 @@ class WXDLLIMPEXP_SDK EditorConfig : public IConfigTool
     friend class EditorConfigST;
     wxXmlDocument* m_doc;
     wxFileName m_fileName;
-    bool m_transcation;
+    bool m_transaction = false;
     wxString m_svnRevision;
     wxString m_version;
     wxString m_installDir;
@@ -161,18 +161,6 @@ public:
     LexerConf::Ptr_t GetLexerForFile(const wxString& filename);
 
     /**
-     * Get the outputview's foreground colour, which is global to a theme
-     * \return the colour as a wxString
-     */
-    wxString GetCurrentOutputviewFgColour() const;
-
-    /**
-     * Get the outputview's background colour, which is global to a theme
-     * \return the colour as a wxString
-     */
-    wxString GetCurrentOutputviewBgColour() const;
-
-    /**
      * Test if this configuration is loaded properly
      * \return true of a file is loaded into the configuration manager false otherwise
      */
@@ -188,23 +176,6 @@ public:
      * Set options to the configuration file, override them if they does not exist
      */
     void SetOptions(OptionsConfigPtr opts);
-
-    /**
-     * Return the database that should be used by the editor
-     * \return
-     */
-    wxString GetTagsDatabase() const;
-
-    /**
-     * Set tags database to be use by editor (in addition to the workspace one)
-     * \param &dbName
-     */
-    void SetTagsDatabase(const wxString& dbName);
-
-    /**
-     * save lexers settings
-     */
-    void SaveLexers();
 
     /**
      * get an array of recently opened items e.g. workspaces
@@ -234,26 +205,17 @@ public:
      */
     virtual bool ReadObject(const wxString& name, SerializedObject* obj);
 
-    /**
-     * Return the configuration version
-     */
-    wxString GetRevision() const;
-
-    /**
-     * Set the current configuration revision
-     */
-    void SetRevision(const wxString& rev);
     void SetInstallDir(const wxString& instlDir);
 
     /**
-     * \brief convinience methods to store a single long value
+     * \brief convenience methods to store a single long value
      * \param name variable name
      * \param value value to store
      */
     void SetInteger(const wxString& name, long value);
 
     /**
-     * \brief convinience methods to retrieve a single long value stored using
+     * \brief convenience methods to retrieve a single long value stored using
      * the 'SaveLongValue()' method
      * \param name variable name
      * \param value value
@@ -263,7 +225,7 @@ public:
 
     /**
      * \brief get string from the configuration identified by key
-     * \param key key identifiying the string
+     * \param key key identifying the string
      * \return wxEmptyString or the value
      */
     wxString GetString(const wxString& key, const wxString& defaultValue = "");
@@ -292,7 +254,6 @@ public:
 private:
     EditorConfig();
     virtual ~EditorConfig();
-    wxXmlNode* GetLexerNode(const wxString& lexer);
 };
 
 class WXDLLIMPEXP_SDK EditorConfigST

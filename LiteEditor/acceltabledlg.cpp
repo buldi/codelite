@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <wx/ffile.h>
 #include <wx/imaglist.h>
+#include <wx/msgdlg.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
 
@@ -64,11 +65,11 @@ void AccelTableDlg::PopulateTable(const wxString& filter)
     if(filter.IsEmpty()) {
         filteredMap = m_accelMap;
     } else {
-        for(MenuItemDataMap_t::iterator iter = m_accelMap.begin(); iter != m_accelMap.end(); ++iter) {
-            if(!IsMatchesFilter(filter, iter->second)) {
+        for (const auto& p : m_accelMap) {
+            if (!IsMatchesFilter(filter, p.second)) {
                 continue;
             }
-            filteredMap.insert(std::make_pair(iter->first, iter->second));
+            filteredMap.insert(p);
         }
     }
 
@@ -78,9 +79,7 @@ void AccelTableDlg::PopulateTable(const wxString& filter)
 
     // Add core entries
     std::vector<std::tuple<wxString, clKeyboardShortcut, AccelItemData*>> V;
-    for(MenuItemDataMap_t::const_iterator iter = filteredMap.begin(); iter != filteredMap.end(); ++iter) {
-        const MenuItemData& mid = iter->second;
-
+    for (const auto& [_, mid] : filteredMap) {
         wxString desc = mid.parentMenu;
         if(!desc.IsEmpty()) {
             desc << " | ";
@@ -148,7 +147,7 @@ void AccelTableDlg::DoItemActivated()
             }
             if(wxMessageBox(wxString::Format(_("'%s' is already assigned to: '%s'\nWould you like to replace it?"),
                                              mid.accel.ToString(), who.action),
-                            _("CodeLite"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) != wxYES) {
+                            wxT("CodeLite"), wxYES_NO | wxCENTER | wxICON_QUESTION, this) != wxYES) {
                 return;
             }
 
@@ -193,8 +192,6 @@ void AccelTableDlg::OnText(wxCommandEvent& event)
     CallAfter(&AccelTableDlg::PopulateTable, m_textCtrlFilter->GetValue());
 }
 
-AccelTableDlg::~AccelTableDlg() {}
-
 void AccelTableDlg::OnDVItemActivated(wxDataViewEvent& event)
 {
     wxUnusedVar(event);
@@ -223,9 +220,9 @@ bool AccelTableDlg::HasAccelerator(const clKeyboardShortcut& accel, MenuItemData
     if(!accel.IsOk()) {
         return false;
     }
-    for(MenuItemDataMap_t::iterator iter = m_accelMap.begin(); iter != m_accelMap.end(); ++iter) {
-        if(iter->second.accel == accel) {
-            who = iter->second;
+    for (const auto& p : m_accelMap) {
+        if (p.second.accel == accel) {
+            who = p.second;
             return true;
         }
     }

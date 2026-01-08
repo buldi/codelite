@@ -61,7 +61,6 @@ protected:
     // Delete all line-type breakpoint markers in all editors
     // Done before refreshing after a delete, lest it was the last bp in a file
     void DeleteAllBreakpointMarkers();
-    std::set<wxString> GetFilesWithBreakpointMarkers();
 
     /**
      * Return the index of the bp with the passed id, in the vector that will normally be m_bps
@@ -204,9 +203,8 @@ public:
     bool AddBreakpointByAddress(const wxString& address);
     /**
      * @brief return list of allmemory breakpoints
-     * @param memoryBps
      */
-    void GetAllMemoryBreakpoints(clDebuggerBreakpoint::Vec_t& memoryBps);
+    clDebuggerBreakpoint::Vec_t GetAllMemoryBreakpoints();
 
     /**
      * Summon the BreakptProperties dialog for a bp
@@ -221,7 +219,7 @@ public:
     /**
      * return list of breakpoints
      */
-    void GetBreakpoints(clDebuggerBreakpoint::Vec_t& li);
+    clDebuggerBreakpoint::Vec_t GetBreakpoints();
 
     /**
      * When a breakpoint is added, the debugger_id it returns finally arrives here

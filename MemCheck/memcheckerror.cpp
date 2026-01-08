@@ -61,20 +61,20 @@ MemCheckError::MemCheckError(): suppressed(false) {}
 const wxString MemCheckError::toString() const
 {
     wxString string = wxString::Format(wxT("%s"), label);
-    for (ErrorList::const_iterator it = nestedErrors.begin(); it != nestedErrors.end(); ++it)
-        string.Append(wxString::Format("\n%s", it->toString()));
-    for (LocationList::const_iterator it = locations.begin(); it != locations.end(); ++it)
-        string.Append(wxString::Format("\n%s", it->toString()));
+    for (const auto& nestedError : nestedErrors)
+        string.Append(wxString::Format("\n%s", nestedError.toString()));
+    for (const auto& location : locations)
+        string.Append(wxString::Format("\n%s", location.toString()));
     return string;
 }
 
 const wxString MemCheckError::toText(unsigned int indent) const
 {
     wxString text = label;
-    for (ErrorList::const_iterator it = nestedErrors.begin(); it != nestedErrors.end(); ++it)
-        text.Append(wxString::Format("\n%s%s", wxString(' ', 2 * indent), it->toText(indent + 1)));
-    for (LocationList::const_iterator it = locations.begin(); it != locations.end(); ++it)
-        text.Append(wxString::Format("\n%s%s", wxString(' ', 4 * indent), it->toText()));
+    for (const auto& nestedError : nestedErrors)
+        text.Append(wxString::Format("\n%s%s", wxString(' ', 2 * indent), nestedError.toText(indent + 1)));
+    for (const auto& location : locations)
+        text.Append(wxString::Format("\n%s%s", wxString(' ', 4 * indent), location.toText()));
     return text;
 }
 
@@ -110,12 +110,14 @@ const wxString MemCheckError::getSuppression()
     return suppression;
 }
 
-const bool MemCheckError::hasPath(const wxString & path) const
+const bool MemCheckError::hasPath(const wxString& path) const
 {
-    for (LocationList::const_iterator it = locations.begin(); it != locations.end(); ++it)
-        if (it->file.StartsWith(path)) return true;
-    for (ErrorList::const_iterator it = nestedErrors.begin(); it != nestedErrors.end(); ++it)
-        if (it->hasPath(path)) return true;
+    for (const auto& location : locations)
+        if (location.file.StartsWith(path))
+            return true;
+    for (const auto& nestedError : nestedErrors)
+        if (nestedError.hasPath(path))
+            return true;
     return false;
 }
 
@@ -165,8 +167,6 @@ MemCheckIterTools::LocationListIterator::LocationListIterator(LocationList & l,
         ++p;
 }
 
-MemCheckIterTools::LocationListIterator::~LocationListIterator() {}
-
 LocationList::iterator& MemCheckIterTools::LocationListIterator::operator++()
 {
     ++p;
@@ -205,8 +205,6 @@ MemCheckIterTools::ErrorListIterator::ErrorListIterator(ErrorList & l, const Ite
     while (p != m_end && m_iterTool.omitSuppressed && p->suppressed)
         ++p;
 }
-
-MemCheckIterTools::ErrorListIterator::~ErrorListIterator() {}
 
 ErrorList::iterator& MemCheckIterTools::ErrorListIterator::operator++()
 {

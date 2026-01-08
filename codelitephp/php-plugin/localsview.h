@@ -28,7 +28,6 @@
 
 #include "macros.h"
 #include "php_ui.h"
-#include "wxStringHash.h"
 #include "xdebugevent.h"
 
 class clThemedTreeCtrl;
@@ -56,7 +55,7 @@ protected:
     void OnLocalsUpdated(XDebugEvent& e);
     void OnXDebugSessionEnded(XDebugEvent& e);
     void OnXDebugSessionStarted(XDebugEvent& e);
-    void OnProperytGet(XDebugEvent& e);
+    void OnPropertyGet(XDebugEvent& e);
     void AppendVariablesToTree(const wxTreeItemId& parent, const XVariable::List_t& children);
 };
 #endif // LOCALSVIEW_H

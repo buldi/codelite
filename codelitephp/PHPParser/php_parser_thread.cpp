@@ -9,13 +9,9 @@
 PHPParserThread* PHPParserThread::ms_instance = 0;
 bool PHPParserThread::ms_goingDown = false;
 
-PHPParserThread::PHPParserThread() {}
-
-PHPParserThread::~PHPParserThread() {}
-
 PHPParserThread* PHPParserThread::Instance()
 {
-    if(ms_instance == 0) {
+    if (ms_instance == 0) {
         ms_instance = new PHPParserThread();
     }
     return ms_instance;
@@ -24,7 +20,7 @@ PHPParserThread* PHPParserThread::Instance()
 void PHPParserThread::Release()
 {
     ms_instance->Stop();
-    if(ms_instance) {
+    if (ms_instance) {
         delete ms_instance;
     }
     ms_instance = 0;
@@ -34,8 +30,8 @@ void PHPParserThread::Release()
 void PHPParserThread::ProcessRequest(ThreadRequest* request)
 {
     PHPParserThreadRequest* r = dynamic_cast<PHPParserThreadRequest*>(request);
-    if(r) {
-        switch(r->requestType) {
+    if (r) {
+        switch (r->requestType) {
         case PHPParserThreadRequest::kParseWorkspaceFilesFull:
         case PHPParserThreadRequest::kParseWorkspaceFilesQuick:
             ParseFiles(r);
@@ -60,9 +56,9 @@ void PHPParserThread::ParseFiles(PHPParserThreadRequest* request)
     PHPLookupTable lookuptable;
     lookuptable.Open(fnWorkspaceFile.GetPath());
     lookuptable.RebuildClassCache();
-    
-    for(size_t i = 0; i < request->frameworksPaths.GetCount(); ++i) {
-        if(ms_goingDown) {
+
+    for (size_t i = 0; i < request->frameworksPaths.GetCount(); ++i) {
+        if (ms_goingDown) {
             ms_goingDown = false;
             return;
         }
@@ -73,18 +69,17 @@ void PHPParserThread::ParseFiles(PHPParserThreadRequest* request)
 
     // Convert the set back to array
     wxArrayString allFiles;
-    wxStringSet_t::iterator iter = uniqueFilesSet.begin();
-    for(; iter != uniqueFilesSet.end(); ++iter) {
-        allFiles.Add(*iter);
+    for (const auto& file : uniqueFilesSet) {
+        allFiles.Add(file);
     }
 
     // Get list of PHP files under
-    lookuptable.RecreateSymbolsDatabase(allFiles,
-                                        request->requestType == PHPParserThreadRequest::kParseWorkspaceFilesFull ?
-                                            PHPLookupTable::kUpdateMode_Full :
-                                            PHPLookupTable::kUpdateMode_Fast,
-                                        [&]() { return PHPParserThread::ms_goingDown; },
-                                        false);
+    lookuptable.RecreateSymbolsDatabase(
+        allFiles,
+        request->requestType == PHPParserThreadRequest::kParseWorkspaceFilesFull ? PHPLookupTable::kUpdateMode_Full
+                                                                                 : PHPLookupTable::kUpdateMode_Fast,
+        [&]() { return PHPParserThread::ms_goingDown; },
+        false);
     // reset the shutdown flag
     ms_goingDown = false;
 }

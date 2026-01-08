@@ -4,11 +4,6 @@
 #include "macros.h"
 
 #include <array>
-#include <wx/filesys.h>
-
-LSPUtils::LSPUtils() {}
-
-LSPUtils::~LSPUtils() {}
 
 void LSPUtils::encode_semantic_tokens(const std::vector<TokenWrapper>& tokens_vec, std::vector<int>* encoded_arr)
 {
@@ -122,21 +117,6 @@ std::vector<LSP::SymbolInformation> LSPUtils::to_symbol_information_array(const 
     for(auto tag : tags) {
         LSP::SymbolInformation symbol_information;
         to_symbol_information(tag.get(), symbol_information, for_tree_view ? &parent_seen : nullptr);
-        result.push_back(symbol_information);
-    }
-    return result;
-}
-
-std::vector<LSP::SymbolInformation> LSPUtils::to_symbol_information_array(const std::vector<TagEntry>& tags,
-                                                                          bool for_tree_view)
-{
-    std::vector<LSP::SymbolInformation> result;
-    result.reserve(tags.size());
-
-    wxStringSet_t parent_seen;
-    for(const auto& tag : tags) {
-        LSP::SymbolInformation symbol_information;
-        to_symbol_information(&tag, symbol_information, for_tree_view ? &parent_seen : nullptr);
         result.push_back(symbol_information);
     }
     return result;

@@ -6,8 +6,6 @@
 #include "sftp_settings.h"
 #include "ssh/ssh_account_info.h"
 
-LSPNetworkSocketClient::LSPNetworkSocketClient() {}
-
 LSPNetworkSocketClient::~LSPNetworkSocketClient() { Close(); }
 
 void LSPNetworkSocketClient::Close()
@@ -16,7 +14,7 @@ void LSPNetworkSocketClient::Close()
         m_lspServer->Detach();
     }
     wxDELETE(m_lspServer);
-    m_socket.reset(nullptr);
+    m_socket.reset();
     m_pid = wxNOT_FOUND;
 }
 
@@ -37,7 +35,7 @@ void LSPNetworkSocketClient::Open(const LSPStartupInfo& info)
             throw clException(wxString() << "Failed to execute process: " << cmd);
         }
 
-        m_lspServer->Detach(); // we dont want events
+        m_lspServer->Detach(); // we don't want events
         m_pid = m_lspServer->GetPid();
     } else {
         m_pid = wxNOT_FOUND;

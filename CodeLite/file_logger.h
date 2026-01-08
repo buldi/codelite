@@ -28,49 +28,34 @@
 
 #include "codelite_exports.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
 #include <vector>
 #include <wx/colour.h>
-#include <wx/ffile.h>
 #include <wx/filename.h>
 #include <wx/gdicmn.h>
-#include <wx/stopwatch.h>
 #include <wx/thread.h>
 
 // manipulator function
 class FileLogger;
-typedef FileLogger& (*FileLoggerFunction)(FileLogger&);
+using FileLoggerFunction = FileLogger& (*)(FileLogger&);
 
-class WXDLLIMPEXP_CL FileLogger
+class WXDLLIMPEXP_CL FileLogger final
 {
 public:
-    enum { System = -1, Error = 0, Warning = 1, Dbg = 2, Developer = 3 };
-
-protected:
-    static int m_globalLogVerbosity;
-    static wxString m_logfile;
-    int m_logEntryVersbosity;
-    FILE* m_fp = nullptr;
-    wxString m_buffer;
-    static std::unordered_map<wxThreadIdType, wxString> m_threads;
-    static wxCriticalSection m_cs;
-
-protected:
-    static wxString GetCurrentThreadName();
+    enum LogLevel { System = -1, Error = 0, Warning = 1, Dbg = 2, Developer = 3 };
 
 public:
     // construct a file logger entry with a given verbosity
-    FileLogger(int verbosity);
+    FileLogger(int verbosity, const char* filename = nullptr, int line_number = wxNOT_FOUND);
     ~FileLogger();
 
     FileLogger& SetLogEntryVerbosity(int verbosity)
     {
-        m_logEntryVersbosity = verbosity;
+        m_logEntryVerbosity = verbosity;
         return *this;
     }
 
-    int GetLogEntryVerbosity() const { return m_logEntryVersbosity; }
+    int GetLogEntryVerbosity() const { return m_logEntryVerbosity; }
     static int GetGlobalLogVerbosity() { return m_globalLogVerbosity; }
 
     /**
@@ -110,14 +95,14 @@ public:
      */
     static void OpenLog(const wxString& fullName, int verbosity);
 
-    inline FileLogger& operator<<(FileLoggerFunction f)
+    FileLogger& operator<<(FileLoggerFunction f)
     {
         Flush();
         return *this;
     }
 
     // special types printing
-    inline FileLogger& operator<<(const std::vector<wxString>& arr)
+    FileLogger& operator<<(const std::vector<wxString>& arr)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -137,7 +122,7 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxStringSet_t& S)
+    FileLogger& operator<<(const wxStringSet_t& S)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -156,7 +141,7 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxStringMap_t& M)
+    FileLogger& operator<<(const wxStringMap_t& M)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -175,17 +160,17 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxArrayString& arr)
+    FileLogger& operator<<(const wxArrayString& arr)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
         }
-        std::vector<wxString> v{ arr.begin(), arr.end() };
+        std::vector<wxString> v{arr.begin(), arr.end()};
         *this << v;
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxRect& rect)
+    FileLogger& operator<<(const wxRect& rect)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -197,7 +182,7 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxPoint& point)
+    FileLogger& operator<<(const wxPoint& point)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -209,7 +194,7 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxSize& size)
+    FileLogger& operator<<(const wxSize& size)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -221,7 +206,7 @@ public:
         return *this;
     }
 
-    inline FileLogger& operator<<(const wxColour& colour)
+    FileLogger& operator<<(const wxColour& colour)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -236,7 +221,7 @@ public:
      * Without this overload operator, on some compilers, the "clDEBUG()<< wxString" might be "going" to the one
      * that handles wxFileName...
      */
-    inline FileLogger& operator<<(const wxString& str)
+    FileLogger& operator<<(const wxString& str)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -251,7 +236,7 @@ public:
     /**
      * @brief special wxFileName printing
      */
-    inline FileLogger& operator<<(const wxFileName& fn)
+    FileLogger& operator<<(const wxFileName& fn)
     {
         if (!FileLogger::CanLog(GetLogEntryVerbosity())) {
             return *this;
@@ -283,6 +268,20 @@ public:
      * @brief flush the logger content
      */
     void Flush();
+
+protected:
+    static wxString GetCurrentThreadName();
+
+    static int m_globalLogVerbosity;
+    static wxString m_logfile;
+    int m_logEntryVerbosity;
+    FILE* m_fp = nullptr;
+    wxString m_buffer;
+    static std::unordered_map<wxThreadIdType, wxString> m_threads;
+    static wxCriticalSection m_cs;
+
+    int m_lineNumber = wxNOT_FOUND;
+    wxString m_fileName;
 };
 
 inline FileLogger& clEndl(FileLogger& d)
@@ -307,14 +306,25 @@ FileLogger& operator<<(FileLogger& logger, const T& obj)
     return logger;
 }
 
+namespace
+{
+inline wxString GetLocation(const char* filename, int line)
+{
+    wxFileName fn{filename};
+    return wxString() << "[" << fn.GetFullName() << ":" << line << "]";
+}
+} // namespace
+
+#define LOCATION() GetLocation(__FILE__, __LINE__)
+
 // New API
-#define clDEBUG() FileLogger(FileLogger::Dbg) << FileLogger::Prefix(FileLogger::Dbg)
-#define clDEBUG1() FileLogger(FileLogger::Developer) << FileLogger::Prefix(FileLogger::Developer)
+#define clDEBUG() FileLogger(FileLogger::Dbg) << FileLogger::Prefix(FileLogger::Dbg) << LOCATION()
+#define clDEBUG1() FileLogger(FileLogger::Developer) << FileLogger::Prefix(FileLogger::Developer) << LOCATION()
 #define clTRACE() clDEBUG1()
 
-#define clERROR() FileLogger(FileLogger::Error) << FileLogger::Prefix(FileLogger::Error)
-#define clWARNING() FileLogger(FileLogger::Warning) << FileLogger::Prefix(FileLogger::Warning)
-#define clSYSTEM() FileLogger(FileLogger::System) << FileLogger::Prefix(FileLogger::System)
+#define clERROR() FileLogger(FileLogger::Error) << FileLogger::Prefix(FileLogger::Error) << LOCATION()
+#define clWARNING() FileLogger(FileLogger::Warning) << FileLogger::Prefix(FileLogger::Warning) << LOCATION()
+#define clSYSTEM() FileLogger(FileLogger::System) << FileLogger::Prefix(FileLogger::System) << LOCATION()
 
 #define LOG_IF_DEBUG if (FileLogger::CanLog(FileLogger::Dbg))
 #define LOG_IF_TRACE if (FileLogger::CanLog(FileLogger::Developer))

@@ -10,8 +10,6 @@ LSP::InitializeRequest::InitializeRequest(bool withTokenTypes, const wxString& r
     m_rootUri = rootUri;
 }
 
-LSP::InitializeRequest::~InitializeRequest() {}
-
 JSONItem LSP::InitializeRequest::ToJSON(const wxString& name) const
 {
     JSONItem json = Request::ToJSON(name);
@@ -24,7 +22,7 @@ JSONItem LSP::InitializeRequest::ToJSON(const wxString& name) const
         JSON nullItem(cJSON_NULL);
         JSONItem nullObj = nullItem.toElement();
         params.append(nullObj);
-        (void)nullItem.release(); // dont delete it on destruction, it is now owned by 'params'
+        (void)nullItem.release(); // don't delete it on destruction, it is now owned by 'params'
     } else {
         params.addProperty("rootUri", LSP::FileNameToURI(GetRootUri()));
     }

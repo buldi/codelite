@@ -40,7 +40,7 @@
 clEditorBar::clEditorBar(wxWindow* parent)
     : clEditorBarBase(parent)
 {
-    m_functionBmp = clGetManager()->GetStdIcons()->LoadBitmap("function_public", 16);
+    m_functionBmp = clGetManager()->GetStdIcons()->LoadBitmap("outline-button", 16);
     CreateBookmarksBitmap();
 
     EventNotifier::Get()->Bind(wxEVT_ACTIVE_EDITOR_CHANGED, &clEditorBar::OnEditorChanged, this);
@@ -69,12 +69,75 @@ void clEditorBar::OnEditorChanged(wxCommandEvent& e)
     CallAfter(&clEditorBar::DoRefreshColoursAndFonts);
 }
 
+void clEditorBar::UpdateScopesForCurrentEditor(const std::vector<LSP::SymbolInformation>& symbols)
+{
+    auto editor = clGetManager()->GetActiveEditor();
+    CHECK_PTR_RET(editor);
+
+    wxString fullpath = editor->GetRemotePathOrLocal();
+
+    // prepare list of scopes and send them to the navigation bar
+    ScopeEntry::vec_t scopes;
+    scopes.reserve(symbols.size());
+
+    for (const LSP::SymbolInformation& symbol : symbols) {
+        switch (symbol.GetKind()) {
+        case LSP::kSK_Function:
+        case LSP::kSK_Method:
+        case LSP::kSK_Constructor: {
+            ScopeEntry scope_entry;
+            const LSP::Location& location = symbol.GetLocation();
+            scope_entry.line_number = location.GetRange().GetStart().GetLine();
+            scope_entry.range = location.GetRange();
+
+            wxString display_string;
+            if (!symbol.GetContainerName().empty()) {
+                display_string << symbol.GetContainerName() << ".";
+            }
+
+            wxString short_name = symbol.GetName();
+            short_name = short_name.BeforeFirst('(');
+            short_name += "()";
+            display_string << short_name;
+
+            scope_entry.display_string.swap(display_string);
+            scopes.push_back(scope_entry);
+
+        } break;
+        case LSP::kSK_Class:
+        case LSP::kSK_Struct:
+        case LSP::kSK_Enum:
+        case LSP::kSK_Interface: {
+            ScopeEntry scope_entry;
+            const LSP::Location& location = symbol.GetLocation();
+            scope_entry.line_number = location.GetRange().GetStart().GetLine();
+            scope_entry.range = location.GetRange();
+
+            wxString display_string;
+            if (!symbol.GetContainerName().empty()) {
+                display_string << symbol.GetContainerName() << ".";
+            }
+
+            display_string << symbol.GetName();
+            scope_entry.display_string.swap(display_string);
+            scopes.push_back(scope_entry);
+
+        } break;
+            break;
+        default:
+            break;
+        }
+    }
+    SetScopes(fullpath, scopes);
+}
+
 void clEditorBar::SetScopes(const wxString& filename, const clEditorBar::ScopeEntry::vec_t& entries)
 {
     m_scopes = entries;
     m_scopesFile = filename;
-    std::sort(m_scopes.begin(), m_scopes.end(),
-              [](const ScopeEntry& a, const ScopeEntry& b) { return a.line_number < b.line_number; });
+    std::sort(m_scopes.begin(), m_scopes.end(), [](const ScopeEntry& a, const ScopeEntry& b) {
+        return a.line_number < b.line_number;
+    });
     CallAfter(&clEditorBar::DoRefreshColoursAndFonts);
 }
 
@@ -105,8 +168,8 @@ void clEditorBar::DoRefreshColoursAndFonts()
     wxColour textColour = clSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
 
     SetBackgroundColour(bgcolour);
-    m_labelText->SetForegroundColour(textColour);
-    m_labelText->SetBackgroundColour(bgcolour);
+    m_messageText->SetForegroundColour(textColour);
+    m_messageText->SetBackgroundColour(bgcolour);
 
     if (!m_shouldShow) {
         return;
@@ -162,8 +225,6 @@ void clEditorBar::DoRefreshColoursAndFonts()
     GetParent()->GetSizer()->Layout();
 }
 
-void clEditorBar::DoRefresh() { Refresh(); }
-
 void clEditorBar::OnMarkerChanged(clCommandEvent& event) { event.Skip(); }
 
 void clEditorBar::CreateBookmarksBitmap()
@@ -213,8 +274,7 @@ void clEditorBar::OnButtonActions(wxCommandEvent& event)
 
     // Capture all menu items in a single callback that simply keeps the selected menu item id
     int selection = wxID_NONE;
-    menu.Bind(
-        wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
+    menu.Bind(wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
     m_buttonFilePath->ShowMenu(menu);
 
     if (selection == wxID_NONE)
@@ -249,16 +309,15 @@ void clEditorBar::OnButtonBookmarks(wxCommandEvent& event)
         // Show bookmarks menu
         wxMenu menu;
         std::unordered_map<int, int> M;
-        std::for_each(V.begin(), V.end(), [&](const std::pair<int, wxString>& p) {
+        for (const auto& p : V) {
             wxString text = wxString::Format("%5u: ", p.first);
             text << p.second;
             M[menu.Append(wxID_ANY, text)->GetId()] = p.first; // Make the menu item ID with the line number
-        });
+        }
 
         // We got something to display
         int selection = wxID_NONE;
-        menu.Bind(
-            wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
+        menu.Bind(wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
         m_buttonBookmarks->ShowMenu(menu);
 
         if (selection == wxID_NONE)
@@ -291,8 +350,7 @@ void clEditorBar::OnButtonScope(wxCommandEvent& event)
 
     // Popup the menu
     int selection = wxID_NONE;
-    menu.Bind(
-        wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
+    menu.Bind(wxEVT_MENU, [&](wxCommandEvent& evt) { selection = evt.GetId(); }, wxID_ANY);
     m_buttonScope->ShowMenu(menu);
 
     if (selection == wxID_NONE)
@@ -308,9 +366,9 @@ void clEditorBar::OnButtonScope(wxCommandEvent& event)
     }
 }
 
-void clEditorBar::SetLabel(const wxString& text) { m_labelText->SetLabel(text); }
+void clEditorBar::SetLabel(const wxString& text) { m_messageText->SetLabel(text); }
 
-wxString clEditorBar::GetLabel() const { return m_labelText->GetLabel(); }
+wxString clEditorBar::GetLabel() const { return m_messageText->GetLabel(); }
 
 void clEditorBar::OnUpdate(clCodeCompletionEvent& event)
 {
@@ -356,4 +414,24 @@ void clEditorBar::UpdateScope()
     } else {
         m_buttonScope->SetText(wxEmptyString);
     }
+}
+
+std::optional<wxString> clEditorBar::GetCurrentScopeText() const
+{
+    IEditor* editor = clGetManager()->GetActiveEditor();
+    if (!editor) {
+        return std::nullopt;
+    }
+
+    const auto& scope = FindByLine(editor->GetCurrentLine());
+    if (!scope.is_ok()) {
+        return std::nullopt;
+    }
+
+    // Valid scopes are often are a class, struct, enum or function definition.
+    auto function_or_class_body = scope.GetScopeRange(editor->GetCtrl());
+    if (!function_or_class_body.has_value()) {
+        return std::nullopt;
+    }
+    return editor->GetCtrl()->GetTextRange(function_or_class_body.value().first, function_or_class_body.value().second);
 }

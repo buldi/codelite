@@ -1,17 +1,20 @@
 #include "file_picker_ctrl_wrapper.h"
+
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/filepicker.h>
 
 FilePickerCtrlWrapper::FilePickerCtrlWrapper()
     : wxcWidget(ID_WXFILEPICKER)
 {
     SetPropertyString(_("Common Settings"), "wxFilePickerCtrl");
-    AddProperty(new StringProperty(PROP_VALUE, wxT(""), _("Default value")));
-    AddProperty(new StringProperty(PROP_MESSAGE, _("Select a file"), _("Message to show to the user")));
-    AddProperty(new StringProperty(PROP_WILDCARD, wxT("*"), _("Wildcard")));
+    Add<StringProperty>(PROP_VALUE, wxT(""), _("Default value"));
+    Add<StringProperty>(PROP_MESSAGE, _("Select a file"), _("Message to show to the user"));
+    Add<StringProperty>(PROP_WILDCARD, wxT("*"), _("Wildcard"));
 
     PREPEND_STYLE(wxFLP_OPEN, false);
     PREPEND_STYLE(wxFLP_SAVE, false);
@@ -30,8 +33,6 @@ FilePickerCtrlWrapper::FilePickerCtrlWrapper()
     m_namePattern = wxT("m_filePicker");
     SetName(GenerateName());
 }
-
-FilePickerCtrlWrapper::~FilePickerCtrlWrapper() {}
 
 wxcWidget* FilePickerCtrlWrapper::Clone() const { return new FilePickerCtrlWrapper(); }
 

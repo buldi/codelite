@@ -7,6 +7,13 @@
 #include "cl_command_event.h"
 #include "cl_config.h"
 
+#include <wx/choice.h>
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
+#endif
+
 class clThemedButton;
 class WXDLLIMPEXP_SDK clFileSystemWorkspaceView : public clTreeCtrlPanel
 {
@@ -31,7 +38,7 @@ protected:
     void OnBuildEnded(clBuildEvent& event);
     void OnProgramStarted(clExecuteEvent& event);
     void OnProgramStopped(clExecuteEvent& event);
-    void OnBuildActiveProjectDropdown(wxCommandEvent& event);
+    void OnBuildActiveProjectDropdown(wxAuiToolBarEvent& event);
     void OnFindInFilesDismissed(clFindInFilesEvent& event);
     void OnFindInFilesShowing(clFindInFilesEvent& event);
     void OnExcludePath(wxCommandEvent& event);
@@ -45,5 +52,9 @@ public:
     virtual ~clFileSystemWorkspaceView();
     void UpdateConfigs(const wxArrayString& configs, const wxString& selectedConfig);
 };
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 #endif // CLFILESYSTEMWORKSPACEVIEW_HPP

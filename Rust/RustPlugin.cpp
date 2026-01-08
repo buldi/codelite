@@ -31,11 +31,12 @@
 #include "FileSystemWorkspace/NewFileSystemWorkspaceDialog.h"
 #include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
 #include "FileSystemWorkspace/clFileSystemWorkspaceConfig.hpp"
+#include "LSP/LSPManager.hpp"
 #include "Platform/Platform.hpp"
 #include "Rust/clRustLocator.hpp"
 #include "RustWorkspace.hpp"
+#include "StringUtils.h"
 #include "build_settings_config.h"
-#include "clFilesCollector.h"
 #include "clWorkspaceManager.h"
 #include "cl_standard_paths.h"
 #include "environmentconfig.h"
@@ -47,14 +48,9 @@
 
 #include <wx/dir.h>
 #include <wx/msgdlg.h>
-#include <wx/stdpaths.h>
-#include <wx/utils.h>
 
 // Define the plugin entry point
-CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
-{
-    return new RustPlugin(manager);
-}
+CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager) { return new RustPlugin(manager); }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
 {
@@ -83,8 +79,6 @@ RustPlugin::RustPlugin(IManager* manager)
     clWorkspaceManager::Get().RegisterWorkspace(new RustWorkspace());
     AddRustcCompilerIfMissing(); // make sure we got the rustc compiler if missing
 }
-
-RustPlugin::~RustPlugin() {}
 
 void RustPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
@@ -131,7 +125,7 @@ void RustPlugin::OnRustWorkspaceFileCreated(clFileSystemEvent& event)
         clRustLocator rust_locator;
         if (rust_locator.Locate()) {
             cargo_exe = rust_locator.GetRustTool("cargo");
-            ::WrapWithQuotes(cargo_exe);
+            StringUtils::WrapWithQuotes(cargo_exe);
         }
 #endif
 
@@ -139,10 +133,10 @@ void RustPlugin::OnRustWorkspaceFileCreated(clFileSystemEvent& event)
         if (debug) {
             clDEBUG() << "Setting project preferences..." << endl;
             debug->SetBuildTargets(
-                { { "build", cargo_exe + " build --color always" },
-                  { "clean", cargo_exe + " clean --color always" },
-                  { "tests", cargo_exe + " test --color always" },
-                  { "clippy", cargo_exe + " clippy --color always --all-features --all-targets -- -D warnings" } });
+                {{"build", cargo_exe + " build --color always"},
+                 {"clean", cargo_exe + " clean --color always"},
+                 {"tests", cargo_exe + " test --color always"},
+                 {"clippy", cargo_exe + " clippy --color always --all-features --all-targets -- -D warnings"}});
             wxFileName target_exe(workspaceFile.GetPath() + "/target/debug/" + name);
 #ifdef __WXMSW__
             target_exe.SetExt("exe");
@@ -221,18 +215,18 @@ void RustPlugin::OnNewWorkspace(clCommandEvent& e)
         }
 
         EnvSetter env;
-        wxString cargo_exe;
-        if (!ThePlatform->Which("cargo", &cargo_exe)) {
+        auto cargo_exe = ThePlatform->Which("cargo");
+        if (!cargo_exe) {
             wxMessageBox(_("Could not locate cargo in your PATH"), "CodeLite", wxICON_ERROR | wxCENTRE);
             return;
         }
 
-        ::WrapWithQuotes(cargo_exe);
+        StringUtils::WrapWithQuotes(*cargo_exe);
 
         wxString command;
-        command << cargo_exe << " new " << dlg.GetWorkspaceName();
-        IProcess::Ptr_t process(::CreateSyncProcess(command, IProcessCreateDefault | IProcessCreateWithHiddenConsole,
-                                                    dlg.GetWorkspacePath()));
+        command << *cargo_exe << " new " << dlg.GetWorkspaceName();
+        IProcess::Ptr_t process(::CreateSyncProcess(
+            command, IProcessCreateDefault | IProcessCreateWithHiddenConsole, dlg.GetWorkspacePath()));
         if (!process) {
             clWARNING() << "failed to execute:" << command << endl;
             return;
@@ -356,11 +350,17 @@ void RustPlugin::OnBuildEnded(clBuildEvent& event)
         old_digest = m_cargoTomlDigest[cargo_toml];
     }
 
-    if (new_digest != old_digest) {
-        // restart is required
-        clLanguageServerEvent restart_event(wxEVT_LSP_RESTART_ALL);
-        EventNotifier::Get()->ProcessEvent(restart_event);
+    if (new_digest == old_digest) {
+        return;
     }
+
+    // Restart the LSP.
+    auto server = LSP::Manager::GetInstance().GetServerForLanguage("rust");
+    if (server) {
+        server->Restart();
+    }
+
+    // And update the Cargo's digest.
     m_cargoTomlDigest[cargo_toml] = new_digest;
 }
 
@@ -372,7 +372,7 @@ void RustPlugin::OnWorkspaceLoaded(clWorkspaceEvent& event)
     }
 
     wxFileName workspaceFile = clFileSystemWorkspace::Get().GetFileName();
-    wxFileName cargo_toml{ workspaceFile.GetPath(), "Cargo.toml" };
+    wxFileName cargo_toml{workspaceFile.GetPath(), "Cargo.toml"};
 
     if (cargo_toml.FileExists()) {
         m_cargoTomlFile = cargo_toml;

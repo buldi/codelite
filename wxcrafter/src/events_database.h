@@ -4,7 +4,6 @@
 #include "wx_ordered_map.h"
 #include "wxcLib/json_node.h"
 
-#include <map>
 #include <unordered_map>
 #include <wx/menu.h>
 #include <wx/string.h>
@@ -21,7 +20,7 @@ protected:
     wxString m_ifBlock; // In case this event should be wrapped with #if / #endif block, mark it here
 
 public:
-    ConnectDetails() {}
+    ConnectDetails() = default;
 
     ConnectDetails(const wxString& eventName, const wxString& eventClass, const wxString& description,
                    bool noBody = false, const wxString& functionNameAndSignature = "")
@@ -80,15 +79,15 @@ public:
 class EventsDatabase
 {
 public:
-    typedef wxOrderedMap<wxString, ConnectDetails> MapEvents_t;
-    typedef std::unordered_map<int, wxString> MapMenuIdToName_t;
+    using MapEvents_t = wxOrderedMap<wxString, ConnectDetails>;
+    using MapMenuIdToName_t = std::unordered_map<int, wxString>;
 
 protected:
     MapEvents_t m_events;
     MapMenuIdToName_t m_menuIdToName;
 
 public:
-    EventsDatabase();
+    EventsDatabase() = default;
     virtual ~EventsDatabase();
 
     // API

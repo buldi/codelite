@@ -54,8 +54,10 @@
 #include <wx/arrstr.h>
 
 // Codelite
-#include "JSON.h"
+#include "json_utils.h"
 #include "workspace.h"
+
+#include <assistant/common/json.hpp>
 
 // CMakePlugin
 #include "CMakePlugin.h"
@@ -152,16 +154,6 @@ const CMakeProjectSettings* CMakeSettingsManager::GetProjectSettings(const wxStr
 
 /* ************************************************************************ */
 
-bool CMakeSettingsManager::IsProjectEnabled(const wxString& project, const wxString& config) const
-{
-    // Get project settings
-    const CMakeProjectSettings* settings = GetProjectSettings(project, config);
-
-    return settings && settings->enabled;
-}
-
-/* ************************************************************************ */
-
 void CMakeSettingsManager::SaveProjects()
 {
     clCxxWorkspace* workspace = m_plugin->GetManager()->GetWorkspace();
@@ -170,8 +162,8 @@ void CMakeSettingsManager::SaveProjects()
     wxArrayString projects;
     workspace->GetProjectList(projects);
 
-    for(wxArrayString::const_iterator it = projects.begin(), ite = projects.end(); it != ite; ++it) {
-        SaveProject(*it);
+    for (const auto& projectName : projects) {
+        SaveProject(projectName);
     }
 }
 
@@ -196,39 +188,26 @@ void CMakeSettingsManager::SaveProject(const wxString& name)
         return;
 
     // Create JSON object
-    JSONItem json = JSONItem::createArray("configurations");
+    nlohmann::json json = nlohmann::json::array();
 
     // Foreach settings
-    for(std::map<wxString, CMakeProjectSettings>::const_iterator it = itSettings->second.begin(),
-                                                                 ite = itSettings->second.end();
-        it != ite; ++it) {
-        // Get settings
-        const CMakeProjectSettings& settings = it->second;
-
-        // Create item
-        JSONItem item = JSONItem::createObject("configuration");
-
-        // Store name
-        item.addProperty("name", it->first);
-
-        // Store settings
-        item.addProperty("enabled", settings.enabled);
-        item.addProperty("buildDirectory", settings.buildDirectory);
-        item.addProperty("sourceDirectory", settings.sourceDirectory);
-        item.addProperty("generator", settings.generator);
-        item.addProperty("buildType", settings.buildType);
-        item.addProperty("arguments", settings.arguments);
-        item.addProperty("parentProject", settings.parentProject);
-
-        // Add array
-        json.arrayAppend(item);
+    for (const auto& [name, settings] : itSettings->second) {
+        json.push_back({{"name", name},
+                        // Store settings
+                        {"enabled", settings.enabled},
+                        {"buildDirectory", settings.buildDirectory},
+                        {"sourceDirectory", settings.sourceDirectory},
+                        {"generator", settings.generator},
+                        {"buildType", settings.buildType},
+                        {"arguments", settings.arguments},
+                        {"parentProject", settings.parentProject}});
     }
 
     // Must be an array
-    wxASSERT(json.getType() == cJSON_Array);
+    wxASSERT(json.is_array());
 
     // Store plugin data
-    project->SetPluginData("CMakePlugin", json.format());
+    project->SetPluginData("CMakePlugin", wxString::FromUTF8(json.dump()));
 }
 
 /* ************************************************************************ */
@@ -241,8 +220,8 @@ void CMakeSettingsManager::LoadProjects()
     wxArrayString projects;
     workspace->GetProjectList(projects);
 
-    for(wxArrayString::const_iterator it = projects.begin(), ite = projects.end(); it != ite; ++it) {
-        LoadProject(*it);
+    for (const auto& projectName : projects) {
+        LoadProject(projectName);
     }
 }
 
@@ -270,36 +249,30 @@ void CMakeSettingsManager::LoadProject(const wxString& name)
     const wxString jsonStr = project->GetPluginData("CMakePlugin");
 
     // Create JSON object
-    JSON jsonRoot(jsonStr);
-    // JSON cannot be temporary, because destructor deletes cJSON object.
-    JSONItem json = jsonRoot.toElement();
+    nlohmann::json json = nlohmann::json::parse(StringUtils::ToStdString(jsonStr), nullptr, false);
 
     // Unable to parse
-    if(!json.isOk())
+    if (json.is_discarded())
         return;
 
     // Expected array with config names
-    if(json.getType() != cJSON_Array)
+    if (!json.is_array())
         return;
 
     // Foreach array
-    auto arr_size = json.arraySize();
-    for(auto i = 0; i < arr_size; ++i) {
-        // Get item
-        JSONItem item = json.arrayItem(i);
-
+    for (const auto& item : json) {
         // Name
-        const wxString name = item.namedObject("name").toString();
+        const wxString name = wxString::FromUTF8(item["name"]);
 
         // (Create and) get settings
         CMakeProjectSettings& settings = settingsMap[name];
-        settings.enabled = item.namedObject("enabled").toBool();
-        settings.buildDirectory = item.namedObject("buildDirectory").toString("build");
-        settings.sourceDirectory = item.namedObject("sourceDirectory").toString("build");
-        settings.generator = item.namedObject("generator").toString();
-        settings.buildType = item.namedObject("buildType").toString();
-        settings.arguments = item.namedObject("arguments").toArrayString();
-        settings.parentProject = item.namedObject("parentProject").toString();
+        settings.enabled = item["enabled"];
+        settings.buildDirectory = wxString::FromUTF8(item.value("buildDirectory", "build"));
+        settings.sourceDirectory = wxString::FromUTF8(item.value("sourceDirectory", "build"));
+        settings.generator = wxString::FromUTF8(item["generator"]);
+        settings.buildType = wxString::FromUTF8(item["buildType"]);
+        settings.arguments = JsonUtils::ToArrayString(item["arguments"]);
+        settings.parentProject = wxString::FromUTF8(item["parentProject"]);
     }
 }
 

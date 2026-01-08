@@ -39,8 +39,7 @@ class GitFileDiffDlg : public GitFileDiffDlgBase
 {
 public:
     GitFileDiffDlg(wxWindow* parent);
-    ~GitFileDiffDlg();
-    void SetDiff(const wxString& diff);
+    virtual ~GitFileDiffDlg() = default;
 
 protected:
     virtual void OnCloseDialog(wxCommandEvent& event);

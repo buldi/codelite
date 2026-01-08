@@ -1,7 +1,6 @@
 #ifndef SMARTCOMPLETIONUSAGEDB_H
 #define SMARTCOMPLETIONUSAGEDB_H
 
-#include "wxStringHash.h"
 #include <unordered_map>
 #include <wx/string.h>
 #include <wx/wxsqlite3.h>
@@ -14,7 +13,7 @@ protected:
     void CreateScheme();
 
 public:
-    SmartCompletionUsageDB();
+    SmartCompletionUsageDB() = default;
     virtual ~SmartCompletionUsageDB();
 
     /**

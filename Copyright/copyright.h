@@ -25,29 +25,26 @@
 #ifndef __Copyright__
 #define __Copyright__
 
-#include "plugin.h"
 #include "cl_command_event.h"
+#include "plugin.h"
 
 class wxMenuItem;
 class Copyright : public IPlugin
 {
-    wxMenuItem* m_projectSepItem;
-    wxMenuItem* m_workspaceSepItem;
-
 protected:
     bool Validate(wxString& content);
     void MassUpdate(const std::vector<wxFileName>& filtered_files, const wxString& content);
 
 public:
     Copyright(IManager* manager);
-    ~Copyright();
+    ~Copyright() override = default;
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void UnPlug() override;
 
     // event handlers
     void OnOptions(wxCommandEvent& e);

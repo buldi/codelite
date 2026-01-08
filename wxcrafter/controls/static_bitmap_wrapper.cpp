@@ -1,8 +1,9 @@
 #include "static_bitmap_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Importer/import_from_xrc.h"
+#include "Properties/bitmap_picker_property.h"
 #include "allocator_mgr.h"
-#include "file_ficker_property.h"
-#include "import_from_wxFB.h"
-#include "import_from_xrc.h"
 #include "wxc_bitmap_code_generator.h"
 #include "xmlutils.h"
 
@@ -10,12 +11,10 @@ StaticBitmapWrapper::StaticBitmapWrapper()
     : wxcWidget(ID_WXSTATICBITMAP)
 {
     SetPropertyString(_("Common Settings"), "wxStaticBitmap");
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, wxT(""), _("Select the bitmap file")));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH, wxT(""), _("Select the bitmap file"));
     m_namePattern = wxT("m_staticBitmap");
     SetName(GenerateName());
 }
-
-StaticBitmapWrapper::~StaticBitmapWrapper() {}
 
 wxcWidget* StaticBitmapWrapper::Clone() const { return new StaticBitmapWrapper(); }
 

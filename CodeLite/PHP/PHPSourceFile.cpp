@@ -269,7 +269,7 @@ void PHPSourceFile::OnUse()
                 // use Zend\Mvc\Controll\Action;
                 // is equal for writing:
                 // use \Zend\Mvc\Controll\Action;
-                // For simplicitiy, we change it to fully qualified path
+                // For simplicity, we change it to fully qualified path
                 // so parsing is easier
                 if(!fullname.StartsWith("\\")) {
                     fullname.Prepend("\\");
@@ -586,21 +586,6 @@ void PHPSourceFile::ParseFunctionSignature(int startingDepth)
     }
 }
 
-void PHPSourceFile::PrintStdout()
-{
-    // print the alias table
-    wxPrintf("Alias table:\n");
-    wxPrintf("===========\n");
-    std::map<wxString, wxString>::iterator iter = m_aliases.begin();
-    for(; iter != m_aliases.end(); ++iter) {
-        wxPrintf("%s => %s\n", iter->first, iter->second);
-    }
-    wxPrintf("===========\n");
-    if(m_scopes.empty())
-        return;
-    m_scopes.front()->PrintStdout(0);
-}
-
 bool PHPSourceFile::ReadUntilFound(int delim, phpLexerToken& token)
 {
     // loop until we find the open brace
@@ -698,27 +683,6 @@ PHPEntityBase::Ptr_t PHPSourceFile::Namespace()
         return CurrentScope();
     }
     return *m_scopes.begin();
-}
-
-wxString PHPSourceFile::LookBackForTypeHint()
-{
-    if(m_lookBackTokens.empty())
-        return wxEmptyString;
-    wxArrayString tokens;
-
-    for(int i = (int)m_lookBackTokens.size() - 1; i >= 0; --i) {
-        if(m_lookBackTokens.at(i).type == kPHP_T_IDENTIFIER || m_lookBackTokens.at(i).type == kPHP_T_NS_SEPARATOR) {
-            tokens.Insert(m_lookBackTokens.at(i).Text(), 0);
-        } else {
-            break;
-        }
-    }
-
-    wxString type;
-    for(size_t i = 0; i < tokens.GetCount(); ++i) {
-        type << tokens.Item(i);
-    }
-    return type;
 }
 
 void PHPSourceFile::PhaseTwo()
@@ -858,36 +822,6 @@ void PHPSourceFile::OnClass(const phpLexerToken& tok)
             break;
         }
     }
-}
-
-bool PHPSourceFile::ReadCommaSeparatedIdentifiers(int delim, wxArrayString& list)
-{
-    phpLexerToken token;
-    wxString temp;
-    while(NextToken(token)) {
-        if(token.IsAnyComment())
-            continue;
-        if(token.type == delim) {
-            if(!temp.IsEmpty() && list.Index(temp) == wxNOT_FOUND) {
-                list.Add(MakeIdentifierAbsolute(temp));
-            }
-            UngetToken(token);
-            return true;
-        }
-
-        switch(token.type) {
-        case ',':
-            if(list.Index(temp) == wxNOT_FOUND) {
-                list.Add(MakeIdentifierAbsolute(temp));
-            }
-            temp.clear();
-            break;
-        default:
-            temp << token.Text();
-            break;
-        }
-    }
-    return false;
 }
 
 bool PHPSourceFile::ConsumeUntil(int delim)
@@ -1088,12 +1022,12 @@ bool PHPSourceFile::ReadVariableInitialization(PHPEntityBase::Ptr_t var)
 PHPEntityBase::List_t PHPSourceFile::GetAliases() const
 {
     PHPEntityBase::List_t aliases;
-    std::map<wxString, wxString>::const_iterator iter = m_aliases.begin();
-    for(; iter != m_aliases.end(); ++iter) {
+
+    for (const auto& p : m_aliases) {
         // wrap each alias with class entity
         PHPEntityBase::Ptr_t klass(new PHPEntityClass());
-        klass->SetFullName(iter->second);
-        klass->SetShortName(iter->first);
+        klass->SetFullName(p.second);
+        klass->SetShortName(p.first);
         klass->SetFilename(GetFilename());
         aliases.push_back(klass);
     }
@@ -1136,7 +1070,7 @@ void PHPSourceFile::OnDefine(const phpLexerToken& tok)
         var->SetLine(tok.lineNumber);
 
         // We keep the defines in a special list
-        // this is because 'define' does not obay to the current scope
+        // this is because 'define' does not obey to the current scope
         m_defines.push_back(var);
     }
     // Always consume the 'define' statement
@@ -1365,7 +1299,7 @@ void PHPSourceFile::ParseUseTraitsBody()
                 // use Zend\Mvc\Controll\Action;
                 // is equal for writing:
                 // use \Zend\Mvc\Controll\Action;
-                // For simplicitiy, we change it to fully qualified path
+                // For simplicity, we change it to fully qualified path
                 // so parsing is easier
                 if(!fullname.StartsWith("\\")) {
                     fullname.Prepend("\\");
@@ -1394,7 +1328,7 @@ void PHPSourceFile::ParseUseTraitsBody()
         } break;
         case kPHP_T_INSTEADOF: {
             // For now, we are not interested in
-            // A insteadof b; statements, so just clear the collected data so far
+            // A instead of b; statements, so just clear the collected data so far
             fullname.clear();
             temp.clear();
             alias.clear();
@@ -1628,7 +1562,7 @@ wxString PHPSourceFile::DoMakeIdentifierAbsolute(const wxString& type, bool exac
     }
 
     if(exactMatch && m_lookup && !typeWithNS.Contains("\\") && !m_lookup->ClassExists(ns + typeWithNS)) {
-        // Only when "exactMatch" apply this logic, otherwise, we might be getting a partialy typed string
+        // Only when "exactMatch" apply this logic, otherwise, we might be getting a partially typed string
         // which we will not find by calling FindChild()
         typeWithNS.Prepend("\\"); // Use the global NS
     } else {

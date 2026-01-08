@@ -1,6 +1,7 @@
 #include "FontUtils.hpp"
 
-#include "wxStringHash.h"
+#include <unordered_map>
+#include <unordered_set>
 
 namespace FontUtils
 {
@@ -9,7 +10,7 @@ const wxString DEFAULT_FACE_NAME = "Consolas";
 constexpr int DEFAULT_FONT_SIZE = 14;
 #elif defined(__WXMAC__)
 const wxString DEFAULT_FACE_NAME = "monaco";
-constexpr int DEFAULT_FONT_SIZE = 14;
+constexpr int DEFAULT_FONT_SIZE = 16;
 #else // GTK, FreeBSD etc
 const wxString DEFAULT_FACE_NAME = "Monospace";
 constexpr int DEFAULT_FONT_SIZE = 14;
@@ -26,7 +27,7 @@ const wxString& GetFontInfo(const wxFont& font) { return GetFontInfo(font.GetNat
 const wxString& GetFontInfo(const wxString& font_desc)
 {
     // check the cache first
-    if(fixed_fonts_cache.count(font_desc) != 0) {
+    if (fixed_fonts_cache.count(font_desc) != 0) {
         return fixed_fonts_cache[font_desc];
     }
 
@@ -34,12 +35,12 @@ const wxString& GetFontInfo(const wxString& font_desc)
 #ifdef __WXMSW__
     // on MSW, we need to manipulate the info by removing
     // "Semi Bold" (on all its variants) from the font's info
-    for(const wxString& word : words) {
+    for (const wxString& word : words) {
         desc.Replace(word, wxEmptyString);
     }
 
     // replace all double spaces with a single one
-    while(desc.Replace("  ", " "))
+    while (desc.Replace("  ", " "))
         ;
     desc.Trim();
 #endif

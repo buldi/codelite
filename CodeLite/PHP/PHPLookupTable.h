@@ -34,7 +34,6 @@
 #include "file_logger.h"
 #include "fileextmanager.h"
 #include "fileutils.h"
-#include "wxStringHash.h"
 
 #include <set>
 #include <unordered_set>
@@ -164,10 +163,6 @@ public:
      * @brief rebuild the class cache
      */
     void RebuildClassCache();
-    /**
-     * @brief return the function closest to a given function and line number
-     */
-    PHPEntityBase::Ptr_t FindFunctionNearLine(const wxFileName& filename, int lineNumber);
 
     /**
      * @brief add class name to the class cache
@@ -181,13 +176,9 @@ public:
     bool ClassExists(const wxString& classname) const;
 
     void SetSizeLimit(size_t sizeLimit) { this->m_sizeLimit = sizeLimit; }
-    /**
-     * @brief return the entity at a given file/line
-     */
-    PHPEntityBase::Ptr_t FindFunctionByLineAndFile(const wxFileName& filename, int line);
 
     /**
-     * @brief return list of functiosn from a given file
+     * @brief return list of functions from a given file
      */
     size_t FindFunctionsByFile(const wxFileName& filename, PHPEntityBase::List_t& functions);
 
@@ -238,11 +229,6 @@ public:
     PHPEntityBase::Ptr_t FindClass(const wxString& fullname);
 
     /**
-     * @brief find a class with a given database ID
-     */
-    PHPEntityBase::Ptr_t FindClass(wxLongLong id);
-
-    /**
      * @brief find a member of parentDbId with name that matches 'exactName'
      */
     PHPEntityBase::Ptr_t FindMemberOf(wxLongLong parentDbId, const wxString& exactName, size_t flags = 0);
@@ -289,14 +275,9 @@ public:
                                  bool parseFuncBodies = true);
 
     /**
-     * @brief parse folder
-     */
-    void ParseFolder(const wxString& folder, const wxString& filemask, eUpdateMode updateMode);
-
-    /**
      * @brief delete all entries belonged to filename.
      * @param filename the file name
-     * @param autoCommit when true, issue a begin/commit transcation commands
+     * @param autoCommit when true, issue a begin/commit transaction commands
      */
     void DeleteFileEntries(const wxFileName& filename, bool autoCommit = true);
 
@@ -371,7 +352,7 @@ void PHPLookupTable::RecreateSymbolsDatabase(const wxArrayString& files, eUpdate
             }
 
             if(reParseNeeded) {
-                // For performance reaons, load the file into memory and then parse it
+                // For performance reasons, load the file into memory and then parse it
                 wxFileName fnSourceFile(files.Item(i));
                 wxString content;
                 if(!FileUtils::ReadFileContent(fnSourceFile, content, wxConvISO8859_1)) {
@@ -400,11 +381,11 @@ void PHPLookupTable::RecreateSymbolsDatabase(const wxArrayString& files, eUpdate
             EventNotifier::Get()->AddPendingEvent(event);
         }
 
-    } catch(wxSQLite3Exception& e) {
+    } catch (const wxSQLite3Exception& e) {
         try {
             m_db.Rollback();
 
-        } catch(...) {
+        } catch (...) {
         }
 
         {

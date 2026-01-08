@@ -42,7 +42,7 @@ class MemCheckSettings;
 /**
  * @brief Interface for any future error processor - parser.
  *
- * Main goal is to fetch error log from extern analyzer tool to internaly used structure - ErrorList.
+ * Main goal is to fetch error log from extern analyzer tool to internally used structure - ErrorList.
  * Plugin creates right type of processor according to settings.
  * At this time internal data storage for error is property of processor.
  */
@@ -56,9 +56,11 @@ public:
     IMemCheckProcessor(MemCheckSettings* const settings)
         : m_settings(settings)
         , m_outputLogFileName(wxEmptyString)
-        , m_errorList(){};
+        , m_errorList()
+    {
+    }
 
-    virtual ~IMemCheckProcessor() {}
+    virtual ~IMemCheckProcessor() = default;
 
 protected:
     MemCheckSettings* m_settings;

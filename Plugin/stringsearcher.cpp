@@ -24,7 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "stringsearcher.h"
 
-#include "globals.h"
+#include "StringUtils.h"
 #include "search_thread.h"
 
 #include <algorithm>
@@ -68,7 +68,7 @@ wxString StringFindReplacer::GetString(const wxString& input, int from, bool sea
 bool StringFindReplacer::DoWildcardSearch(const wxString& input, int startOffset, const wxString& find_what,
                                           size_t flags, int& pos, int& matchLen)
 {
-    // Conver the wildcard to regex
+    // Convert the wildcard to regex
     wxString regexPattern = find_what;
 
     // Escape braces
@@ -79,7 +79,7 @@ bool StringFindReplacer::DoWildcardSearch(const wxString& input, int startOffset
     regexPattern.Replace("{", "\\{");
     regexPattern.Replace("}", "\\}");
 
-    // Covnert match syntax to regular expression
+    // Convert match syntax to regular expression
     regexPattern.Replace("?", "."); // Any character
     regexPattern.Replace("*",
                          "[^\\n]*?"); // Non greedy wildcard '*', but don't allow matches to go beyond a single line
@@ -107,7 +107,7 @@ bool StringFindReplacer::DoRESearch(const wxString& input, int startOffset, cons
     re_flags |= wxRE_NEWLINE; // Handle \n as a special character
     re.Compile(find_what, re_flags);
 
-    // incase we are scanning NOT backwared, set the offset
+    // incase we are scanning NOT backward, set the offset
     if(!(flags & wxSD_SEARCH_BACKWARD)) {
         pos = startOffset;
     }
@@ -151,7 +151,6 @@ bool StringFindReplacer::DoRESearch(const wxString& input, int startOffset, cons
 bool StringFindReplacer::DoSimpleSearch(const wchar_t* pinput, int startOffset, const wchar_t* pfind_what, size_t flags,
                                         int& pos, int& matchLen)
 {
-#if wxVERSION_NUMBER >= 2900
     std::wstring input(pinput);
     std::wstring find_what(pfind_what);
 
@@ -175,11 +174,6 @@ bool StringFindReplacer::DoSimpleSearch(const wchar_t* pinput, int startOffset, 
         }
         str = input.substr(0, (size_t)from);
     }
-#else
-    wxString input(pinput);
-    wxString find_what(pfind_what);
-    std::wstring str = GetString(pinput, startOffset, flags & wxSD_SEARCH_BACKWARD ? true : false).c_str();
-#endif
 
     size_t init_size = str.length();
 
@@ -190,7 +184,7 @@ bool StringFindReplacer::DoSimpleSearch(const wchar_t* pinput, int startOffset, 
     std::wstring find_str(find_what);
     size_t offset(0);
 
-    // incase we are scanning backwared, revert the strings
+    // incase we are scanning backward, revert the strings
     if(flags & wxSD_SEARCH_BACKWARD) {
         find_str = Reverse(find_str);
         str = Reverse(str);
@@ -209,7 +203,7 @@ bool StringFindReplacer::DoSimpleSearch(const wchar_t* pinput, int startOffset, 
     while(upos != std::wstring::npos) {
         if(flags & wxSD_MATCHWHOLEWORD) {
             // full word match
-            // test that the characeter at upos - 1 & the character at upos + find_str.Len() are not
+            // test that the character at upos - 1 & the character at upos + find_str.Len() are not
             // valid word char [a-zA-Z0-9_]
             if(upos > 0) {
                 if(isalpha(str[upos - 1]) || isdigit(str[upos - 1]) || (int)str[upos - 1] == (int)'_') {
@@ -264,11 +258,11 @@ bool StringFindReplacer::Search(const wchar_t* input, int startOffset, const wch
     int iSO = startOffset;
     bool isUTF8 = false;
     if(iSO) {
-        int utfLen = clUTF8Length(input, iSO);
+        int utfLen = StringUtils::UTF8Length(input, iSO);
         isUTF8 = (utfLen != iSO);
     }
 
-    while(isUTF8 && (iSO > 0) && ((int)clUTF8Length(input, iSO) > startOffset))
+    while (isUTF8 && (iSO > 0) && ((int)StringUtils::UTF8Length(input, iSO) > startOffset))
         iSO--;
     startOffset = iSO;
 
@@ -286,11 +280,11 @@ bool StringFindReplacer::Search(const wchar_t* input, int startOffset, const wch
 
     // correct search Pos and Length owing to non plain ASCII multibyte characters
     if(bResult) {
-        pos = clUTF8Length(input, posInChars);
+        pos = StringUtils::UTF8Length(input, posInChars);
         if(flags & wxSD_REGULAREXPRESSION) {
-            matchLen = clUTF8Length(input, posInChars + matchLenInChars) - pos;
+            matchLen = StringUtils::UTF8Length(input, posInChars + matchLenInChars) - pos;
         } else {
-            matchLen = clUTF8Length(find_what, matchLenInChars);
+            matchLen = StringUtils::UTF8Length(find_what, matchLenInChars);
         }
     }
     return bResult;

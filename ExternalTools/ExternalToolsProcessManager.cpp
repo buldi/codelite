@@ -2,6 +2,7 @@
 
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
+#include "StringUtils.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
@@ -10,7 +11,6 @@
 #include "imanager.h"
 #include "macromanager.h"
 
-#include <algorithm>
 #include <wx/msgdlg.h>
 #include <wx/process.h>
 #include <wx/utils.h>
@@ -25,8 +25,8 @@
 class ExtToolsMyProcess : public wxProcess
 {
 public:
-    ExtToolsMyProcess() {}
-    virtual ~ExtToolsMyProcess() {}
+    ExtToolsMyProcess() = default;
+    virtual ~ExtToolsMyProcess() = default;
     void OnTerminate(int pid, int status)
     {
         ToolsTaskManager::Instance()->ProcessTerminated(pid);
@@ -74,7 +74,7 @@ void ToolsTaskManager::OnProcessEnd(clProcessEvent& event)
     ProcessTerminated(proc->GetPid());
     delete proc;
 
-    // Notify codelite to test for any modified bufferes
+    // Notify CodeLite to test for any modified buffers
     EventNotifier::Get()->PostReloadExternallyModifiedEvent();
 }
 
@@ -87,12 +87,10 @@ void ToolsTaskManager::StartTool(const ToolInfo& ti, const wxString& filename)
 {
     wxString command, working_dir;
     command << ti.GetPath();
-    //::WrapWithQuotes(command);
+    //StringUtils::WrapWithQuotes(command);
     if(!filename.IsEmpty()) {
         // If an input file was given, append it to the command
-        wxString fileName = filename;
-        ::WrapWithQuotes(fileName);
-        command << " " << fileName;
+        command << " " << StringUtils::WrapWithDoubleQuotes(filename);
     }
     working_dir = ti.GetWd();
     command = MacroManager::Instance()->Expand(
@@ -148,9 +146,9 @@ void ToolsTaskManager::ProcessTerminated(int pid)
 
 void ToolsTaskManager::StopAll()
 {
-    std::for_each(m_tools.begin(), m_tools.end(), [&](const std::pair<int, ExternalToolItemData>& p) {
+    for (const auto& p : m_tools) {
         ::wxKill(p.second.m_pid, wxSIGKILL, NULL, wxKILL_CHILDREN);
-    });
+    }
 }
 
 void ToolsTaskManager::Stop(int pid)
@@ -165,12 +163,12 @@ ExternalToolItemData::Map_t& ToolsTaskManager::GetTools()
 #ifdef __WXOSX__
     // Check that the processes are still alive before we continue
     ExternalToolItemData::Map_t tools;
-    std::for_each(m_tools.begin(), m_tools.end(), [&](const std::pair<int, ExternalToolItemData>& p) {
+    for (const auto& p : m_tools) {
         if(kill(p.first, 0) == 0) {
             // alive
             tools.insert(p);
         }
-    });
+    }
     m_tools.swap(tools);
 #endif
     return m_tools;

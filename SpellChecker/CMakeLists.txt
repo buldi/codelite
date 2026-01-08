@@ -20,11 +20,6 @@ if(LIBHUNSPELL STREQUAL "LIBHUNSPELL-NOTFOUND" OR HUNSPELL_H STREQUAL "HUNSPELL_
     message("    ** NOTICE ** Try installing libhunspell-dev package")
     message("    **")
 else()
-    if(UNIX AND NOT APPLE)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-    endif()
-
     # set the plugin name here
     set(PLUGIN_NAME "SpellCheck")
     message("-- Found libhunspell: ${LIBHUNSPELL}, ${HUNSPELL_H}")
@@ -38,19 +33,7 @@ else()
     include("${wxWidgets_USE_FILE}")
 
     # Include paths
-    include_directories(
-        "${CL_SRC_ROOT}/SpellChecker"
-        "${CL_SRC_ROOT}/Plugin"
-        "${CL_SRC_ROOT}/sdk/wxsqlite3/include"
-        "${CL_SRC_ROOT}/CodeLite"
-        "${CL_SRC_ROOT}/CodeLite/ssh"
-        "${CL_SRC_ROOT}/PCH"
-        "${CL_SRC_ROOT}/Interfaces"
-        "${HUNSPELL_H}")
-
-    add_definitions(-DWXUSINGDLL_WXSQLITE3)
-    add_definitions(-DWXUSINGDLL_CL)
-    add_definitions(-DWXUSINGDLL_SDK)
+    include_directories("${CL_SRC_ROOT}/SpellChecker" "${HUNSPELL_H}")
 
     if(USE_PCH AND NOT MINGW)
         add_definitions(-include "${CL_PCH_FILE}")
@@ -62,11 +45,17 @@ else()
     # Define the output
     add_library(${PLUGIN_NAME} SHARED ${SRCS})
 
-    target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
+    if(UNIX OR APPLE)
+        set_target_properties(${PLUGIN_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+
+    if(USE_PCH)
+        target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
+    endif()
 
     # Codelite plugins doesn't use the "lib" prefix.
     set_target_properties(${PLUGIN_NAME} PROPERTIES PREFIX "")
-    target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} ${LIBHUNSPELL} libcodelite plugin)
+    target_link_libraries(${PLUGIN_NAME} ${LINKER_OPTIONS} ${LIBHUNSPELL} libcodelite plugin)
 
     # Installation destination
     cl_install_plugin(${PLUGIN_NAME})

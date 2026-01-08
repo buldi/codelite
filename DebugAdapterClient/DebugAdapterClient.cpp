@@ -29,34 +29,29 @@
 #include "AsyncProcess/processreaderthread.h"
 #include "DAPBreakpointsView.h"
 #include "DAPConsoleOutput.hpp"
+#include "DAPDebuggerPane.h"
 #include "DAPMainView.h"
-#include "DAPModuleView.h"
+#include "DAPOutputPane.hpp"
 #include "DAPTextView.h"
 #include "DAPTooltip.hpp"
 #include "DAPWatchesView.h"
 #include "DapDebuggerSettingsDlg.h"
 #include "DapLocator.hpp"
-#include "DapLoggingHelper.hpp"
 #include "Debugger/debuggermanager.h"
 #include "FileSystemWorkspace/clFileSystemWorkspace.hpp"
 #include "StringUtils.h"
-#include "bookmark_manager.h"
-#include "clAuiBook.hpp"
 #include "clResizableTooltip.h"
 #include "clWorkspaceManager.h"
-#include "cl_config.h"
-#include "clcommandlineparser.h"
-#include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
 #include "macromanager.h"
+#include "wx/msgqueue.h"
 
 #include <wx/aui/framemanager.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
-#include <wx/platinfo.h>
 #include <wx/stc/stc.h>
 #include <wx/xrc/xmlres.h>
 
@@ -73,30 +68,13 @@ constexpr bool IS_WINDOWS = true;
 constexpr bool IS_WINDOWS = false;
 #endif
 
-const wxString DAP_MAIN_VIEW = _("Thread, stacks & variables");
-const wxString DAP_BREAKPOINTS_VIEW = _("Breakpoints");
-const wxString DAP_OUTPUT_VIEW = _("Output");
-const wxString DAP_WATCHES_VIEW = _("Watches");
-
+const wxString DAP_DEBUGGER_PANE = _("Debugger Client");
 const wxString DAP_MESSAGE_BOX_TITLE = "CodeLite - Debug Adapter Client";
 
 // Reusing gdb ids so global debugger menu and accelerators work.
 const int lldbRunToCursorContextMenuId = XRCID("dbg_run_to_cursor");
 const int lldbJumpToCursorContextMenuId = XRCID("dbg_jump_cursor");
 const int lldbAddWatchContextMenuId = XRCID("lldb_add_watch");
-
-wxString GetWatchWord(IEditor* editor)
-{
-    CHECK_PTR_RET_EMPTY_STRING(editor);
-    auto word = editor->GetSelection();
-    if (word.IsEmpty()) {
-        word = editor->GetWordAtCaret();
-    }
-
-    // Remove leading and trailing whitespace.
-    word.Trim(true).Trim(false);
-    return word;
-}
 
 std::vector<wxString> to_string_array(const clEnvList_t& env_list)
 {
@@ -115,6 +93,52 @@ wxString get_dap_settings_file()
     return fn.GetFullPath();
 }
 
+class StdioTransport : public dap::Transport
+{
+public:
+    StdioTransport() = default;
+    ~StdioTransport() override = default;
+
+    void SetProcess(DapProcess::Ptr_t process) { m_dap_server = process; }
+
+    /**
+     * @brief return from the network with a given timeout
+     * @returns true on success, false in case of an error. True is also returned when timeout occurs, check the buffer
+     * length if it is 0, timeout occurred
+     */
+    bool Read(std::string& buffer, int msTimeout) override
+    {
+        if (wxThread::IsMain()) {
+            LOG_ERROR(LOG) << "StdioTransport::Read is called from the main thread!" << endl;
+            return false;
+        }
+
+        std::string msg;
+        switch (m_dap_server->Queue().ReceiveTimeout(msTimeout, msg)) {
+        case wxMSGQUEUE_NO_ERROR:
+        case wxMSGQUEUE_TIMEOUT:
+            buffer.swap(msg);
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    /**
+     * @brief send data over the network
+     * @return number of bytes written
+     */
+    size_t Send(const std::string& buffer) override
+    {
+        if (!m_dap_server->Write(buffer)) {
+            return 0;
+        }
+        return buffer.length();
+    }
+
+private:
+    DapProcess::Ptr_t m_dap_server;
+};
 } // namespace
 
 #define CHECK_IS_DAP_CONNECTED()   \
@@ -124,10 +148,7 @@ wxString get_dap_settings_file()
     }
 
 // Define the plugin entry point
-CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
-{
-    return new DebugAdapterClient(manager);
-}
+CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager) { return new DebugAdapterClient(manager); }
 
 CL_PLUGIN_API PluginInfo* GetPluginInfo()
 {
@@ -230,7 +251,7 @@ DebugAdapterClient::DebugAdapterClient(IManager* manager)
 
 void DebugAdapterClient::UnPlug()
 {
-    wxDELETE(m_breakpointsHelper);
+    m_breakpointsHelper.reset();
     wxTheApp->Unbind(wxEVT_IDLE, &DebugAdapterClient::OnIdle, this);
     // DestroyUI();
     DebuggerMgr::Get().UnregisterDebuggers(m_shortName);
@@ -290,8 +311,6 @@ void DebugAdapterClient::UnPlug()
     EventNotifier::Get()->Unbind(wxEVT_NOTIFY_PAGE_CLOSING, &DebugAdapterClient::OnPageClosing, this);
 }
 
-DebugAdapterClient::~DebugAdapterClient() {}
-
 void DebugAdapterClient::RegisterDebuggers()
 {
     wxArrayString debuggers;
@@ -300,17 +319,6 @@ void DebugAdapterClient::RegisterDebuggers()
         debuggers.Add(entry.first);
     }
     DebuggerMgr::Get().RegisterDebuggers(m_shortName, debuggers);
-}
-
-bool DebugAdapterClient::ShowThreadNames() const { return m_showThreadNames; }
-
-wxString DebugAdapterClient::GetFilenameForDisplay(const wxString& fileName) const
-{
-    if (m_showFileNamesOnly) {
-        return wxFileName(fileName).GetFullName();
-    } else {
-        return fileName;
-    }
 }
 
 void DebugAdapterClient::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
@@ -352,8 +360,8 @@ void DebugAdapterClient::ClearDebuggerMarker()
 
 void DebugAdapterClient::RefreshBreakpointsView()
 {
-    if (m_breakpointsView) {
-        m_breakpointsView->RefreshView(m_sessionBreakpoints);
+    if (GetBreakpointsView()) {
+        GetBreakpointsView()->RefreshView(m_sessionBreakpoints);
     }
 
     // clear all breakpoint markers
@@ -491,6 +499,7 @@ void DebugAdapterClient::OnDebugStart(clDebugEvent& event)
     }
 
     // start the debugger
+    LOG_DEBUG(LOG) << "Initializing debugger for executable:" << exepath << endl;
     if (!InitialiseSession(dap_server, exepath, args, working_directory, ssh_account, env)) {
         return;
     }
@@ -548,12 +557,12 @@ void DebugAdapterClient::RestoreUI()
         m_isPerspectiveLoaded = false;
     }
 
-    DestroyUI();
+    HideDebuggerUI();
 }
 
 void DebugAdapterClient::LoadPerspective()
 {
-    // Save the current persepctive we start debguging
+    // Save the current perspective we start debugging
     m_mgr->SavePerspective("Default");
 
     // Hide all the panes
@@ -569,10 +578,7 @@ void DebugAdapterClient::LoadPerspective()
     m_isPerspectiveLoaded = true;
 
     // Make sure that all the panes are visible
-    ShowPane(DAP_MAIN_VIEW, true);
-    ShowPane(DAP_BREAKPOINTS_VIEW, true);
-    ShowPane(DAP_OUTPUT_VIEW, true);
-    ShowPane(DAP_WATCHES_VIEW, true);
+    ShowPane(DAP_DEBUGGER_PANE, true);
 
     // Hide the output pane
     wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane("Output View");
@@ -598,43 +604,16 @@ void DebugAdapterClient::ShowPane(const wxString& paneName, bool show)
     }
 }
 
-void DebugAdapterClient::DestroyUI()
+void DebugAdapterClient::HideDebuggerUI()
 {
     // Destroy the callstack window
-    if (m_threadsView) {
-        wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(DAP_MAIN_VIEW);
+    if (m_debuggerPane) {
+        wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(DAP_DEBUGGER_PANE);
         if (pi.IsOk()) {
-            m_mgr->GetDockingManager()->DetachPane(m_threadsView);
+            m_mgr->GetDockingManager()->DetachPane(m_debuggerPane);
         }
-        m_threadsView->Destroy();
-        m_threadsView = nullptr;
-    }
-
-    if (m_watchesView) {
-        wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(DAP_WATCHES_VIEW);
-        if (pi.IsOk()) {
-            m_mgr->GetDockingManager()->DetachPane(m_watchesView);
-        }
-        m_watchesView->Destroy();
-        m_watchesView = nullptr;
-    }
-
-    if (m_breakpointsView) {
-        wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(DAP_BREAKPOINTS_VIEW);
-        if (pi.IsOk()) {
-            m_mgr->GetDockingManager()->DetachPane(m_breakpointsView);
-        }
-        m_breakpointsView->Destroy();
-        m_breakpointsView = nullptr;
-    }
-
-    if (m_outputView) {
-        wxAuiPaneInfo& pi = m_mgr->GetDockingManager()->GetPane(DAP_OUTPUT_VIEW);
-        if (pi.IsOk()) {
-            m_mgr->GetDockingManager()->DetachPane(m_outputView);
-        }
-        m_outputView->Destroy();
-        m_outputView = nullptr;
+        m_debuggerPane->Destroy();
+        m_debuggerPane = nullptr;
     }
 
     if (m_textView) {
@@ -655,51 +634,16 @@ void DebugAdapterClient::DestroyUI()
 void DebugAdapterClient::InitializeUI()
 {
     wxWindow* parent = m_mgr->GetDockingManager()->GetManagedWindow();
-    if (!m_threadsView) {
-        m_threadsView = new DAPMainView(parent, this, LOG);
-        m_mgr->GetDockingManager()->AddPane(m_threadsView, wxAuiPaneInfo()
-                                                               .MinSize(300, 300)
-                                                               .Layer(10)
-                                                               .Bottom()
-                                                               .Position(1)
-                                                               .CloseButton(false)
-                                                               .Caption(DAP_MAIN_VIEW)
-                                                               .Name(DAP_MAIN_VIEW));
-    }
-
-    if (!m_watchesView) {
-        m_watchesView = new DAPWatchesView(parent, this, LOG);
-        m_mgr->GetDockingManager()->AddPane(m_watchesView, wxAuiPaneInfo()
-                                                               .MinSize(300, 300)
-                                                               .Layer(10)
-                                                               .Left()
-                                                               .Position(1)
-                                                               .CloseButton(false)
-                                                               .Caption(DAP_WATCHES_VIEW)
-                                                               .Name(DAP_WATCHES_VIEW));
-    }
-
-    if (!m_breakpointsView) {
-        m_breakpointsView = new DAPBreakpointsView(parent, this, LOG);
-        m_mgr->GetDockingManager()->AddPane(m_breakpointsView, wxAuiPaneInfo()
-                                                                   .MinSize(300, 300)
-                                                                   .Layer(5)
-                                                                   .Right()
-                                                                   .Position(2)
-                                                                   .CloseButton(false)
-                                                                   .Caption(DAP_BREAKPOINTS_VIEW)
-                                                                   .Name(DAP_BREAKPOINTS_VIEW));
-    }
-    if (!m_outputView) {
-        m_outputView = new DAPOutputPane(parent, LOG);
-        m_mgr->GetDockingManager()->AddPane(m_outputView, wxAuiPaneInfo()
-                                                              .MinSize(300, 300)
-                                                              .Layer(5)
-                                                              .Left()
-                                                              .Position(2)
-                                                              .CloseButton(false)
-                                                              .Caption(DAP_OUTPUT_VIEW)
-                                                              .Name(DAP_OUTPUT_VIEW));
+    if (!m_debuggerPane) {
+        m_debuggerPane = new DAPDebuggerPane(parent, this, LOG);
+        m_mgr->GetDockingManager()->AddPane(m_debuggerPane, wxAuiPaneInfo()
+                                                                .MinSize(300, 300)
+                                                                .Layer(10)
+                                                                .Bottom()
+                                                                .Position(1)
+                                                                .CloseButton(false)
+                                                                .Caption(DAP_DEBUGGER_PANE)
+                                                                .Name(DAP_DEBUGGER_PANE));
     }
 
     if (!m_textView) {
@@ -717,7 +661,7 @@ void DebugAdapterClient::DoCleanup()
     m_session.Clear();
     m_terminal_helper.Terminate();
     m_sessionBreakpoints.clear();
-    wxDELETE(m_breakpointsHelper);
+    m_breakpointsHelper.reset();
 
     // clear all breakpoint markers
     IEditor::List_t editors;
@@ -819,7 +763,7 @@ void DebugAdapterClient::OnDebugTooltip(clDebugEvent& event)
     DestroyTooltip();
 
     wxString word = event.GetString();
-    int frame_id = m_threadsView->GetCurrentFrameId();
+    int frame_id = GetThreadsView()->GetCurrentFrameId();
 
     m_client.EvaluateExpression(
         word, frame_id, dap::EvaluateContext::HOVER,
@@ -937,18 +881,16 @@ void DebugAdapterClient::OnDapLog(DAPEvent& event)
 
 void DebugAdapterClient::OnDapOutputEvent(DAPEvent& event)
 {
-    LOG_DEBUG(LOG) << "Received output event" << endl;
-    if (m_outputView) {
-        m_outputView->AddEvent(event.GetDapEvent()->As<dap::OutputEvent>());
+    if (GetOutputView()) {
+        GetOutputView()->AddEvent(event.GetDapEvent()->As<dap::OutputEvent>());
     }
 }
 
 void DebugAdapterClient::OnDapModuleEvent(DAPEvent& event)
 {
-    LOG_DEBUG(LOG) << "Received module event" << endl;
     CHECK_IS_DAP_CONNECTED();
-    if (m_outputView) {
-        m_outputView->AddEvent(event.GetDapEvent()->As<dap::ModuleEvent>());
+    if (GetOutputView()) {
+        GetOutputView()->AddEvent(event.GetDapEvent()->As<dap::ModuleEvent>());
     }
 }
 
@@ -1033,12 +975,12 @@ void DebugAdapterClient::OnDapStoppedEvent(DAPEvent& event)
 
 void DebugAdapterClient::OnDapThreadsResponse(DAPEvent& event)
 {
-    CHECK_PTR_RET(m_threadsView);
+    CHECK_PTR_RET(GetThreadsView());
 
     auto response = event.GetDapResponse()->As<dap::ThreadsResponse>();
     CHECK_PTR_RET(response);
 
-    m_threadsView->UpdateThreads(m_client.GetActiveThreadId(), response);
+    GetThreadsView()->UpdateThreads(m_client.GetActiveThreadId(), response);
 
     // get the frames for the active thread
     m_client.GetFrames();
@@ -1046,12 +988,12 @@ void DebugAdapterClient::OnDapThreadsResponse(DAPEvent& event)
 
 void DebugAdapterClient::OnDapStackTraceResponse(DAPEvent& event)
 {
-    CHECK_PTR_RET(m_threadsView);
+    CHECK_PTR_RET(GetThreadsView());
 
     auto response = event.GetDapResponse()->As<dap::StackTraceResponse>();
     CHECK_PTR_RET(response);
 
-    m_threadsView->UpdateFrames(response->refId, response);
+    GetThreadsView()->UpdateFrames(response->refId, response);
     if (!response->stackFrames.empty()) {
         auto frame = response->stackFrames[0];
         LoadFile(frame.source, frame.line - 1);
@@ -1065,20 +1007,20 @@ void DebugAdapterClient::OnDapScopesResponse(DAPEvent& event)
 {
     auto response = event.GetDapResponse()->As<dap::ScopesResponse>();
     CHECK_PTR_RET(response);
-    CHECK_PTR_RET(m_threadsView);
+    CHECK_PTR_RET(GetThreadsView());
 
     if (!response->success) {
         LOG_DEBUG(LOG) << "failed to retrieve scopes." << response->message << endl;
         return;
     }
-    m_threadsView->UpdateScopes(response->refId, response);
+    GetThreadsView()->UpdateScopes(response->refId, response);
 }
 
 void DebugAdapterClient::OnDapVariablesResponse(DAPEvent& event)
 {
     auto response = event.GetDapResponse()->As<dap::VariablesResponse>();
     CHECK_PTR_RET(response);
-    CHECK_PTR_RET(m_threadsView);
+    CHECK_PTR_RET(GetThreadsView());
     switch (response->context) {
     case dap::EvaluateContext::HOVER:
         if (m_tooltip) {
@@ -1087,13 +1029,13 @@ void DebugAdapterClient::OnDapVariablesResponse(DAPEvent& event)
         break;
     case dap::EvaluateContext::WATCH:
         // update the watches view
-        if (m_watchesView) {
-            m_watchesView->UpdateChildren(response->refId, response);
+        if (GetWatchesView()) {
+            GetWatchesView()->UpdateChildren(response->refId, response);
         }
         break;
     default:
         // assume its the variables view
-        m_threadsView->UpdateVariables(response->refId, response);
+        GetThreadsView()->UpdateVariables(response->refId, response);
         break;
     }
 }
@@ -1141,7 +1083,7 @@ void DebugAdapterClient::OnDapBreakpointEvent(DAPEvent& event)
 {
     auto event_data = event.GetDapEvent()->As<dap::BreakpointEvent>();
     CHECK_PTR_RET(event_data);
-    CHECK_PTR_RET(m_breakpointsView);
+    CHECK_PTR_RET(GetBreakpointsView());
     // check the event reason
     auto bp = event_data->breakpoint;
 
@@ -1189,11 +1131,9 @@ void DebugAdapterClient::UpdateWatches()
         return;
     }
 
-    CHECK_PTR_RET(m_watchesView);
-    m_watchesView->Update(m_threadsView->GetCurrentFrameId());
+    CHECK_PTR_RET(GetWatchesView());
+    GetWatchesView()->Update(GetThreadsView()->GetCurrentFrameId());
 }
-
-void DebugAdapterClient::RefreshBreakpointsMarkersForEditor(IEditor* editor) { CHECK_PTR_RET(editor); }
 
 bool DebugAdapterClient::StartSocketDap()
 {
@@ -1206,19 +1146,52 @@ bool DebugAdapterClient::StartSocketDap()
     if (m_session.debug_over_ssh) {
         // launch ssh process
         auto env_list = StringUtils::BuildEnvFromString(dap_server.GetEnvironment());
-        m_dap_server.reset(::CreateAsyncProcess(this, command,
-                                                IProcessCreateDefault | IProcessCreateSSH | IProcessWrapInShell,
-                                                wxEmptyString, &env_list, m_session.ssh_acount.GetAccountName()));
+        m_dap_server.reset(new DapProcess(::CreateAsyncProcess(
+            this, command, IProcessCreateDefault | IProcessCreateSSH | IProcessWrapInShell | IProcessNoPty,
+            wxEmptyString, &env_list, m_session.ssh_acount.GetAccountName())));
     } else {
         // launch local process
         EnvSetter env; // apply CodeLite env variables
         auto env_list = StringUtils::ResolveEnvList(dap_server.GetEnvironment());
-        m_dap_server.reset(::CreateAsyncProcess(
-            this, command, IProcessNoRedirect | IProcessWrapInShell | IProcessCreateWithHiddenConsole, wxEmptyString,
-            &env_list));
+        m_dap_server.reset(new DapProcess(::CreateAsyncProcess(
+            this, command, IProcessNoRedirect | IProcessWrapInShell | IProcessCreateWithHiddenConsole | IProcessNoPty,
+            wxEmptyString, &env_list)));
     }
-    m_dap_server->SetHardKill(true);
-    return m_dap_server != nullptr;
+    return m_dap_server->IsOk();
+}
+
+dap::Transport* DebugAdapterClient::StartStdioDap()
+{
+    m_dap_server.reset();
+    const DapEntry& dap_server = m_session.dap_server;
+    wxString command = ReplacePlaceholders(dap_server.GetCommand());
+
+    LOG_DEBUG(LOG) << "starting dap with command:" << command << endl;
+
+    auto transport = new StdioTransport();
+
+    if (m_session.debug_over_ssh) {
+        // launch ssh process
+        auto env_list = StringUtils::BuildEnvFromString(dap_server.GetEnvironment());
+        m_dap_server.reset(new DapProcess(::CreateAsyncProcess(
+            this, command, IProcessCreateDefault | IProcessCreateSSH | IProcessWrapInShell | IProcessNoPty,
+            wxEmptyString, &env_list, m_session.ssh_acount.GetAccountName())));
+    } else {
+        // launch local process
+        EnvSetter env; // apply CodeLite env variables
+        auto env_list = StringUtils::ResolveEnvList(dap_server.GetEnvironment());
+        m_dap_server.reset(new DapProcess(::CreateAsyncProcess(
+            this, command, IProcessWrapInShell | IProcessStderrEvent | IProcessCreateWithHiddenConsole | IProcessNoPty,
+            wxEmptyString, &env_list)));
+    }
+
+    transport->SetProcess(m_dap_server);
+    if (!m_dap_server->IsOk()) {
+        m_dap_server.reset();
+        wxDELETE(transport);
+        return nullptr;
+    }
+    return transport;
 }
 
 bool DebugAdapterClient::InitialiseSession(const DapEntry& dap_server, const wxString& exepath, const wxString& args,
@@ -1266,35 +1239,37 @@ void DebugAdapterClient::StartAndConnectToDapServer()
     LOG_DEBUG(LOG) << "working_directory:" << m_session.working_directory << endl;
     LOG_DEBUG(LOG) << "env:" << to_string_array(m_session.environment) << endl;
 
-    dap::SocketTransport* transport = nullptr;
+    dap::Transport* transport = nullptr;
     if (m_session.dap_server.GetConnectionString().CmpNoCase("stdio") == 0) {
-        // using stdio transport
-        LOG_WARNING(LOG) << "DAP with stdio is not supported" << endl;
-        return;
+        // start the dap server (for the current session)
+        transport = StartStdioDap();
+        if (transport == nullptr) {
+            return;
+        }
     } else {
         // start the dap server (for the current session)
         if (!StartSocketDap()) {
+            LOG_WARNING(LOG) << "Failed to start dap server" << endl;
             return;
         }
-
+        LOG_DEBUG(LOG) << "dap server started!" << endl;
         wxBusyCursor cursor;
-        // For this demo, we use socket transport. But you may choose
-        // to write your own transport that implements the dap::Transport interface
-        // This is useful when the user wishes to use stdin/out for communicating with
-        // the dap and not over socket
-        transport = new dap::SocketTransport();
-        if (!transport->Connect(m_session.dap_server.GetConnectionString(), 10)) {
+        // Using socket transport
+        auto socket_transport = new dap::SocketTransport();
+        LOG_DEBUG(LOG) << "Connecting to dap server:" << m_session.dap_server.GetConnectionString() << endl;
+        if (!socket_transport->Connect(m_session.dap_server.GetConnectionString().ToStdString(), 10)) {
             wxMessageBox("Failed to connect to DAP server using socket", DAP_MESSAGE_BOX_TITLE,
                          wxICON_ERROR | wxOK | wxCENTRE);
-            wxDELETE(transport);
+            wxDELETE(socket_transport);
             m_client.Reset();
             m_dap_server.reset();
             return;
         }
+        LOG_DEBUG(LOG) << "Success" << endl;
+        transport = socket_transport;
     }
 
-    wxDELETE(m_breakpointsHelper);
-    m_breakpointsHelper = new BreakpointsHelper(m_client, m_session, LOG);
+    m_breakpointsHelper = std::make_unique<BreakpointsHelper>(m_client, m_session, LOG);
 
     // Notify about debug start event
     // + load the UI
@@ -1309,6 +1284,7 @@ void DebugAdapterClient::StartAndConnectToDapServer()
     // construct new client with the transport
     m_client.SetTransport(transport);
 
+    LOG_DEBUG(LOG) << "Sending Initialize request" << endl;
     // send protocol Initialize request
     dap::InitializeRequestArguments init_request_args;
     init_request_args.clientID = "CodeLite";
@@ -1326,17 +1302,20 @@ bool DebugAdapterClient::IsDebuggerOwnedByPlugin(const wxString& name) const
 
 void DebugAdapterClient::OnProcessOutput(clProcessEvent& event)
 {
-    wxUnusedVar(event);
-    LOG_DEBUG(LOG) << "server output:" << event.GetOutput() << endl;
+    event.Skip();
+    if (m_dap_server && m_dap_server->IsRedirect()) {
+        m_dap_server->Queue().Post(event.GetOutputRaw());
+    }
 }
 
 void DebugAdapterClient::OnProcessTerminated(clProcessEvent& event)
 {
-    wxUnusedVar(event);
+    event.Skip();
     m_client.Reset();
     m_dap_server.reset();
 
     RestoreUI();
+    LOG_DEBUG(LOG) << event.GetOutput() << endl;
     LOG_DEBUG(LOG) << "dap-server terminated" << endl;
 
     clDebugEvent e(wxEVT_DEBUG_ENDED);
@@ -1495,8 +1474,8 @@ wxString DebugAdapterClient::ReplacePlaceholders(const wxString& str) const
 
 int DebugAdapterClient::GetCurrentFrameId() const
 {
-    if (!m_threadsView) {
+    if (!GetThreadsView()) {
         return wxNOT_FOUND;
     }
-    return m_threadsView->GetCurrentFrameId();
+    return GetThreadsView()->GetCurrentFrameId();
 }

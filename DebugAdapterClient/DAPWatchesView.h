@@ -21,7 +21,9 @@ protected:
 
 public:
     DAPWatchesView(wxWindow* parent, DebugAdapterClient* plugin, clModuleLogger& log);
-    virtual ~DAPWatchesView();
+    virtual ~DAPWatchesView() = default;
+
+    void Clear();
 
     /**
      * @brief update the watches in the context of the current frame

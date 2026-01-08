@@ -3,11 +3,10 @@
 
 #include "events_database.h"
 #include "json_node.h"
-#include "wx_ordered_map.h"
 #include "wxc_widget.h"
 #include "wxgui_bitmaploader.h"
+
 #include <map>
-#include <set>
 #include <wx/imaglist.h>
 
 // Widgets IDS
@@ -243,9 +242,9 @@ public:
 
 protected:
     static Allocator* ms_instance;
-    typedef std::map<int, wxcWidget*> Map_t;
-    typedef std::map<int, int> ImageMap_t;
-    typedef std::map<int, std::map<int, int> > InsertMap_t;
+    using Map_t = std::map<int, wxcWidget*>;
+    using ImageMap_t = std::map<int, int>;
+    using InsertMap_t = std::map<int, std::map<int, int>>;
 
 protected:
     Map_t m_objs;
@@ -274,7 +273,7 @@ public:
 
 private:
     Allocator();
-    virtual ~Allocator();
+    virtual ~Allocator() = default;
 
 public:
     wxcWidget* Create(int id);

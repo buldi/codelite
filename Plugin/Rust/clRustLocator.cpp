@@ -6,19 +6,13 @@
 #include <wx/arrstr.h>
 #include <wx/filename.h>
 
-clRustLocator::clRustLocator() {}
-
-clRustLocator::~clRustLocator() {}
-
 bool clRustLocator::Locate()
 {
-    wxString homedir;
-    wxString toolname = "cargo";
-    wxString tool_exe;
-    if(!ThePlatform->Which(toolname, &tool_exe)) {
+    const auto tool_exe = ThePlatform->Which("cargo");
+    if (!tool_exe) {
         return false;
     }
-    m_binDir = wxFileName(tool_exe).GetPath();
+    m_binDir = wxFileName(*tool_exe).GetPath();
     return true;
 }
 

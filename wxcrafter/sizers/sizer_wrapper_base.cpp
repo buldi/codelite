@@ -1,12 +1,13 @@
 #include "sizer_wrapper_base.h"
 
+#include "Properties/bool_property.h"
 #include "wxgui_helpers.h"
 
 SizerWrapperBase::SizerWrapperBase()
     : wxcWidget(-1)
 {
-    AddProperty(new BoolProperty(PROP_KEEP_CLASS_MEMBER, false,
-                                 _("When enabled, this sizer is kept as a class member and become accessible")));
+    Add<BoolProperty>(
+        PROP_KEEP_CLASS_MEMBER, false, _("When enabled, this sizer is kept as a class member and become accessible"));
 
     DelProperty(PROP_WINDOW_ID);
     DelProperty(PROP_SIZE);
@@ -25,8 +26,6 @@ SizerWrapperBase::SizerWrapperBase()
     EnableSizerFlag("wxEXPAND", true);
     m_sizerItem.SetProportion(1);
 }
-
-SizerWrapperBase::~SizerWrapperBase() {}
 
 void SizerWrapperBase::GetIncludeFile(wxArrayString& headers) const { headers.Add(wxT("#include <wx/sizer.h>")); }
 

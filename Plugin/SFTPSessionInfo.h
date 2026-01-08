@@ -5,7 +5,6 @@
 
 #include "cl_config.h"
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
 #include <vector>
 #include <wx/string.h>
@@ -17,11 +16,11 @@ class WXDLLIMPEXP_SDK SFTPSessionInfo
     wxString m_account;
 
 public:
-    typedef std::unordered_map<wxString, SFTPSessionInfo> Map_t;
+    using Map_t = std::unordered_map<wxString, SFTPSessionInfo>;
 
 public:
-    SFTPSessionInfo();
-    ~SFTPSessionInfo();
+    SFTPSessionInfo() = default;
+    ~SFTPSessionInfo() = default;
 
     void FromJSON(const JSONItem& json);
     JSONItem ToJSON() const;
@@ -45,7 +44,7 @@ class WXDLLIMPEXP_SDK SFTPSessionInfoList : public clConfigItem
 
 public:
     SFTPSessionInfoList();
-    virtual ~SFTPSessionInfoList();
+    virtual ~SFTPSessionInfoList() = default;
     void FromJSON(const JSONItem& json);
     JSONItem ToJSON() const;
 

@@ -21,7 +21,6 @@
 #include "globals.h"
 #include "imanager.h"
 #include "macros.h"
-#include "new_file_dlg.h"
 #include "php_configuration_data.h"
 #include "php_project_settings_dlg.h"
 #include "php_strings.h"
@@ -450,24 +449,25 @@ void PHPWorkspaceView::LoadWorkspaceView()
     // add projects
     wxTreeItemId activeProjectId;
     wxStringSet_t files;
-    PHPProject::Map_t::const_iterator iter_project = projects.begin();
-    for(; iter_project != projects.end(); ++iter_project) {
+    for (const auto& [projectName, project] : projects) {
         data = new ItemData(ItemData::Kind_Project);
-        data->SetProjectName(iter_project->first);
-        data->SetFolderPath(iter_project->second->GetFilename().GetPath());
-        data->SetFile(iter_project->second->GetFilename().GetFullPath());
-        data->SetActive(iter_project->second->IsActive());
+        data->SetProjectName(projectName);
+        data->SetFolderPath(project->GetFilename().GetPath());
+        data->SetFile(project->GetFilename().GetFullPath());
+        data->SetActive(project->IsActive());
 
-        wxTreeItemId projectItemId = m_treeCtrlView->AppendItem(
-            root, iter_project->second->GetName(), bl->GetMimeImageId(FileExtManager::TypeProject),
-            bl->GetMimeImageId(FileExtManager::TypeProjectExpanded), data);
+        wxTreeItemId projectItemId = m_treeCtrlView->AppendItem(root,
+                                                                project->GetName(),
+                                                                bl->GetMimeImageId(FileExtManager::TypeProject),
+                                                                bl->GetMimeImageId(FileExtManager::TypeProjectExpanded),
+                                                                data);
         if(data->IsActive()) {
             m_treeCtrlView->SetItemBold(projectItemId, true);
         }
 
         // The project is also a folder for the project folder
-        m_foldersItems.insert(std::make_pair(iter_project->second->GetFilename().GetPath(), projectItemId));
-        DoBuildProjectNode(projectItemId, iter_project->second);
+        m_foldersItems.insert(std::make_pair(project->GetFilename().GetPath(), projectItemId));
+        DoBuildProjectNode(projectItemId, project);
         if(data->IsActive()) {
             activeProjectId = projectItemId;
         }
@@ -522,7 +522,7 @@ void PHPWorkspaceView::OnDeleteProject(wxCommandEvent& e)
         if(itemData && itemData->IsProject()) {
             if(wxMessageBox(wxString() << _("Are you sure you want to remove project '") << itemData->GetProjectName()
                                        << "'?",
-                            _("CodeLite"), wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT, wxTheApp->GetTopWindow()) == wxYES) {
+                            wxT("CodeLite"), wxYES_NO | wxCANCEL | wxCANCEL_DEFAULT, wxTheApp->GetTopWindow()) == wxYES) {
                 PHPWorkspace::Get()->DeleteProject(itemData->GetProjectName());
                 m_treeCtrlView->Delete(selection);
 
@@ -549,18 +549,18 @@ void PHPWorkspaceView::OnNewFolder(wxCommandEvent& e)
     wxTreeItemId parent = m_treeCtrlView->GetFocusedItem();
     CHECK_ITEM_RET(parent);
 
-    ItemData* itemData = DoGetItemData(parent);
-    CHECK_PTR_RET(itemData);
+    ItemData* parentItemData = DoGetItemData(parent);
+    CHECK_PTR_RET(parentItemData);
 
-    if(!itemData->IsFolder() && !itemData->IsProject())
+    if (!parentItemData->IsFolder() && !parentItemData->IsProject())
         return;
 
     PHPProject::Ptr_t proj = PHPWorkspace::Get()->GetProject(project);
     CHECK_PTR_RET(proj);
 
     wxString base;
-    if(itemData->IsFolder()) {
-        base = itemData->GetFolderPath();
+    if (parentItemData->IsFolder()) {
+        base = parentItemData->GetFolderPath();
     } else {
         base = proj->GetFilename().GetPath();
     }
@@ -704,7 +704,7 @@ void PHPWorkspaceView::OnDeleteFolder(wxCommandEvent& e)
 
 void PHPWorkspaceView::OnRetagWorkspace(wxCommandEvent& e)
 {
-    // notify codelite to close the currently opened workspace
+    // notify CodeLite to close the currently opened workspace
     wxCommandEvent retagEvent(wxEVT_COMMAND_MENU_SELECTED, XRCID("retag_workspace"));
     retagEvent.SetEventObject(FRAME);
     FRAME->GetEventHandler()->ProcessEvent(retagEvent);
@@ -1038,8 +1038,6 @@ void PHPWorkspaceView::OnNewClass(wxCommandEvent& e)
     }
 }
 
-void PHPWorkspaceView::OnWorkspaceOpenUI(wxUpdateUIEvent& event) { event.Enable(PHPWorkspace::Get()->IsOpen()); }
-
 void PHPWorkspaceView::OnRenameWorkspace(wxCommandEvent& e)
 {
     wxString new_name = ::wxGetTextFromUser(_("New workspace name:"), _("Rename workspace"));
@@ -1091,7 +1089,7 @@ void PHPWorkspaceView::DoOpenSSHAccountManager()
     settings.Load();
 
     SFTPBrowserDlg dlg(EventNotifier::Get()->TopFrame(),
-                       _("Select the remote folder corrseponding to the current workspace file"), "",
+                       _("Select the remote folder corresponding to the current workspace file"), "",
                        clSFTP::SFTP_BROWSE_FOLDERS); // Browse for folders only
     dlg.Initialize(settings.GetAccount(), settings.GetRemoteFolder());
 
@@ -1159,8 +1157,6 @@ void PHPWorkspaceView::OnPhpParserProgress(clParseEvent& event)
     event.Skip();
     ReportParseThreadProgress(event.GetCurfileIndex(), event.GetTotalFiles());
 }
-
-void PHPWorkspaceView::OnPhpParserStarted(clParseEvent& event) { event.Skip(); }
 
 void PHPWorkspaceView::OnSyncWorkspaceWithFileSystem(wxCommandEvent& e)
 {
@@ -1369,10 +1365,8 @@ void PHPWorkspaceView::DoGetSelectedFolders(wxArrayString& paths)
         } else if(itemData->IsWorkspace()) {
             // If the workspace is included, use the project paths and nothing more
             paths.Clear();
-            const PHPProject::Map_t& projects = PHPWorkspace::Get()->GetProjects();
-            PHPProject::Map_t::const_iterator iter = projects.begin();
-            for(; iter != projects.end(); ++iter) {
-                paths.Add(iter->second->GetFilename().GetPath());
+            for (const auto& [_, project] : PHPWorkspace::Get()->GetProjects()) {
+                paths.Add(project->GetFilename().GetPath());
             }
             break;
         }
@@ -1382,7 +1376,7 @@ void PHPWorkspaceView::DoGetSelectedFolders(wxArrayString& paths)
 void PHPWorkspaceView::OnFindInFiles(wxCommandEvent& e)
 {
     m_fifFromContextMenu = true;
-    // Open the find in files dialg for the folder path
+    // Open the find in files dialog for the folder path
     wxArrayString paths;
     DoGetSelectedFolders(paths);
     m_mgr->OpenFindInFileForPaths(paths);
@@ -1575,17 +1569,17 @@ void PHPWorkspaceView::OnProjectSyncCompleted(clCommandEvent& event)
     DoGetFilesAndFolders(pProject->GetName(), folders, files);
 
     // Clear these items from the cache
-    std::for_each(files.begin(), files.end(), [&](const wxString& s) {
+    for (const wxString& s : files) {
         if(m_filesItems.count(s)) {
             m_filesItems.erase(s);
         }
-    });
+    }
 
-    std::for_each(folders.begin(), folders.end(), [&](const wxString& s) {
+    for (const wxString& s : folders) {
         if(m_foldersItems.count(s)) {
             m_foldersItems.erase(s);
         }
-    });
+    }
 
     wxWindowUpdateLocker locker(m_treeCtrlView);
     // Now we can delete the subtree

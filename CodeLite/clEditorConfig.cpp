@@ -11,8 +11,6 @@ clEditorConfig::clEditorConfig()
 {
 }
 
-clEditorConfig::~clEditorConfig() {}
-
 bool clEditorConfig::LoadForFile(const wxFileName& filename, wxFileName& editorConfigFile)
 {
     editorConfigFile = wxFileName(filename.GetPath(), ".editorconfig");
@@ -68,7 +66,7 @@ bool clEditorConfig::LoadForFile(const wxFileName& filename, wxFileName& editorC
 
 struct clEditorConfigTreeNode {
     wxString data;
-    typedef std::vector<clEditorConfigTreeNode*> Vec_t;
+    using Vec_t = std::vector<clEditorConfigTreeNode*>;
     clEditorConfigTreeNode::Vec_t children;
 
     clEditorConfigTreeNode* AddChild(const wxString& data)
@@ -80,15 +78,22 @@ struct clEditorConfigTreeNode {
     }
 
 public:
-    clEditorConfigTreeNode() {}
+    clEditorConfigTreeNode() = default;
     ~clEditorConfigTreeNode()
     {
-        std::for_each(children.begin(), children.end(), [&](clEditorConfigTreeNode* child) { delete child; });
+        for (clEditorConfigTreeNode* child : children) {
+            delete child;
+        }
         children.clear();
     }
 
 public:
-    void GetPatterns(wxArrayString& patterns) { DoGetPatterns(this, patterns, data); }
+    wxArrayString GetPatterns()
+    {
+        wxArrayString patterns;
+        DoGetPatterns(this, patterns, data);
+        return patterns;
+    }
     void Add(const wxString& pattern)
     {
         wxArrayString arr;
@@ -101,11 +106,11 @@ public:
         clEditorConfigTreeNode::Vec_t leaves;
         DoGetLeaves(this, leaves);
 
-        std::for_each(leaves.begin(), leaves.end(), [&](clEditorConfigTreeNode* leaf) {
+        for (clEditorConfigTreeNode* leaf : leaves) {
             for(size_t i = 0; i < patterns.size(); ++i) {
                 leaf->AddChild(patterns.Item(i));
             }
-        });
+        }
     }
 
     bool IsEmpty() const { return children.empty(); }
@@ -232,8 +237,7 @@ wxArrayString clEditorConfig::ProcessSection(wxString& strLine)
 
     wxArrayString res;
     for(size_t i = 0; i < trees.size(); ++i) {
-        wxArrayString patterns;
-        trees.at(i)->GetPatterns(patterns);
+        wxArrayString patterns = trees.at(i)->GetPatterns();
         res.insert(res.end(), patterns.begin(), patterns.end());
         delete trees.at(i);
     }
@@ -306,7 +310,7 @@ bool clEditorConfig::GetSectionForFile(const wxFileName& filename, clEditorConfi
     section = clEditorConfigSection();
     section.filename = editorConfigFile;
     bool match_found = false;
-    std::for_each(m_sections.begin(), m_sections.end(), [&](const clEditorConfigSection& sec) {
+    for (const clEditorConfigSection& sec : m_sections) {
         for(size_t i = 0; i < sec.patterns.size(); ++i) {
             const wxString& pattern = sec.patterns.Item(i);
             bool is_wild = pattern.Contains("*");
@@ -340,7 +344,7 @@ bool clEditorConfig::GetSectionForFile(const wxFileName& filename, clEditorConfi
                 break;
             }
         }
-    });
+    }
 
     // Print the match to the log file
     if(match_found) {

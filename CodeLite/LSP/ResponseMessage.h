@@ -6,8 +6,6 @@
 #include "LSP/basic_types.h"
 #include "macros.h"
 
-#include <wx/sharedptr.h>
-
 namespace LSP
 {
 
@@ -18,7 +16,7 @@ class WXDLLIMPEXP_CL ResponseMessage : public LSP::Message
 
 public:
     ResponseMessage(std::unique_ptr<JSON>&& json);
-    ~ResponseMessage() override;
+    ~ResponseMessage() override = default;
     JSONItem ToJSON(const wxString& name) const override;
     void FromJSON(const JSONItem& json) override;
 
@@ -52,6 +50,6 @@ public:
      */
     wxString GetDiagnosticsUri() const;
 };
-}; // namespace LSP
+} // namespace LSP
 
 #endif // RESPONSEMESSAGE_H

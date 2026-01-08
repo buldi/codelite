@@ -22,18 +22,11 @@
 //                                                                          
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
- // StringTokenizer.cpp: implementation of the StringTokenizer class.
+// StringTokenizer.cpp: implementation of the StringTokenizer class.
 //
 //////////////////////////////////////////////////////////////////////
 #include "precompiled_header.h"
 #include "tokenizer.h"
-
-#ifdef __VISUALC__
-#ifdef _DEBUG
-#define new DEBUG_NEW
-#endif
-#endif 
-
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -41,10 +34,8 @@
 
 StringTokenizer::StringTokenizer(const wxString& str,
 								 const wxString& strDelimiter,
-								 const bool &bAllowEmptyTokens /* false */)
+								 bool bAllowEmptyTokens /* false */)
 {
-	Initialize();
-
 	int nEnd = (int)str.find(strDelimiter, 0);
 	int nStart = 0;
 	wxString token;
@@ -72,9 +63,8 @@ StringTokenizer::StringTokenizer(const wxString& str,
 	}
 }
 
-StringTokenizer::StringTokenizer(const wxString& str, const wxArrayString& delimiterArr, const bool &allowEmptyTokens)
+StringTokenizer::StringTokenizer(const wxString& str, const wxArrayString& delimiterArr, bool allowEmptyTokens)
 {
-	Initialize();
 	wxString tmpStr( str );
 
 	// Replace all delimiters to the first one
@@ -87,118 +77,9 @@ StringTokenizer::StringTokenizer(const wxString& str, const wxArrayString& delim
 	*this = StringTokenizer(tmpStr, delimiterArr[0], allowEmptyTokens);
 }
 
-// Default
-StringTokenizer::StringTokenizer()
-{
-	Initialize();
-}
-
-// Copy constructor
-StringTokenizer::StringTokenizer(const StringTokenizer &src)
-{
-	*this = src;
-}
-
-StringTokenizer& StringTokenizer::operator =(const StringTokenizer &src)
-{
-	if( &src == this)
-		return *this;
-	Initialize();
-
-	// Copy the tokens
-	m_tokensArr.clear();
-	for( int i=0; i<(int)src.m_tokensArr.size() ; i++)
-		m_tokensArr.push_back(src.m_tokensArr[i]);
-	m_nCurr = src.m_nCurr;
-	return *this;
-}
-
-StringTokenizer::~StringTokenizer()
-{
-	m_tokensArr.clear();
-	m_nCurr = 0;
-}
-
-// Return current token and advance to the next. If there are no more tokens, return empty string.
-wxString StringTokenizer::Next()
-{
-	if( m_nCurr == (int)m_tokensArr.size() )
-	{
-		// We are at the end of the tokens array
-		return wxEmptyString;
-	}
-	wxString strToken = m_tokensArr[m_nCurr];
-	m_nCurr++;
-	return strToken;
-}
-
-// We return the previous token, if we are already at the start, return empty string.
-wxString StringTokenizer::Previous()
-{
-	if(m_nCurr == 0)
-	{
-		return wxEmptyString;
-	}
-	if(m_tokensArr.size() == 0)
-	{
-		return wxEmptyString;
-	}
-	m_nCurr--;
-	return m_tokensArr[m_nCurr];
-}
-
-bool StringTokenizer::HasMore()
-{
-	if(m_nCurr < (int)m_tokensArr.size())
-	{
-		return true;
-	}
-	return false;
-}
-
-wxString StringTokenizer::First()
-{
-	if(m_tokensArr.size()>0)
-	{
-		m_nCurr = 1;	//The next one
-		return m_tokensArr[0];
-	}
-	else
-	{
-		return wxEmptyString;
-	}
-}
-
-// This function is much similar to the 'next()' function with one difference, 
-// it does not advance the pointer to the next token.
-wxString StringTokenizer::Current()
-{
-	if( m_nCurr == (int)m_tokensArr.size() )
-	{
-		// We are at the end of the tokens array
-		return wxEmptyString;
-	}
-	return m_tokensArr[m_nCurr];
-}
-
-const int StringTokenizer::Count() const
+int StringTokenizer::Count() const
 {
 	return (int)m_tokensArr.size();
-}
-
-void StringTokenizer::Initialize()
-{
-	m_tokensArr.clear();
-	m_nCurr = 0;
-}
-
-// Return last token
-wxString StringTokenizer::Last()
-{
-	if(m_tokensArr.size() == 0)
-		return wxEmptyString;
-	m_nCurr = (int)m_tokensArr.size()-1;
-	return m_tokensArr[m_tokensArr.size()-1];
 }
 
 wxString StringTokenizer::operator[](const int nIndex)

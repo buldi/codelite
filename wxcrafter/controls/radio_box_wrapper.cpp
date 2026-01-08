@@ -1,7 +1,9 @@
 #include "radio_box_wrapper.h"
+
+#include "Importer/import_from_wxFB.h"
+#include "Properties/multi_strings_property.h"
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
-#include "import_from_wxFB.h"
-#include "multi_strings_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
@@ -13,12 +15,13 @@ RadioBoxWrapper::RadioBoxWrapper()
     PREPEND_STYLE(wxRA_SPECIFY_COLS, false);
 
     SetPropertyString(_("Common Settings"), "wxRadioBox");
-    AddProperty(new StringProperty(PROP_LABEL, _("My RadioBox"), _("Label")));
-    AddProperty(new MultiStringsProperty(PROP_OPTIONS, _("An array of choices with which to initialize the radiobox")));
-    AddProperty(new StringProperty(PROP_SELECTION, wxT("0"), _("The zero-based position of the selected button")));
-    AddProperty(new StringProperty(PROP_MAJORDIM, wxT("1"),
-                                   _("Specifies the maximum number of rows (if style contains wxRA_SPECIFY_ROWS) or "
-                                     "columns (if style contains wxRA_SPECIFY_COLS) for a two-dimensional radiobox")));
+    Add<StringProperty>(PROP_LABEL, _("My RadioBox"), _("Label"));
+    Add<MultiStringsProperty>(PROP_OPTIONS, _("An array of choices with which to initialize the radiobox"));
+    Add<StringProperty>(PROP_SELECTION, wxT("0"), _("The zero-based position of the selected button"));
+    Add<StringProperty>(PROP_MAJORDIM,
+                        wxT("1"),
+                        _("Specifies the maximum number of rows (if style contains wxRA_SPECIFY_ROWS) or "
+                          "columns (if style contains wxRA_SPECIFY_COLS) for a two-dimensional radiobox"));
 
     RegisterEventCommand(wxT("wxEVT_COMMAND_RADIOBOX_SELECTED"),
                          _("Process a wxEVT_COMMAND_RADIOBOX_SELECTED event, when a radiobutton is clicked."));
@@ -27,8 +30,6 @@ RadioBoxWrapper::RadioBoxWrapper()
     m_namePattern = wxT("m_radioBox");
     SetName(GenerateName());
 }
-
-RadioBoxWrapper::~RadioBoxWrapper() {}
 
 wxcWidget* RadioBoxWrapper::Clone() const { return new RadioBoxWrapper(); }
 

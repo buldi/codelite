@@ -26,7 +26,6 @@
 #ifndef ISTORAGE_H
 #define ISTORAGE_H
 
-#include "comment.h"
 #include "entry.h"
 #include "fileentry.h"
 #include "pptable.h"
@@ -63,7 +62,7 @@ public:
     {
     }
 
-    virtual ~ITagsStorage(){};
+    virtual ~ITagsStorage() = default;
     virtual void SetEnableCaseInsensitive(bool b) { m_enableCaseInsensitive = b; }
     virtual void SetUseCache(bool useCache) { this->m_useCache = useCache; }
 
@@ -126,16 +125,6 @@ public:
                                std::vector<TagEntryPtr>& tags) = 0;
 
     /**
-     * @brief return array of tags by kind.
-     * @param kinds array of kinds
-     * @param orderingColumn the column that the output should be ordered by (leave empty for no sorting)
-     * @param order OrderAsc, OrderDesc or use OrderNone for no ordering the results
-     * @param tags
-     */
-    virtual void GetTagsByKindLimit(const wxArrayString& kinds, const wxString& orderingColumn, int order, int limit,
-                                    const wxString& partName, std::vector<TagEntryPtr>& tags) = 0;
-
-    /**
      * @brief return array of items by path
      * @param path
      * @param tags
@@ -154,7 +143,7 @@ public:
                                         std::vector<TagEntryPtr>& tags) = 0;
 
     /**
-     * @brief reutnr array of tags by kind and path
+     * @brief return array of tags by kind and path
      * @param kinds array of kind
      * @param path
      * @param tags  [output]
@@ -171,22 +160,13 @@ public:
     virtual void GetTagsByFileAndLine(const wxString& file, int line, std::vector<TagEntryPtr>& tags) = 0;
 
     /**
-     * @brief return list by kind and scope
-     * @param scope
-     * @param kinds
-     * @param tags [output]
-     */
-    virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds,
-                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true) = 0;
-
-    /**
      * @brief return list by kind and scope while using a filter
      * @param scope
      * @param kinds
      * @param tags [output]
      */
     virtual void GetTagsByScopeAndKind(const wxString& scope, const wxArrayString& kinds, const wxString& filter,
-                                       std::vector<TagEntryPtr>& tags, bool applyLimit = true) = 0;
+                                       std::vector<TagEntryPtr>& tags) = 0;
 
     /**
      * @brief get list of tags by kind and file
@@ -284,7 +264,7 @@ public:
      * Store tree of tags into db.
      * @param tree Tags tree to store
      * @param path Database file name
-     * @param autoCommit handle the Store operation inside a transaction or let the user hadle it
+     * @param autoCommit handle the Store operation inside a transaction or let the user handle it
      */
     virtual void Store(const std::vector<TagEntryPtr>& tags, bool auto_commit = true) = 0;
 
@@ -319,7 +299,7 @@ public:
      * Delete all entries from database that are related to filename.
      * @param path Database name
      * @param fileName File name
-     * @param autoCommit handle the Delete operation inside a transaction or let the user hadle it
+     * @param autoCommit handle the Delete operation inside a transaction or let the user handle it
      */
     virtual void DeleteByFileName(const wxFileName& path, const wxString& fileName, bool autoCommit = true) = 0;
 
@@ -343,14 +323,6 @@ public:
      */
     virtual void GetTagsByScopesAndKind(const wxArrayString& scopes, const wxArrayString& kinds,
                                         std::vector<TagEntryPtr>& tags) = 0;
-    /**
-     * @brief return list of tags by scopes and kinds with no LIMIT applied
-     * @param scopes array of possible scopes
-     * @param kinds array of possible kinds
-     * @param tags [output]
-     */
-    virtual void GetTagsByScopesAndKindNoLimit(const wxArrayString& scopes, const wxArrayString& kinds,
-                                               std::vector<TagEntryPtr>& tags) = 0;
 
     /**
      * @brief return macro evaluation

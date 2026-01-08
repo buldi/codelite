@@ -35,7 +35,6 @@
 #include <memory>
 #include <vector>
 #include <wx/event.h>
-#include <wx/sharedptr.h>
 #include <wx/string.h>
 #include <wx/utils.h>
 
@@ -56,6 +55,7 @@ enum IProcessCreateFlags {
     IProcessInteractiveSSH = (1 << 9),
     IProcessWrapInShell = (1 << 10),   // wrap the command in the OS shell (CMD, BASH)
     IProcessPseudoConsole = (1 << 11), // MSW only: use CreatePseudoConsole API for creating the process
+    IProcessNoPty = (1 << 12),        // Unix only: do not use forkpty, use normal fork()
 };
 
 class WXDLLIMPEXP_CL IProcess;
@@ -84,7 +84,7 @@ protected:
     ProcessReaderThread* m_thr = nullptr;
 
 public:
-    typedef std::shared_ptr<IProcess> Ptr_t;
+    using Ptr_t = std::shared_ptr<IProcess>;
 
 public:
     IProcess(wxEvtHandler* parent)
@@ -95,12 +95,12 @@ public:
         , m_flags(0)
     {
     }
-    virtual ~IProcess() {}
+    virtual ~IProcess() = default;
 
 public:
     // Handle process exit code. This is done this way this
     // under Linux / Mac the exit code is returned only after the signal child has been
-    // handled by codelite
+    // handled by CodeLite
     static void SetProcessExitCode(int pid, int exitCode);
     static bool GetProcessExitCode(int pid, int& exitCode);
 
@@ -147,7 +147,7 @@ public:
     virtual void Cleanup() = 0;
 
     // Terminate the process. It is recommended to use this method
-    // so it will invoke the 'Cleaup' procedure and the process
+    // so it will invoke the 'Cleanup' procedure and the process
     // termination event will be sent out
     virtual void Terminate() = 0;
 
@@ -213,7 +213,7 @@ WXDLLIMPEXP_CL IProcess* CreateAsyncProcess(wxEvtHandler* parent, const std::vec
                                             const wxString& sshAccountName = wxEmptyString);
 
 /**
- * @brief create synchronus process
+ * @brief create synchronous process
  * @param cmd command to execute
  * @param flags process creation flags
  * @param workingDir working directory for the new process

@@ -24,12 +24,11 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include "dotwriter.h"
-#include <wx/strconv.h>
+
+#include <vector>
 #include <wx/file.h>
-#include <wx/msgdlg.h>
 #include <wx/math.h>
 #include <wx/regex.h>
-#include <math.h>
 
 DotWriter::DotWriter()
 {
@@ -56,8 +55,6 @@ DotWriter::DotWriter()
     dwhidenamespaces = false;
     dwstripparams = false;
 }
-
-DotWriter::~DotWriter() {}
 
 void DotWriter::SetLineParser(LineParserList* pLines) //, int numOfLines)
 {
@@ -217,7 +214,7 @@ wxString DotWriter::OptionsShortNameAndParameters(const wxString& name)
             wxRegEx re;
             // remove STL
             int start, end;
-            while(GetOuterTempleate(out, &start, &end)) {
+            while(GetOuterTemplate(out, &start, &end)) {
                 out.Replace(out.Mid(start, end - start + 1), wxT("%STL%"));
             }
             out.Replace(wxT("%STL%"), wxT("<...>"));
@@ -263,8 +260,7 @@ int DotWriter::ReturnIndexForColor(float time, int dwc)
         int indexColor;
     };
 
-    colorRange* colorSelect;
-    colorSelect = new colorRange[dwc];
+    std::vector<colorRange> colorSelect(dwc);
 
     if(dwc == 1) {
         colorSelect[0].downIndex = 0;
@@ -316,7 +312,6 @@ int DotWriter::ReturnIndexForColor(float time, int dwc)
             break;
         }
     }
-    wxDELETEA(colorSelect);
     return index;
 }
 
@@ -344,16 +339,16 @@ wxString DotWriter::DefineColorForLabel(int index)
     }
 }
 
-bool DotWriter::GetOuterTempleate(const wxString& txt, int* start, int* end)
+bool DotWriter::GetOuterTemplate(const wxString& txt, int* start, int* end)
 {
     int cnt = 0;
     int pos = 0;
 
-    for(wxString::const_iterator it = txt.begin(); it != txt.end(); ++it) {
-        if(*it == wxT('<')) {
+    for (auto c : txt) {
+        if (c == wxT('<')) {
             if(cnt == 0) *start = pos;
             cnt++;
-        } else if(*it == wxT('>')) {
+        } else if (c == wxT('>')) {
             cnt--;
             if(cnt == 0) *end = pos;
             return true;

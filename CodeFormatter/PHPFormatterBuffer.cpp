@@ -174,10 +174,10 @@ PHPFormatterBuffer& PHPFormatterBuffer::ProcessToken(const phpLexerToken& token)
             m_buffer << token.Text() << " ";
             if(m_options.flags & kPFF_BreakAfterStringConcatentation && (m_parenDepth == 1)) {
                 // inside a function call
-                wxString whitepace = GetIndentationToLast('(');
-                if(!whitepace.IsEmpty()) {
+                wxString whitespace = GetIndentationToLast('(');
+                if (!whitespace.IsEmpty()) {
                     m_buffer << m_options.eol;
-                    m_buffer << whitepace;
+                    m_buffer << whitespace;
                 }
             }
         } else if(token.type == '&') {
@@ -210,7 +210,7 @@ PHPFormatterBuffer& PHPFormatterBuffer::ProcessToken(const phpLexerToken& token)
             m_buffer << token.Text();
 
         } else if(token.type == '!') {
-            // dont add extrace space after the NOT operator
+            // don't add extra space after the NOT operator
             m_buffer << token.Text();
 
         } else if(token.type == kPHP_T_NS_SEPARATOR) {
@@ -293,7 +293,7 @@ wxString PHPFormatterBuffer::FormatDoxyComment(const wxString& comment)
         for(size_t i = 0; i < lines.GetCount(); ++i) {
             lines.Item(i).Trim().Trim(false);
             if(i) {
-                // preprend space + the indent string for every line except for the first line
+                // prepend space + the indent string for every line except for the first line
                 lines.Item(i).Prepend(" ");
                 lines.Item(i).Prepend(indent);
             }
@@ -351,7 +351,7 @@ void PHPFormatterBuffer::format()
             // if(..) <statement> -> if(..)
             //                            <statement>
             // etc.
-            // In addtion, we also handle here the following:
+            // In addition, we also handle here the following:
             // if(something) {} else <statement> =>
             //                                      if(something) {
             //                                      } else

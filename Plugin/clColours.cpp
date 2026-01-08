@@ -27,7 +27,7 @@ void init_from_colour(clColours* colours, const wxColour& baseColour)
     }
     bool is_dark = DrawingUtils::IsDark(baseColour);
     bool is_light = !is_dark;
-    colours->bgColour = is_dark ? baseColour.ChangeLightness(107) : baseColour;
+    colours->bgColour = is_dark ? baseColour : *wxWHITE;
 
     // determine the text colour
     colours->itemTextColour =
@@ -41,14 +41,14 @@ void init_from_colour(clColours* colours, const wxColour& baseColour)
         colours->headerVBorderColour = colours->headerBgColour.ChangeLightness(90);
 
         colours->selItemTextColour = colours->itemTextColour;
-        colours->selItemBgColour = wxColour("#BDD8F2").ChangeLightness(130);
+        colours->selItemBgColour = wxColour("#BDD8F2").ChangeLightness(120);
 
         colours->selItemTextColourNoFocus = colours->selItemTextColour;
         colours->selItemBgColourNoFocus = colours->selItemBgColour.ChangeLightness(130);
 
         colours->selbuttonColour = colours->selItemTextColour.ChangeLightness(120);
         colours->buttonColour = colours->itemTextColour.ChangeLightness(120);
-        colours->grayText = colours->itemTextColour.ChangeLightness(150);
+        colours->grayText = colours->itemTextColour.ChangeLightness(170);
     } else {
         colours->alternateColour = colours->bgColour.ChangeLightness(FACTOR_ALTROW_DARK);
         colours->hoverBgColour = colours->bgColour.ChangeLightness(90);
@@ -58,7 +58,7 @@ void init_from_colour(clColours* colours, const wxColour& baseColour)
         colours->selItemTextColour = colours->itemTextColour;
         colours->selbuttonColour = colours->selItemTextColour.ChangeLightness(80);
         colours->buttonColour = colours->itemTextColour.ChangeLightness(80);
-        colours->grayText = colours->itemTextColour.ChangeLightness(50);
+        colours->grayText = colours->itemTextColour.ChangeLightness(30);
 
         colours->selItemBgColour = colours->bgColour.ChangeLightness(120);
         colours->selItemTextColourNoFocus = colours->itemTextColour;
@@ -73,11 +73,14 @@ void init_from_colour(clColours* colours, const wxColour& baseColour)
         is_light ? colours->bgColour.ChangeLightness(30) : colours->bgColour.ChangeLightness(150);
 }
 } // namespace
-clColours::clColours() {}
 
 void clColours::InitDefaults()
 {
+#ifdef __WXMAC__
+    InitFromColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+#else
     InitFromColour(clSystemSettings::GetDefaultPanelColour());
+#endif
     itemTextColour = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOXTEXT);
     selItemTextColour = wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT);
 }
@@ -108,3 +111,78 @@ void clColours::FromLexer(LexerConf::Ptr_t lexer)
 }
 
 void clColours::InitFromColour(const wxColour& baseColour) { init_from_colour(this, baseColour); }
+
+wxColour dark_black;
+wxColour dark_red;
+wxColour dark_green;
+wxColour dark_yellow;
+wxColour dark_blue;
+wxColour dark_magenta;
+wxColour dark_cyan;
+wxColour dark_grey;
+wxColour dark_white;
+
+wxColour black;
+wxColour red;
+wxColour green;
+wxColour yellow;
+wxColour blue;
+wxColour magenta;
+wxColour cyan;
+wxColour grey;
+wxColour white;
+
+namespace
+{
+void initialize_base_colours()
+{
+    static bool initialise = true;
+
+    if (initialise) {
+        // dark theme colours
+        dark_black = wxColour("#0E1415");
+        dark_red = wxColour("#e25d56");
+        dark_green = wxColour("#73ca50");
+        dark_yellow = wxColour("#e9bf57");
+        dark_blue = wxColour("#4a88e4");
+        dark_magenta = wxColour("#915caf");
+        dark_cyan = wxColour("#23acdd");
+        dark_white = wxColour("#f0f0f0");
+        dark_grey = "LIGHT GREY";
+
+        // normal colours
+        black = wxColour("#000000");
+        red = wxColour("#AA3731");
+        green = wxColour("#448C27");
+        yellow = wxColour("#CB9000");
+        blue = wxColour("#325CC0");
+        magenta = wxColour("#7A3E9D");
+        cyan = wxColour("#0083B2");
+        white = wxColour("#BBBBBB");
+        grey = "GREY";
+
+        initialise = false;
+    }
+}
+} // namespace
+
+#define RETURN_COLOUR(name)                   \
+    initialize_base_colours();                \
+    wxColour colour = name;                   \
+    if (dark_theme) {                         \
+        colour = dark_##name;                 \
+    }                                         \
+    if (bright) {                             \
+        colour = colour.ChangeLightness(110); \
+    }                                         \
+    return colour
+
+wxColour clColours::Black(bool dark_theme, bool bright) { RETURN_COLOUR(black); }
+wxColour clColours::Red(bool dark_theme, bool bright) { RETURN_COLOUR(red); }
+wxColour clColours::Green(bool dark_theme, bool bright) { RETURN_COLOUR(green); }
+wxColour clColours::Yellow(bool dark_theme, bool bright) { RETURN_COLOUR(yellow); }
+wxColour clColours::Blue(bool dark_theme, bool bright) { RETURN_COLOUR(blue); }
+wxColour clColours::Magenta(bool dark_theme, bool bright) { RETURN_COLOUR(magenta); }
+wxColour clColours::Cyan(bool dark_theme, bool bright) { RETURN_COLOUR(cyan); }
+wxColour clColours::Grey(bool dark_theme, bool bright) { RETURN_COLOUR(grey); }
+wxColour clColours::White(bool dark_theme, bool bright) { RETURN_COLOUR(white); }

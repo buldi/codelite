@@ -62,7 +62,7 @@ public:
 
 public:
     PHPProjectSettingsData();
-    virtual ~PHPProjectSettingsData();
+    virtual ~PHPProjectSettingsData() = default;
 
     void FromJSON(const JSONItem& ele);
     JSONItem ToJSON() const;
@@ -114,7 +114,6 @@ public:
     const wxString& GetIncludePath() const { return m_includePath; }
     wxArrayString GetIncludePathAsArray() const;
     wxArrayString GetCCIncludePathAsArray() const;
-    static wxArrayString GetAllIncludePaths();
 
     const wxString& GetIndexFile() const { return m_indexFile; }
     const wxString& GetPhpExe() const { return m_phpExe; }

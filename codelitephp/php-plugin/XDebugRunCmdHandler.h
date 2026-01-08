@@ -34,8 +34,8 @@ class wxSocketBase;
 class XDebugRunCmdHandler : public XDebugCommandHandler
 {
 public:
-    XDebugRunCmdHandler(XDebugManager* mgr, int transcationId);
-    virtual ~XDebugRunCmdHandler();
+    XDebugRunCmdHandler(XDebugManager* mgr, int transactionId);
+    virtual ~XDebugRunCmdHandler() = default;
 
 public:
     virtual void Process(const wxXmlNode* response);

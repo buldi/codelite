@@ -32,7 +32,7 @@
 #include <wx/string.h>
 #include <memory>
 
-typedef TreeNode<wxString, TagEntry> TagNode;
+using TagNode = TreeNode<wxString, TagEntry>;
 
 /**
  * Tree representation of tags.
@@ -56,7 +56,7 @@ public:
 	/**
 	 * Destructor
 	 */
-	virtual ~TagTree();
+	virtual ~TagTree() = default;
 
 	/**
 	 * Add an entry to the tree.

@@ -5,8 +5,6 @@
 #include "CxxScannerTokens.h"
 #include "file_logger.h"
 
-#include <wx/sharedptr.h>
-
 CxxPreProcessorScanner::CxxPreProcessorScanner(const wxFileName& filename, size_t options,
                                                std::unordered_set<wxString>& visitedFiles)
     : m_scanner(NULL)
@@ -25,8 +23,9 @@ CxxPreProcessorScanner::~CxxPreProcessorScanner()
     }
 }
 
-void CxxPreProcessorScanner::GetRestOfPPLine(wxString& rest, bool collectNumberOnly)
+wxString CxxPreProcessorScanner::GetRestOfPPLine(bool collectNumberOnly)
 {
+    wxString rest;
     CxxLexerToken token;
     bool numberFound = false;
     while(m_scanner && ::LexerNext(m_scanner, token) && token.GetType() != T_PP_STATE_EXIT) {
@@ -41,6 +40,7 @@ void CxxPreProcessorScanner::GetRestOfPPLine(wxString& rest, bool collectNumberO
         }
     }
     rest.Trim(false).Trim(true);
+    return rest;
 }
 
 bool CxxPreProcessorScanner::ConsumeBlock()
@@ -87,7 +87,7 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
                     if(!scanner.IsNull()) {
                         scanner.Parse(pp);
                     }
-                } catch(CxxLexerException& e) {
+                } catch (const CxxLexerException& e) {
                     // catch the exception
                     clDEBUG() << "Exception caught:" << e.message << endl;
                 }
@@ -170,15 +170,13 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
         case T_PP_DEFINE: {
             if(!::LexerNext(m_scanner, token) || token.GetType() != T_PP_IDENTIFIER) {
                 // Recover
-                wxString dummy;
-                GetRestOfPPLine(dummy);
+                GetRestOfPPLine();
                 break;
             }
             wxString macroName = token.GetWXString();
 
-            wxString macroValue;
             // Optionally get the value
-            GetRestOfPPLine(macroValue, m_options & kLexerOpt_CollectMacroValueNumbers);
+            wxString macroValue = GetRestOfPPLine(m_options & kLexerOpt_CollectMacroValueNumbers);
 
             CxxPreProcessorToken pp;
             pp.name = macroName;
@@ -192,40 +190,11 @@ void CxxPreProcessorScanner::Parse(CxxPreProcessor* pp)
     }
 }
 
-bool CxxPreProcessorScanner::CheckIfDefined(const CxxPreProcessorToken::Map_t& table)
-{
-    CxxLexerToken token;
-    if(m_scanner && ::LexerNext(m_scanner, token)) {
-        if(token.GetType() == T_PP_STATE_EXIT) {
-            return false;
-        }
-        switch(token.GetType()) {
-        case T_PP_IDENTIFIER:
-            return table.count(token.GetWXString());
-        case '(':
-            // ignore
-            break;
-        default:
-            break;
-        }
-    }
-    return false;
-}
-
 #define SET_CUR_EXPR_VALUE_RET_FALSE(v) \
     if(cur->IsValueSet())               \
         return false;                   \
     else                                \
         cur->SetValue((double)v);
-
-struct ExpressionLocker {
-    CxxPreProcessorExpression* m_expr;
-    ExpressionLocker(CxxPreProcessorExpression* expr)
-        : m_expr(expr)
-    {
-    }
-    ~ExpressionLocker() { wxDELETE(m_expr); }
-};
 
 bool CxxPreProcessorScanner::CheckIf(const CxxPreProcessorToken::Map_t& table)
 {
@@ -235,9 +204,8 @@ bool CxxPreProcessorScanner::CheckIf(const CxxPreProcessorToken::Map_t& table)
     // #if (cond) && (cond) || !(cond)
     // anything else, returns false
     CxxLexerToken token;
-    CxxPreProcessorExpression* cur = new CxxPreProcessorExpression(false);
-    ExpressionLocker locker(cur);
-    CxxPreProcessorExpression* head = cur;
+    auto head = std::make_unique<CxxPreProcessorExpression>(false);
+    CxxPreProcessorExpression* cur = head.get();
     while(m_scanner && ::LexerNext(m_scanner, token)) {
         if(token.GetType() == T_PP_STATE_EXIT) {
             bool res = head->IsTrue();
@@ -302,23 +270,23 @@ bool CxxPreProcessorScanner::CheckIf(const CxxPreProcessorToken::Map_t& table)
             break;
         case T_PP_AND:
             // And operand
-            cur = cur->SetNext(CxxPreProcessorExpression::kAND, new CxxPreProcessorExpression(false));
+            cur = cur->SetNext(CxxPreProcessorExpression::kAND, std::make_unique<CxxPreProcessorExpression>(false));
             break;
         case T_PP_OR:
             // OR operand
-            cur = cur->SetNext(CxxPreProcessorExpression::kOR, new CxxPreProcessorExpression(false));
+            cur = cur->SetNext(CxxPreProcessorExpression::kOR, std::make_unique<CxxPreProcessorExpression>(false));
             break;
         case T_PP_GT:
-            cur = cur->SetNext(CxxPreProcessorExpression::kGreaterThan, new CxxPreProcessorExpression(0));
+            cur = cur->SetNext(CxxPreProcessorExpression::kGreaterThan, std::make_unique<CxxPreProcessorExpression>(0));
             break;
         case T_PP_GTEQ:
-            cur = cur->SetNext(CxxPreProcessorExpression::kGreaterThanEqual, new CxxPreProcessorExpression(0));
+            cur = cur->SetNext(CxxPreProcessorExpression::kGreaterThanEqual, std::make_unique<CxxPreProcessorExpression>(0));
             break;
         case T_PP_LT:
-            cur = cur->SetNext(CxxPreProcessorExpression::kLowerThan, new CxxPreProcessorExpression(0));
+            cur = cur->SetNext(CxxPreProcessorExpression::kLowerThan, std::make_unique<CxxPreProcessorExpression>(0));
             break;
         case T_PP_LTEQ:
-            cur = cur->SetNext(CxxPreProcessorExpression::kLowerThanEqual, new CxxPreProcessorExpression(0));
+            cur = cur->SetNext(CxxPreProcessorExpression::kLowerThanEqual, std::make_unique<CxxPreProcessorExpression>(0));
             break;
         default:
             break;

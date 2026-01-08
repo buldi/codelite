@@ -27,22 +27,13 @@
 
 #include "Notebook.h"
 #include "codelite_exports.h"
-#include "fileextmanager.h"
 #include "imanager.h"
-#include "macros.h"
 #include "window_locker.h"
 #include "workspace.h"
 
-#include <unordered_map>
-#include <vector>
 #include <wx/arrstr.h>
 #include <wx/bitmap.h>
-#include <wx/brush.h>
-#include <wx/colour.h>
 #include <wx/ctrlsub.h>
-#include <wx/dc.h>
-#include <wx/dcgraph.h>
-#include <wx/infobar.h>
 #include <wx/propgrid/propgrid.h>
 #include <wx/string.h>
 #include <wx/variant.h>
@@ -56,7 +47,7 @@ class wxListCtrl;
 class IEditor;
 class IManager;
 
-typedef void (wxObject::*clEventFunc_t)(wxClientData* arg);
+using clEventFunc_t = void (wxObject::*)(wxClientData*);
 
 class WXDLLIMPEXP_SDK BOM
 {
@@ -64,8 +55,8 @@ class WXDLLIMPEXP_SDK BOM
 
 public:
     BOM(const char* buffer, size_t len);
-    BOM();
-    ~BOM();
+    BOM() = default;
+    ~BOM() = default;
 
     void Clear();
     int Len() const;
@@ -108,8 +99,8 @@ WXDLLIMPEXP_SDK void PostCmdEvent(int eventId, void* clientData = NULL);
  * \param rText the text
  * \param imgId image id
  */
-WXDLLIMPEXP_SDK void SetColumnText(wxListCtrl* list, long indx, long column, const wxString& rText,
-                                   int imgId = wxNOT_FOUND);
+WXDLLIMPEXP_SDK void
+SetColumnText(wxListCtrl* list, long indx, long column, const wxString& rText, int imgId = wxNOT_FOUND);
 
 /**
  * \brief return column's text
@@ -134,8 +125,10 @@ WXDLLIMPEXP_SDK long AppendListCtrlRow(wxListCtrl* list);
  * \param encoding
  * \return true on success, false otherwise
  */
-WXDLLIMPEXP_SDK bool ReadFileWithConversion(const wxString& fileName, wxString& content,
-                                            wxFontEncoding encoding = wxFONTENCODING_DEFAULT, BOM* bom = NULL);
+WXDLLIMPEXP_SDK bool ReadFileWithConversion(const wxString& fileName,
+                                            wxString& content,
+                                            wxFontEncoding encoding = wxFONTENCODING_DEFAULT,
+                                            BOM* bom = NULL);
 
 /**
  * \brief compare a file with a wxString using md5
@@ -151,42 +144,7 @@ WXDLLIMPEXP_SDK bool CompareFileWithString(const wxString& filePath, const wxStr
 WXDLLIMPEXP_SDK bool IsValidCppIdentifier(const wxString& id);
 
 /**
- * [DEPRECATED] DONT USE THIS METHOD ANYMORE - USE IMacroManager
- * Expand variables to their real value, if expanding fails
- * the return value is same as input. The variable is expanded
- * in the project context
- */
-WXDLLIMPEXP_SDK wxString ExpandVariables(const wxString& expression, ProjectPtr proj, IEditor* editor,
-                                         const wxString& filename = wxEmptyString);
-
-/**
- * * [DEPRECATED] DONT USE THIS METHOD ANYMORE - USE IMacroManager
- * \brief accepts expression string and expand all known marcos (e.g. $(ProjectName))
- * \param expression expression
- * \param projectName project name (to be used for $(ProjectName) macro)
- * \param fileName file name, to help expand the $(CurrentFile) macro family
- * \return an expanded string. If a macro is unknown it is replaced by empty string
- */
-WXDLLIMPEXP_SDK wxString ExpandAllVariables(const wxString& expression, clCxxWorkspace* workspace,
-                                            const wxString& projectName, const wxString& selConf,
-                                            const wxString& fileName);
-
-/**
- * \brief copy entire directory content (recursievly) from source to target
- * \param src source path
- * \param target target path
- * \return true on success, false otherwise
- */
-WXDLLIMPEXP_SDK bool CopyDir(const wxString& src, const wxString& target);
-
-/**
- * \brief create a directory
- * \param path directory path
- */
-WXDLLIMPEXP_SDK void Mkdir(const wxString& path);
-
-/**
- * \brief write file content with optinal backup
+ * \brief write file content with optional backup
  * \param file_name
  * \param content
  * \param backup
@@ -201,53 +159,10 @@ WXDLLIMPEXP_SDK bool WriteFileWithBackup(const wxString& file_name, const wxStri
 WXDLLIMPEXP_SDK bool CopyToClipboard(const wxString& text);
 
 /**
- * \brief make colour lighter
- * \param color
- * \param level
- * \return modified colour
- */
-WXDLLIMPEXP_SDK wxColour MakeColourLighter(wxColour color, float level);
-
-/**
- * @brief return true if filename is readonly false otherwise
- */
-WXDLLIMPEXP_SDK bool IsFileReadOnly(const wxFileName& filename);
-
-/**
- * \brief fill an array with a semi-colon separated string
- * \param arr [out] the array to fill
- * \param str the string to split
- */
-WXDLLIMPEXP_SDK void FillFromSemiColonString(wxArrayString& arr, const wxString& str);
-
-/**
- * \brief Normalize the given path (change all \ by /)
- */
-WXDLLIMPEXP_SDK wxString NormalizePath(const wxString& path);
-
-/**
- * \brief Returns the file modification time in seconds after the epoch.
- */
-WXDLLIMPEXP_SDK time_t GetFileModificationTime(const wxString& filename);
-WXDLLIMPEXP_SDK time_t GetFileModificationTime(const wxFileName& filename);
-
-/**
- * @brief wrap a given command in the shell command (e.g. cmd /c "command")
- */
-WXDLLIMPEXP_SDK void WrapInShell(wxString& cmd);
-
-/**
  * @brief return the current user name without any special characters
  * @return
  */
 WXDLLIMPEXP_SDK wxString clGetUserName();
-
-/**
- * @brief return list of projects available based on the installed templates
- * @param list list of projects
- * @param imageMap when provided, returns the image index (set in the lstImages) mapped to the project type
- */
-WXDLLIMPEXP_SDK void GetProjectTemplateList(std::list<ProjectPtr>& list);
 
 /**
  * @brief set the native Windows theme for the application
@@ -257,23 +172,9 @@ WXDLLIMPEXP_SDK void MSWSetNativeTheme(wxWindow* win, const wxString& theme = "E
 
 /**
  * @brief under Windows 10 and later, enable dark mode controls (where it is implemented)
- * based on the selected editor theme. This is dont recursievly on win
+ * based on the selected editor theme. This is don't recursively on win
  */
 WXDLLIMPEXP_SDK void MSWSetWindowDarkTheme(wxWindow* win);
-
-/**
- * @brief make relative only if a subpath of reference_path (or is reference_path itself)
- * @brief also, make normalise first, and abolish any symlink
- * @param fn wxFileName to alter
- * @param reference_path the path to which to make relative
- */
-WXDLLIMPEXP_SDK bool MakeRelativeIfSensible(wxFileName& fn, const wxString& reference_path);
-
-/**
- * @brief joins array element into a string using 'glue' as the array elements
- * separator
- */
-WXDLLIMPEXP_SDK wxString wxImplode(const wxArrayString& arr, const wxString& glue = "\n");
 
 /**
  * @class StringManager
@@ -320,35 +221,9 @@ public:
  * @param maxsize the maximum number of items allowed in the arraystring. 0 means no maximum
  * @return the amended entries
  */
-WXDLLIMPEXP_SDK wxArrayString ReturnWithStringPrepended(const wxArrayString& oldarray, const wxString& str,
+WXDLLIMPEXP_SDK wxArrayString ReturnWithStringPrepended(const wxArrayString& oldarray,
+                                                        const wxString& str,
                                                         const size_t maxsize);
-
-/**
- * @brief return true if filename is a symbolic link
- */
-WXDLLIMPEXP_SDK bool wxIsFileSymlink(const wxFileName& filename);
-
-/**
- * @brief convert filename to the real path if filename is a symbolic link
- */
-WXDLLIMPEXP_SDK wxFileName wxReadLink(const wxFileName& filename);
-
-/**
- * @brief makes-absolute filepath, and dereferences it and any symlinked dirs in the path
- */
-WXDLLIMPEXP_SDK wxString CLRealPath(const wxString& filepath);
-
-/**
- * @brief convert string to integer using range validation and default value
- */
-WXDLLIMPEXP_SDK int wxStringToInt(const wxString& str, int defval, int min = -1, int max = -1);
-
-/**
- * @brief convert integer to string
- */
-WXDLLIMPEXP_SDK wxString wxIntToString(int val);
-
-WXDLLIMPEXP_SDK unsigned int clUTF8Length(const wchar_t* uptr, unsigned int tlen);
 
 WXDLLIMPEXP_SDK wxString DbgPrependCharPtrCastIfNeeded(const wxString& expr, const wxString& exprType);
 
@@ -368,21 +243,10 @@ WXDLLIMPEXP_SDK wxVariant MakeBitmapIndexText(const wxString& text, int imgIndex
 WXDLLIMPEXP_SDK wxVariant MakeCheckboxVariant(const wxString& label, bool checked, int imgIndex);
 
 /**
- * @brief split lines (using CR|LF as the separator), taking into considertaion line continuation
- * @param trim trim the lines with set to true
- */
-WXDLLIMPEXP_SDK wxArrayString SplitString(const wxString& inString, bool trim = true);
-
-/**
- * @brief launch terminal for debugging purposes and return its TTY. This function does nothing under Windows
- */
-WXDLLIMPEXP_SDK void LaunchTerminalForDebugger(const wxString& title, wxString& tty, wxString& realPts, long& pid);
-
-/**
  * @brief prompt the user with a wxRichMessageDialog with a checkbox "Don't show this message again"
  * @param message the message to show to the user
  * @param checkboxLabel the message to display next to the checkbox
- * @param dlgId a unique string ID which will be used for storing the user value in case he checks the 'dont annoy me
+ * @param dlgId a unique string ID which will be used for storing the user value in case he checks the don't annoy me
  * again' checkbox
  * @param yesLabel set a different label to the "Yes" button
  * @param noLabel set a different label to the "No" button
@@ -391,17 +255,21 @@ WXDLLIMPEXP_SDK void LaunchTerminalForDebugger(const wxString& title, wxString& 
  * @param checkboxInitialValue
  * @return wxRichMessageDialog::ShowModal() return value
  */
-WXDLLIMPEXP_SDK wxStandardID PromptForYesNoCancelDialogWithCheckbox(
-    const wxString& message, const wxString& dlgId, const wxString& yesLabel = _("Yes"),
-    const wxString& noLabel = _("No"), const wxString& cancelLabel = _("Cancel"),
-    const wxString& checkboxLabel = _("Remember my answer and don't ask me again"),
-    long style = wxYES_NO | wxCANCEL | wxICON_QUESTION | wxYES_DEFAULT, bool checkboxInitialValue = false);
+WXDLLIMPEXP_SDK wxStandardID
+PromptForYesNoCancelDialogWithCheckbox(const wxString& message,
+                                       const wxString& dlgId,
+                                       const wxString& yesLabel = _("Yes"),
+                                       const wxString& noLabel = _("No"),
+                                       const wxString& cancelLabel = _("Cancel"),
+                                       const wxString& checkboxLabel = _("Remember my answer and don't ask me again"),
+                                       long style = wxYES_NO | wxCANCEL | wxICON_QUESTION | wxYES_DEFAULT,
+                                       bool checkboxInitialValue = false);
 
 /**
  * @brief prompt the user with a PromptForYesNoCancelDialogWithCheckbox minus the 'Cancel' button
  * @param message the message to show to the user
  * @param checkboxLabel the message to display next to the checkbox
- * @param dlgId a unique string ID which will be used for storing the user value in case he checks the 'dont annoy me
+ * @param dlgId a unique string ID which will be used for storing the user value in case he checks the don't annoy me
  * again' checkbox
  * @param yesLabel set a different label to the "Yes" button
  * @param noLabel set a different label to the "No" button
@@ -409,25 +277,14 @@ WXDLLIMPEXP_SDK wxStandardID PromptForYesNoCancelDialogWithCheckbox(
  * @param checkboxInitialValue
  * @return wxRichMessageDialog::ShowModal() return value
  */
-WXDLLIMPEXP_SDK wxStandardID PromptForYesNoDialogWithCheckbox(
-    const wxString& message, const wxString& dlgId, const wxString& yesLabel = _("Yes"),
-    const wxString& noLabel = _("No"), const wxString& checkboxLabel = _("Remember my answer and don't ask me again"),
-    long style = wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT, bool checkboxInitialValue = false);
-
-/**
- * @brief wrap string with quotes if needed
- */
-WXDLLIMPEXP_SDK wxString& WrapWithQuotes(wxString& str);
-
-/**
- * @brief save an xml document to file
- */
-WXDLLIMPEXP_SDK bool SaveXmlToFile(wxXmlDocument* doc, const wxString& filename);
-
-/**
- * @brief an efficient way to load XML from file
- */
-WXDLLIMPEXP_SDK bool LoadXmlFile(wxXmlDocument* doc, const wxString& filepath);
+WXDLLIMPEXP_SDK wxStandardID
+PromptForYesNoDialogWithCheckbox(const wxString& message,
+                                 const wxString& dlgId,
+                                 const wxString& yesLabel = _("Yes"),
+                                 const wxString& noLabel = _("No"),
+                                 const wxString& checkboxLabel = _("Remember my answer and don't ask me again"),
+                                 long style = wxYES_NO | wxICON_QUESTION | wxYES_DEFAULT,
+                                 bool checkboxInitialValue = false);
 
 /**
  * @brief return true if running under Cygwin environment
@@ -454,8 +311,10 @@ WXDLLIMPEXP_SDK void wxPGPropertyBooleanUseCheckbox(wxPropertyGrid* grid);
  */
 WXDLLIMPEXP_SDK void clRecalculateSTCHScrollBar(wxStyledTextCtrl* ctrl);
 
-WXDLLIMPEXP_SDK wxString clGetTextFromUser(const wxString& title, const wxString& message,
-                                           const wxString& initialValue = "", int charsToSelect = wxNOT_FOUND,
+WXDLLIMPEXP_SDK wxString clGetTextFromUser(const wxString& title,
+                                           const wxString& message,
+                                           const wxString& initialValue = "",
+                                           int charsToSelect = wxNOT_FOUND,
                                            wxWindow* parent = NULL);
 
 /**
@@ -472,7 +331,7 @@ WXDLLIMPEXP_SDK std::pair<wxString, wxString> clRemoteFileSelector(const wxStrin
                                                                    const wxString& filter = wxEmptyString,
                                                                    wxWindow* parent = NULL);
 /**
- * @brief return the instance to the plugin manager. A convinience method
+ * @brief return the instance to the plugin manager. A convenience method
  */
 WXDLLIMPEXP_SDK IManager* clGetManager();
 /**
@@ -480,11 +339,6 @@ WXDLLIMPEXP_SDK IManager* clGetManager();
  * @param manager
  */
 WXDLLIMPEXP_SDK void clSetManager(IManager* manager);
-
-/**
- * @brief remove terminal colours from buffer
- */
-WXDLLIMPEXP_SDK void clStripTerminalColouring(const wxString& buffer, wxString& modbuffer);
 
 /**
  * @brief return true if the name is valid
@@ -507,7 +361,7 @@ WXDLLIMPEXP_SDK int clGetScaledSize(int size);
 WXDLLIMPEXP_SDK int clGetSize(int size, const wxWindow* win);
 
 /**
- * @param signo singal number
+ * @param signo signal number
  * @brief send signo to the
  * @param processID the process ID to kill
  * @param kill_whole_group kill the process group
@@ -521,30 +375,10 @@ WXDLLIMPEXP_SDK void clKill(int processID, wxSignal signo, bool kill_whole_group
 WXDLLIMPEXP_SDK void clSetEditorFontEncoding(const wxString& encoding);
 
 /**
- * @brief locate an executable on the system using the PATH environment variable
- * @param name the exe name to locate (you can omit the .exe on Windows, it will be added automatically)
- * @param exepath [output]
- * @param hint list of directories to search
- */
-WXDLLIMPEXP_SDK bool clFindExecutable(const wxString& name, wxFileName& exepath, const wxArrayString& hint = {},
-                                      const wxArrayString& suffix_list = {});
-
-/**
  * @brief given a menu and an item ID, return its position
  * @return return the position or wxNOT_FOUND
  */
 WXDLLIMPEXP_SDK int clFindMenuItemPosition(wxMenu* menu, int menuItemId);
-
-/**
- * @brief join strings with "\n" or "\r\n" (depends on eol)
- * eol can be wxSTC_EOL_CRLF, wxSTC_EOL_LF etc
- */
-WXDLLIMPEXP_SDK wxString clJoinLinesWithEOL(const wxArrayString& lines, int eol);
-
-/**
- * @brief fit the dataview columns width to match their content
- */
-WXDLLIMPEXP_SDK void clFitColumnWidth(wxDataViewCtrl* ctrl);
 
 /**
  * @brief return the screen size, taking dual or more screens into account
@@ -552,7 +386,7 @@ WXDLLIMPEXP_SDK void clFitColumnWidth(wxDataViewCtrl* ctrl);
 WXDLLIMPEXP_SDK wxSize clGetDisplaySize();
 
 /**
- * @brief returna top level window best size using its parent's size as reference
+ * @brief return a top level window best size using its parent's size as reference
  */
 WXDLLIMPEXP_SDK void clSetTLWindowBestSizeAndPosition(wxWindow* win);
 
@@ -586,8 +420,8 @@ WXDLLIMPEXP_SDK bool clIsWaylandSession();
 /**
  * @brief get list of file types from the user
  */
-WXDLLIMPEXP_SDK bool clShowFileTypeSelectionDialog(wxWindow* parent, const wxArrayString& initial_selection,
-                                                   wxArrayString* selected);
+WXDLLIMPEXP_SDK bool
+clShowFileTypeSelectionDialog(wxWindow* parent, const wxArrayString& initial_selection, wxArrayString* selected);
 
 /// Find the best window starting from `win` and give it the focus
 WXDLLIMPEXP_SDK bool SetBestFocus(wxWindow* win);
@@ -597,4 +431,13 @@ WXDLLIMPEXP_SDK Notebook* FindNotebookParentOf(wxWindow* child);
 
 /// Return true if `child` is a child (does not have to be a direct child) of `parent`
 WXDLLIMPEXP_SDK bool IsChildOf(wxWindow* child, wxWindow* parent);
+
+/// Return the selected text in a wxSTC. This function ensures that only
+/// visible text is returned (for example, if the selected text contains
+/// ANSI code style hidden - it will be dropped)
+WXDLLIMPEXP_SDK wxString clGetVisibleSelection(wxStyledTextCtrl* ctrl);
+
+/// Parse `clang_format_content` content and return the property's "name" value.
+WXDLLIMPEXP_SDK int GetClangFormatIntProperty(const wxString& clang_format_content, const wxString& name);
+
 #endif // GLOBALS_H

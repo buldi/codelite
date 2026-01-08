@@ -46,41 +46,45 @@
 class MemCheckErrorLocation;
 class MemCheckError;
 
-typedef std::list<MemCheckErrorLocation> LocationList;
-typedef std::list<MemCheckError> ErrorList;
-typedef MemCheckError* MemCheckErrorPtr;
+using LocationList = std::list<MemCheckErrorLocation>;
+using ErrorList = std::list<MemCheckError>;
+using MemCheckErrorPtr = MemCheckError*;
 
 
 /**
  * @class MemCheckErrorReferrer
  * @brief wrapper pointer to MemCheckError
  * 
- * wxDVC needs reference to MemCheckError, the only way to achieve this is to set its wxClientData. But the problem is that whenever wxDVC is cleared it is made by wxCrafters wxDVCModel and this model frees all the client data. With this hack model clears only this wrapper class and leavs MemCheckErrorList intact.
+ * wxDVC needs reference to MemCheckError, the only way to achieve this is to set its wxClientData. But the problem is that whenever wxDVC is cleared it is made by wxCrafters wxDVCModel and this model frees all the client data. With this hack model clears only this wrapper class and leaves MemCheckErrorList intact.
  */
 class MemCheckErrorReferrer: public wxClientData
 {
     MemCheckError & m_error;
 public:
-    MemCheckErrorReferrer(MemCheckError & error) : wxClientData(), m_error(error) {};
-    MemCheckError & Get() {
-        return m_error;
-    };
+    explicit MemCheckErrorReferrer(MemCheckError& error)
+        : wxClientData()
+        , m_error(error)
+    {
+    }
+    MemCheckError& Get() { return m_error; }
 };
 
 /**
  * @class MemCheckErrorLocationReferrer
  * @brief wrapper pointer to MemCheckErrorLocation
  * 
- * wxDVC needs reference to MemCheckErrorLocation, the only way to achieve this is to set its wxClientData. But the problem is that whenever wxDVC is cleared it is made by wxCrafters wxDVCModel and this model frees all the client data. With this hack model clears only this wrapper class and leavs MemCheckErrorList intact.
+ * wxDVC needs reference to MemCheckErrorLocation, the only way to achieve this is to set its wxClientData. But the problem is that whenever wxDVC is cleared it is made by wxCrafters wxDVCModel and this model frees all the client data. With this hack model clears only this wrapper class and leaves MemCheckErrorList intact.
  */
 class MemCheckErrorLocationReferrer: public wxClientData
 {
-    MemCheckErrorLocation & m_location;
+    MemCheckErrorLocation& m_location;
+
 public:
-    MemCheckErrorLocationReferrer(MemCheckErrorLocation & location) : m_location(location) {};
-    MemCheckErrorLocation & Get() {
-        return m_location;
-    };
+    explicit MemCheckErrorLocationReferrer(MemCheckErrorLocation& location)
+        : m_location(location)
+    {
+    }
+    MemCheckErrorLocation& Get() { return m_location; }
 };
 
 
@@ -150,7 +154,7 @@ public:
     
     
     /**
-     * @brief Returns all attributed and attributes of all locations and all atributes from nested errors concatenated to tab separated string.
+     * @brief Returns all attributed and attributes of all locations and all attributes from nested errors concatenated to tab separated string.
      * @return string
      *
      * TODO: It cloud be buffered to improve speed, but it would cost more memory.
@@ -165,10 +169,10 @@ public:
     const wxString toText(unsigned int indent = 1) const;
     
     /**
-     * @brief creates uniq name for suppresion
+     * @brief creates uniq name for suppression
      * @return suppression rule as string
      *
-     * FIXME This method must be moved to Valgrind procesor, it is Valgrind specfic.
+     * FIXME This method must be moved to Valgrind processor, it is Valgrind specific.
      */
     const wxString getSuppression();
     
@@ -206,11 +210,11 @@ enum {
  * There are three options in setting
  *     + omitNonWorkspace: Hide all other location than the ones with path from current workspace. In other words, shown are only locations from current workspace.
  *     + omitDuplications: Some errors cause that Valgrind prints almost identical error more than one time. So this reduces succeed errors which looks same.
- *     + omitSuppressed:   If error is suppressed (in supp notebook) it disappears from list. It is the same efect as creating supp and rerunning test.
+ *     + omitSuppressed:   If error is suppressed (in supp notebook) it disappears from list. It is the same effect as creating supp and rerunning test.
  *
  * This class holds context of these setting for whole ErrorList and ErrorLocationList.
- * In python for example it would be question of ene predicate passed as argument to iterator function, in C I had to do it by hand :(
- * The reason id I need iterator that can hold some atritubes and pass them to subiterators.
+ * In python for example it would be question of one predicate passed as argument to iterator function, in C I had to do it by hand :(
+ * The reason is I need iterator that can hold some attributes and pass them to sub-iterators.
  *
  * This functionality could be part of ErrorList
  */
@@ -232,7 +236,7 @@ public:
         IterTool m_iterTool;
     public:
         LocationListIterator(LocationList & l, const IterTool &iterTool);
-        ~LocationListIterator();
+        ~LocationListIterator() = default;
         LocationList::iterator& operator++();
         LocationList::iterator operator++(int);
         bool operator==(const LocationList::iterator& rhs);
@@ -248,7 +252,7 @@ public:
         IterTool m_iterTool;
     public:
         ErrorListIterator(ErrorList & l, const IterTool & iterTool);
-        ~ErrorListIterator();
+        ~ErrorListIterator() = default;
         ErrorList::iterator& operator++();
         ErrorList::iterator operator++(int);
         bool operator==(const ErrorList::iterator& rhs);
@@ -258,7 +262,7 @@ public:
 
 protected:
     /**
-     * @brief ctor creates object which hold shared attributes and provides all functionality for iterration over ErrorLists and LocationLists
+     * @brief ctor creates object which hold shared attributes and provides all functionality for iteration over ErrorLists and LocationLists
      * @param workspacePath
      * @param flags
      */

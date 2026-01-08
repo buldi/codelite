@@ -28,11 +28,9 @@
 #include "cl_config.h"
 #include "codelite_exports.h"
 #include "macros.h"
-#include "wxStringHash.h"
 
 #include <map>
-#include <unordered_map>
-#include <wx/filename.h>
+#include <vector>
 #include <wx/tokenzr.h>
 
 enum CodeCompletionOpts {
@@ -117,17 +115,15 @@ protected:
     wxString DoJoinArray(const wxArrayString& arr) const;
 
 public:
-    static wxString CLANG_CACHE_LAZY;
     static wxString CLANG_CACHE_ON_FILE_LOAD;
     static const std::vector<wxString>& GetDefaultTokens();
     static const std::vector<wxString>& GetDefaultTypes();
 
 public:
     TagsOptionsData();
-    virtual ~TagsOptionsData();
+    virtual ~TagsOptionsData() = default;
 
     void AddDefaultTokens();
-    void AddDefaultTypes();
 
     void Merge(const TagsOptionsData& tod);
     void SetVersion(size_t version) { this->m_version = version; }
@@ -138,55 +134,36 @@ public:
         this->m_ccNumberOfDisplayItems = ccNumberOfDisplayItems;
     }
     size_t GetCcNumberOfDisplayItems() const { return m_ccNumberOfDisplayItems; }
-    void SetClangCachePolicy(const wxString& clangCachePolicy) { this->m_clangCachePolicy = clangCachePolicy; }
-    const wxString& GetClangCachePolicy() const { return m_clangCachePolicy; }
-    void SetClangMacros(const wxString& clangMacros) { this->m_clangMacros = clangMacros; }
-    void SetClangSearchPaths(const wxString& clangSearchPaths)
-    {
-        this->m_clangSearchPaths = ::wxStringTokenize(clangSearchPaths, "\r\n", wxTOKEN_STRTOK);
-    }
-    const wxString& GetClangMacros() const { return m_clangMacros; }
-    wxString GetClangSearchPaths() const { return DoJoinArray(m_clangSearchPaths); }
 
     const wxArrayString& GetClangSearchPathsArray() const { return m_clangSearchPaths; }
 
     void SetClangSearchPathsArray(const wxArrayString& paths) { m_clangSearchPaths = paths; }
 
-    void SetClangCmpOptions(const wxString& clangCmpOptions) { this->m_clangCmpOptions = clangCmpOptions; }
-    const wxString& GetClangCmpOptions() const { return m_clangCmpOptions; }
     void SetClangOptions(size_t clangOptions) { this->m_clangOptions = clangOptions; }
     size_t GetClangOptions() const { return m_clangOptions; }
-    void SetClangBinary(const wxString& clangBinary) { this->m_clangBinary = clangBinary; }
-    const wxString& GetClangBinary() const { return m_clangBinary; }
+
     void SetFlags(size_t flags) { m_ccFlags = flags; }
 
     void SetFileSpec(const wxString& filespec) { m_fileSpec = filespec; }
 
     void SetLanguages(const wxArrayString& langs) { m_languages = langs; }
-
-    void SetLanguageSelection(const wxString& lang);
-
     const wxArrayString& GetLanguages() const { return m_languages; }
 
     void SetTokens(const wxString& tokens);
     void SetTypes(const wxString& types) { this->m_types = ::wxStringTokenize(types, "\r\n", wxTOKEN_STRTOK); }
     wxString GetTokens() const { return DoJoinArray(m_tokens); }
-    std::vector<std::pair<wxString, wxString>> GetTypes() const;
 
     std::map<std::string, std::string> GetTokensMap() const;
 
-    const wxStringTable_t& GetTokensReversedWxMap() const;
     const wxStringTable_t& GetTokensWxMap() const;
 
-    wxStringTable_t GetTypesMap() const;
-
-    const size_t& GetFlags() const { return m_ccFlags; }
+    size_t GetFlags() const { return m_ccFlags; }
     const wxString& GetFileSpec() const { return m_fileSpec; }
 
     // Setters
-    void SetMinWordLen(const int& minWordLen) { this->m_minWordLen = minWordLen; }
+    void SetMinWordLen(int minWordLen) { this->m_minWordLen = minWordLen; }
     // Getters
-    const int& GetMinWordLen() const { return m_minWordLen; }
+    int GetMinWordLen() const { return m_minWordLen; }
 
     // Serialization API
 
@@ -197,22 +174,16 @@ public:
      */
     void SyncData();
 
-    void SetCcColourFlags(const size_t& ccColourFlags) { this->m_ccColourFlags = ccColourFlags; }
+    void SetCcColourFlags(size_t ccColourFlags) { this->m_ccColourFlags = ccColourFlags; }
 
-    const size_t& GetCcColourFlags() const { return m_ccColourFlags; }
-    void SetParserEnabled(const bool& parserEnabled) { this->m_parserEnabled = parserEnabled; }
+    size_t GetCcColourFlags() const { return m_ccColourFlags; }
     void SetParserSearchPaths(const wxArrayString& parserSearchPaths) { this->m_parserSearchPaths = parserSearchPaths; }
-    const bool& GetParserEnabled() const { return m_parserEnabled; }
     const wxArrayString& GetParserSearchPaths() const { return m_parserSearchPaths; }
     void SetParserExcludePaths(const wxArrayString& parserExcludePaths)
     {
         this->m_parserExcludePaths = parserExcludePaths;
     }
     const wxArrayString& GetParserExcludePaths() const { return m_parserExcludePaths; }
-    void SetMaxItemToColour(int maxItemToColour) { this->m_maxItemToColour = maxItemToColour; }
-    int GetMaxItemToColour() const { return m_maxItemToColour; }
-    void SetMacrosFiles(const wxString& macrosFiles) { this->m_macrosFiles = macrosFiles; }
-    const wxString& GetMacrosFiles() const { return m_macrosFiles; }
 };
 
 #endif // TAGS_OPTIONS_DATA_H

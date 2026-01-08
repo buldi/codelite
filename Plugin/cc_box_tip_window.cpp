@@ -176,18 +176,7 @@ void CCBoxTipWindow_ShrinkTip(wxString& str, bool strip_html_tags)
  */
 std::unique_ptr<wxDisplay> GetDisplay(const wxWindow* win)
 {
-#if wxCHECK_VERSION(3, 1, 2)
-    wxDisplay* d = new wxDisplay(win);
-#else
-    wxDisplay* d = nullptr;
-    int index = wxDisplay::GetFromWindow(win);
-    if (index == wxNOT_FOUND) {
-        d = new wxDisplay();
-    } else {
-        d = new wxDisplay(index);
-    }
-#endif
-    return std::unique_ptr<wxDisplay>(d);
+    return std::make_unique<wxDisplay>(win);
 }
 } // namespace
 
@@ -203,8 +192,6 @@ CCBoxTipWindow::CCBoxTipWindow(wxWindow* parent, const wxString& tip, bool strip
     Bind(wxEVT_PAINT, &CCBoxTipWindow::OnPaint, this);
     Bind(wxEVT_ERASE_BACKGROUND, &CCBoxTipWindow::OnEraseBG, this);
 }
-
-CCBoxTipWindow::~CCBoxTipWindow() {}
 
 void CCBoxTipWindow::DoInitialize(size_t numOfTips)
 {
@@ -296,7 +283,7 @@ void CCBoxTipWindow::PositionRelativeTo(wxWindow* win, wxPoint caretPos, int sta
                 pt = windowPos;
                 pt.y += ccBoxSize.y + 1;
                 if (ccBoxIsAboveCaretLine) {
-                    pt.y += lineHeight; // dont hide the caret line
+                    pt.y += lineHeight; // don't hide the caret line
                 }
             }
         }
@@ -345,20 +332,6 @@ void CCBoxTipWindow::PositionAt(const wxPoint& pt, IEditor* focusEdior)
 
     if (focusEdior) {
         focusEdior->SetActive();
-    }
-}
-
-void CCBoxTipWindow::PositionLeftTo(wxWindow* win, IEditor* focusEditor)
-{
-    // Move the tip to the left
-    wxPoint pt = win->GetScreenPosition();
-    pt.x -= GetSize().x;
-
-    SetSize(wxRect(pt, GetSize()));
-    Show();
-
-    if (focusEditor) {
-        focusEditor->SetActive();
     }
 }
 

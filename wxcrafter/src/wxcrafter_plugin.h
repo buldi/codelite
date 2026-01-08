@@ -1,10 +1,9 @@
 #ifndef __wxcrafter_plugin__
 #define __wxcrafter_plugin__
 
-#include "NewFormWizard.h"
-#include "Notebook.h"
+#include "Importer/import_dlg.h"
+#include "UI/NewFormWizard.h"
 #include "cl_command_event.h" // clDebugEvent
-#include "import_dlg.h"
 #include "main.h"
 #include "plugin.h"
 
@@ -29,11 +28,8 @@ class wxCrafterPlugin : public IPlugin
 {
     GUICraftMainPanel* m_mainPanel = nullptr;
     wxcTreeView* m_treeView = nullptr;
-    wxMenuItem* m_separatorItem = nullptr;
     GeneratedClass m_generatedClassInfo;
     bool m_allEditorsClosing = false;
-    bool m_addFileMenu = false;
-    bool m_useFrame = true;
     MainFrame* m_mainFrame = nullptr;
     bool m_serverMode = false;
     wxFileName m_selectedFile;
@@ -57,7 +53,6 @@ protected:
     void DoImportFB(const wxString& filename = "");
     void DoInitDone(wxObject* obj = NULL);
     void DoLoadWxcProject(const wxFileName& filename);
-    void UpdateFileNameInStatusBar();
 
 protected:
     // Event handlers
@@ -106,16 +101,16 @@ protected:
 
 public:
     wxCrafterPlugin(IManager* manager, bool serverMode);
-    ~wxCrafterPlugin();
+    ~wxCrafterPlugin() override;
 
     MainFrame* GetMainFrame() const { return m_mainFrame; }
 
     //--------------------------------------------
     // Abstract methods
     //--------------------------------------------
-    virtual void CreateToolBar(clToolBarGeneric* toolbar);
-    virtual void CreatePluginMenu(wxMenu* pluginsMenu);
-    virtual void UnPlug();
+    void CreateToolBar(clToolBarGeneric* toolbar) override;
+    void CreatePluginMenu(wxMenu* pluginsMenu) override;
+    void UnPlug() override;
 
     IManager* GetManager() { return m_mgr; }
     bool IsTabMode() const { return !m_mainFrame; }

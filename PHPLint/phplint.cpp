@@ -2,6 +2,7 @@
 
 #include "AsyncProcess/asyncprocess.h"
 #include "AsyncProcess/processreaderthread.h"
+#include "StringUtils.h"
 #include "event_notifier.h"
 #include "file_logger.h"
 #include "globals.h"
@@ -10,9 +11,7 @@
 #include "phpoptions.h"
 
 #include <wx/menu.h>
-#include <wx/msgdlg.h>
 #include <wx/sstream.h>
-#include <wx/xrc/xmlres.h>
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
@@ -52,8 +51,6 @@ PHPLint::PHPLint(IManager* manager)
     EventNotifier::Get()->Bind(wxEVT_FILE_SAVED, &PHPLint::OnSaveFile, this);
     EventNotifier::Get()->Bind(wxEVT_PHP_SETTINGS_CHANGED, &PHPLint::OnPhpSettingsChanged, this);
 }
-
-PHPLint::~PHPLint() {}
 
 void PHPLint::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
@@ -134,7 +131,7 @@ void PHPLint::RunLint()
 void PHPLint::DoCheckFile(const wxFileName& filename)
 {
     wxString file = filename.GetFullPath();
-    ::WrapWithQuotes(file);
+    StringUtils::WrapWithQuotes(file);
 
     wxFileName php(m_settingsPhp.GetPhpExe());
     if(!php.Exists()) {
@@ -143,7 +140,7 @@ void PHPLint::DoCheckFile(const wxFileName& filename)
     }
 
     wxString phpPath = php.GetFullPath();
-    ::WrapWithQuotes(phpPath);
+    StringUtils::WrapWithQuotes(phpPath);
 
     m_queue.push_back(phpPath + " -l " + file);
     QueuePhpcsCommand(phpPath, file);
@@ -162,7 +159,7 @@ void PHPLint::QueuePhpcsCommand(const wxString& phpPath, const wxString& file)
     }
 
     wxString phpcsPath = phpcs.GetFullPath();
-    ::WrapWithQuotes(phpcsPath);
+    StringUtils::WrapWithQuotes(phpcsPath);
 
     m_queue.push_back(phpPath + " " + phpcsPath + " --report=xml -q " + file);
 }
@@ -176,11 +173,11 @@ void PHPLint::QueuePhpmdCommand(const wxString& phpPath, const wxString& file)
     }
 
     wxString phpmdPath = phpmd.GetFullPath();
-    ::WrapWithQuotes(phpmdPath);
+    StringUtils::WrapWithQuotes(phpmdPath);
 
     wxString phpmdRules(m_settings.GetPhpmdRules());
     if(phpmdRules.IsEmpty()) { phpmdRules = "cleancode,codesize,controversial,design,naming,unusedcode"; }
-    ::WrapWithQuotes(phpmdRules);
+    StringUtils::WrapWithQuotes(phpmdRules);
 
     m_queue.push_back(phpPath + " " + phpmdPath + " " + file + " xml " + phpmdRules);
 }
@@ -194,7 +191,7 @@ void PHPLint::QueuePhpstanCommand(const wxString& phpPath, const wxString& file)
     }
 
     wxString phpstanPath = phpstan.GetFullPath();
-    ::WrapWithQuotes(phpstanPath);
+    StringUtils::WrapWithQuotes(phpstanPath);
 
     m_queue.push_back(phpPath + " " + phpstanPath + " analyze -c " + wxGetCwd() +
                       "/phpstan.neon --error-format=checkstyle --no-progress " + file);

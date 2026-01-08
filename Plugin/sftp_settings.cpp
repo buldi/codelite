@@ -25,7 +25,7 @@
 
 #include "sftp_settings.h"
 
-#include "fileutils.h"
+#include "StringUtils.h"
 
 #include <algorithm>
 #ifdef __WXMSW__
@@ -44,8 +44,6 @@ SFTPSettings::SFTPSettings()
 #endif
 {
 }
-
-SFTPSettings::~SFTPSettings() {}
 
 void SFTPSettings::FromJSON(const JSONItem& json)
 {
@@ -138,7 +136,7 @@ void SFTPSettings::MSWImportPuTTYAccounts()
                     rk.QueryValue("PortNumber", &port);
                     if(!hostname.IsEmpty() && port != wxNOT_FOUND) {
                         SSHAccountInfo acc;
-                        acc.SetAccountName(FileUtils::DecodeURI(strKeyName));
+                        acc.SetAccountName(StringUtils::DecodeURI(strKeyName));
                         acc.SetHost(hostname);
                         acc.SetPort(port);
                         acc.SetUsername(username);
@@ -173,7 +171,7 @@ void SFTPSettings::MSWImportPuTTYAccounts()
                     rk.QueryValue("PortNumber", &port);
                     if(!hostname.IsEmpty() && port != wxNOT_FOUND) {
                         SSHAccountInfo acc;
-                        acc.SetAccountName(FileUtils::DecodeURI(strKeyName));
+                        acc.SetAccountName(StringUtils::DecodeURI(strKeyName));
                         acc.SetHost(hostname);
                         acc.SetPort(port);
                         acc.SetUsername(username);
@@ -185,7 +183,7 @@ void SFTPSettings::MSWImportPuTTYAccounts()
         }
     }
 
-    std::for_each(puttyAccounts.begin(), puttyAccounts.end(), [&](const SSHAccountInfo& acc) {
+    for (const SSHAccountInfo& acc : puttyAccounts) {
         SSHAccountInfo::Vect_t::iterator iter =
             std::find_if(m_accounts.begin(), m_accounts.end(),
                          [&](const SSHAccountInfo& a) { return a.GetAccountName() == acc.GetAccountName(); });
@@ -194,7 +192,7 @@ void SFTPSettings::MSWImportPuTTYAccounts()
             // add it
             m_accounts.push_back(acc);
         }
-    });
+    }
 #endif
 }
 #endif // USE_SFTP

@@ -27,22 +27,12 @@
 
 #include "clDebuggerEditItemDlg.h"
 #include "debuggerobserver.h"
-#include "editor_config.h"
 #include "frame.h"
 #include "globals.h"
 #include "simpletable.h"
-#include "windowattrmanager.h"
 
-#include <cmath>
-#include <wx/cursor.h>
-#include <wx/log.h>
 #include <wx/menu.h>
-#include <wx/persist/window.h>
-#include <wx/popupwin.h>
-#include <wx/timer.h>
 #include <wx/xrc/xmlres.h>
-
-static wxRect s_Rect;
 
 class QWTreeData : public wxTreeItemData
 {
@@ -53,7 +43,7 @@ public:
         : _voc(voc)
     {
     }
-    virtual ~QWTreeData() {}
+    ~QWTreeData() override = default;
 };
 
 #if wxVERSION_NUMBER >= 3104 && defined(__WXGTK3__)
@@ -67,7 +57,6 @@ static void DoNothing(wxShowEvent& event)
 DisplayVariableDlg::DisplayVariableDlg(wxWindow* parent)
     : clResizableTooltip(parent)
     , m_debugger(NULL)
-    , m_editDlgIsUp(false)
 {
     Hide();
     Centre();
@@ -165,11 +154,11 @@ void DisplayVariableDlg::DoAddChildren(wxTreeItemId& item, const VariableObjChil
     for(size_t i = 0; i < children.size(); i++) {
         const VariableObjChild& ch = children[i];
 
-        // Dont use ch.isAFake here since it will also returns true of inheritance
+        // Don't use ch.isAFake here since it will also returns true of inheritance
         if(ch.varName != "public" && ch.varName != "private" && ch.varName != "protected") {
             // Real node
             wxTreeItemId child = m_treeCtrl->AppendItem(item, ch.varName, -1, -1, new QWTreeData(ch));
-            if(ch.numChilds > 0) {
+            if (ch.numChild > 0) {
                 // add fake node to this item, so it will have the [+] on the side
                 m_treeCtrl->AppendItem(child, wxT("<dummy>"));
             }
@@ -236,8 +225,6 @@ void DisplayVariableDlg::DoCleanUp()
     m_mainVariableObject = wxT("");
     m_variableName = wxT("");
     m_expression = wxT("");
-    m_itemOldValue.Clear();
-    m_editDlgIsUp = false;
     wxSetCursor(wxNullCursor);
 }
 
@@ -263,7 +250,7 @@ void DisplayVariableDlg::OnItemMenu(wxTreeEvent& event)
         m_treeCtrl->SelectItem(item);
     }
 
-    // Dont show popup menu for fake nodes
+    // Don't show popup menu for fake nodes
     if(IsFakeItem(item))
         return;
 
@@ -312,7 +299,7 @@ wxString DisplayVariableDlg::DoGetItemPath(const wxTreeItemId& treeItem)
         if(m_treeCtrl->GetRootItem() == item)
             break;
 
-        // Surround this expression with parenthesiss
+        // Surround this expression with parenthesis
         item = m_treeCtrl->GetItemParent(item);
     }
 
@@ -384,14 +371,12 @@ void DisplayVariableDlg::DoEditItem(const wxTreeItemId& item)
     oldPos = ScreenToClient(oldPos);
 #endif
 
-    m_editDlgIsUp = true;
     clDebuggerEditItemDlg dlg(this, oldText);
     // We need to Hide() the tip before running the edit dialog, otherwise the dialog is covered by the tip
     // (and can't be entered or cancelled...
     Hide();
     int res = dlg.ShowModal();
     Show();
-    m_editDlgIsUp = false;
 
 #ifdef __WXGTK__
     wxWindow::WarpPointer(oldPos.x, oldPos.y);
@@ -433,30 +418,6 @@ void DisplayVariableDlg::DoEditItem(const wxTreeItemId& item)
         newExpr.Prepend(typecast);
     }
 
-    s_Rect = GetScreenRect();
     HideDialog();
     m_debugger->CreateVariableObject(newExpr, false, DBG_USERR_QUICKWACTH);
 }
-
-void CLPersistentDebuggerTip::Save() const
-{
-    const wxPopupWindow* const puw = Get();
-    const wxSize size = puw->GetSize();
-    SaveValue("w", size.x);
-    SaveValue("h", size.y);
-}
-
-bool CLPersistentDebuggerTip::Restore()
-{
-    wxPopupWindow* const puw = Get();
-
-    long w(-1), h(-1);
-    const bool hasSize = RestoreValue("w", &w) && RestoreValue("h", &h);
-
-    if(hasSize)
-        puw->SetSize(w, h);
-
-    return hasSize;
-}
-
-inline wxPersistentObject* wxCreatePersistentObject(wxPopupWindow* puw) { return new CLPersistentDebuggerTip(puw); }

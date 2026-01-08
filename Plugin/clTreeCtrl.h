@@ -15,6 +15,11 @@
 #include <wx/panel.h>
 #include <wx/scrolwin.h>
 
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
+#endif
+
 #define wxTR_ENABLE_SEARCH 0x4000
 #define wxTR_COLUMN_WIDTH_NEVER_SHRINKS 0x8000
 
@@ -80,12 +85,18 @@ protected:
 public:
     int GetFirstItemPosition() const override;
     int GetRange() const override;
-    clTreeCtrl(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-               const wxSize& size = wxDefaultSize, long style = 0);
+    clTreeCtrl(wxWindow* parent,
+               wxWindowID id = wxID_ANY,
+               const wxPoint& pos = wxDefaultPosition,
+               const wxSize& size = wxDefaultSize,
+               long style = 0);
     clTreeCtrl();
     virtual ~clTreeCtrl();
-    bool Create(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                const wxSize& size = wxDefaultSize, long style = 0);
+    bool Create(wxWindow* parent,
+                wxWindowID id = wxID_ANY,
+                const wxPoint& pos = wxDefaultPosition,
+                const wxSize& size = wxDefaultSize,
+                long style = 0);
 
     /**
      * @brief set the upper and lower spacing between lines in the view
@@ -117,17 +128,17 @@ public:
      * @brief search for an item from pos that matches the "what" string.
      * Pass an invalid item to start the search from the root
      */
-    wxTreeItemId FindNext(const wxTreeItemId& from, const wxString& what, size_t col = 0,
-                          size_t searchFlags = wxTR_SEARCH_DEFAULT);
+    wxTreeItemId
+    FindNext(const wxTreeItemId& from, const wxString& what, size_t col = 0, size_t searchFlags = wxTR_SEARCH_DEFAULT);
     /**
      * @brief search for an item from pos that matches the "what" string.
      * Pass an invalid item to start the search from the root
      */
-    wxTreeItemId FindPrev(const wxTreeItemId& from, const wxString& what, size_t col = 0,
-                          size_t searchFlags = wxTR_SEARCH_DEFAULT);
+    wxTreeItemId
+    FindPrev(const wxTreeItemId& from, const wxString& what, size_t col = 0, size_t searchFlags = wxTR_SEARCH_DEFAULT);
 
     /**
-     * @brief highlight matched string of an item. This call should be called after a successfull call to
+     * @brief highlight matched string of an item. This call should be called after a successful call to
      * FindNext or FindPrev
      */
     void HighlightText(const wxTreeItemId& item, bool b);
@@ -157,7 +168,7 @@ public:
 
     void AddHeader(const wxString& label, const wxBitmap& bmp = wxNullBitmap, int width = wxCOL_WIDTH_AUTOSIZE);
 
-    // For internal use, dont use these two methods
+    // For internal use, don't use these two methods
     const clTreeCtrlModel& GetModel() const { return m_model; }
     clTreeCtrlModel& GetModel() { return m_model; }
 
@@ -219,9 +230,12 @@ public:
     wxTreeItemId HitTest(const wxPoint& point, int& flags, int& column) const;
 
     /**
-     * @brief ppends an item to the end of the branch identified by parent, return a new item id.
+     * @brief Appends an item to the end of the branch identified by parent, return a new item id.
      */
-    wxTreeItemId AppendItem(const wxTreeItemId& parent, const wxString& text, int image = -1, int selImage = -1,
+    wxTreeItemId AppendItem(const wxTreeItemId& parent,
+                            const wxString& text,
+                            int image = -1,
+                            int selImage = -1,
                             wxTreeItemData* data = NULL);
     /**
      * @brief Adds the root node to the tree, returning the new item.
@@ -231,8 +245,12 @@ public:
     /**
      * @brief insert item after 'previous'
      */
-    wxTreeItemId InsertItem(const wxTreeItemId& parent, const wxTreeItemId& previous, const wxString& text,
-                            int image = -1, int selImage = -1, wxTreeItemData* data = NULL);
+    wxTreeItemId InsertItem(const wxTreeItemId& parent,
+                            const wxTreeItemId& previous,
+                            const wxString& text,
+                            int image = -1,
+                            int selImage = -1,
+                            wxTreeItemData* data = NULL);
     /**
      * @brief return the root item
      */
@@ -336,7 +354,7 @@ public:
     wxTreeItemId GetPrevItem(const wxTreeItemId& item) const;
 
     /**
-     * @brief for compatibility, we dont really need to call this method manually
+     * @brief for compatibility, we don't really need to call this method manually
      */
     void SortChildren(const wxTreeItemId& item) { wxUnusedVar(item); }
 
@@ -479,4 +497,9 @@ protected:
 
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_ITEM_VALUE_CHANGED, wxTreeEvent);
 wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TREE_ACTIONBUTTON_CLICKED, wxTreeEvent);
+
+#if defined(__clang__) || defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 #endif // CLTREECTRL_H

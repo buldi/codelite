@@ -30,8 +30,8 @@ public:
     bool trim_trailing_whitespace;
     bool insert_final_newline;
     wxString end_of_line;
-    wxFileName filename; // the path to the .editorconfig file 
-    typedef std::vector<clEditorConfigSection> Vec_t;
+    wxFileName filename; // the path to the .editorconfig file
+    using Vec_t = std::vector<clEditorConfigSection>;
 
     clEditorConfigSection()
         : flags(0)
@@ -129,7 +129,7 @@ private:
 
 public:
     clEditorConfig();
-    ~clEditorConfig();
+    ~clEditorConfig() = default;
 
     /**
      * @brief try and load a .editorconfig settings for 'filename'. We start looking from the current file location

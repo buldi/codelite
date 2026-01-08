@@ -14,9 +14,9 @@
 #include <wx/treebase.h>
 
 #if wxUSE_NATIVE_SCROLLBAR
-typedef clScrollBar ScrollBar_t;
+using ScrollBar_t = clScrollBar;
 #else
-typedef clCustomScrollBar ScrollBar_t;
+using ScrollBar_t = clCustomScrollBar;
 #endif
 
 class WXDLLIMPEXP_SDK clScrolledPanel : public wxWindow
@@ -71,7 +71,7 @@ protected:
 public:
     clScrolledPanel(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                     const wxSize& size = wxDefaultSize, long style = 0);
-    clScrolledPanel() {}
+    clScrolledPanel() = default;
     virtual ~clScrolledPanel();
 
     ScrollBar_t* GetHScrollBar() { return m_hsb; }
@@ -86,7 +86,7 @@ public:
 
     /**
      * @brief when enabled, the scrollbar will only be shown (if needed at all) when this window has the focus (or any
-     * of its decendants)
+     * of its descendants)
      */
     void SetShowScrollBarOnFocus(bool b) { m_showSBOnFocus = b; }
 
@@ -101,14 +101,14 @@ public:
     wxRect GetClientArea() const;
 
     /**
-     * @brief whenver the view changes (i.e. there is a new top line) call this method so the scrollbar
+     * @brief whenever the view changes (i.e. there is a new top line) call this method so the scrollbar
      * will adjust its position
      */
     void UpdateVScrollBar(int position, int thumbSize, int rangeSize, int pageSize);
     void UpdateHScrollBar(int position, int thumbSize, int rangeSize, int pageSize);
 
     //===----------------------------------------------------
-    // Overridables
+    // Overridable
     //===----------------------------------------------------
 
     /**
@@ -146,7 +146,7 @@ public:
     virtual void ScrollToColumn(int firstColumn) { wxUnusedVar(firstColumn); }
 
     /**
-     * @brief called by the scrolled window whenver a key is down
+     * @brief called by the scrolled window whenever a key is down
      * return true if the key was processed and we should stop the processing of this event
      */
     virtual bool DoKeyDown(const wxKeyEvent& event)

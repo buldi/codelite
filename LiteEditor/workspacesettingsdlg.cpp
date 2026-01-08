@@ -51,11 +51,10 @@ WorkspaceSettingsDlg::WorkspaceSettingsDlg(wxWindow* parent, LocalWorkspace* loc
     wxString activePage = vars.GetActiveSet();
     m_choiceEnvSets->Clear();
 
-    wxStringMap_t::const_iterator iter = envSets.begin();
     int useActiveSetIndex = m_choiceEnvSets->Append(wxGetTranslation(USE_GLOBAL_SETTINGS));
 
-    for(; iter != envSets.end(); iter++) {
-        m_choiceEnvSets->Append(iter->first);
+    for (const auto& p : envSets) {
+        m_choiceEnvSets->Append(p.first);
     }
 
     // select the current workspace active set name
@@ -81,23 +80,19 @@ WorkspaceSettingsDlg::WorkspaceSettingsDlg(wxWindow* parent, LocalWorkspace* loc
         EnvironmentConfig::Instance()->SetSettings(vars);
     }
 
-    wxString envvars = clCxxWorkspaceST::Get()->GetEnvironmentVariabels();
+    wxString envvars = clCxxWorkspaceST::Get()->GetEnvironmentVariables();
     envvars.Trim().Trim(false);
 
     m_textCtrlWspEnvVars->SetValue(envvars);
     ::clSetDialogBestSizeAndPosition(this);
 }
 
-WorkspaceSettingsDlg::~WorkspaceSettingsDlg() {}
-
-wxArrayString WorkspaceSettingsDlg::GetExcludePaths() const { return wxArrayString(); }
-
 wxArrayString WorkspaceSettingsDlg::GetIncludePaths() const { return m_ccPage->GetIncludePaths(); }
 
 void WorkspaceSettingsDlg::OnButtonOK(wxCommandEvent& event)
 {
     m_localWorkspace->SetActiveEnvironmentSet(m_choiceEnvSets->GetStringSelection());
-    clCxxWorkspaceST::Get()->SetEnvironmentVariabels(m_textCtrlWspEnvVars->GetValue());
+    clCxxWorkspaceST::Get()->SetEnvironmentVariables(m_textCtrlWspEnvVars->GetValue());
     m_ccPage->Save();
     event.Skip();
 }

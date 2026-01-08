@@ -9,7 +9,6 @@
 #include "fileutils.h"
 
 #include <vector>
-#include <wx/sharedptr.h>
 
 // Helper macros to be used outside of this library
 #define LSP_LOG (LSP::GetLogHandle())
@@ -61,8 +60,8 @@ private:
     URI& operator=(const wxString& str) = delete;
 
 public:
-    URI() {}
-    ~URI() {}
+    URI() = default;
+    ~URI() = default;
 
     static void FromString(const wxString& str, URI* o);
 
@@ -79,32 +78,19 @@ class WXDLLIMPEXP_CL Position : public Serializable
     int m_character = wxNOT_FOUND;
 
 public:
-    virtual void FromJSON(const JSONItem& json);
-    virtual JSONItem ToJSON(const wxString& name) const;
+    void FromJSON(const JSONItem& json) override;
+    JSONItem ToJSON(const wxString& name) const override;
 
     Position(int line, int col)
         : m_line(line)
         , m_character(col)
     {
     }
-    Position() {}
-    virtual ~Position() {}
-    bool operator==(const Position& rhs) const
-    {
-        return this->m_line == rhs.m_line && this->m_character == rhs.m_character;
-    }
-    bool operator!=(const Position& rhs) const { return !(*this == rhs); }
-    bool operator<(const Position& rhs) const
-    {
-        if(this->m_line == rhs.m_line) {
-            return this->m_character < rhs.m_character;
-        } else {
-            return this->m_line < rhs.m_line;
-        }
-    }
-    bool operator>(const Position& rhs) const { return rhs < *this; }
-    bool operator<=(const Position& rhs) const { return !(*this > rhs); }
-    bool operator>=(const Position& rhs) const { return !(*this < rhs); }
+    Position() = default;
+    ~Position() override = default;
+    bool operator==(const Position& rhs) const = default;
+    auto operator<=> (const Position& rhs) const = default;
+
     Position& SetCharacter(int character)
     {
         this->m_character = character;
@@ -137,8 +123,8 @@ public:
         , m_end(end)
     {
     }
-    Range() {}
-    virtual ~Range() {}
+    Range() = default;
+    virtual ~Range() = default;
     Range& SetEnd(const Position& end)
     {
         this->m_end = end;
@@ -166,12 +152,12 @@ public:
     virtual JSONItem ToJSON(const wxString& name) const;
     virtual void FromJSON(const JSONItem& json);
 
-    TextDocumentContentChangeEvent() {}
+    TextDocumentContentChangeEvent() = default;
     TextDocumentContentChangeEvent(const wxString& text)
         : m_text(text)
     {
     }
-    virtual ~TextDocumentContentChangeEvent() {}
+    virtual ~TextDocumentContentChangeEvent() = default;
     TextDocumentContentChangeEvent& SetText(const wxString& text);
     const wxString& GetText() const { return m_text; }
     const Range& GetRange() const { return m_range; }
@@ -189,10 +175,10 @@ public:
     virtual JSONItem ToJSON(const wxString& name) const;
     virtual void FromJSON(const JSONItem& json);
 
-    TextDocumentIdentifier() {}
+    TextDocumentIdentifier() = default;
     TextDocumentIdentifier(const wxString& filename) { URI::FromString(filename, &m_filename); }
 
-    virtual ~TextDocumentIdentifier() {}
+    virtual ~TextDocumentIdentifier() = default;
     TextDocumentIdentifier& SetFilename(const wxString& filename)
     {
         URI::FromString(filename, &m_filename);
@@ -213,12 +199,12 @@ public:
     virtual JSONItem ToJSON(const wxString& name) const;
     virtual void FromJSON(const JSONItem& json);
 
-    VersionedTextDocumentIdentifier() {}
+    VersionedTextDocumentIdentifier() = default;
     VersionedTextDocumentIdentifier(int version)
         : m_version(version)
     {
     }
-    virtual ~VersionedTextDocumentIdentifier() {}
+    virtual ~VersionedTextDocumentIdentifier() = default;
     VersionedTextDocumentIdentifier& SetVersion(int version)
     {
         this->m_version = version;
@@ -237,8 +223,8 @@ class WXDLLIMPEXP_CL TextEdit : public LSP::Serializable
     wxString m_newText;
 
 public:
-    TextEdit() {}
-    virtual ~TextEdit() {}
+    TextEdit() = default;
+    virtual ~TextEdit() = default;
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
     void SetNewText(const wxString& newText) { this->m_newText = newText; }
@@ -265,8 +251,8 @@ public:
         URI::FromString(uri, &m_uri);
     }
 
-    Location() {}
-    virtual ~Location() {}
+    Location() = default;
+    virtual ~Location() = default;
     Location& SetRange(const Range& range)
     {
         this->m_range = range;
@@ -309,8 +295,8 @@ public:
         URI::FromString(uri, &m_uri);
     }
 
-    TextDocumentItem() {}
-    virtual ~TextDocumentItem() {}
+    TextDocumentItem() = default;
+    virtual ~TextDocumentItem() = default;
     TextDocumentItem& SetLanguageId(const wxString& languageId)
     {
         this->m_languageId = languageId;
@@ -345,8 +331,8 @@ class WXDLLIMPEXP_CL ParameterInformation : public LSP::Serializable
     wxString m_documentation;
 
 public:
-    ParameterInformation() {}
-    virtual ~ParameterInformation() {}
+    ParameterInformation() = default;
+    virtual ~ParameterInformation() = default;
     ParameterInformation& SetDocumentation(const wxString& documentation)
     {
         this->m_documentation = documentation;
@@ -362,7 +348,7 @@ public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
 
-    typedef std::vector<ParameterInformation> Vec_t;
+    using Vec_t = std::vector<ParameterInformation>;
 };
 
 class WXDLLIMPEXP_CL SignatureInformation : public LSP::Serializable
@@ -372,11 +358,11 @@ class WXDLLIMPEXP_CL SignatureInformation : public LSP::Serializable
     ParameterInformation::Vec_t m_parameters;
 
 public:
-    typedef std::vector<LSP::SignatureInformation> Vec_t;
+    using Vec_t = std::vector<LSP::SignatureInformation>;
 
 public:
-    SignatureInformation() {}
-    virtual ~SignatureInformation() {}
+    SignatureInformation() = default;
+    virtual ~SignatureInformation() = default;
     SignatureInformation& SetParameters(const ParameterInformation::Vec_t& parameters)
     {
         this->m_parameters = parameters;
@@ -406,8 +392,8 @@ class WXDLLIMPEXP_CL SignatureHelp : public LSP::Serializable
     int m_activeParameter = 0;
 
 public:
-    SignatureHelp() {}
-    virtual ~SignatureHelp() {}
+    SignatureHelp() = default;
+    virtual ~SignatureHelp() = default;
 
     SignatureHelp& SetActiveParameter(int activeParameter)
     {
@@ -437,8 +423,8 @@ class WXDLLIMPEXP_CL MarkupContent : public LSP::Serializable
     wxString m_value;
 
 public:
-    MarkupContent() {}
-    virtual ~MarkupContent() {}
+    MarkupContent() = default;
+    virtual ~MarkupContent() = default;
     MarkupContent& SetKind(const wxString& kind)
     {
         this->m_kind = kind;
@@ -461,8 +447,8 @@ class WXDLLIMPEXP_CL Hover : public LSP::Serializable
     Range m_range;
 
 public:
-    Hover() {}
-    virtual ~Hover() {}
+    Hover() = default;
+    virtual ~Hover() = default;
     Hover& SetContents(const MarkupContent& contents)
     {
         this->m_contents = contents;
@@ -513,8 +499,8 @@ public:
         , m_message(message)
     {
     }
-    Diagnostic() {}
-    virtual ~Diagnostic() {}
+    Diagnostic() = default;
+    virtual ~Diagnostic() = default;
     Diagnostic& SetRange(const Range& range)
     {
         this->m_range = range;
@@ -541,8 +527,8 @@ public:
     void FromJSON(const JSONItem& json) override;
     JSONItem ToJSON(const wxString& name) const override;
 
-    Command() {}
-    virtual ~Command() {}
+    Command() = default;
+    virtual ~Command() = default;
 
     void SetTitle(const wxString& title) { this->m_title = title; }
     void SetCommand(const wxString& command) { this->m_command = command; }
@@ -593,8 +579,8 @@ public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
 
-    DocumentSymbol() {}
-    virtual ~DocumentSymbol() {}
+    DocumentSymbol() = default;
+    virtual ~DocumentSymbol() = default;
 
     void SetChildren(const std::vector<DocumentSymbol>& children) { this->children = children; }
     void SetDetail(const wxString& detail) { this->detail = detail; }
@@ -647,8 +633,8 @@ public:
     virtual void FromJSON(const JSONItem& json);
     virtual JSONItem ToJSON(const wxString& name) const;
 
-    SymbolInformation() {}
-    virtual ~SymbolInformation() {}
+    SymbolInformation() = default;
+    virtual ~SymbolInformation() = default;
 
     void SetContainerName(const wxString& containerName) { this->containerName = containerName; }
     void SetKind(const eSymbolKind& kind) { this->kind = kind; }
@@ -669,8 +655,8 @@ WXDLLIMPEXP_CL wxString FileNameToURI(const wxString& filename);
 /// Return the log handle of this library
 WXDLLIMPEXP_CL clModuleLogger& GetLogHandle();
 
-/// Parse the text edit from a reponse "result" field
+/// Parse the text edit from a response "result" field
 WXDLLIMPEXP_CL std::unordered_map<wxString, std::vector<LSP::TextEdit>> ParseWorkspaceEdit(const JSONItem& result);
 
-};     // namespace LSP
+} // namespace LSP
 #endif // JSONRPC_BASICTYPES_H

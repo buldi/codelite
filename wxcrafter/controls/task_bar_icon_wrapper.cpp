@@ -1,9 +1,10 @@
 #include "task_bar_icon_wrapper.h"
 
+#include "Properties/bitmap_picker_property.h"
+#include "Properties/choice_property.h"
+#include "Properties/string_property.h"
 #include "StdToWX.h"
 #include "allocator_mgr.h"
-#include "bitmap_picker_property.h"
-#include "choice_property.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
@@ -14,14 +15,13 @@ TaskBarIconWrapper::TaskBarIconWrapper()
     : wxcWidget(ID_WXTASKBARICON)
 {
     m_styles.Clear();
-    AddText(PROP_TOOLTIP, _("Set the wxTaskBarIcon tooltip"));
+    Add<StringProperty>(PROP_TOOLTIP, _("Set the wxTaskBarIcon tooltip"));
     const wxArrayString types =
         StdToWX::ToArrayString({ "wxTBI_DEFAULT_TYPE", "wxTBI_DOCK", "wxTBI_CUSTOM_STATUSITEM" });
 
     SetPropertyString(_("Common Settings"), "wxTaskBarIcon");
-    AddProperty(
-        new ChoiceProperty(PROP_TASKBAR_ICONTYPE, types, 0, _("The iconType is only applicable on wxOSX_Cocoa")));
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, "", _("Set the wxTaskBarIcon icon")));
+    Add<ChoiceProperty>(PROP_TASKBAR_ICONTYPE, types, 0, _("The iconType is only applicable on wxOSX_Cocoa"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH, "", _("Set the wxTaskBarIcon icon"));
 
     RegisterEvent("wxEVT_TASKBAR_MOVE", "wxTaskBarIconEvent", _("Process a wxEVT_TASKBAR_MOVE event"));
     RegisterEvent("wxEVT_TASKBAR_LEFT_DOWN", "wxTaskBarIconEvent", _("Process a wxEVT_TASKBAR_LEFT_DOWN event"));
@@ -34,8 +34,6 @@ TaskBarIconWrapper::TaskBarIconWrapper()
     m_namePattern = "m_taskBarIcon";
     SetName(GenerateName());
 }
-
-TaskBarIconWrapper::~TaskBarIconWrapper() {}
 
 wxcWidget* TaskBarIconWrapper::Clone() const { return new TaskBarIconWrapper(); }
 

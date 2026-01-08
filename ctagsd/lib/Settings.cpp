@@ -3,18 +3,14 @@
 #include "GCCMetadata.hpp"
 #include "JSON.h"
 #include "Platform/Platform.hpp"
-#include "clTempFile.hpp"
 #include "clangd/CompileCommandsJSON.h"
 #include "clangd/CompileFlagsTxt.h"
 #include "ctags_manager.h"
 #include "file_logger.h"
-#include "fileutils.h"
-#include "procutils.h"
 #include "tags_options_data.h"
 
 #include <set>
 #include <wx/string.h>
-#include <wx/tokenzr.h>
 
 namespace
 {
@@ -59,8 +55,6 @@ CTagsdSettings::CTagsdSettings()
     m_types = to_vector_of_pairs(TagsOptionsData::GetDefaultTypes());
 }
 
-CTagsdSettings::~CTagsdSettings() {}
-
 void CTagsdSettings::Load(const wxFileName& filepath)
 {
     JSON config_file(filepath);
@@ -94,7 +88,7 @@ void CTagsdSettings::Load(const wxFileName& filepath)
     LOG_IF_TRACE { clDEBUG1() << "limit_results.........:" << m_limit_results << endl; }
     LOG_IF_TRACE { clDEBUG1() << "Settings dir is set to:" << m_settings_dir << endl; }
 
-    // conver the tokens to wxArrayString
+    // convert the tokens to wxArrayString
     wxArrayString wxarr;
     wxarr.reserve(m_tokens.size());
     for (const auto& p : m_tokens) {
@@ -163,13 +157,11 @@ void CTagsdSettings::build_search_path(const wxFileName& filepath)
     basename = "gcc";
 #endif
 
-    wxString command;
-
     // Common compiler paths - should be placed at top of the include path!
-    if (ThePlatform->Which(basename, &command)) {
+    if (const auto command = ThePlatform->Which(basename)) {
         GCCMetadata md{ basename };
 
-        md.Load(command, wxEmptyString, false);
+        md.Load(*command, wxEmptyString, false);
         m_search_path.insert(m_search_path.end(), md.GetSearchPaths().begin(), md.GetSearchPaths().end());
     }
 }

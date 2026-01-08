@@ -29,8 +29,8 @@
 #include <wx/string.h>
 #include <map>
 
-typedef std::map<wxString, wxString>    SimpleTable;
-typedef std::map<wxString, SimpleTable> GroupTable;
+using SimpleTable = std::map<wxString, wxString>;
+using GroupTable = std::map<wxString, SimpleTable>;
 
 class SubversionLocalProperties
 {
@@ -50,7 +50,7 @@ protected:
 
 public:
 	SubversionLocalProperties(const wxString &url);
-	virtual ~SubversionLocalProperties();
+	virtual ~SubversionLocalProperties() = default;
 
 	wxString ReadProperty (const wxString &propName);
 	void     WriteProperty(const wxString &name, const wxString &val);

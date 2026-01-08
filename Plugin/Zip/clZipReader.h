@@ -27,7 +27,6 @@
 #define CLZIP_H
 
 #include "codelite_exports.h"
-#include "wxStringHash.h"
 
 #include <unordered_map>
 #include <wx/buffer.h>
@@ -68,7 +67,7 @@ public:
     void ExtractAll(const wxString& directory);
 
     /**
-     * @brief extract all zip entries and constract a map of name:memory-output-stream ptr
+     * @brief extract all zip entries and construct a map of name:memory-output-stream ptr
      */
     void ExtractAll(std::unordered_map<wxString, Entry>& buffers);
 

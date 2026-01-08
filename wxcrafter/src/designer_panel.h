@@ -1,7 +1,6 @@
 #ifndef __designer_panel__
 #define __designer_panel__
 
-#include "menu_bar.h"
 #include <map>
 #include <wx/aui/auibook.h>
 #include <wx/choicebk.h>
@@ -62,7 +61,7 @@ public:
 public:
     DesignerPanel(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& position = wxDefaultPosition,
                   const wxSize& size = wxDefaultSize, long style = 0);
-    virtual ~DesignerPanel();
+    ~DesignerPanel() override;
 
     DECLARE_EVENT_TABLE()
     void OnUpdatePreview(wxCommandEvent& e);

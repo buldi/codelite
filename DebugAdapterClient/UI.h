@@ -17,6 +17,7 @@
 #include <wx/splitter.h>
 #include "clThemedSplitterWindow.h"
 #include <wx/dataview.h>
+#include "clThemedListCtrl.h"
 #include "clThemedTreeCtrl.h"
 #include <wx/dialog.h>
 #include <wx/iconbndl.h>
@@ -24,7 +25,6 @@
 #include "clToolBar.h"
 #include <wx/notebook.h>
 #include <wx/button.h>
-#include "clThemedListCtrl.h"
 #include <wx/stc/stc.h>
 #if wxVERSION_NUMBER >= 2900
 #include <wx/persist.h>
@@ -47,19 +47,37 @@
 class DAPMainViewBase : public wxPanel
 {
 protected:
-    clThemedSplitterWindow* m_splitter238;
-    wxPanel* m_splitterPage240;
-    clThemedTreeCtrl* m_threadsTree;
-    wxPanel* m_splitterPage242;
+    wxSplitterWindow* m_splitterHorizontal;
+    wxPanel* m_splitterPageTop;
+    clThemedSplitterWindow* m_splitterVertical;
+    wxPanel* m_splitterPageBacktrace;
+    wxSplitterWindow* m_splitterThreadsFrames;
+    wxPanel* m_splitterPageThreads;
+    clThemedListCtrl* m_dvListCtrlThreadId;
+    wxPanel* m_splitterPageFrames;
+    clThemedListCtrl* m_dvListCtrlFrames;
+    wxPanel* m_splitterPageLocals;
     clThemedTreeCtrl* m_variablesTree;
+    wxPanel* m_splitterPageBottom;
 
 protected:
+    virtual void OnThreadIdChanged(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnThreadsListMenu(wxDataViewEvent& event) { event.Skip(); }
+    virtual void OnFrameChanged(wxDataViewEvent& event) { event.Skip(); }
+
 public:
-    clThemedTreeCtrl* GetThreadsTree() { return m_threadsTree; }
-    wxPanel* GetSplitterPage240() { return m_splitterPage240; }
+    clThemedListCtrl* GetDvListCtrlThreadId() { return m_dvListCtrlThreadId; }
+    wxPanel* GetSplitterPageThreads() { return m_splitterPageThreads; }
+    clThemedListCtrl* GetDvListCtrlFrames() { return m_dvListCtrlFrames; }
+    wxPanel* GetSplitterPageFrames() { return m_splitterPageFrames; }
+    wxSplitterWindow* GetSplitterThreadsFrames() { return m_splitterThreadsFrames; }
+    wxPanel* GetSplitterPageBacktrace() { return m_splitterPageBacktrace; }
     clThemedTreeCtrl* GetVariablesTree() { return m_variablesTree; }
-    wxPanel* GetSplitterPage242() { return m_splitterPage242; }
-    clThemedSplitterWindow* GetSplitter238() { return m_splitter238; }
+    wxPanel* GetSplitterPageLocals() { return m_splitterPageLocals; }
+    clThemedSplitterWindow* GetSplitterVertical() { return m_splitterVertical; }
+    wxPanel* GetSplitterPageTop() { return m_splitterPageTop; }
+    wxPanel* GetSplitterPageBottom() { return m_splitterPageBottom; }
+    wxSplitterWindow* GetSplitterHorizontal() { return m_splitterHorizontal; }
     DAPMainViewBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
                     const wxSize& size = wxSize(500, 300), long style = wxTAB_TRAVERSAL);
     virtual ~DAPMainViewBase();

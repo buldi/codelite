@@ -11,8 +11,6 @@
 
 AuiPaneInfo::AuiPaneInfo() { Reset(); }
 
-AuiPaneInfo::~AuiPaneInfo() {}
-
 wxString AuiPaneInfo::ToCppCode() const
 {
     wxString cppCode = "wxAuiPaneInfo()";
@@ -46,7 +44,7 @@ wxString AuiPaneInfo::ToCppCode() const
 
 void AuiPaneInfo::Construct(wxPropertyGrid* pg) const
 {
-    // Popuplate the sizer flags
+    // Populate the sizer flags
     wxPGProperty* prop = NULL;
     wxPGProperty* general = pg->Append(new wxPropertyCategory(_("General")));
     pg->Expand(general);

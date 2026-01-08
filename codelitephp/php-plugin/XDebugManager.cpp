@@ -38,10 +38,6 @@
     }
 
 XDebugManager::XDebugManager()
-    : TranscationId(0)
-    , m_plugin(NULL)
-    , m_readerThread(NULL)
-    , m_connected(false)
 {
     // Connect CodeLite's debugger events to XDebugManager
     EventNotifier::Get()->Bind(wxEVT_DBG_UI_START, &XDebugManager::OnDebugStartOrContinue, this);
@@ -239,7 +235,7 @@ bool XDebugManager::ProcessDebuggerMessage(const wxString& buffer)
 
     if(root->GetName() == "init") {
 
-        // Parse the content and notify codelite to open the main file
+        // Parse the content and notify CodeLite to open the main file
         xInitStruct initData = ParseInitXML(root);
 
         // Negotiate features with the IDE
@@ -296,7 +292,7 @@ void XDebugManager::DoApplyBreakpoints()
         }
 
         wxString command;
-        XDebugCommandHandler::Ptr_t handler(new XDebugBreakpointCmdHandler(this, ++TranscationId, bp));
+        XDebugCommandHandler::Ptr_t handler(new XDebugBreakpointCmdHandler(this, ++TransactionId, bp));
         wxString filepath = settings.GetMappdPath(bp.GetFileName(), true, sftpMapping);
         command << "breakpoint_set -t line -f " << filepath << " -n " << bp.GetLine() << " -i "
                 << handler->GetTransactionId();
@@ -358,12 +354,12 @@ void XDebugManager::AddHandler(XDebugCommandHandler::Ptr_t handler)
     m_handlers.insert(std::make_pair(handler->GetTransactionId(), handler));
 }
 
-XDebugCommandHandler::Ptr_t XDebugManager::PopHandler(int transcationId)
+XDebugCommandHandler::Ptr_t XDebugManager::PopHandler(int transactionId)
 {
     XDebugCommandHandler::Ptr_t handler(NULL);
-    if(m_handlers.count(transcationId)) {
-        handler = m_handlers[transcationId];
-        m_handlers.erase(transcationId);
+    if (m_handlers.count(transactionId)) {
+        handler = m_handlers[transactionId];
+        m_handlers.erase(transactionId);
     }
     return handler;
 }
@@ -372,7 +368,7 @@ void XDebugManager::SendRunCommand()
 {
     CHECK_PTR_RET(m_readerThread);
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TransactionId));
     command << "run -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -382,7 +378,7 @@ void XDebugManager::SendStopCommand()
 {
     CHECK_PTR_RET(m_readerThread);
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugStopCmdHandler(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugStopCmdHandler(this, ++TransactionId));
     command << "stop -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -422,9 +418,8 @@ void XDebugManager::ClearDebuggerMarker()
 {
     IEditor::List_t editors;
     m_plugin->GetManager()->GetAllEditors(editors);
-    IEditor::List_t::iterator iter = editors.begin();
-    for(; iter != editors.end(); ++iter) {
-        (*iter)->GetCtrl()->MarkerDeleteAll(smt_indicator);
+    for (auto editor : editors) {
+        editor->GetCtrl()->MarkerDeleteAll(smt_indicator);
     }
 }
 
@@ -443,7 +438,7 @@ void XDebugManager::OnGotFocusFromXDebug(XDebugEvent& e)
 {
     e.Skip();
 
-    // Make sure codelite is "Raised"
+    // Make sure CodeLite is "Raised"
     wxFrame* frame = EventNotifier::Get()->TopFrame();
     if(frame->IsIconized() || !frame->IsShown()) {
         frame->Raise();
@@ -477,7 +472,7 @@ void XDebugManager::OnDebugNext(clDebugEvent& e)
 {
     CHECK_XDEBUG_SESSION_ACTIVE(e);
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TransactionId));
     command << "step_over -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -487,7 +482,7 @@ void XDebugManager::OnDebugStepIn(clDebugEvent& e)
 {
     CHECK_XDEBUG_SESSION_ACTIVE(e);
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TransactionId));
     command << "step_into -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -497,7 +492,7 @@ void XDebugManager::OnDebugStepOut(clDebugEvent& e)
 {
     CHECK_XDEBUG_SESSION_ACTIVE(e);
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugRunCmdHandler(this, ++TransactionId));
     command << "step_out -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -524,7 +519,7 @@ void XDebugManager::DoRefreshDebuggerViews(int requestedStack)
     // We execute here 2 commands in a row
     {
         wxString command;
-        XDebugCommandHandler::Ptr_t handler(new XDebugStackGetCmdHandler(this, ++TranscationId, requestedStack));
+        XDebugCommandHandler::Ptr_t handler(new XDebugStackGetCmdHandler(this, ++TransactionId, requestedStack));
 
         // Get the current stack frames
         command << "stack_get -i " << handler->GetTransactionId();
@@ -535,7 +530,7 @@ void XDebugManager::DoRefreshDebuggerViews(int requestedStack)
     {
         wxString command;
         // Get the 'Locals' view
-        XDebugCommandHandler::Ptr_t handler(new XDebugContextGetCmdHandler(this, ++TranscationId, requestedStack));
+        XDebugCommandHandler::Ptr_t handler(new XDebugContextGetCmdHandler(this, ++TransactionId, requestedStack));
         command << "context_get -d " << requestedStack << " -i " << handler->GetTransactionId();
         DoSocketWrite(command);
         AddHandler(handler);
@@ -576,7 +571,7 @@ void XDebugManager::DoDeleteBreakpoint(int bpid)
 {
     wxString command;
     // Get the 'Locals' view
-    command << "breakpoint_remove -i " << ++TranscationId << " -d " << bpid;
+    command << "breakpoint_remove -i " << ++TransactionId << " -d " << bpid;
     DoSocketWrite(command);
 }
 
@@ -614,11 +609,9 @@ void XDebugManager::OnDeleteAllBreakpoints(PHPEvent& e)
     e.Skip();
 
     // Delete them from XDebug
-    const XDebugBreakpoint::List_t& bps = m_breakpointsMgr.GetBreakpoints();
-    XDebugBreakpoint::List_t::const_iterator iter = bps.begin();
-    for(; iter != bps.end(); ++iter) {
-        if(iter->IsApplied()) {
-            DoDeleteBreakpoint(iter->GetBreakpointId());
+    for (const auto& bp : m_breakpointsMgr.GetBreakpoints()) {
+        if (bp.IsApplied()) {
+            DoDeleteBreakpoint(bp.GetBreakpointId());
         }
     }
 
@@ -658,10 +651,10 @@ void XDebugManager::OnBreakpointsViewUpdated(XDebugEvent& e)
 {
     e.Skip();
     IEditor::List_t editors;
-    m_plugin->GetManager()->GetAllEditors(editors, true);
-    IEditor::List_t::iterator iter = editors.begin();
-    for(; iter != editors.end(); ++iter) {
-        DoRefreshBreakpointsMarkersForEditor(*iter);
+    m_plugin->GetManager()->GetAllEditors(editors);
+
+    for (auto editor : editors) {
+        DoRefreshBreakpointsMarkersForEditor(editor);
     }
 }
 
@@ -672,9 +665,8 @@ void XDebugManager::DoRefreshBreakpointsMarkersForEditor(IEditor* editor)
 
     XDebugBreakpoint::List_t bps;
     m_breakpointsMgr.GetBreakpointsForFile(editor->GetFileName().GetFullPath(), bps);
-    XDebugBreakpoint::List_t::const_iterator iter = bps.begin();
-    for(; iter != bps.end(); ++iter) {
-        editor->GetCtrl()->MarkerAdd(iter->GetLine() - 1, smt_breakpoint);
+    for (const auto& bp : bps) {
+        editor->GetCtrl()->MarkerAdd(bp.GetLine() - 1, smt_breakpoint);
     }
 }
 
@@ -687,11 +679,11 @@ void XDebugManager::DoNegotiateFeatures()
     wxString command;
 
     command.Clear();
-    command << "feature_set -n max_depth -v 1 -i " << ++TranscationId;
+    command << "feature_set -n max_depth -v 1 -i " << ++TransactionId;
     DoSocketWrite(command);
 
     command.Clear();
-    command << "feature_set -n max_children -v 1024 -i " << ++TranscationId;
+    command << "feature_set -n max_children -v 1024 -i " << ++TransactionId;
     DoSocketWrite(command);
 }
 
@@ -700,7 +692,7 @@ void XDebugManager::SendEvalCommand(const wxString& expression, int evalPurpose)
     CHECK_PTR_RET(m_readerThread);
 
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugEvalCmdHandler(expression, evalPurpose, this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugEvalCmdHandler(expression, evalPurpose, this, ++TransactionId));
     command << "eval -i " << handler->GetTransactionId() << " -- " << ::Base64Encode(expression);
     DoSocketWrite(command);
     AddHandler(handler);
@@ -752,8 +744,8 @@ void XDebugManager::OnShowTooltip(XDebugEvent& e)
         if(!e.IsEvalSucceeded()) {
             tip << _("Error evaluating expression ");
         } else {
-            wxString evaluated = e.GetEvaluted();
-            // Reomve extra escapes
+            wxString evaluated = e.GetEvaluated();
+            // Remove extra escapes
             evaluated.Replace("\\n", "\n");
             evaluated.Replace("\\t", "\t");
             evaluated.Replace("\\r", "\r");
@@ -773,7 +765,7 @@ void XDebugManager::SendDBGPCommand(const wxString& cmd)
     CHECK_PTR_RET(m_readerThread);
 
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugUnknownCommand(this, ++TranscationId));
+    XDebugCommandHandler::Ptr_t handler(new XDebugUnknownCommand(this, ++TransactionId));
     command << cmd << " -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);
@@ -784,7 +776,7 @@ void XDebugManager::SendGetProperty(const wxString& propertyName)
     CHECK_PTR_RET(m_readerThread);
 
     wxString command;
-    XDebugCommandHandler::Ptr_t handler(new XDebugPropertyGetHandler(this, ++TranscationId, propertyName));
+    XDebugCommandHandler::Ptr_t handler(new XDebugPropertyGetHandler(this, ++TransactionId, propertyName));
     command << "property_get -n " << propertyName << " -i " << handler->GetTransactionId();
     DoSocketWrite(command);
     AddHandler(handler);

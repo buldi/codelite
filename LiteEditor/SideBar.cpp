@@ -308,7 +308,7 @@ void SideBar::ShowTab(const wxString& name, bool show)
     EventNotifier::Get()->ProcessEvent(show_event);
 }
 
-void SideBar::OnContextMenu(wxContextMenuEvent& event)
+void SideBar::OnContextMenu(clContextMenuEvent& event)
 {
     wxMenu menu;
     menu.Append(XRCID("sidebar-detach-tab"), _("Move to secondary sidebar"));
@@ -370,3 +370,5 @@ void SideBar::AddPage(wxWindow* win, const wxString& bmpname, const wxString& la
     m_book->GetSizer()->Layout();
     clGetManager()->ShowPane(VIEW_NAME, true);
 }
+
+void SideBar::GrabFocus() { m_book->GetToolBar()->CallAfter(&SideBarToolBar::SetFocus); }

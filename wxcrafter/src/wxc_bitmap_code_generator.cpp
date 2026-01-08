@@ -1,13 +1,9 @@
 #include "wxc_bitmap_code_generator.h"
 
-#include "AsyncProcess/processreaderthread.h"
-#include "DirectoryChanger.h"
 #include "StdToWX.h"
-#include "environmentconfig.h"
-#include "globals.h"
+#include "event_notifier.h"
 #include "top_level_win_wrapper.h"
 #include "wxc_project_metadata.h"
-#include "wxgui_bitmaploader.h"
 #include "wxgui_helpers.h"
 #include "wxguicraft_main_view.h"
 #include "wxrc.h"
@@ -25,8 +21,6 @@ wxcCodeGeneratorHelper::wxcCodeGeneratorHelper()
 {
     // m_bmpGenThread.Start();
 }
-
-wxcCodeGeneratorHelper::~wxcCodeGeneratorHelper() {}
 
 wxcCodeGeneratorHelper& wxcCodeGeneratorHelper::Get()
 {
@@ -54,26 +48,25 @@ bool wxcCodeGeneratorHelper::CreateXRC()
     } else {
         text << "<!-- Handler Generation is OFF -->\n";
     }
-    MapString_t::const_iterator iter = m_bitmapMap.begin();
 
     // Supported hi-res images extension
     const wxArrayString exts = StdToWX::ToArrayString({ "@2x", "@1.25x", "@1.5x" });
 
-    for(; iter != m_bitmapMap.end(); ++iter) {
-        wxFileName fn(iter->second);
-        text << wxT("<object class=\"wxBitmap\" name=\"") << iter->first << wxT("\">") << fn.GetFullPath()
+    for (const auto& p : m_bitmapMap) {
+        wxFileName fn(p.second);
+        text << wxT("<object class=\"wxBitmap\" name=\"") << p.first << wxT("\">") << fn.GetFullPath()
              << wxT("</object>\n");
         // Support for hi-res images
         // The logic:
-        // If we find files with the following perfixes: @2x, @1.5x, @1.25x
+        // If we find files with the following prefixes: @2x, @1.5x, @1.25x
         // add them to the resource files as well
-        for(size_t i = 0; i < exts.size(); ++i) {
+        for (const auto& ext : exts) {
             wxFileName hiResImage = fn;
             hiResImage.MakeAbsolute(wxcProjectMetadata::Get().GetProjectPath());
-            hiResImage.SetName(hiResImage.GetName() + exts.Item(i));
-            if(hiResImage.FileExists()) {
+            hiResImage.SetName(hiResImage.GetName() + ext);
+            if (hiResImage.FileExists()) {
                 fn.SetName(hiResImage.GetName());
-                text << "<object class=\"wxBitmap\" name=\"" << iter->first << exts.Item(i) << "\">" << fn.GetFullPath()
+                text << "<object class=\"wxBitmap\" name=\"" << p.first << ext << "\">" << fn.GetFullPath()
                      << "</object>\n";
             }
         }
@@ -224,9 +217,8 @@ bool wxcCodeGeneratorHelper::IsGenerateNeeded() const
     wxString basepath = wxcProjectMetadata::Get().GetProjectPath();
     time_t xrcModTime = m_xrcFile.GetModificationTime().GetTicks();
 
-    MapString_t::const_iterator iter = m_bitmapMap.begin();
-    for(; iter != m_bitmapMap.end(); ++iter) {
-        wxFileName bmpFile(iter->second);
+    for (const auto& p : m_bitmapMap) {
+        wxFileName bmpFile(p.second);
         if(bmpFile.MakeAbsolute(basepath)) {
             if(bmpFile.FileExists()) {
                 time_t bmpMod = bmpFile.GetModificationTime().GetTicks();
@@ -252,9 +244,8 @@ wxString wxcCodeGeneratorHelper::GenerateWinIdEnum() const
     wxString enumCode;
     enumCode << "public:\n"
              << "    enum {\n";
-    wxStringSet_t::const_iterator iter = m_winIds.begin();
-    for(; iter != m_winIds.end(); ++iter) {
-        enumCode << "        " << *iter << " = " << ++firstId << ",\n";
+    for (const auto& winId : m_winIds) {
+        enumCode << "        " << winId << " = " << ++firstId << ",\n";
     }
     enumCode << "    };\n";
     return enumCode;

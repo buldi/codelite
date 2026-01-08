@@ -25,18 +25,14 @@
 #include "custombuildrequest.h"
 
 #include "AsyncProcess/asyncprocess.h"
-#include "build_settings_config.h"
-#include "buildmanager.h"
 #include "cl_command_event.h"
-#include "compiler.h"
 #include "dirsaver.h"
 #include "environmentconfig.h"
 #include "event_notifier.h"
 #include "file_logger.h"
-#include "globals.h"
 #include "imanager.h"
+#include "macromanager.h"
 #include "macros.h"
-#include "plugin.h"
 #include "workspace.h"
 
 #include <wx/app.h>
@@ -60,8 +56,6 @@ CustomBuildRequest::CustomBuildRequest(const QueueCommand& buildInfo, const wxSt
     , m_fileName(fileName)
 {
 }
-
-CustomBuildRequest::~CustomBuildRequest() {}
 
 void CustomBuildRequest::Process(IManager* manager)
 {
@@ -187,7 +181,7 @@ void CustomBuildRequest::Process(IManager* manager)
     bool bCommandAltered = DoUpdateCommand(manager, cmd, proj, bldConf, isClean);
 
 #ifdef __WXMSW__
-    // Windows CD command requires the paths to be backslashe
+    // Windows CD command requires the paths to use backslash
     if(cmd.Find(wxT("cd ")) != wxNOT_FOUND)
         cmd.Replace(wxT("/"), wxT("\\"));
 #endif
@@ -197,7 +191,7 @@ void CustomBuildRequest::Process(IManager* manager)
     // cd SOMEWHERE && make && ...
 
     size_t processFlags = IProcessCreateDefault;
-    // Dont wrap the command if it was altered previously
+    // Don't wrap the command if it was altered previously
     if(!bCommandAltered) {
         processFlags |= IProcessWrapInShell;
     }
@@ -232,24 +226,17 @@ void CustomBuildRequest::Process(IManager* manager)
 bool CustomBuildRequest::DoUpdateCommand(IManager* manager, wxString& cmd, ProjectPtr proj, BuildConfigPtr bldConf,
                                          bool isClean)
 {
-    BuildCommandList preBuildCmds, postBuildCmds;
     wxArrayString pre, post;
-    bldConf->GetPreBuildCommands(preBuildCmds);
-    bldConf->GetPostBuildCommands(postBuildCmds);
 
     // collect all enabled commands
-    BuildCommandList::iterator iter = preBuildCmds.begin();
-    for(; iter != preBuildCmds.end(); iter++) {
-        BuildCommand command = *iter;
-        if(command.GetEnabled()) {
+    for (const BuildCommand& command : bldConf->GetPreBuildCommands()) {
+        if (command.GetEnabled()) {
             pre.Add(command.GetCommand());
         }
     }
 
-    iter = postBuildCmds.begin();
-    for(; iter != postBuildCmds.end(); iter++) {
-        BuildCommand command = *iter;
-        if(command.GetEnabled()) {
+    for (const BuildCommand& command : bldConf->GetPostBuildCommands()) {
+        if (command.GetEnabled()) {
             post.Add(command.GetCommand());
         }
     }

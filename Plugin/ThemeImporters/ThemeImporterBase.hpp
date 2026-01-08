@@ -155,6 +155,13 @@ protected:
         AddProperty(lexer, wxString() << id, name, colour, bgColour, bold, italic, isEOLFilled);
     }
 
+    void AddProperty(LexerConf::Ptr_t lexer, int id, const wxString& name, const wxColour& colour,
+                     const wxColour& bgColour, bool bold = false, bool italic = false, bool isEOLFilled = false)
+    {
+        AddProperty(lexer, wxString() << id, name, colour.GetAsString(wxC2S_HTML_SYNTAX),
+                    bgColour.GetAsString(wxC2S_HTML_SYNTAX), bold, italic, isEOLFilled);
+    }
+
     void AddBaseProperties(LexerConf::Ptr_t lexer, const wxString& lang, const wxString& id);
 
     void AddCommonProperties(LexerConf::Ptr_t lexer);
@@ -228,9 +235,8 @@ public:
         m_othersIndex.index = index;
     }
 
-public:
-    ThemeImporterBase();
-    virtual ~ThemeImporterBase();
+    ThemeImporterBase() = default;
+    virtual ~ThemeImporterBase() = default;
     /**
      * @brief intiailise the import by reading base parts of the lexer
      */

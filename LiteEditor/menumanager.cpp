@@ -26,7 +26,7 @@
 #include "menu_event_handlers.h"
 #include "menumanager.h"
 
-MenuManager::MenuManager(void)
+MenuManager::MenuManager()
 {
     PushHandler(std::make_shared<EditHandler>(wxID_COPY));
     PushHandler(std::make_shared<EditHandler>(wxID_CUT));
@@ -88,10 +88,6 @@ MenuManager::MenuManager(void)
     PushHandler(std::make_shared<DebuggerMenuHandler>(XRCID("edit_breakpoint")));
     PushHandler(std::make_shared<DebuggerMenuHandler>(XRCID("delete_breakpoint")));
     PushHandler(std::make_shared<DebuggerMenuHandler>(XRCID("show_breakpoint_dlg")));
-}
-
-MenuManager::~MenuManager(void)
-{
 }
 
 void MenuManager::PushHandler(MenuEventHandlerPtr handler)

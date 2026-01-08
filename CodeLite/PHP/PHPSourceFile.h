@@ -29,6 +29,8 @@
 #include "PHPEntityBase.h"
 #include "PhpLexerAPI.h"
 #include "codelite_exports.h"
+
+#include <memory>
 #include <vector>
 #include <wx/filename.h>
 
@@ -53,7 +55,7 @@ class WXDLLIMPEXP_CL PHPSourceFile
     PHPEntityBase::List_t m_allMatchesInorder;
 
 public:
-    typedef wxSharedPtr<PHPSourceFile> Ptr_t;
+    using Ptr_t = std::shared_ptr<PHPSourceFile>;
 
 protected:
     /**
@@ -100,12 +102,6 @@ protected:
      * @brief run the lexer until we find 'delim' - consume delim as well
      */
     bool ConsumeUntil(int delim);
-
-    /**
-     * @brief read list of identifiers separated by comma until we find 'delim'
-     * note that this function does not consume the 'delim' token
-     */
-    bool ReadCommaSeparatedIdentifiers(int delim, wxArrayString& list);
 
     /**
      * @brief read the type
@@ -222,11 +218,6 @@ protected:
     void ParseFunctionBody();
 
     /**
-     * @brief go over the loop back tokens and construct the type hint
-     */
-    wxString LookBackForTypeHint();
-
-    /**
      * @brief parse phase 2.
      * On this stage, all phpdoc comments are assigned to the proper PHP entity
      */
@@ -315,7 +306,6 @@ public:
     const wxFileName& GetFilename() const { return m_filename; }
     void SetParseFunctionBody(bool parseFunctionBody) { this->m_parseFunctionBody = parseFunctionBody; }
     bool IsParseFunctionBody() const { return m_parseFunctionBody; }
-    void PrintStdout();
 };
 
 #endif // PHPPARSER_H

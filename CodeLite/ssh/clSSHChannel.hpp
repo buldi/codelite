@@ -8,6 +8,7 @@
 #include "codelite_exports.h"
 #include "ssh/cl_ssh.h"
 
+#include <optional>
 #include <wx/msgqueue.h>
 
 class clJoinableThread;
@@ -15,7 +16,7 @@ class clJoinableThread;
 class WXDLLIMPEXP_CL clSSHChannel : public IProcess
 {
 public:
-    typedef std::shared_ptr<clSSHChannel> Ptr_t;
+    using Ptr_t = std::shared_ptr<clSSHChannel>;
 
 public:
     struct Message {
@@ -121,7 +122,7 @@ public:
     void Cleanup() override { Close(); }
 
     // Terminate the process. It is recommended to use this method
-    // so it will invoke the 'Cleaup' procedure and the process
+    // so it will invoke the 'Cleanup' procedure and the process
     // termination event will be sent out
     void Terminate() override { Close(); }
 
@@ -133,15 +134,16 @@ public:
     /**
      * @brief execute remote command
      */
-    static IProcess::Ptr_t Execute(clSSH::Ptr_t ssh, clSSHDeleterFunc deleter_cb, wxEvtHandler* owner,
-                                   const wxString& command, bool wantStderr = false);
+    static IProcess::Ptr_t Execute(clSSH::Ptr_t ssh,
+                                   clSSHDeleterFunc deleter_cb,
+                                   wxEvtHandler* owner,
+                                   const wxString& command,
+                                   bool wantStderr = false);
 
     /**
-     * @brief create a remote script with the content `content` at `script_path` and execute it
+     * @brief execute remote command
      */
-    static IProcess::Ptr_t CreateAndExecuteScript(clSSH::Ptr_t ssh, clSSHDeleterFunc deleter_cb, wxEvtHandler* owner,
-                                                  const wxString& content, const wxString& script_path,
-                                                  bool wantStderr = false);
+    static std::optional<std::string> Execute(clSSH::Ptr_t ssh, const wxString& command, const wxString& wd);
 
     /**
      * @brief Send a signal to remote process

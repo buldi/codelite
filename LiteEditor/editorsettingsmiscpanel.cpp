@@ -57,7 +57,17 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent, OptionsConfig
 #endif
     AddProperty(_("Frame title"), clConfig::Get().Read(kConfigFrameTitlePattern, wxString("$workspace $fullpath")),
                 UPDATE_CLCONFIG_TEXT_CB(kConfigFrameTitlePattern));
-
+    AddHeader(_("File path handling"));
+    AddProperty(_("Resolve symlinks in file paths"),
+                clConfig::Get().Read(kRealPathResolveSymlinks, true),
+                [](const wxString& label, const wxAny& value) {
+                    wxUnusedVar(label);
+                    bool value_bool = true;
+                    if (value.GetAs(&value_bool)) {
+                        clConfig::Get().Write(kRealPathResolveSymlinks, value_bool);
+                    }
+                    FileUtils::RealPathSetModeResolveSymlinks(value_bool);
+                });
     AddHeader(_("Startup"));
     AddProperty(_("Check for new version on startup"), clConfig::Get().Read(kConfigCheckForNewVersion, true),
                 UPDATE_CLCONFIG_BOOL_CB(kConfigCheckForNewVersion));
@@ -73,12 +83,16 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent, OptionsConfig
                 UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowLine));
     AddProperty(_("Show current column"), clConfig::Get().Read(kConfigStatusbarShowColumn, true),
                 UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowColumn));
+    AddProperty(_("Show number of lines"), clConfig::Get().Read(kConfigStatusbarShowLineCount, false),
+                UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowLineCount));
     AddProperty(_("Show current position"), clConfig::Get().Read(kConfigStatusbarShowPosition, true),
                 UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowPosition));
     AddProperty(_("Show file length"), clConfig::Get().Read(kConfigStatusbarShowLength, false),
                 UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowLength));
     AddProperty(_("Show number of selected chars"), clConfig::Get().Read(kConfigStatusbarShowSelectedChars, true),
                 UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowSelectedChars));
+    AddProperty(_("Show number of selected lines"), clConfig::Get().Read(kConfigStatusbarShowSelectedLines, true),
+                UPDATE_CLCONFIG_BOOL_CB(kConfigStatusbarShowSelectedLines));
 
     AddHeader(_("Tool bar"));
     AddProperty(_("Space between button groups"), clConfig::Get().Read(kConfigToolbarGroupSpacing, 30),
@@ -99,6 +113,12 @@ EditorSettingsMiscPanel::EditorSettingsMiscPanel(wxWindow* parent, OptionsConfig
             selected_encoding = i;
         }
     }
+
+    AddHeader(_("Launch"));
+    AddProperty(_("Clear output before launch"), clConfig::Get().Read(kConfigClearOutputOnLaunch, false),
+                UPDATE_CLCONFIG_BOOL_CB(kConfigClearOutputOnLaunch));
+    AddProperty(_("Switch to output on launch"), clConfig::Get().Read(kConfigShowOutputOnLaunch, true),
+                UPDATE_CLCONFIG_BOOL_CB(kConfigShowOutputOnLaunch));
 
     AddHeader(_("Locale"));
     AddProperty(_("File text encoding"), astrEncodings, selected_encoding, UPDATE_TEXT_CB(SetFileFontEncoding));
@@ -149,12 +169,12 @@ int EditorSettingsMiscPanel::FindAvailableLocales(wxArrayString* locales)
 {
     const wxArrayString& cached_locales = clLocaleManager::get().GetCachedLocales();
     int system_default_locale = clLocaleManager::get().GetSystemDefaultLocale();
-    wxString preffered_locale = m_options->GetPreferredLocale();
+    wxString preferred_locale = m_options->GetPreferredLocale();
 
     int select = wxNOT_FOUND;
     // find the selection
-    for(size_t i = 0; i < cached_locales.size(); ++i) {
-        if(cached_locales[i] == preffered_locale) {
+    for (size_t i = 0; i < cached_locales.size(); ++i) {
+        if (cached_locales[i] == preferred_locale) {
             select = static_cast<int>(i);
             break;
         }

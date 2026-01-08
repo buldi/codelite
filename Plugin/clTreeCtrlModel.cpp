@@ -286,7 +286,7 @@ void clTreeCtrlModel::NodeDeleted(clRowEntry* node)
         if(iter != m_selectedItems.end()) {
             m_selectedItems.erase(iter);
             if(m_selectedItems.empty()) {
-                // Dont leave the tree without a selected item
+                // Don't leave the tree without a selected item
                 if(node->GetNext()) {
                     SelectItem(wxTreeItemId(node->GetNext()));
                 }
@@ -450,8 +450,9 @@ void clTreeCtrlModel::SelectChildren(const wxTreeItemId& item)
     if(!ClearSelections(true)) {
         return;
     }
-    std::for_each(parent->GetChildren().begin(), parent->GetChildren().end(),
-                  [&](clRowEntry* child) { AddSelection(wxTreeItemId(child)); });
+    for (clRowEntry* child : parent->GetChildren()) {
+        AddSelection(wxTreeItemId(child));
+    }
 }
 
 clRowEntry* clTreeCtrlModel::GetNextSibling(clRowEntry* item) const
@@ -463,21 +464,11 @@ clRowEntry* clTreeCtrlModel::GetNextSibling(clRowEntry* item) const
     if(children.empty()) {
         return nullptr;
     }
-    size_t where = -1;
-    for(size_t i = 0; i < children.size(); ++i) {
-        if(item == children[i]) {
-            where = i;
-            break;
-        }
-    }
-
-    // if we couldnt find 'item' in the children list or if it's the last child
+    // if we couldn't find 'item' in the children list or if it's the last child
     // return nullptr
-    if((where == (size_t)-1) || (where == (children.size() - 1))) {
-        return nullptr;
-    }
-    ++where;
-    return children[where];
+    auto it = std::find(children.begin(), std::prev(children.end()), item);
+    ++it;
+    return it == children.end() ? nullptr : *it;
 }
 
 clRowEntry* clTreeCtrlModel::GetPrevSibling(clRowEntry* item) const
@@ -489,22 +480,11 @@ clRowEntry* clTreeCtrlModel::GetPrevSibling(clRowEntry* item) const
     if(children.empty()) {
         return nullptr;
     }
-    size_t where = -1;
-    for(size_t i = 0; i < children.size(); ++i) {
-        if(item == children[i]) {
-            where = i;
-            break;
-        }
-    }
-
-    // if we couldnt find item in the children list or if it's the first child
+    // if we couldn't find item in the children list or if it's the first child
     // we return nullptr
-    if((where == (size_t)-1) || (where == (size_t)0)) {
-        return nullptr;
-    }
-
-    --where;
-    return children[where];
+    auto rit = std::find(children.rbegin(), std::prev(children.rend()), item);
+    ++rit;
+    return rit == children.rend() ? nullptr : *rit;
 }
 
 void clTreeCtrlModel::AddSelection(const wxTreeItemId& item)

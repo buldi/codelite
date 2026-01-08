@@ -1,16 +1,13 @@
 #ifndef __main_panel__
 #define __main_panel__
 
-#include "aui_pane_info_list_view.h"
+#include "UI/PropertiesView/aui_pane_info_list_view.h"
+#include "UI/PropertiesView/sizer_flags_list_view.h"
+#include "UI/PropertiesView/styles_sheet_list_view.h"
 #include "clTreeCtrl.h"
 #include "cl_command_event.h"
-#include "events_database.h"
 #include "gui.h"
-#include "properties_sheet.h"
-#include "sizer_flags_list_view.h"
-#include "styles_sheet_list_view.h"
 #include "wxc_edit_manager.h"
-#include "wxc_project_metadata.h"
 #include "wxc_widget.h"
 
 #include <wx/aui/auibar.h>
@@ -18,6 +15,8 @@
 
 class EventsEditorPane;
 class EventsEditorDlg;
+class PropertiesSheet;
+
 extern const wxEventType wxEVT_UPDATE_PREVIEW;
 extern const wxEventType wxEVT_UPDATE_EVENTSEDITORPANE;
 wxDECLARE_EVENT(wxEVT_EVENTS_PROPERTIES_UPDATED, wxCommandEvent);
@@ -52,11 +51,11 @@ class GUICraftItemData : public wxTreeItemData
 public:
     wxcWidget* m_wxcWidget;
 
-    GUICraftItemData(wxcWidget* w)
+    explicit GUICraftItemData(wxcWidget* w)
         : m_wxcWidget(w)
     {
     }
-    virtual ~GUICraftItemData()
+    ~GUICraftItemData() override
     {
         if(m_wxcWidget) {
             delete m_wxcWidget;
@@ -95,13 +94,13 @@ public:
     wxStyledTextCtrl* GetPreviewEditor() const;
 
 protected:
-    virtual void OnSizerFlagsUpdateUI(wxUpdateUIEvent& event);
-    virtual void OnAuiPaneInfoChanged(wxPropertyGridEvent& event);
-    virtual void OnSizerFlagsChanged(wxPropertyGridEvent& event);
-    virtual void OnStylesChanged(wxPropertyGridEvent& event);
+    void OnSizerFlagsUpdateUI(wxUpdateUIEvent& event) override;
+    void OnAuiPaneInfoChanged(wxPropertyGridEvent& event) override;
+    void OnSizerFlagsChanged(wxPropertyGridEvent& event) override;
+    void OnStylesChanged(wxPropertyGridEvent& event) override;
     virtual void OnNewFormUI(wxUpdateUIEvent& event);
-    virtual void OnCppBookPageChanged(wxBookCtrlEvent& event);
-    virtual void OnPageChanged(wxBookCtrlEvent& event);
+    void OnCppBookPageChanged(wxBookCtrlEvent& event) override;
+    void OnPageChanged(wxBookCtrlEvent& event) override;
 
     void DoDismissFindBar();
     bool IsTreeViewSelected() const;
@@ -111,7 +110,7 @@ protected:
     void DoUpdatePropertiesView();
     void DoUpdateSizerFlags(wxcWidget* data);
     void DoUpdateStyleFlags(wxcWidget* data);
-    void DoUpdatPropertiesFlags(wxcWidget* data);
+    void DoUpdatePropertiesFlags(wxcWidget* data);
     void DoUnsetItemData(const wxTreeItemId& item);
     void DoFindName(const wxTreeItemId& parent, const wxString& name, wxTreeItemId& item);
     void DoInsertControl(wxcWidget* control, wxcWidget* parent, int insertType, int imgId);
@@ -153,7 +152,7 @@ protected:
 
 public:
     GUICraftMainPanel(wxWindow* parent, wxCrafterPlugin* plugin, clTreeCtrl* treeView);
-    virtual ~GUICraftMainPanel();
+    ~GUICraftMainPanel() override;
     /**
      * @brief batch generate the code for a list of wxC files
      * @param files

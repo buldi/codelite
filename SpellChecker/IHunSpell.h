@@ -36,8 +36,6 @@
 #ifndef _IHUNSPELL_
 #define _IHUNSPELL_
 // ------------------------------------------------------------
-#include "wxStringHash.h"
-
 #include <hunspell/hunspell.h>
 #include <unordered_set>
 #include <utility>
@@ -112,14 +110,10 @@ public:
     bool ChangeLanguage(const wxString& language);
     /// check spelling for one word. Return true if the word was found.
     bool CheckWord(const wxString& word) const;
-    /// is a word in the tags database?
-    bool IsTag(const wxString& word) const;
     /// returns an array with suggestions for the misspelled word.
     wxArrayString GetSuggestions(const wxString& misspelled);
     /// makes a spell check for the given plain text. Canceled is set to true when the user cancels.
     void CheckSpelling();
-    /// retrieves all predefined language names, used as key to get the filename
-    void GetAllLanguageKeyNames(wxArrayString& lang);
     /// checks for predefined language names, which could be found in path
     void GetAvailableLanguageKeyNames(const wxString& path, wxArrayString& lang);
     /// returns the base filename for language key without extension
@@ -141,8 +135,6 @@ public:
     }
     /// gets whether to ignore words that match ctags symbols
     bool GetIgnoreSymbolsInTagsDatabase() const { return m_ignoreSymbolsInTagsDatabase; }
-    ///
-    void AddWord(const wxString& word);
 
     void SetUserDictPath(const wxString& userDictPath) { this->m_userDictPath = userDictPath; }
     const wxString& GetUserDictPath() const { return m_userDictPath; }
@@ -176,23 +168,13 @@ public:
         kDox2 = 0x10
     };
 
-    enum // CheckCppType return values
-    {
-        kNoSpellingError = 0,
-        kSpellingError,
-        kSpellingCanceled
-    };
-
 protected:
     using CustomDictionary = std::unordered_set<wxString, StringHashOptionalCase, StringCompareOptionalCase>;
 
-    int CheckCppType(IEditor* pEditor);
-    int MarkErrors(IEditor* pEditor);
     void InitLanguageList();
 
     bool LoadUserDict(const wxString& filename);
     bool SaveUserDict(const wxString& filename);
-    wxString GetCharacterEncoding();
 
     wxString m_dicPath;      // dictionary path
     wxString m_dictionary;   // dictionary base filename

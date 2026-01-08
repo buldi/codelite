@@ -1,7 +1,6 @@
 #include "choice_book_wrapper.h"
+
 #include "allocator_mgr.h"
-#include "wxgui_defs.h"
-#include <wx/choicebk.h>
 
 ChoiceBookWrapper::ChoiceBookWrapper()
     : NotebookBaseWrapper(ID_WXCHOICEBOOK)
@@ -15,8 +14,6 @@ ChoiceBookWrapper::ChoiceBookWrapper()
     m_namePattern = wxT("m_choicebook");
     SetName(GenerateName());
 }
-
-ChoiceBookWrapper::~ChoiceBookWrapper() {}
 
 wxcWidget* ChoiceBookWrapper::Clone() const { return new ChoiceBookWrapper(); }
 

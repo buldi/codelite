@@ -104,8 +104,6 @@ CppCheckPlugin::CppCheckPlugin(IManager* manager)
     clKeyboardManager::Get()->AddAccelerator(_("CppCheck"), { { "run_cppcheck", _("Run cppcheck...") } });
 }
 
-CppCheckPlugin::~CppCheckPlugin() {}
-
 void CppCheckPlugin::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void CppCheckPlugin::CreatePluginMenu(wxMenu* pluginsMenu)
@@ -184,8 +182,8 @@ void CppCheckPlugin::DoRun()
 wxString CppCheckPlugin::DoGetCommand()
 {
     // Linux / Mac way: spawn the process and execute the command
-    wxString cppcheck;
-    if (!ThePlatform->Which("cppcheck", &cppcheck)) {
+    const auto cppcheck = ThePlatform->Which("cppcheck");
+    if (!cppcheck) {
         ::wxMessageBox(_("Could not locate \"cppcheck\". Please install it and try again"), "CodeLite",
                        wxICON_WARNING | wxOK | wxOK_DEFAULT | wxCENTRE);
         return wxEmptyString;
@@ -208,7 +206,7 @@ wxString CppCheckPlugin::DoGetCommand()
     }
 
     // replace the place holders
-    command.Replace("${cppcheck}", StringUtils::WrapWithDoubleQuotes(cppcheck));
+    command.Replace("${cppcheck}", StringUtils::WrapWithDoubleQuotes(*cppcheck));
     command.Replace("${WorkspacePath}", StringUtils::WrapWithDoubleQuotes(workspace_path));
     command.Replace("${CurrentFileFullPath}", StringUtils::WrapWithDoubleQuotes(current_file));
 
@@ -224,7 +222,7 @@ wxString CppCheckPlugin::DoGetCommand()
         // Create the cache dir if required
         wxString cache_dir;
         if (line.StartsWith("--cppcheck-build-dir=", &cache_dir)) {
-            cache_dir.Trim().Trim(false);
+            cache_dir.Trim().Trim(false).Replace("\"", "");
             wxFileName::Mkdir(cache_dir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         }
         cmd << line << " ";

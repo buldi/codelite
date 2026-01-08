@@ -5,37 +5,23 @@ project(CxxLocalVariables)
 # wxWidgets include (this will do all the magic to configure everything)
 include("${wxWidgets_USE_FILE}")
 
-# Include paths
-include_directories("${CL_SRC_ROOT}/Plugin" "${CL_SRC_ROOT}/sdk/wxsqlite3/include" "${CL_SRC_ROOT}/CodeLite"
-                    "${CL_SRC_ROOT}/CodeLite/ssh" "${CL_SRC_ROOT}/PCH" "${CL_SRC_ROOT}/Interfaces")
-
-add_definitions(-DWXUSINGDLL_WXSQLITE3)
-add_definitions(-DWXUSINGDLL_CL)
-add_definitions(-DWXUSINGDLL_SDK)
-
 if(USE_PCH AND NOT MINGW)
     add_definitions(-include "${CL_PCH_FILE}")
     add_definitions(-Winvalid-pch)
-endif()
-
-if(UNIX AND NOT APPLE)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
-
-if(APPLE)
-    add_definitions(-fPIC)
 endif()
 
 file(GLOB SRCS "*.cpp")
 
 # Define the output
 add_executable(CxxLocalVariables ${SRCS})
-target_precompile_headers(CxxLocalVariables REUSE_FROM abbreviation)
+
+if(USE_PCH)
+    target_precompile_headers(${PLUGIN_NAME} REUSE_FROM PCH)
+endif()
 
 # Remove the "lib" prefix from the plugin name
-target_link_libraries(CxxLocalVariables ${LINKER_OPTIONS} ${wxWidgets_LIBRARIES} libcodelite plugin)
-add_definitions(-DCXX_TEST_DIR=\"${CL_SRC_ROOT}/CxxParserTests/Test/\")
+target_link_libraries(CxxLocalVariables ${LINKER_OPTIONS} libcodelite plugin wxsqlite3)
+add_compile_definitions(CXX_TEST_DIR=\"${CL_SRC_ROOT}/CxxParserTests/Test/\")
 cl_install_executable(CxxLocalVariables)
 
 add_test(NAME "CxxParserTests" COMMAND CxxLocalVariables)

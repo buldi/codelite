@@ -40,8 +40,6 @@ SmartCompletion::SmartCompletion(IManager* manager)
     m_pGTAWeight = &m_config.GetGTAWeightTable();
 }
 
-SmartCompletion::~SmartCompletion() {}
-
 void SmartCompletion::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
 void SmartCompletion::CreatePluginMenu(wxMenu* pluginsMenu)
@@ -96,15 +94,13 @@ void SmartCompletion::OnCodeCompletionShowing(clCodeCompletionEvent& event)
     // Sort the entries by their weight
     wxCodeCompletionBoxEntry::Vec_t& entries = event.GetEntries();
 
-    // We dont want to mess with the default sorting. We just want to place the onse with weight at the top
-    // so we split the list into 2: entries with weight geater than 0 and 0
+    // We don't want to mess with the default sorting. We just want to place the ones with weight at the top
+    // so we split the list into 2: entries with weight greater than 0 and 0
     wxCodeCompletionBoxEntry::Vec_t importantEntries;
     wxCodeCompletionBoxEntry::Vec_t normalEntries;
-    wxCodeCompletionBoxEntry::Vec_t::iterator iter = entries.begin();
-    for(; iter != entries.end(); ++iter) {
-        wxCodeCompletionBoxEntry::Ptr_t entry = (*iter);
+    for (const auto& entry : entries) {
         wxString k = entry->GetText();
-        if(m_pCCWeight->count(k)) {
+        if (m_pCCWeight->count(k)) {
             entry->SetWeight((*m_pCCWeight)[k]);
             importantEntries.push_back(entry);
         } else {
@@ -116,7 +112,7 @@ void SmartCompletion::OnCodeCompletionShowing(clCodeCompletionEvent& event)
     // Step 2: sort the important entries, based on their weight
     std::sort(importantEntries.begin(), importantEntries.end(),
               [&](wxCodeCompletionBoxEntry::Ptr_t a, wxCodeCompletionBoxEntry::Ptr_t b) {
-                  // Sort in desecnding order
+                  // Sort in descending order
                   return a->GetWeight() > b->GetWeight();
               });
 
@@ -139,21 +135,21 @@ void SmartCompletion::OnGotoAnythingSort(clGotoEvent& event)
     // Sort the entries by their weight
     clGotoEntry::Vec_t& entries = event.GetEntries();
     WeightTable_t& T = *m_pGTAWeight;
-    // We dont want to mess with the default sorting. We just want to place the ones with weight at the top
-    // so we split the list into 2: entries with weight geater than 0 and 0
+    // We don't want to mess with the default sorting. We just want to place the ones with weight at the top
+    // so we split the list into 2: entries with weight greater than 0 and 0
     std::vector<std::pair<int, clGotoEntry>> importantEntries;
     clGotoEntry::Vec_t normalEntries;
-    std::for_each(entries.begin(), entries.end(), [&](const clGotoEntry& entry) {
-        if(T.count(entry.GetDesc())) {
+    for (const clGotoEntry& entry : entries) {
+        if (T.count(entry.GetDesc())) {
             // This item has weight
             int weight = T[entry.GetDesc()];
             importantEntries.push_back({ weight, entry });
         } else {
             normalEntries.push_back(entry);
         }
-    });
+    }
 
-    // the list should now contains all the list *wihtout* weight
+    // the list should now contains all the list *without* weight
     entries.swap(normalEntries);
 
     // Step 2: sort the important entries - the sorting is DESC (lower first)
@@ -162,8 +158,9 @@ void SmartCompletion::OnGotoAnythingSort(clGotoEvent& event)
         [&](const std::pair<int, clGotoEntry>& a, const std::pair<int, clGotoEntry>& b) { return a.first < b.first; });
 
     // Step 3: prepend the important entries (it actually reverse the sorting)
-    std::for_each(importantEntries.begin(), importantEntries.end(),
-                  [&](const std::pair<int, clGotoEntry>& p) { entries.insert(entries.begin(), p.second); });
+    for (const auto& p : importantEntries) {
+        entries.insert(entries.begin(), p.second);
+    }
 }
 
 void SmartCompletion::OnGotoAnythingSelectionMade(clGotoEvent& event)

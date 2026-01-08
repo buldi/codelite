@@ -11,7 +11,6 @@
 #include "database/istorage.h"
 #include "macros.h"
 
-#include <algorithm>
 #include <memory>
 #include <wx/string.h>
 
@@ -20,7 +19,7 @@ struct CachedComment {
     long line;
     long column;
     // line to comment map
-    typedef std::unordered_map<long, wxString> Map_t;
+    using Map_t = std::unordered_map<long, wxString>;
 };
 
 struct ParsedFileInfo {
@@ -31,7 +30,7 @@ struct ParsedFileInfo {
 class ProtocolHandler
 {
 public:
-    typedef void (ProtocolHandler::*CallbackFunc)(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel);
+    using CallbackFunc = void (ProtocolHandler::*)(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel);
 
 private:
     CTagsdSettings m_settings;
@@ -75,7 +74,6 @@ private:
     bool do_comments_exist_for_file(const wxString& filepath) const;
     std::vector<wxString> update_additional_scopes_for_file(const wxString& filepath);
 
-    wxArrayString FilterNonWantedNamespaces(const wxArrayString& namespace_arr) const;
     void do_definition(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel, bool try_definition_first);
     size_t do_find_definition_tags(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel, bool try_definition_first,
                                    std::vector<TagEntryPtr>& tags, wxString* file_match);
@@ -94,7 +92,7 @@ private:
      */
     wxArrayString get_first_level_includes(const wxString& filepath);
 
-    size_t get_includes_recrusively(const wxString& filepath, wxStringSet_t* output);
+    size_t get_includes_recursively(const wxString& filepath, wxStringSet_t* output);
     wxString minimize_buffer(const wxString& filepath, int line, int character, const wxString& src_string,
                              CompletionHelper::eTruncateStyle flag = CompletionHelper::TRUNCATE_EXACT_POS);
 
@@ -104,7 +102,7 @@ private:
     wxStringSet_t setdiff(const wxStringSet_t& a, const wxStringSet_t& b);
 
 public:
-    ProtocolHandler();
+    ProtocolHandler() = default;
     ~ProtocolHandler();
 
     void on_initialize(std::unique_ptr<JSON>&& msg, Channel::ptr_t channel);

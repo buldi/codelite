@@ -28,6 +28,7 @@
 #include "ThemeImporterSQL.hpp"
 #include "ThemeImporterScript.hpp"
 #include "ThemeImporterTCL.hpp"
+#include "ThemeImporterTerminal.hpp"
 #include "ThemeImporterText.hpp"
 #include "ThemeImporterXML.hpp"
 #include "ThemeImporterYAML.hpp"
@@ -66,9 +67,8 @@ ThemeImporterManager::ThemeImporterManager()
     m_importers.push_back(std::make_unique<ThemeImporterRust>());
     m_importers.push_back(std::make_unique<ThemeImporterJson>());
     m_importers.push_back(std::make_unique<ThemeImporterGo>());
+    m_importers.push_back(std::make_unique<ThemeImporterTerminal>());
 }
-
-ThemeImporterManager::~ThemeImporterManager() {}
 
 wxString ThemeImporterManager::Import(const wxString& theme_file)
 {

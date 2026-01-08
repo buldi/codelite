@@ -12,8 +12,9 @@ namespace
 {
 
 std::once_flag cygpath_once;
-wxString cygpath; // contains path to cygpth or empty string if not found
+std::optional<wxString> cygpath; // contains path to cygpath or empty if not found
 
+#ifdef __WXMSW__
 /// helper method:
 /// run `uname -s` command and cache the output
 const wxString& __uname()
@@ -39,6 +40,7 @@ const wxString& __uname()
     }
     return uname_output;
 }
+#endif
 
 bool is_cygwin_env()
 {
@@ -51,8 +53,6 @@ bool is_cygwin_env()
 }
 } // namespace
 
-clFileName::clFileName() {}
-
 clFileName::clFileName(const wxString& fullpath)
     : wxFileName(FromCygwin(fullpath))
 {
@@ -62,8 +62,6 @@ clFileName::clFileName(const wxString& dir, const wxString& name)
     : wxFileName(FromCygwin(dir + wxFileName::GetPathSeparator() + name))
 {
 }
-
-clFileName::~clFileName() {}
 
 wxString clFileName::FromCygwin(const wxString& fullpath)
 {
@@ -125,22 +123,14 @@ wxString clFileName::ToMSYS2(const wxFileName& fullpath)
 wxString clFileName::FromMSYS2(const wxString& fullpath)
 {
     std::call_once(cygpath_once, []() -> void {
-        if(ThePlatform->Which("cygpath", &cygpath)) {
-            cygpath << " -w";
+        cygpath = ThePlatform->Which("cygpath");
+        if (cygpath) {
+            *cygpath << " -w";
         }
     });
 
-    if(cygpath.empty()) {
+    if (!cygpath) {
         return fullpath;
     }
-    return ProcUtils::SafeExecuteCommand(cygpath + " " + StringUtils::WrapWithDoubleQuotes(fullpath));
-}
-
-const wxString& clFileName::GetRemoteFullPath() const
-{
-    if(!IsRemote()) {
-        static wxString empty_path;
-        return empty_path;
-    }
-    return m_remotePath;
+    return ProcUtils::SafeExecuteCommand(*cygpath + " " + StringUtils::WrapWithDoubleQuotes(fullpath));
 }

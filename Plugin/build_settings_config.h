@@ -25,17 +25,12 @@
 #ifndef BUILD_CONFIG_SETTINGS_H
 #define BUILD_CONFIG_SETTINGS_H
 
-#include "JSON.h"
 #include "build_system.h"
 #include "builder/builder.h"
-#include "cl_config.h"
 #include "codelite_exports.h"
 #include "compiler.h"
-#include "macros.h"
-#include "singleton.h"
-#include "wxStringHash.h"
 
-#include <map>
+#include <memory>
 #include <vector>
 #include <wx/filename.h>
 #include <wx/string.h>
@@ -46,16 +41,11 @@
 class WXDLLIMPEXP_SDK BuildSettingsConfigCookie
 {
 public:
-    wxXmlNode* child;
-    wxXmlNode* parent;
+    wxXmlNode* child = nullptr;
+    wxXmlNode* parent = nullptr;
 
 public:
-    BuildSettingsConfigCookie()
-        : child(NULL)
-        , parent(NULL)
-    {
-    }
-    ~BuildSettingsConfigCookie() {}
+    BuildSettingsConfigCookie() = default;
 };
 
 /**
@@ -65,7 +55,7 @@ public:
  */
 class WXDLLIMPEXP_SDK BuildSettingsConfig
 {
-    wxXmlDocument* m_doc;
+    std::unique_ptr<wxXmlDocument> m_doc;
     wxFileName m_fileName;
     wxString m_version;
     std::unordered_map<wxString, CompilerPtr> m_compilers;
@@ -78,7 +68,7 @@ protected:
 
 public:
     BuildSettingsConfig();
-    virtual ~BuildSettingsConfig();
+    virtual ~BuildSettingsConfig() = default;
     /**
      * @brief begin batch saving
      * All calls to 'Save' will be ignored until Flush is called
@@ -96,7 +86,7 @@ public:
     /**
      * Load the configuration file
      * @param version XML version which to be loaded, any version different from this one, will cause
-     * codelite to override the user version
+     * CodeLite to override the user version
      */
     bool Load(const wxString& version, const wxString& xmlFilePath = "");
 
@@ -109,13 +99,6 @@ public:
      * @brief return list of all compiler names
      */
     wxArrayString GetAllCompilersNames() const;
-
-    /**
-     * @brief return vector with all compilers defined
-     * @param family the compiler family. Leave empty to get list of
-     * all compilers regardless their family
-     */
-    CompilerPtrVec_t GetAllCompilers(const wxString& family = "") const;
 
     /**
      * @brief replace the current compilers list with a new one
@@ -173,7 +156,7 @@ public:
     BuilderConfigPtr GetBuilderConfig(const wxString& name);
 
     /**
-     * @brief save builder configurtation to the XML file
+     * @brief save builder configuration to the XML file
      * @param builder
      */
     void SaveBuilderConfig(BuilderPtr builder);

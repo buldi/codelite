@@ -55,8 +55,8 @@ public:
     }
     const clFilesScanner::EntryData& GetLeft() const { return m_left; }
     const clFilesScanner::EntryData& GetRight() const { return m_right; }
-    typedef std::vector<DiffViewEntry> Vect_t;
-    typedef std::unordered_map<wxString, DiffViewEntry> Hash_t;
+    using Vect_t = std::vector<DiffViewEntry>;
+    using Hash_t = std::unordered_map<wxString, DiffViewEntry>;
 };
 
 struct WXDLLIMPEXP_SDK DiffView {
@@ -89,8 +89,9 @@ public:
     DiffViewEntry::Vect_t ToSortedVector() const
     {
         DiffViewEntry::Vect_t V;
-        std::for_each(m_table.begin(), m_table.end(),
-                      [&](const DiffViewEntry::Hash_t::value_type& vt) { V.push_back(vt.second); });
+        for (const auto& p : m_table) {
+            V.push_back(p.second);
+        }
         // sort the vector
         std::sort(V.begin(), V.end(), [&](const DiffViewEntry& a, const DiffViewEntry& b) {
             return a.GetFullName().CmpNoCase(b.GetFullName()) < 0;
@@ -109,10 +110,10 @@ class WXDLLIMPEXP_SDK DiffFoldersFrame : public DiffFoldersBaseDlg
     DiffViewEntry::Vect_t m_entries;
 
 public:
-    DiffFoldersFrame(wxWindow* parent);
-    virtual ~DiffFoldersFrame();
-    void OnChecksum(int callId, const wxArrayString& checksumArray);
+    explicit DiffFoldersFrame(wxWindow* parent);
+    ~DiffFoldersFrame() override;
 
+    void OnChecksum(int callId, const wxArrayString& checksumArray);
 protected:
     void BuildTrees(const wxString& left, const wxString& right);
     void DoOpenDiff(const wxDataViewItem& item);
@@ -120,14 +121,14 @@ protected:
     bool CanUp() const;
 
 protected:
-    virtual void OnClose(wxCommandEvent& event);
-    virtual void OnNewCmparison(wxCommandEvent& event);
-    virtual void OnItemActivated(wxDataViewEvent& event);
-    virtual void OnItemContextMenu(wxDataViewEvent& event);
+    void OnItemActivated(wxDataViewEvent& event) override;
+    void OnItemContextMenu(wxDataViewEvent& event) override;
 
-    void OnMenuDiff(wxCommandEvent& event);
+    void OnClose(wxCommandEvent& event);
     void OnCopyToRight(wxCommandEvent& event);
     void OnCopyToLeft(wxCommandEvent& event);
+    void OnMenuDiff(wxCommandEvent& event);
+    void OnNewComparison(wxCommandEvent& event);
     void OnShowSimilarFiles(wxCommandEvent& event);
     void OnShowSimilarFilesUI(wxUpdateUIEvent& event);
     void OnRefresh(wxCommandEvent& event);

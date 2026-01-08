@@ -23,8 +23,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef __unixprocessimpl__
-#define __unixprocessimpl__
+#pragma once
 
 #if defined(__WXMAC__) || defined(__WXGTK__)
 #include "asyncprocess.h"
@@ -55,8 +54,8 @@ public:
     static IProcess* Execute(wxEvtHandler* parent, const wxString& cmd, size_t flags,
                              const wxString& workingDirectory = wxEmptyString, IProcessCallback* cb = NULL);
 
-    void SetReadHandle(const int& readHandle) { this->m_readHandle = readHandle; }
-    void SetWriteHandler(const int& writeHandler) { this->m_writeHandle = writeHandler; }
+    void SetReadHandle(int readHandle) { this->m_readHandle = readHandle; }
+    void SetWriteHandler(int writeHandler) { this->m_writeHandle = writeHandler; }
     int GetReadHandle() const { return m_readHandle; }
     int GetStderrHandle() const { return m_stderrHandle; }
     int GetWriteHandle() const { return m_writeHandle; }
@@ -79,4 +78,3 @@ public:
     void Signal(wxSignal sig) override;
 };
 #endif // #if defined(__WXMAC )||defined(__WXGTK__)
-#endif // __unixprocessimpl__

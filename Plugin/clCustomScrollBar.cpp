@@ -30,13 +30,12 @@ clCustomScrollBar::clCustomScrollBar(wxWindow* parent, wxWindowID id, const wxPo
     Bind(wxEVT_LEFT_DOWN, &clCustomScrollBar::OnMouseLeftDown, this);
     Bind(wxEVT_LEFT_UP, &clCustomScrollBar::OnMouseLeftUp, this);
     Bind(wxEVT_MOTION, &clCustomScrollBar::OnMotion, this);
-#if wxCHECK_VERSION(3, 1, 0)
+
     static bool once = true;
     if(once) {
         once = false;
         SB_WIDTH = FromDIP(SB_WIDTH);
     }
-#endif
 
     if(style == wxSB_HORIZONTAL) {
         SetSize(-1, SB_WIDTH);
@@ -277,30 +276,6 @@ bool clCustomScrollBar::ShouldShow() const { return ((m_thumbSize > 0) && (m_thu
 clScrollEvent::clScrollEvent(wxEventType commandType, int winid)
     : wxCommandEvent(commandType, winid)
 {
-}
-
-clScrollEvent::clScrollEvent(const clScrollEvent& event)
-    : wxCommandEvent(event)
-{
-    *this = event;
-}
-
-clScrollEvent::~clScrollEvent() {}
-
-clScrollEvent& clScrollEvent::operator=(const clScrollEvent& src)
-{
-    // wxCommandEvent operator =
-    m_eventType = src.m_eventType;
-    m_id = src.m_id;
-    m_cmdString = src.m_cmdString;
-    m_commandInt = src.m_commandInt;
-    m_extraLong = src.m_extraLong;
-    m_clientData = src.m_clientData;
-    m_clientObject = src.m_clientObject;
-
-    // this class members
-    m_position = src.m_position;
-    return *this;
 }
 
 wxEvent* clScrollEvent::Clone() const { return new clScrollEvent(*this); }

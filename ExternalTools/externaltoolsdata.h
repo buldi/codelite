@@ -46,13 +46,13 @@ class ToolInfo : public SerializedObject
 
 public:
     ToolInfo();
-    ~ToolInfo();
+    ~ToolInfo() = default;
 
     enum {
         kCallOnFileSave = (1 << 0),
     };
-    typedef std::unordered_map<wxString, ToolInfo> Map_t;
-    
+    using Map_t = std::unordered_map<wxString, ToolInfo>;
+
 protected:
     void EnableFlag(int flag, bool b)
     {
@@ -80,11 +80,11 @@ public:
     const wxString& GetIcon16() const { return m_icon16; }
     const wxString& GetIcon24() const { return m_icon24; }
 
-    void SetCaptureOutput(const bool& captureOutput) { this->m_captureOutput = captureOutput; }
-    const bool& GetCaptureOutput() const { return m_captureOutput; }
+    void SetCaptureOutput(bool captureOutput) { this->m_captureOutput = captureOutput; }
+    bool GetCaptureOutput() const { return m_captureOutput; }
 
-    void SetSaveAllFiles(const bool& saveAllFiles) { this->m_saveAllFiles = saveAllFiles; }
-    const bool& GetSaveAllFiles() const { return m_saveAllFiles; }
+    void SetSaveAllFiles(bool saveAllFiles) { this->m_saveAllFiles = saveAllFiles; }
+    bool GetSaveAllFiles() const { return m_saveAllFiles; }
 
     bool IsCallOnFileSave() const { return (m_flags & kCallOnFileSave); }
     void SetCallOnFileSave(bool b) { EnableFlag(kCallOnFileSave, b); }
@@ -95,8 +95,8 @@ class ExternalToolsData : public SerializedObject
     std::vector<ToolInfo> m_tools;
 
 public:
-    ExternalToolsData();
-    virtual ~ExternalToolsData();
+    ExternalToolsData() = default;
+    virtual ~ExternalToolsData() = default;
 
     const std::vector<ToolInfo>& GetTools() const;
     void SetTools(const std::vector<ToolInfo>& tools);

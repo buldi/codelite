@@ -1,12 +1,13 @@
 #include "AnimationCtrlWrapper.h"
 
+#include "Properties/bitmap_picker_property.h"
+#include "Properties/bool_property.h"
 #include "allocator_mgr.h"
 #include "wxc_bitmap_code_generator.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 
 #include <wx/animate.h>
-#include <wx/mstream.h>
 
 AnimationCtrlWrapper::AnimationCtrlWrapper()
     : wxcWidget(ID_WXANIMATIONCTRL)
@@ -16,16 +17,14 @@ AnimationCtrlWrapper::AnimationCtrlWrapper()
 
     SetPropertyString(_("Common Settings"), "wxAnimationCtrl");
 
-    AddBool(PROP_ANIM_AUTO_PLAY, _("Load and play animation on creation"), false);
-    AddProperty(new BitmapPickerProperty(PROP_BITMAP_PATH, "", _("Select the animation file")));
-    AddProperty(new BitmapPickerProperty(
-        PROP_DISABLED_BITMAP_PATH, "", _("Sets the bitmap to show on the control when it's not playing an animation")));
+    Add<BoolProperty>(PROP_ANIM_AUTO_PLAY, false, _("Load and play animation on creation"));
+    Add<BitmapPickerProperty>(PROP_BITMAP_PATH, "", _("Select the animation file"));
+    Add<BitmapPickerProperty>(
+        PROP_DISABLED_BITMAP_PATH, "", _("Sets the bitmap to show on the control when it's not playing an animation"));
 
     m_namePattern = "m_animationCtrl";
     SetName(GenerateName());
 }
-
-AnimationCtrlWrapper::~AnimationCtrlWrapper() {}
 
 wxcWidget* AnimationCtrlWrapper::Clone() const { return new AnimationCtrlWrapper(); }
 

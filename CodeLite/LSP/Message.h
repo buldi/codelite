@@ -18,8 +18,8 @@ public:
     static int GetNextID();
 
 public:
-    Message();
-    virtual ~Message();
+    Message() = default;
+    virtual ~Message() = default;
     virtual JSONItem ToJSON(const wxString& name) const;
     virtual void FromJSON(const JSONItem& json);
 
@@ -37,6 +37,6 @@ public:
     template <typename T> T* As() const { return dynamic_cast<T*>(const_cast<Message*>(this)); }
 };
 
-}; // namespace LSP
+} // namespace LSP
 
 #endif // MESSAGE_H

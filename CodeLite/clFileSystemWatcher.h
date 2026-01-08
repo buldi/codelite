@@ -1,11 +1,13 @@
 #ifndef CLFILESYSTEMWATCHER_H
 #define CLFILESYSTEMWATCHER_H
 
-#include "codelite_exports.h"
 #include "clFileSystemEvent.h"
+#include "codelite_exports.h"
+
 #include <map>
-#include <wx/timer.h>
+#include <memory>
 #include <wx/filename.h>
+#include <wx/timer.h>
 
 #ifdef __WXMSW__
 #define CL_FSW_USE_TIMER 1
@@ -24,7 +26,7 @@ public:
         wxFileName filename;
         time_t lastModified;
         size_t file_size;
-        typedef std::map<wxString, File> Map_t;
+        using Map_t = std::map<wxString, File>;
     };
 
     wxEvtHandler* m_owner;
@@ -37,7 +39,7 @@ public:
 #endif
 
 public:
-    typedef wxSharedPtr<clFileSystemWatcher> Ptr_t;
+    using Ptr_t = std::shared_ptr<clFileSystemWatcher>;
 
 protected:
 #if CL_FSW_USE_TIMER

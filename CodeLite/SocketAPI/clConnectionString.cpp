@@ -8,8 +8,6 @@ clConnectionString::clConnectionString(const wxString& connectionString)
     DoParse(connectionString);
 }
 
-clConnectionString::~clConnectionString() {}
-
 void clConnectionString::DoParse(const wxString& connectionString)
 {
     m_isOK = false; // default
@@ -20,7 +18,7 @@ void clConnectionString::DoParse(const wxString& connectionString)
         m_protocol = kTcp;
     } else if(protocol == "unix") {
 #ifdef __WXMSW__
-        clWARNING() << "unix protocol is not suppported on Windows" << clEndl;
+        clWARNING() << "unix protocol is not supported on Windows" << clEndl;
         return;
 #else
         m_protocol = kUnixLocalSocket;

@@ -38,8 +38,6 @@ Tail::Tail(IManager* manager)
     EventNotifier::Get()->Bind(wxEVT_INIT_DONE, &Tail::OnInitDone, this);
 }
 
-Tail::~Tail() {}
-
 void Tail::OnInitDone(wxCommandEvent& event)
 {
     event.Skip();
@@ -62,7 +60,7 @@ void Tail::UnPlug()
     EventNotifier::Get()->Unbind(wxEVT_INIT_DONE, &Tail::OnInitDone, this);
 
     // Remove our tab
-    m_tabHelper.reset(NULL); // before this plugin is un-plugged we must remove the tab we added
+    m_tabHelper.reset(); // before this plugin is un-plugged we must remove the tab we added
     if(m_view && !m_view->IsDetached()) {
         DoDetachWindow();
         m_view->Destroy();
@@ -112,6 +110,6 @@ void Tail::InitTailWindow(wxWindow* parent, bool isNotebook, const TailData& d, 
     if(isNotebook) {
         m_mgr->BookAddPage(PaneId::BOTTOM_BAR, m_view, "Tail");
     } else {
-        m_tabHelper.reset(NULL);
+        m_tabHelper.reset();
     }
 }

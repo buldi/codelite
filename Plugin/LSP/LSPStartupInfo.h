@@ -51,9 +51,9 @@ public:
     const clEnvList_t& GetEnv() const { return m_env; }
 
 public:
-    LSPStartupInfo();
-    LSPStartupInfo(const LSPStartupInfo& other);
-    virtual ~LSPStartupInfo();
-    LSPStartupInfo& operator=(const LSPStartupInfo& other);
+    LSPStartupInfo() = default;
+    LSPStartupInfo(const LSPStartupInfo&) = default;
+    virtual ~LSPStartupInfo() = default;
+    LSPStartupInfo& operator=(const LSPStartupInfo&) = default;
 };
 #endif // LSP_STARTUPINFO_H

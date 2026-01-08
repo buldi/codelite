@@ -23,14 +23,30 @@ class WXDLLIMPEXP_SDK clToolBarNative : public wxToolBar
     bool m_ownedBitmaps = false;
 
 public:
-    clToolBarNative(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                    const wxSize& size = wxDefaultSize, long style = wxTAB_TRAVERSAL | wxNO_BORDER,
+    clToolBarNative(wxWindow* parent,
+                    wxWindowID winid = wxID_ANY,
+                    const wxPoint& pos = wxDefaultPosition,
+                    const wxSize& size = wxDefaultSize,
+                    long style = wxTAB_TRAVERSAL | wxNO_BORDER,
                     const wxString& name = "clToolBarNative");
-    virtual ~clToolBarNative();
+    virtual ~clToolBarNative() = default;
     void SetMiniToolBar(bool) {}
     void ShowOverflowButton(bool) {}
-    wxToolBarToolBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex,
-                               const wxString& helpString = "", wxItemKind kind = wxITEM_NORMAL);
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+#endif
+
+    wxToolBarToolBase* AddTool(wxWindowID id,
+                               const wxString& label,
+                               size_t bitmapIndex,
+                               const wxString& helpString = "",
+                               wxItemKind kind = wxITEM_NORMAL);
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
     void AddSpacer() { AddSeparator(); }
 
     wxToolBarToolBase* AddToggleButton(wxWindowID id, size_t bitmapIndex, const wxString& label = "")
@@ -82,7 +98,7 @@ public:
 class WXDLLIMPEXP_SDK clToolBarGeneric : public wxControl
 {
 public:
-    typedef std::vector<clToolBarButtonBase*> ToolVect_t;
+    using ToolVect_t = std::vector<clToolBarButtonBase*>;
 
 private:
     ToolVect_t m_buttons;
@@ -93,7 +109,6 @@ private:
     wxRect m_chevronRect;
     int m_groupSpacing;
     wxColour m_bgColour;
-    bool m_useCustomBgColour = false;
     clBitmapList* m_bitmaps = nullptr;
     bool m_ownedBitmaps = false;
     bool m_hasOverflowButton = true;
@@ -125,9 +140,12 @@ protected:
     void OnColoursChanged(clCommandEvent& event);
 
 public:
-    clToolBarGeneric() {}
-    clToolBarGeneric(wxWindow* parent, wxWindowID winid = wxID_ANY, const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxDefaultSize, long style = wxTAB_TRAVERSAL | wxNO_BORDER,
+    clToolBarGeneric() = default;
+    clToolBarGeneric(wxWindow* parent,
+                     wxWindowID winid = wxID_ANY,
+                     const wxPoint& pos = wxDefaultPosition,
+                     const wxSize& size = wxDefaultSize,
+                     long style = wxTAB_TRAVERSAL | wxNO_BORDER,
                      const wxString& name = "clToolBarGeneric");
     virtual ~clToolBarGeneric();
 
@@ -222,8 +240,11 @@ public:
     clToolBarButtonBase* AddControl(wxWindow* control);
 
     // Compatibility API with wxToolBar
-    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex,
-                                 const wxString& helpString = "", wxItemKind kind = wxITEM_NORMAL)
+    clToolBarButtonBase* AddTool(wxWindowID id,
+                                 const wxString& label,
+                                 size_t bitmapIndex,
+                                 const wxString& helpString = "",
+                                 wxItemKind kind = wxITEM_NORMAL)
     {
         wxUnusedVar(helpString);
         switch (kind) {
@@ -237,9 +258,14 @@ public:
         }
     }
 
-    clToolBarButtonBase* AddTool(wxWindowID id, const wxString& label, size_t bitmapIndex, size_t bitmapIndexDisabled,
-                                 wxItemKind kind = wxITEM_NORMAL, const wxString& shortHelp = wxEmptyString,
-                                 const wxString& longHelp = wxEmptyString, wxObject* data = NULL)
+    clToolBarButtonBase* AddTool(wxWindowID id,
+                                 const wxString& label,
+                                 size_t bitmapIndex,
+                                 size_t bitmapIndexDisabled,
+                                 wxItemKind kind = wxITEM_NORMAL,
+                                 const wxString& shortHelp = wxEmptyString,
+                                 const wxString& longHelp = wxEmptyString,
+                                 wxObject* data = NULL)
     {
         wxUnusedVar(bitmapIndexDisabled);
         wxUnusedVar(longHelp);
@@ -294,9 +320,9 @@ wxDECLARE_EXPORTED_EVENT(WXDLLIMPEXP_SDK, wxEVT_TOOLBAR_CUSTOMISE, wxCommandEven
 
 #if !wxUSE_NATIVE_TOOLBAR
 // use the generic version, always
-typedef clToolBarGeneric clToolBar;
-typedef clToolBarGeneric clToolBarNative;
+using clToolBar = clToolBarGeneric;
+using clToolBarNative = clToolBarGeneric;
 #else
-typedef clToolBarGeneric clToolBar;
+using clToolBar = clToolBarGeneric;
 #endif
 #endif // CLTOOLBAR_H

@@ -47,8 +47,6 @@ EnvironmentConfig::EnvironmentConfig()
 {
 }
 
-EnvironmentConfig::~EnvironmentConfig() {}
-
 EnvironmentConfig* EnvironmentConfig::Instance()
 {
     if (ms_instance == 0) {
@@ -136,9 +134,8 @@ void EnvironmentConfig::ApplyEnv(wxStringMap_t* overrideMap, const wxString& pro
     // if we have an "override map" place all the entries from the override map
     // into the global map before applying the environment
     if (overrideMap) {
-        wxStringMap_t::iterator it = overrideMap->begin();
-        for (; it != overrideMap->end(); it++) {
-            variables.Put(it->first, it->second);
+        for (const auto& [key, value] : *overrideMap) {
+            variables.Put(key, value);
         }
     }
 
@@ -177,10 +174,7 @@ void EnvironmentConfig::UnApplyEnv()
     --m_envApplied;
     if (m_envApplied == 0) {
         // loop over the old values and restore them
-        wxStringMap_t::iterator iter = m_envSnapshot.begin();
-        for (; iter != m_envSnapshot.end(); iter++) {
-            wxString key = iter->first;
-            wxString value = iter->second;
+        for (const auto& [key, value] : m_envSnapshot) {
             if (value == __NO_SUCH_ENV__) {
                 // Remove the environment completely
                 ::wxUnsetEnv(key);
@@ -228,7 +222,7 @@ wxString EnvironmentConfig::DoExpandVariables(const wxString& in)
             }
         }
 
-        // dont allow recursive replacements
+        // don't allow recursive replacements
         if (replacement.Contains(text)) {
             break;
         }
@@ -239,8 +233,9 @@ wxString EnvironmentConfig::DoExpandVariables(const wxString& in)
     result.Replace(wxT("___MAKE___"), wxT("$(MAKE)"));
 
     // and restore all those unresolved variables
-    std::for_each(unresolvedVars.begin(), unresolvedVars.end(),
-                  [&](const std::pair<wxString, wxString>& p) { result.Replace(p.first, p.second); });
+    for (const auto& [placeHolder, value] : unresolvedVars) {
+        result.Replace(placeHolder, value);
+    }
     return result;
 }
 

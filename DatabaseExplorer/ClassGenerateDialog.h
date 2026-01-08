@@ -30,8 +30,6 @@
 #include "../Plugin/VirtualDirectorySelectorDlg.h"
 #include "../Plugin/project.h"
 #include "../Plugin/workspace.h"
-#include "ErdTable.h"
-#include "ErdView.h"
 #include "GUI.h" // Base class: _ClassGenerateDialog
 #include "IDbAdapter.h"
 #include "table.h"
@@ -49,7 +47,7 @@ class ClassGenerateDialog : public _ClassGenerateDialog
 {
 
 public:
-    /*! \brief Defautl constructor.  */
+    /*! \brief Default constructor.  */
     ClassGenerateDialog(wxWindow* parent, IDbAdapter* dbAdapter, xsSerializable* pItems, IManager* pMgr);
 
     /*! \brief Return string with type name on UNIVERSAL TYPE base */

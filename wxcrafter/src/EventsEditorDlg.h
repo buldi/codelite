@@ -1,7 +1,6 @@
 #ifndef EVENTSEDITORDLG_H
 #define EVENTSEDITORDLG_H
 
-#include "database/entry.h"
 #include "events_database.h"
 #include "wxcrafter.h"
 
@@ -11,7 +10,6 @@ class wxCrafterPlugin;
 class EventsEditorPane : public EventsEditorPaneBase
 {
     wxcWidget* m_control;
-    wxCrafterPlugin* m_plugin;
 
 public:
     static wxString PANE_NAME;
@@ -28,8 +26,7 @@ protected:
 
 public:
     EventsEditorPane(wxWindow* parent, wxcWidget* control, wxCrafterPlugin* plugin);
-    virtual ~EventsEditorPane();
-    void OpenFunction(const wxString& kind, const wxString& fooname);
+    ~EventsEditorPane() override;
     void Save();
     void InitEventsForWidget(wxcWidget* control);
     void Clear();

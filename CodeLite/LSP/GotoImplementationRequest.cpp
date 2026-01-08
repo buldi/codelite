@@ -10,8 +10,6 @@ LSP::GotoImplementationRequest::GotoImplementationRequest(const wxString& filena
     m_params->As<TextDocumentPositionParams>()->SetPosition(Position(line, column));
 }
 
-LSP::GotoImplementationRequest::~GotoImplementationRequest() {}
-
 void LSP::GotoImplementationRequest::OnResponse(const LSP::ResponseMessage& response, wxEvtHandler* owner)
 {
     JSONItem result = response.Get("result");
@@ -25,7 +23,7 @@ void LSP::GotoImplementationRequest::OnResponse(const LSP::ResponseMessage& resp
         loc.FromJSON(result);
     }
 
-    // We send the same event for declaraion as we do for definition
+    // We send the same event for declaration as we do for definition
     if(!loc.GetPath().IsEmpty()) {
         LSPEvent definitionEvent(wxEVT_LSP_DEFINITION);
         definitionEvent.SetLocation(loc);

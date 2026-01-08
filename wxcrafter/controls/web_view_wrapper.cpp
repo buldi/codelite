@@ -1,5 +1,6 @@
 #include "web_view_wrapper.h"
 
+#include "Properties/string_property.h"
 #include "allocator_mgr.h"
 #include "wxgui_helpers.h"
 
@@ -31,9 +32,10 @@ WebViewWrapper::WebViewWrapper()
                     "GetString to get the title."));
 
     SetPropertyString(_("Common Settings"), "wxWebView");
-    AddProperty(new StringProperty(PROP_URL, _("about:blank"),
-                                   _("URL to load by default in the web view.\nNote that the designer will display "
-                                     "about:blank. The preview and generated code will use the actual URL")));
+    Add<StringProperty>(PROP_URL,
+                        _("about:blank"),
+                        _("URL to load by default in the web view.\nNote that the designer will display "
+                          "about:blank. The preview and generated code will use the actual URL"));
 
     EnableSizerFlag("wxEXPAND", true);
     m_sizerItem.SetProportion(1);
@@ -45,8 +47,6 @@ WebViewWrapper::WebViewWrapper()
     // we do this by simply telling wxcWidget that this class requires this macro definition
     SetIfBlockCond("wxUSE_WEBVIEW");
 }
-
-WebViewWrapper::~WebViewWrapper() {}
 
 wxcWidget* WebViewWrapper::Clone() const { return new WebViewWrapper(); }
 

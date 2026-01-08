@@ -2,8 +2,9 @@
 #define WXCEDITMANAGER_H
 
 #include "unredobase.h"
+
 #include <list>
-#include <vector>
+#include <memory>
 #include <wx/string.h>
 
 wxDECLARE_EVENT(wxEVT_MULTIPLE_UNREDO, wxCommandEvent);
@@ -14,11 +15,11 @@ struct State {
     wxString parentTLW;
     wxString label;
 
-    typedef wxSharedPtr<State> Ptr_t;
-    typedef std::list<State::Ptr_t> List_t;
+    using Ptr_t = std::shared_ptr<State>;
+    using List_t = std::list<State::Ptr_t>;
 
 public:
-    State() {}
+    State() = default;
 
     void Clear()
     {
@@ -43,7 +44,7 @@ public:
 
 private:
     wxcEditManager();
-    virtual ~wxcEditManager();
+    ~wxcEditManager() override = default;
     void SaveState(State::Ptr_t state);
 
     // Events
@@ -52,10 +53,10 @@ private:
     void OnProjectClosed(wxCommandEvent& event);
     void OnProjectMetadataChanged(wxCommandEvent& event);
     void OnPropertyChanged(wxCommandEvent& event);
-    virtual void OnUndoDropdownItem(wxCommandEvent& event);
-    virtual void OnRedoDropdownItem(wxCommandEvent& event);
-    virtual bool DoUndo() { return true; }
-    virtual bool DoRedo() { return true; }
+    void OnUndoDropdownItem(wxCommandEvent& event) override;
+    void OnRedoDropdownItem(wxCommandEvent& event) override;
+    bool DoUndo() override { return true; }
+    bool DoRedo() override { return true; }
 
     // Helpers
     void NotifyProjectModified();
@@ -79,7 +80,7 @@ public:
      */
     void PushState(const wxString& label);
 
-    virtual void DoPopulateUnRedoMenu(wxMenu& menu, bool undoing);
+    void DoPopulateUnRedoMenu(wxMenu& menu, bool undoing) override;
 };
 
 #endif // WXCEDITMANAGER_H

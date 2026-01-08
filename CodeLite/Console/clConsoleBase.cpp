@@ -12,6 +12,7 @@
 #include "clConsoleQTerminal.h"
 #include "clConsoleRXVTerminal.h"
 #include "clConsoleXfce4Terminal.h"
+#include "clConsoleGnomeConsole.h"
 #include "cl_config.h"
 #include "file_logger.h"
 #include "fileutils.h"
@@ -45,10 +46,6 @@ public:
     }
 };
 
-clConsoleBase::clConsoleBase() {}
-
-clConsoleBase::~clConsoleBase() {}
-
 clConsoleBase::Ptr_t clConsoleBase::GetTerminal()
 {
     clConsoleBase::Ptr_t terminal;
@@ -76,6 +73,8 @@ clConsoleBase::Ptr_t clConsoleBase::GetTerminal()
         terminal.reset(new clConsoleQTerminal());
     } else if(terminalName.CmpNoCase("rxvt-unicode") == 0) {
         terminal.reset(new clConsoleRXVTTerminal());
+    } else if(terminalName.CmpNoCase("kgx") == 0) {
+        terminal.reset(new clConsoleGnomeConsole());
     } else {
         // the default terminal is "gnome-terminal"
         terminal.reset(new clConsoleGnomeTerminal());
@@ -100,26 +99,12 @@ wxArrayString clConsoleBase::GetAvailableTerminals()
 #ifdef __WXMSW__
         "CMD",
 #elif defined(__WXGTK__)
-        "konsole", "gnome-terminal", "lxterminal", "mate-terminal", "qterminal", "xfce4-terminal", "rxvt-unicode",
-        "Kitty",
+        "konsole", "gnome-terminal", "lxterminal", "mate-terminal", "qterminal",
+        "xfce4-terminal", "rxvt-unicode", "kgx", "Kitty",
 #else
         "Terminal", "iTerm2", "Kitty",
 #endif
         "alacritty" });
-}
-
-void clConsoleBase::AddEnvVariable(const wxString& name, const wxString& value)
-{
-    m_environment.erase(name);
-    m_environment.insert({ name, value });
-}
-
-wxString clConsoleBase::GetEnvironmentPrefix() const
-{
-    wxString strline;
-    std::for_each(m_environment.begin(), m_environment.end(),
-                  [&](const wxStringMap_t::value_type& vt) { strline << vt.first << "=" << vt.second << " "; });
-    return strline;
 }
 
 wxString clConsoleBase::WrapWithQuotesIfNeeded(const wxString& s) const
@@ -130,13 +115,6 @@ wxString clConsoleBase::WrapWithQuotesIfNeeded(const wxString& s) const
         strimmed.Prepend("\"").Append("\"");
     }
     return strimmed;
-}
-
-wxString clConsoleBase::EscapeString(const wxString& str, const wxString& c) const
-{
-    wxString escaped = str;
-    escaped.Replace(c, wxString() << "\\" << c);
-    return escaped;
 }
 
 bool clConsoleBase::StartProcess(const wxString& command)
@@ -180,15 +158,7 @@ wxString clConsoleBase::GetSelectedTerminalName()
     return terminalName;
 }
 
-clConsoleEnvironment::clConsoleEnvironment() {}
-
 clConsoleEnvironment::~clConsoleEnvironment() { UnApply(); }
-
-void clConsoleEnvironment::Add(const wxString& name, const wxString& value)
-{
-    m_environment.erase(name);
-    m_environment.insert({ name, value });
-}
 
 void clConsoleEnvironment::Apply()
 {
@@ -202,7 +172,7 @@ void clConsoleEnvironment::Apply()
 
     // keep a copy of the old environment before we apply the new values
     m_oldEnvironment.clear();
-    std::for_each(m_environment.begin(), m_environment.end(), [&](const wxStringMap_t::value_type& vt) {
+    for (const auto& vt : m_environment) {
         wxString envvalue;
         if(::wxGetEnv(vt.first, &envvalue)) {
             m_oldEnvironment[vt.first] = envvalue;
@@ -210,7 +180,7 @@ void clConsoleEnvironment::Apply()
             m_oldEnvironment[vt.first] = "__no_such_env__";
         }
         ::wxSetEnv(vt.first, vt.second);
-    });
+    }
 }
 
 void clConsoleEnvironment::UnApply()
@@ -218,13 +188,13 @@ void clConsoleEnvironment::UnApply()
     if(m_oldEnvironment.empty()) {
         return;
     }
-    std::for_each(m_oldEnvironment.begin(), m_oldEnvironment.end(), [&](const wxStringMap_t::value_type& vt) {
+    for (const auto& vt : m_oldEnvironment) {
         if(vt.second == "__no_such_env__") {
             ::wxUnsetEnv(vt.second);
         } else {
             ::wxSetEnv(vt.first, vt.second);
         }
-    });
+    }
     m_oldEnvironment.clear();
 }
 
@@ -251,8 +221,7 @@ wxArrayString clConsoleBase::SplitArguments(const wxString& args)
     wxArrayString outputArr;
     wxString curtoken;
     wxChar prevChar = 0;
-    for(size_t i = 0; i < args.size(); ++i) {
-        wxChar ch = args[i];
+    for (wxChar ch : args) {
         switch(state) {
         case STATE_NORMAL: {
             switch(ch) {
@@ -266,7 +235,7 @@ wxArrayString clConsoleBase::SplitArguments(const wxString& args)
                 break;
             case '"':
             case '\'':
-                // we dont want to keep the string markers
+                // we don't want to keep the string markers
                 state = STATE_STRING;
                 break;
             default:
@@ -281,7 +250,7 @@ wxArrayString clConsoleBase::SplitArguments(const wxString& args)
                 if(prevChar == '\\') {
                     curtoken << ch;
                 } else {
-                    // we dont want to keep the string markers
+                    // we don't want to keep the string markers
                     state = STATE_NORMAL;
                 }
                 break;

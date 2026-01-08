@@ -57,8 +57,6 @@ EditorSettingsLocal::EditorSettingsLocal(OptionsConfigPtr hrOptions, wxXmlNode* 
     GetSizer()->Fit(this);
 }
 
-EditorSettingsLocal::~EditorSettingsLocal() {}
-
 void EditorSettingsLocal::DisplayHigherValues(const OptionsConfigPtr options)
 {
     // There should be 'global' (or workspace if this will be a project setting) values for each setting
@@ -80,7 +78,7 @@ void EditorSettingsLocal::DisplayHigherValues(const OptionsConfigPtr options)
     const wxString WhitespaceStyle[] = { wxTRANSLATE("Invisible"), wxTRANSLATE("Visible always"),
                                          wxTRANSLATE("Visible after indentation"), wxTRANSLATE("Indentation only") };
     wxString currentWhitespace;
-    switch(options->GetShowWhitspaces()) {
+    switch(options->GetShowWhitespaces()) {
     case wxSTC_WS_VISIBLEALWAYS:
         currentWhitespace = wxT("Visible always");
         break;

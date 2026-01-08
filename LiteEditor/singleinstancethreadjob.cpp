@@ -65,7 +65,7 @@ void* clSingleInstanceThread::Entry()
             wxArrayString args = root.toElement().namedObject("args").toArrayString();
 
             if(args.IsEmpty()) {
-                // just raise codelite
+                // just raise CodeLite
                 clCommandEvent event(wxEVT_CMD_SINGLE_INSTANCE_THREAD_RAISE_APP);
                 EventNotifier::Get()->AddPendingEvent(event);
             } else {
@@ -76,7 +76,7 @@ void* clSingleInstanceThread::Entry()
                 EventNotifier::Get()->AddPendingEvent(event);
             }
         }
-    } catch(clSocketException& e) {
+    } catch (const clSocketException& e) {
         clDEBUG() << "Failed to create single instance socket:" << e.what() << endl;
         clDEBUG() << "Another instance is already running" << endl;
     }

@@ -5,9 +5,7 @@
 #include "commentconfigdata.h"
 #include "file_logger.h"
 
-PHPEntityFunction::PHPEntityFunction() {}
-
-PHPEntityFunction::~PHPEntityFunction() {}
+#include <wx/wxcrtvararg.h>
 
 void PHPEntityFunction::PrintStdout(int indent) const
 {
@@ -15,11 +13,10 @@ void PHPEntityFunction::PrintStdout(int indent) const
     // Print the indentation
     wxPrintf("%sFunction: %s%s", indentString, GetShortName(), GetSignature());
     wxPrintf(", (%s:%d)\n", GetFilename().GetFullPath(), GetLine());
-    if(!m_children.empty()) {
+    if (!m_children.empty()) {
         wxPrintf("%sLocals:\n", indentString);
-        PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-        for(; iter != m_children.end(); ++iter) {
-            (*iter)->PrintStdout(indent + 4);
+        for (const auto& child : m_children) {
+            child->PrintStdout(indent + 4);
         }
     }
 }
@@ -31,10 +28,9 @@ wxString PHPEntityFunction::GetSignature() const
     } else {
 
         wxString strSignature = "(";
-        PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-        for(; iter != m_children.end(); ++iter) {
-            PHPEntityVariable* var = (*iter)->Cast<PHPEntityVariable>();
-            if(var && var->IsFunctionArg()) {
+        for (const auto& child : m_children) {
+            PHPEntityVariable* var = child->Cast<PHPEntityVariable>();
+            if (var && var->IsFunctionArg()) {
                 strSignature << var->ToFuncArgString() << ", ";
             } else {
                 break;
@@ -79,7 +75,7 @@ void PHPEntityFunction::Store(PHPLookupTable* lookup)
         statement.ExecuteUpdate();
         SetDbId(db.GetLastRowId());
 
-    } catch(wxSQLite3Exception& exc) {
+    } catch (const wxSQLite3Exception& exc) {
         clWARNING() << "PHPEntityFunction::Store:" << exc.GetMessage() << endl;
     }
 }
@@ -114,9 +110,8 @@ wxString PHPEntityFunction::FormatPhpDoc(const CommentConfigData& data) const
     wxString doc;
     doc << data.GetCommentBlockPrefix() << "\n"
         << " * @brief \n";
-    PHPEntityBase::List_t::const_iterator iter = m_children.begin();
-    for(; iter != m_children.end(); ++iter) {
-        const PHPEntityVariable* var = (*iter)->Cast<PHPEntityVariable>();
+    for (const auto& child : m_children) {
+        const PHPEntityVariable* var = child->Cast<PHPEntityVariable>();
         if(var) {
             hasParams = true;
             doc << " * @param ";

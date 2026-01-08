@@ -8,12 +8,10 @@
 #include <wx/socket.h>
 #include <wx/xml/xml.h>
 
-XDebugStopCmdHandler::XDebugStopCmdHandler(XDebugManager* mgr, int transcationId)
-    : XDebugCommandHandler(mgr, transcationId)
+XDebugStopCmdHandler::XDebugStopCmdHandler(XDebugManager* mgr, int transactionId)
+    : XDebugCommandHandler(mgr, transactionId)
 {
 }
-
-XDebugStopCmdHandler::~XDebugStopCmdHandler() {}
 
 void XDebugStopCmdHandler::Process(const wxXmlNode* response)
 {

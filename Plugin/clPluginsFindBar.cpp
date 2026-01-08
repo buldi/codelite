@@ -425,7 +425,7 @@ void clPluginsFindBar::DoReplace()
     size_t replacementLen = replaceWith.length();
     if(searchFlags & wxSTC_FIND_REGEXP) {
 
-        // Regular expresson search
+        // Regular expression search
         if(!(searchFlags & wxSTC_FIND_MATCHCASE)) {
             re_flags |= wxRE_ICASE;
         }
@@ -469,8 +469,6 @@ void clPluginsFindBar::SetEditor(wxStyledTextCtrl* sci)
     }
 }
 
-int clPluginsFindBar::GetCloseButtonId() { return ID_TOOL_CLOSE; }
-
 bool clPluginsFindBar::Show(const wxString& findWhat, bool showReplace)
 {
     // Same as Show() but set the 'findWhat' field with findWhat
@@ -491,7 +489,7 @@ bool clPluginsFindBar::DoShow(bool s, const wxString& findWhat, bool showReplace
         m_sci->SetIndicatorCurrent(1);
         m_sci->IndicatorClearRange(0, m_sci->GetLength());
 
-        if(EditorConfigST::Get()->GetOptions()->GetClearHighlitWordsOnFind()) {
+        if (EditorConfigST::Get()->GetOptions()->GetClearHighlightedWordsOnFind()) {
             m_sci->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
             m_sci->IndicatorClearRange(0, m_sci->GetLength());
         }
@@ -736,11 +734,11 @@ void clPluginsFindBar::DoHighlightMatches(bool checked)
 
         IEditor::List_t editors;
         clGetManager()->GetAllEditors(editors);
-        std::for_each(editors.begin(), editors.end(), [&](IEditor* pEditor) {
+        for (IEditor* pEditor : editors) {
             pEditor->GetCtrl()->MarkerDeleteAll(smt_find_bookmark);
             pEditor->GetCtrl()->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
             pEditor->GetCtrl()->IndicatorClearRange(0, pEditor->GetCtrl()->GetLength());
-        });
+        }
         m_matchesFound->SetLabel("");
     }
 }
@@ -866,7 +864,7 @@ void clPluginsFindBar::DoEnsureLineIsVisible(wxStyledTextCtrl* sci, int line)
 void clPluginsFindBar::DoFixRegexParen(wxString& findwhat)
 {
     // Scintilla's REGEX group markers are \( and \)
-    // while wxRegEx is usig bare ( and ) and the escaped version for
+    // while wxRegEx is using bare ( and ) and the escaped version for
     // non regex manner
     findwhat.Replace("\\(", "/<!@#$");
     findwhat.Replace("\\)", "/>!@#$");
@@ -972,7 +970,7 @@ void clPluginsFindBar::DoReplaceAll(bool selectionOnly)
                 wxString selectedText = m_sci->GetSelectedText();
                 if(searchFlags & wxSTC_FIND_REGEXP) {
 
-                    // Regular expresson search
+                    // Regular expression search
                     if(!(searchFlags & wxSTC_FIND_MATCHCASE)) {
                         re_flags |= wxRE_ICASE;
                     }
@@ -1005,7 +1003,7 @@ void clPluginsFindBar::DoReplaceAll(bool selectionOnly)
                 // the match is not in the selection range
                 newpos = pos + replacementLen;
                 if(newpos <= pos) {
-                    newpos = pos + 1; // make sure we dont hang
+                    newpos = pos + 1; // make sure we don't hang
                 }
 
                 // Move to the next match
@@ -1152,7 +1150,7 @@ bool clPluginsFindBar::Search(wxStyledTextCtrl* ctrl, const wxString& find_what,
     }
 
     // Clear all search markers if desired
-    if(EditorConfigST::Get()->GetOptions()->GetClearHighlitWordsOnFind()) {
+    if (EditorConfigST::Get()->GetOptions()->GetClearHighlightedWordsOnFind()) {
         ctrl->SetIndicatorCurrent(INDICATOR_FIND_BAR_WORD_HIGHLIGHT);
         ctrl->IndicatorClearRange(0, ctrl->GetLength());
     }

@@ -34,18 +34,17 @@ class CScopeStatusMessage
 	wxString m_findWhat;
 
 public:
-	CScopeStatusMessage();
-	virtual ~CScopeStatusMessage();
+	CScopeStatusMessage() = default;
+	virtual ~CScopeStatusMessage() = default;
 
 	// Setters
 	void SetMessage   (const wxString& message ) ;
-	void SetPercentage(const int& percentage   ) ;
+	void SetPercentage (int percentage);
 	void SetFindWhat  (const wxString& findWhat);
 
 	// Getters
 	const wxString&   GetMessage   () const ;
 	const wxString&   GetFindWhat  () const ;
-	const int&        GetPercentage() const ;
-
+	int GetPercentage() const;
 };
 #endif // __cscopestatusmessage__

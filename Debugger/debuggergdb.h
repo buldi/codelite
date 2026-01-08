@@ -31,30 +31,22 @@
 #include "debugger.h"
 #include "ssh/ssh_account_info.h"
 
-#include <list>
+#include <vector>
 #include <wx/event.h>
 #include <wx/hashmap.h>
 #include <wx/string.h>
 
-#ifdef MSVC_VER
-// declare the debugger function creation
-extern "C++" IDebugger* CreateDebuggerGDB();
-// declare the function that will be called by host application
-// to retrieve the debugger initialization function
-extern "C++" DebuggerInfo GetDebuggerInfo();
-#else
 // declare the debugger function creation
 extern "C" IDebugger* CreateDebuggerGDB();
 // declare the function that will be called by host application
 // to retrieve the debugger initialization function
-extern "C" DebuggerInfo GetDebuggerInfo();
-#endif
+extern "C" const DebuggerInfo* GetDebuggerInfo();
 
 class DbgCmdHandler;
 class DbgCmdCLIHandler;
 class IProcess;
 
-typedef std::map<wxString, DbgCmdHandler*> HandlersMap_t;
+using HandlersMap_t = std::map<wxString, DbgCmdHandler*>;
 
 extern const wxEventType wxEVT_GDB_STOP_DEBUGGER;
 
@@ -86,7 +78,7 @@ protected:
     bool DoGetNextLine(wxString& line);
     void DoCleanup();
 
-    // wrapper for convinience
+    // wrapper for convenience
     void DoProcessAsyncCommand(wxString& line, wxString& id);
 
 protected:
@@ -156,7 +148,7 @@ public:
     virtual bool CreateVariableObject(const wxString& expression, bool persistent, int userReason);
     virtual bool DeleteVariableObject(const wxString& name);
     virtual bool EvaluateVariableObject(const wxString& name, int userReason);
-    virtual bool SetVariableObbjectDisplayFormat(const wxString& name, DisplayFormat displayFormat);
+    virtual bool SetVariableObjectDisplayFormat(const wxString& name, DisplayFormat displayFormat);
     virtual bool UpdateVariableObject(const wxString& name, int userReason);
     virtual void AssignValue(const wxString& expression, const wxString& newValue);
     virtual bool Jump(wxString filename, int line);

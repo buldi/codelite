@@ -37,8 +37,8 @@ public:
         return *this;
     }
     const wxColour& GetDarkBorderColour() const { return darkBorderColour; }
-    clColours();
-    virtual ~clColours() {}
+    clColours() = default;
+    virtual ~clColours() = default;
     bool IsLightTheme() const;
     void InitDefaults();
     void InitFromColour(const wxColour& baseColour = wxNullColour);
@@ -93,6 +93,17 @@ public:
         this->selItemTextColourNoFocus = selItemTextColourNoFocus;
     }
     const wxColour& GetSelItemTextColourNoFocus() const { return selItemTextColourNoFocus; }
+
+    // Return common colours suitable for dark or light theme
+    static wxColour Black(bool dark_theme, bool bright = false);
+    static wxColour Red(bool dark_theme, bool bright = false);
+    static wxColour Green(bool dark_theme, bool bright = false);
+    static wxColour Yellow(bool dark_theme, bool bright = false);
+    static wxColour Blue(bool dark_theme, bool bright = false);
+    static wxColour Magenta(bool dark_theme, bool bright = false);
+    static wxColour Cyan(bool dark_theme, bool bright = false);
+    static wxColour Grey(bool dark_theme, bool bright = false);
+    static wxColour White(bool dark_theme, bool bright = false);
 };
 
 #endif // CLCOLOURS_H

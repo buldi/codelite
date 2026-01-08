@@ -10,8 +10,6 @@
 
 clBitset::clBitset() { memset(bits, 0, sizeof(bits)); }
 
-clBitset::~clBitset() {}
-
 void clBitset::set(size_t pos, bool b)
 {
     CHECK_SIZE_RET(pos);
@@ -23,8 +21,6 @@ bool clBitset::test(size_t pos) const
     CHECK_SIZE_RET_FALSE(pos);
     return bits[pos] == 1;
 }
-
-void clBitset::rese() { memset(bits, 0, sizeof(bits)); }
 
 wxString clBitset::to_string() const
 {

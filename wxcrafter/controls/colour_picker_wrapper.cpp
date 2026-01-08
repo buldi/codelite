@@ -1,11 +1,12 @@
 #include "colour_picker_wrapper.h"
+
+#include "Properties/color_property.h"
 #include "allocator_mgr.h"
-#include "color_property.h"
 #include "wxgui_defs.h"
 #include "wxgui_helpers.h"
 #include "xmlutils.h"
+
 #include <wx/clrpicker.h>
-#include <wx/msgdlg.h>
 
 ColourPickerWrapper::ColourPickerWrapper()
     : wxcWidget(ID_WXCOLORPICKER)
@@ -16,7 +17,7 @@ ColourPickerWrapper::ColourPickerWrapper()
     PREPEND_STYLE(wxCLRP_SHOW_LABEL, false);
 
     SetPropertyString(_("Common Settings"), "wxColourPickerCtrl");
-    AddProperty(new ColorProperty(PROP_VALUE, wxT("<Default>"), _("Colour")));
+    Add<ColorProperty>(PROP_VALUE, wxT("<Default>"), _("Colour"));
     RegisterEvent(wxT("wxEVT_COMMAND_COLOURPICKER_CHANGED"), wxT("wxColourPickerEvent"),
                   _("The user changed the colour selected in the control either using the button or using text "
                     "control\n(see wxCLRP_USE_TEXTCTRL; note that in this case the event is fired only if the user's "
@@ -25,8 +26,6 @@ ColourPickerWrapper::ColourPickerWrapper()
     m_namePattern = wxT("m_colourPicker");
     SetName(GenerateName());
 }
-
-ColourPickerWrapper::~ColourPickerWrapper() {}
 
 wxcWidget* ColourPickerWrapper::Clone() const { return new ColourPickerWrapper(); }
 

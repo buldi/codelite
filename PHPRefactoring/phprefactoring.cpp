@@ -3,6 +3,7 @@
 #include "AsyncProcess/asyncprocess.h"
 #include "Diff/clPatch.h"
 #include "PHPRefactoringPreviewDlg.h"
+#include "StringUtils.h"
 #include "clEditorStateLocker.h"
 #include "event_notifier.h"
 #include "file_logger.h"
@@ -18,7 +19,6 @@
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
-#include <wx/xrc/xmlres.h>
 
 // Define the plugin entry point
 CL_PLUGIN_API IPlugin* CreatePlugin(IManager* manager)
@@ -47,8 +47,6 @@ PHPRefactoring::PHPRefactoring(IManager* manager)
     m_settings.Load();
     m_settingsPhp.Load();
 }
-
-PHPRefactoring::~PHPRefactoring() {}
 
 void PHPRefactoring::CreateToolBar(clToolBarGeneric* toolbar) { wxUnusedVar(toolbar); }
 
@@ -247,7 +245,7 @@ void PHPRefactoring::RefactorFile(const wxString& action, const wxString& extraP
     // Ensure that the temporary file is deleted once we are done with it
     FileUtils::Deleter fd(tmpfile);
 
-    ::WrapWithQuotes(tmpfile);
+    StringUtils::WrapWithQuotes(tmpfile);
     parameters = action + " " + tmpfile + " " + extraParameters;
 
     // Notify about indentation about to start
@@ -292,7 +290,7 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
         return;
     }
     phpPath = php.GetFullPath();
-    ::WrapWithQuotes(phpPath);
+    StringUtils::WrapWithQuotes(phpPath);
 
     wxFileName refactor(m_settings.GetPhprefactoringPhar());
     if(!refactor.Exists()) {
@@ -301,7 +299,7 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
         return;
     }
     refactorPath = refactor.GetFullPath();
-    ::WrapWithQuotes(refactorPath);
+    StringUtils::WrapWithQuotes(refactorPath);
 
     command = phpPath + " " + refactorPath + " " + parameters;
     clDEBUG() << "PHPRefactoring running:" << command << clEndl;
@@ -357,7 +355,7 @@ void PHPRefactoring::RunCommand(const wxString& parameters, const wxString& work
             clPatch patcher;
             // We pass "--verbose" otherwise it crashes oftenly on Windows... go figure...
             patcher.Patch(tmpfile, "", "--ignore-whitespace --verbose -p1 < ");
-        } catch(clException& e) {
+        } catch (const clException& e) {
             wxMessageBox(e.What(), "CodeLite", wxICON_ERROR | wxOK | wxCENTER, EventNotifier::Get()->TopFrame());
         }
     }
